@@ -70,7 +70,7 @@ cleaned-up checkbox version before generating the project overview.
 
 ## MVP
 
-- [ ] 1. **Data layer** - SQLite schema (Drizzle ORM) for anime, songs/themes,
+- [x] 1. **Data layer** - SQLite schema (Drizzle ORM) for anime, songs/themes,
   cards, decks, and review history.
 - [ ] 2. **Media library settings** - configure one or more local/external
   folders the app references for clip files.
