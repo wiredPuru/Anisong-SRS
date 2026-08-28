@@ -74,7 +74,7 @@ cleaned-up checkbox version before generating the project overview.
   cards, decks, and review history.
 - [x] 2. **Media library settings** - configure one or more local/external
   folders the app references for clip files.
-- [ ] 3. **Anime & song lookup** - search AniList and animethemes.moe and pull
+- [x] 3. **Anime & song lookup** - search AniList and animethemes.moe and pull
   metadata (EN/Romaji/JP titles, artist, available OP/ED themes) for a chosen
   anime.
 - [ ] 4. **Flashcard CRUD** - create, edit, and delete cards from looked-up

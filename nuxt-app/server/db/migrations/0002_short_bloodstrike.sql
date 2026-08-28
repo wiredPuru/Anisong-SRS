@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `artist_name_unique` ON `artist` (`name`);

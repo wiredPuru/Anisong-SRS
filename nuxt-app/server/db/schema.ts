@@ -12,7 +12,7 @@ export const anime = sqliteTable("anime", {
 
 export const artist = sqliteTable("artist", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
 });
 
 export const song = sqliteTable(

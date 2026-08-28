@@ -15,6 +15,13 @@
       "when": 1787889601342,
       "tag": "0001_chubby_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787891060161,
+      "tag": "0002_short_bloodstrike",
+      "breakpoints": true
     }
   ]
 }
