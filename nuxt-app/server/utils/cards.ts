@@ -1,6 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { isAbsolute, normalize, relative } from "node:path";
-import { desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
 import { getLibraryPaths } from "./mediaLibrary.ts";
@@ -62,6 +62,19 @@ export function listCardsByArtist(artistId: number): CardWithDetails[] {
 
 export function listCardsByAnime(animeId: number): CardWithDetails[] {
   return cardQuery().where(eq(anime.id, animeId)).orderBy(desc(card.createdAt)).all();
+}
+
+export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
+
+export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
+  const dueCondition = lte(card.nextReviewAt, new Date());
+  const scopeCondition =
+    scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
+
+  return cardQuery()
+    .where(scopeCondition ? and(dueCondition, scopeCondition) : dueCondition)
+    .orderBy(asc(card.nextReviewAt))
+    .get();
 }
 
 function validateLocalPath(rawPath: string): { error: string } | { path: string } {
