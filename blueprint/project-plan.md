@@ -1,0 +1,115 @@
+# Project Plan
+
+## 1. Problem - What problem are we solving?
+
+Memorizing anime openings/endings (song titles, artists, and the anime they
+belong to) for competitive/casual play on animemusicquiz.com (AMQ). This is a
+personal Anki/Migaku-style spaced-repetition flashcard app, purpose-built for
+anime song trivia rather than general-purpose language SRS.
+
+## 2. Users - Who is this for?
+
+Just the project owner, and by extension anyone else who plays AMQ and wants to
+run their own local copy. Not a multi-tenant product - each user runs their own
+instance against their own local media and database.
+
+## 3. Features - What does the MVP need?
+
+- **Data layer** - SQLite schema (Drizzle ORM) for anime, songs/themes, cards,
+  decks, and review history.
+- **Media library settings** - point the app at one or more local/external
+  folders that hold clip files (video/MP3); the app references files from
+  there rather than storing them.
+- **Anime & song lookup** - search and pull metadata from AniList (GraphQL) and
+  animethemes.moe (GraphQL, see https://api-docs.animethemes.moe) when
+  creating a card: titles in English, Romaji, and Japanese, artist, and
+  available OP/ED themes.
+- **Flashcard CRUD** - create, read, update, delete cards at any time. A card
+  references a song/theme and either a local media file or a direct
+  animethemes.moe reference (or both).
+- **Card quiz type** - not chosen manually; derived from whichever media is
+  attached. Video-backed cards can play video; audio-only cards play MP3 only.
+- **Decks** - automatic categorization by Artist (all songs in the DB by that
+  artist) or by Anime Title (all songs in the DB for that anime). No manual
+  deck management needed for the default grouping.
+- **Study session** - Leitner-box spaced repetition, scoped to one deck at a
+  time with an "all decks" option to pull from every due card across decks.
+  Two outcomes per card: pass/fail, presented as left arrow (fail) / right
+  arrow (pass), matching the Anki/Migaku convention. Fail returns a card to a
+  shorter review interval; pass advances it to a longer one.
+- **Language display** - English, Romaji, and Japanese-with-Furigana are each
+  independently toggleable and can all be shown at once if desired. Furigana is
+  auto-generated (not sourced from the API) via a Japanese morphological
+  analyzer.
+- **Playback** - "play song" plays audio only and requires a guess; "show
+  video" plays from the start of the clip if a video exists.
+- **Review stats** - guess-rate tracking, sliceable by artist and by anime
+  title.
+- **Deck export/import** - exports card metadata always. MP3/audio files can be
+  bundled in the export; video files are never bundled (size). On import, any
+  card missing local media can be re-linked by pulling from animethemes.moe
+  when a remote reference exists.
+
+## 4. Data - What are we storing?
+
+- Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED info),
+  cached locally from AniList/animethemes.moe lookups.
+- Flashcards: link to a song/theme, local file path and/or animethemes.moe
+  reference, current Leitner box/interval state.
+- Decks: derived groupings by Artist and by Anime Title (not separately stored
+  as manually-curated entities unless that changes later).
+- Review history / stats: per-card pass/fail log, used to compute guess rate by
+  artist and by anime title.
+- User-configured media library folder path(s).
+
+## 5. Tech - What stack are we using?
+
+- Nuxt (TypeScript), `nuxt-app/` as the sole application package.
+- SQLite via Drizzle ORM + better-sqlite3.
+- GraphQL client against AniList's public API for anime/song metadata.
+- GraphQL client against animethemes.moe (https://api-docs.animethemes.moe)
+  for theme (OP/ED) video/audio and metadata.
+- Japanese morphological analyzer (e.g. kuroshiro/kuromoji) for furigana
+  generation.
+- Local filesystem access (Node `fs`) for the user-configured media library.
+
+## 6. Monetize - How will this make money?
+
+Non-profit. No monetization planned.
+
+## 7. UI/UX - How should this look and feel?
+
+- Cute/moe, a little cartoony - Akihabara, anime posters, otaku culture as the
+  visual reference point.
+- Rounded corners throughout.
+- Layout: video centered, song/title info panel on the right.
+- Language toggles (EN/Romaji/JP+Furigana) as buttons, independently
+  switchable, with the option to show all at once.
+- Review controls follow Anki/Migaku convention: pass/fail buttons, or left
+  arrow (fail) / right arrow (pass) as keyboard shortcuts.
+- Japanese text must render as real, selectable DOM text (not baked into an
+  image or video) so the Migaku browser extension can attach its dictionary
+  popup to it.
+
+## 8. Deployment - Where and how will this ship?
+
+Localhost-only. A website reachable in any browser of choice as long as the
+app is running on the user's own system. No remote hosting, no accounts, no
+multi-device sync.
+
+## 9. Non-Goals
+
+Nothing was explicitly ruled out, but the following are assumed out of scope
+given the "local, for myself" framing, and should be confirmed/revisited if
+priorities change:
+
+- Cloud sync or multi-device support
+- Accounts/auth for multiple users sharing one instance
+- A mobile app
+- Any AMQ game mode beyond flashcard review (e.g., live multiplayer quiz)
+
+## Notes
+
+`nuxt-module/` was scaffolded during initial Blueprint setup as a possible
+reusable module but was removed once the plan confirmed this is a single local
+app; `nuxt-app/` is the only package going forward.
