@@ -1,9 +1,14 @@
 <script setup lang="ts">
-const { data, pending, error, refresh } = await useFetch("/api/media-library");
+const { data, pending, error, refresh } = await useFetch<{
+  libraryPaths: string[];
+  defaultDownloadFolder: string | null;
+}>("/api/media-library");
 
 const newPath = ref("");
 const addError = ref<string | null>(null);
 const isAdding = ref(false);
+const isSettingDefault = ref(false);
+const defaultFolderError = ref<string | null>(null);
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "data" in err) {
@@ -34,6 +39,19 @@ async function removeFolder(path: string) {
   await $fetch("/api/media-library/folders", { method: "DELETE", body: { path } });
   await refresh();
 }
+
+async function setDefaultDownloadFolder(path: string) {
+  defaultFolderError.value = null;
+  isSettingDefault.value = true;
+  try {
+    await $fetch("/api/media-library/default-download-folder", { method: "POST", body: { path } });
+    await refresh();
+  } catch (err) {
+    defaultFolderError.value = extractErrorMessage(err, "Failed to set default download folder.");
+  } finally {
+    isSettingDefault.value = false;
+  }
+}
 </script>
 
 <template>
@@ -51,6 +69,24 @@ async function removeFolder(path: string) {
         </li>
       </ul>
       <p v-else class="state">No folders configured yet.</p>
+
+      <div v-if="data?.libraryPaths.length === 1" class="state download-folder-note">
+        Downloads will go to <span class="path">{{ data.libraryPaths[0] }}</span>.
+      </div>
+      <div v-else-if="data && data.libraryPaths.length > 1" class="download-folder-picker">
+        <label for="download-folder-select">Default download folder</label>
+        <select
+          id="download-folder-select"
+          class="download-folder-select"
+          :disabled="isSettingDefault"
+          :value="data.defaultDownloadFolder ?? ''"
+          @change="setDefaultDownloadFolder(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="" disabled>Choose a folder...</option>
+          <option v-for="path in data.libraryPaths" :key="path" :value="path">{{ path }}</option>
+        </select>
+        <p v-if="defaultFolderError" class="add-error">{{ defaultFolderError }}</p>
+      </div>
     </template>
 
     <form class="add-form" @submit.prevent="addFolder">
@@ -180,5 +216,40 @@ h1 {
   margin-top: 10px;
   color: var(--fail);
   font-size: 14px;
+}
+
+.download-folder-note {
+  margin-bottom: 0;
+}
+
+.download-folder-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.download-folder-picker label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.download-folder-select {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+.download-folder-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

@@ -17,12 +17,45 @@ interface CardWithDetails {
 }
 
 const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[] }>("/api/cards");
+const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
+  "/api/media-library",
+);
+const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
 
 const editingId = ref<number | null>(null);
 const editVideoPath = ref("");
 const editAudioPath = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
+
+const downloading = reactive<Record<string, boolean>>({});
+const downloadError = reactive<Record<number, string | null>>({});
+
+function downloadKey(cardId: number, kind: "video" | "audio"): string {
+  return `${cardId}:${kind}`;
+}
+
+function canDownload(c: CardWithDetails, kind: "video" | "audio"): boolean {
+  return kind === "video" ? Boolean(c.animethemesVideoUrl) && !c.localVideoPath : Boolean(c.animethemesAudioUrl) && !c.localAudioPath;
+}
+
+function hasAnyDownloadableSource(c: CardWithDetails): boolean {
+  return canDownload(c, "video") || canDownload(c, "audio");
+}
+
+async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
+  const key = downloadKey(c.id, kind);
+  downloadError[c.id] = null;
+  downloading[key] = true;
+  try {
+    await $fetch("/api/cards/download", { method: "POST", body: { cardId: c.id, kind } });
+    await refresh();
+  } catch (err) {
+    downloadError[c.id] = extractErrorMessage(err, "Failed to download the file.");
+  } finally {
+    downloading[key] = false;
+  }
+}
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "data" in err) {
@@ -99,6 +132,32 @@ async function removeCard(id: number) {
             <div class="badges">
               <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
               <span v-if="!sourceBadges(c).length" class="badge badge-none">No source</span>
+            </div>
+            <div v-if="hasAnyDownloadableSource(c)" class="download-section">
+              <div v-if="hasDefaultDownloadFolder" class="download-actions">
+                <button
+                  v-if="canDownload(c, 'video')"
+                  type="button"
+                  class="download-btn"
+                  :disabled="downloading[downloadKey(c.id, 'video')]"
+                  @click="downloadMedia(c, 'video')"
+                >
+                  {{ downloading[downloadKey(c.id, "video")] ? "Downloading..." : "Download video" }}
+                </button>
+                <button
+                  v-if="canDownload(c, 'audio')"
+                  type="button"
+                  class="download-btn"
+                  :disabled="downloading[downloadKey(c.id, 'audio')]"
+                  @click="downloadMedia(c, 'audio')"
+                >
+                  {{ downloading[downloadKey(c.id, "audio")] ? "Downloading..." : "Download audio" }}
+                </button>
+              </div>
+              <p v-else class="download-hint">
+                Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+              </p>
+              <p v-if="downloadError[c.id]" class="edit-error">{{ downloadError[c.id] }}</p>
             </div>
           </div>
 
@@ -315,5 +374,42 @@ h1 {
   margin: 0;
   color: var(--fail);
   font-size: 13px;
+}
+
+.download-section {
+  margin-top: 6px;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.download-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.download-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.download-hint a {
+  color: var(--accent);
 }
 </style>

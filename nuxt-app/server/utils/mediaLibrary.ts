@@ -44,6 +44,30 @@ export function getLibraryPaths(): string[] {
   return row?.libraryPaths ?? [];
 }
 
+export function getDefaultDownloadFolder(): string | null {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.defaultDownloadFolder ?? null;
+}
+
+export function setDefaultDownloadFolder(rawPath: string): { error: string } | { defaultDownloadFolder: string } {
+  const normalized = normalizeFolderPath(rawPath);
+
+  if (!getLibraryPaths().includes(normalized)) {
+    return { error: "Default download folder must be one of the configured library folders." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, defaultDownloadFolder: normalized })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { defaultDownloadFolder: normalized } })
+    .run();
+
+  return { defaultDownloadFolder: normalized };
+}
+
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
   const normalized = normalizeFolderPath(rawPath);
 
@@ -76,6 +100,12 @@ export function removeLibraryPath(rawPath: string): string[] {
 
   if (libraryPaths.length !== current.length) {
     saveLibraryPaths(libraryPaths);
+    if (getDefaultDownloadFolder() === normalized) {
+      db.update(mediaLibrarySettings)
+        .set({ defaultDownloadFolder: null })
+        .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+        .run();
+    }
   }
 
   return libraryPaths;

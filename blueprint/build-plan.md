@@ -96,6 +96,8 @@ cleaned-up checkbox version before generating the project overview.
     Japanese morphological analyzer dependency for furigana generation.
 - [x] 7. **Review stats** - guess-rate tracking, sliceable by artist and by
   anime title.
-- [ ] 8. **Deck export/import** - bundle metadata always and audio optionally
+- [x] 8. **Downloadable options for Cards** - download from animethemes.moe as
+  an option when editing or creating a card.
+- [ ] 9. **Deck export/import** - bundle metadata always and audio optionally
   (never video); re-link missing local media from animethemes.moe on import
   when available.

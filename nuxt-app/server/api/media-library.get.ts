@@ -1,5 +1,5 @@
-import { getLibraryPaths } from "../utils/mediaLibrary.ts";
+import { getDefaultDownloadFolder, getLibraryPaths } from "../utils/mediaLibrary.ts";
 
 export default defineEventHandler(() => {
-  return { libraryPaths: getLibraryPaths() };
+  return { libraryPaths: getLibraryPaths(), defaultDownloadFolder: getDefaultDownloadFolder() };
 });

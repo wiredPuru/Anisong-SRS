@@ -27,6 +27,23 @@ interface ImportResult {
   themes: ThemeResult[];
 }
 
+interface CardWithDetails {
+  id: number;
+  songId: number;
+  localVideoPath: string | null;
+  localAudioPath: string | null;
+  animethemesVideoUrl: string | null;
+  animethemesAudioUrl: string | null;
+  box: number;
+  nextReviewAt: string;
+  createdAt: string;
+  songTitle: string;
+  themeSlot: string;
+  artistName: string;
+  animeTitleEnglish: string;
+  animeTitleRomaji: string;
+}
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "data" in err) {
     const data = (err as { data?: { statusMessage?: string } }).data;
@@ -44,10 +61,51 @@ const selectedAnime = ref<ImportResult | null>(null);
 const importing = ref(false);
 const importError = ref<string | null>(null);
 
-const addedSongIds = reactive(new Set<number>());
+const addedCards = reactive<Record<number, CardWithDetails>>({});
 const adding = reactive<Record<number, boolean>>({});
 const addError = reactive<Record<number, string | null>>({});
 const localPathInput = reactive<Record<number, string>>({});
+
+const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
+  "/api/media-library",
+);
+const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+
+const downloading = reactive<Record<string, boolean>>({});
+const downloadError = reactive<Record<number, string | null>>({});
+
+function downloadKey(songId: number, kind: "video" | "audio"): string {
+  return `${songId}:${kind}`;
+}
+
+function canDownload(card: CardWithDetails, kind: "video" | "audio"): boolean {
+  return kind === "video"
+    ? Boolean(card.animethemesVideoUrl) && !card.localVideoPath
+    : Boolean(card.animethemesAudioUrl) && !card.localAudioPath;
+}
+
+function hasAnyDownloadableSource(card: CardWithDetails): boolean {
+  return canDownload(card, "video") || canDownload(card, "audio");
+}
+
+async function downloadMedia(songId: number, kind: "video" | "audio") {
+  const card = addedCards[songId];
+  if (!card) return;
+
+  const key = downloadKey(songId, kind);
+  downloadError[songId] = null;
+  downloading[key] = true;
+  try {
+    addedCards[songId] = await $fetch<CardWithDetails>("/api/cards/download", {
+      method: "POST",
+      body: { cardId: card.id, kind },
+    });
+  } catch (err) {
+    downloadError[songId] = extractErrorMessage(err, "Failed to download the file.");
+  } finally {
+    downloading[key] = false;
+  }
+}
 
 async function search() {
   const q = searchQuery.value.trim();
@@ -93,7 +151,7 @@ async function addCard(theme: ThemeResult) {
 
   try {
     const localVideoPath = (localPathInput[theme.songId] ?? "").trim();
-    await $fetch("/api/cards", {
+    const res = await $fetch<{ card: CardWithDetails }>("/api/cards", {
       method: "POST",
       body: {
         songId: theme.songId,
@@ -102,7 +160,7 @@ async function addCard(theme: ThemeResult) {
         animethemesAudioUrl: theme.audioUrl ?? undefined,
       },
     });
-    addedSongIds.add(theme.songId);
+    addedCards[theme.songId] = res.card;
   } catch (err) {
     addError[theme.songId] = extractErrorMessage(err, "Failed to add card.");
   } finally {
@@ -160,8 +218,36 @@ async function addCard(theme: ThemeResult) {
             <span class="result-meta">{{ theme.artistName }} - {{ theme.themeSlot }}</span>
           </div>
 
-          <template v-if="addedSongIds.has(theme.songId)">
-            <span class="added-badge">Added</span>
+          <template v-if="addedCards[theme.songId]">
+            <div class="added-info">
+              <span class="added-badge">Added</span>
+              <div v-if="hasAnyDownloadableSource(addedCards[theme.songId])" class="download-section">
+                <div v-if="hasDefaultDownloadFolder" class="download-actions">
+                  <button
+                    v-if="canDownload(addedCards[theme.songId], 'video')"
+                    type="button"
+                    class="download-btn"
+                    :disabled="downloading[downloadKey(theme.songId, 'video')]"
+                    @click="downloadMedia(theme.songId, 'video')"
+                  >
+                    {{ downloading[downloadKey(theme.songId, "video")] ? "Downloading..." : "Download video" }}
+                  </button>
+                  <button
+                    v-if="canDownload(addedCards[theme.songId], 'audio')"
+                    type="button"
+                    class="download-btn"
+                    :disabled="downloading[downloadKey(theme.songId, 'audio')]"
+                    @click="downloadMedia(theme.songId, 'audio')"
+                  >
+                    {{ downloading[downloadKey(theme.songId, "audio")] ? "Downloading..." : "Download audio" }}
+                  </button>
+                </div>
+                <p v-else class="download-hint">
+                  Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+                </p>
+                <p v-if="downloadError[theme.songId]" class="inline-error">{{ downloadError[theme.songId] }}</p>
+              </div>
+            </div>
           </template>
           <template v-else>
             <div class="theme-actions">
@@ -365,6 +451,13 @@ h2 {
   box-shadow: var(--shadow-accent);
 }
 
+.added-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .added-badge {
   padding: 4px 12px;
   border-radius: var(--radius-pill);
@@ -372,5 +465,47 @@ h2 {
   color: var(--pass-ink);
   font-size: 13px;
   font-weight: 700;
+}
+
+.download-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.download-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.download-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.download-hint a {
+  color: var(--accent);
 }
 </style>

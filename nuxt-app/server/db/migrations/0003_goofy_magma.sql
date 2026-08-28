@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `default_download_folder` text;
