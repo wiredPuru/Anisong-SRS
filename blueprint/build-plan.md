@@ -79,7 +79,7 @@ cleaned-up checkbox version before generating the project overview.
   anime.
 - [x] 4. **Flashcard CRUD** - create, edit, and delete cards from looked-up
   song data; attach a local file and/or an animethemes.moe reference.
-- [ ] 5. **Decks by Artist/Title** - automatic grouping of cards into Artist
+- [x] 5. **Decks by Artist/Title** - automatic grouping of cards into Artist
   and Anime-Title decks.
 - [ ] 6. **Study session** - Leitner-box scheduled review queue, video/audio
   playback, pass/fail (left/right arrow) controls, language toggle display

@@ -56,6 +56,14 @@ export function getCardWithDetails(id: number): CardWithDetails | undefined {
   return cardQuery().where(eq(card.id, id)).get();
 }
 
+export function listCardsByArtist(artistId: number): CardWithDetails[] {
+  return cardQuery().where(eq(artist.id, artistId)).orderBy(desc(card.createdAt)).all();
+}
+
+export function listCardsByAnime(animeId: number): CardWithDetails[] {
+  return cardQuery().where(eq(anime.id, animeId)).orderBy(desc(card.createdAt)).all();
+}
+
 function validateLocalPath(rawPath: string): { error: string } | { path: string } {
   const normalized = normalize(rawPath.trim());
 
