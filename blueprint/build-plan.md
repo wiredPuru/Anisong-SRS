@@ -77,7 +77,7 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 3. **Anime & song lookup** - search AniList and animethemes.moe and pull
   metadata (EN/Romaji/JP titles, artist, available OP/ED themes) for a chosen
   anime.
-- [ ] 4. **Flashcard CRUD** - create, edit, and delete cards from looked-up
+- [x] 4. **Flashcard CRUD** - create, edit, and delete cards from looked-up
   song data; attach a local file and/or an animethemes.moe reference.
 - [ ] 5. **Decks by Artist/Title** - automatic grouping of cards into Artist
   and Anime-Title decks.
