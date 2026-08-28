@@ -87,7 +87,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 6a. **Leitner queue + review API** - scheduling logic (box/interval
     rules), next-due-card query (deck-scoped or all decks), and the
     endpoint that records a pass/fail and advances the card.
-  - [ ] 6b. **Study session UI** - the actual session screen: card display,
+  - [x] 6b. **Study session UI** - the actual session screen: card display,
     video/audio playback (quiz type derived from attached sources),
     left/right arrow pass/fail controls, looping through the queue,
     deck-scoped or all-decks entry points.

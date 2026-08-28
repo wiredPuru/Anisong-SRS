@@ -28,7 +28,7 @@ instance against their own local media and database.
   references a song/theme and either a local media file or a direct
   animethemes.moe reference (or both). Should be able to auto import whole artists for example Kotoko
   This will create cards for each of her songs that Animethemes.moe has and include an option to download the video. 
-  
+
 - **Card quiz type** - not chosen manually; derived from whichever media is
   attached. Video-backed cards can play video; audio-only cards play MP3 only.
 - **Decks** - automatic categorization by Artist (all songs in the DB by that

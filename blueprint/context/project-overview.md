@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 2f81cfc132d1331ad06ffa4dac7473b575996affb302deb306f9c68d4aaac95e -->
+<!-- blueprint:source-hash 24d902a9727ad4240d4fede647634b35a6f93dbed6db5589723a9ae909d8199c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,50 +24,53 @@ local training tool.
 
 ## Features
 
-Build-plan order; each is a full MVP slice, not yet split into implementation
-steps (that's `/feature`'s job).
+Build-plan order. Features 1-6a are built and merged; 6b is next.
 
-1. **Data layer** - SQLite schema (Drizzle ORM) for anime, songs/themes,
-   cards, and review history. Foundation every other feature depends on.
-2. **Media library settings** - configure one or more local/external folders
-   the app reads clip files from.
-3. **Anime & song lookup** - search AniList and animethemes.moe (both
-   GraphQL) and pull metadata - EN/Romaji/JP titles, artist, available OP/ED
-   themes - for a chosen anime.
-4. **Flashcard CRUD** - create, edit, delete cards built from looked-up song
-   data; attach a local file and/or an animethemes.moe reference.
-5. **Decks by Artist/Title** - automatic, query-time grouping of cards by
-   artist or by anime title (no separate deck table - see Data model).
-6. **Study session** - the headline feature. Leitner-box scheduled review
-   queue (deck-scoped, or "all decks"), video/audio playback, pass/fail
-   (left/right arrow) controls, and independently toggleable
-   English/Romaji/Japanese+Furigana display.
-7. **Review stats** - guess-rate tracking, sliceable by artist and by anime
-   title.
-8. **Deck export/import** - bundles card metadata always, audio optionally
-   (never video); import can re-link missing local media from animethemes.moe
-   when a remote reference exists.
+1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
+   songs/themes, cards, and review history.
+2. **Media library settings** - done. `/settings` - configure local/external
+   folders the app reads clip files from.
+3. **Anime & song lookup** - done. `/api/lookup/*` - search AniList and
+   animethemes.moe (both GraphQL) and cache metadata (EN/Romaji/JP titles,
+   artist, OP/ED themes) into the local DB.
+4. **Flashcard CRUD** - done. `/cards`, `/cards/new` - create/edit/delete
+   cards from looked-up song data; attach a local file and/or an
+   animethemes.moe reference.
+5. **Decks by Artist/Title** - done. `/decks` - automatic, query-time
+   grouping of cards by artist or by anime title (no separate deck table).
+6. **Study session** - the headline feature, split into three sub-features:
+   - **6a. Leitner queue + review API** - done. `/api/study/next`,
+     `/api/study/review` - the scheduling engine (no UI).
+   - **6b. Study session UI** - next up. `/study` - the actual session
+     screen: video/audio playback, pass/fail controls, looping through the
+     due-card queue.
+   - **6c. Language display toggles** - not started. Independently
+     toggleable English/Romaji/Japanese+Furigana display on the study
+     screen; adds a Japanese morphological analyzer dependency.
+7. **Review stats** - not started. Guess-rate tracking, sliceable by artist
+   and by anime title.
+8. **Deck export/import** - not started. Bundles card metadata always, audio
+   optionally (never video); import can re-link missing local media from
+   animethemes.moe when a remote reference exists.
 
 ## Data model
 
 ### Anime
 
 - `id` (integer, PK)
-- `aniListId` (integer) - external AniList reference
+- `aniListId` (integer, unique) - external AniList reference
 - `animethemesId` (integer, nullable) - external animethemes.moe reference
-- `titleEnglish` (string)
+- `titleEnglish` (string) - falls back to `titleRomaji` if AniList has no
+  English title
 - `titleRomaji` (string)
-- `titleNative` (string) - Japanese
+- `titleNative` (string, Japanese) - falls back to `titleRomaji` if AniList
+  has no native title
 
 ### Artist
 
 - `id` (integer, PK)
-- `name` (string)
-
-> Multi-language display (§Language display) applies to anime titles, as
-> that's the only field the plan names EN/Romaji/JP variants for. Artist and
-> song titles are stored as sourced (typically romaji) unless a later feature
-> asks for translated variants too.
+- `name` (string, unique) - uniqueness added in feature 3 so lookups can
+  get-or-create without duplicating an artist across imports
 
 ### Song
 
@@ -80,6 +83,7 @@ A specific OP/ED theme track.
 - `themeSlot` (string) - e.g. `"OP1"`, `"ED2"`
 - `animethemesThemeId` (integer, nullable) - external reference, used to
   re-fetch or re-link media later
+- Unique on `(animeId, themeSlot)`
 
 ### Card
 
@@ -92,50 +96,96 @@ stored: video if any video source is present, audio-only otherwise.
 - `localAudioPath` (string, nullable)
 - `animethemesVideoUrl` (string, nullable)
 - `animethemesAudioUrl` (string, nullable)
-- `box` (integer) - current Leitner box
-- `nextReviewAt` (datetime) - when the card is next due
+- `box` (integer, default `1`) - current Leitner box
+- `nextReviewAt` (datetime, default now) - when the card is next due
 - `createdAt` (datetime)
 
-> A card can hold a local reference, a remote reference, or both, per the
-> plan ("or both"). Export bundles `localAudioPath` content directly but
-> never `localVideoPath`/video content; a card missing local media on import
-> falls back to its `animethemesVideoUrl`/`animethemesAudioUrl` when present.
+> A card must have at least one non-null source across the four
+> local/remote fields (enforced by feature 4's create/update validation). A
+> card can hold a local reference, a remote reference, or both.
+
+**`CardWithDetails`** (load-bearing shared shape, returned by `/api/cards`,
+`/api/decks/cards`, `/api/study/next`, `/api/study/review`):
+
+```ts
+interface CardWithDetails {
+  id: number;
+  songId: number;
+  localVideoPath: string | null;
+  localAudioPath: string | null;
+  animethemesVideoUrl: string | null;
+  animethemesAudioUrl: string | null;
+  box: number;
+  nextReviewAt: string; // ISO timestamp
+  createdAt: string; // ISO timestamp
+  songTitle: string;
+  themeSlot: string;
+  artistName: string;
+  animeTitleEnglish: string;
+  animeTitleRomaji: string;
+}
+```
 
 ### ReviewLog
 
-Backs the guess-rate stats feature.
+Backs the guess-rate stats feature (7) and is written by every
+`POST /api/study/review` call (feature 6a).
 
 - `id` (integer, PK)
-- `cardId` (FK -> Card)
-- `reviewedAt` (datetime)
-- `result` (enum: `pass`, `fail`)
+- `cardId` (FK -> Card, cascades on delete)
+- `reviewedAt` (datetime, default now)
+- `result` (`"pass"` | `"fail"`)
 - `boxBefore` (integer)
 - `boxAfter` (integer)
 
 ### MediaLibrarySettings
 
-Singleton row.
+Singleton row (`id` always `1`).
 
 - `id` (integer, PK)
 - `libraryPaths` (JSON array of strings) - local/external folders the app
   reads clip files from
 
-> **No Deck table.** The plan is explicit that decks are "derived groupings...
-> not separately stored as manually-curated entities unless that changes
-> later." Deck screens query `Card` joined through `Song` by `artistId` or by
-> `animeId`, they don't read from a stored deck entity. Locking this now
-> because Features 5 and 6 both depend on it.
+> **No Deck table.** Decks are derived, query-time groupings of `Card`
+> joined through `Song` by `artistId` or `animeId` - not a stored entity.
+
+**Deck / study scope shapes** (load-bearing, shared across features 5, 6a,
+and 6b):
+
+```ts
+type DeckRef = { type: "artist"; id: number } | { type: "anime"; id: number };
+type StudyScope = { type: "all" } | DeckRef;
+```
+
+### Leitner scheduling (locked in feature 6a)
+
+5 boxes. Pass advances one box (capped at 5); fail resets to box 1.
+`nextReviewAt = now + interval[newBox]`:
+
+| Box | Interval before next due |
+|---|---|
+| 1 | 0 days (immediately due again) |
+| 2 | 1 day |
+| 3 | 3 days |
+| 4 | 7 days |
+| 5 (max) | 14 days |
+
+Box 1's 0-day interval is what lets a failed card resurface later in the
+same study session purely by calling `/api/study/next` again - there is no
+stored session queue.
 
 ## Tech stack
 
 - **Nuxt (TypeScript)** - application framework; `nuxt-app/` is the only
-  package (see Notes on `nuxt-module/` removal)
-- **SQLite + Drizzle ORM + better-sqlite3** - local data persistence
-- **AniList GraphQL API** - anime metadata lookup
-- **animethemes.moe GraphQL API** (https://api-docs.animethemes.moe) - OP/ED
-  theme video/audio and metadata
-- **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - furigana
-  generation for the Japanese-text toggle
+  package
+- **SQLite + Drizzle ORM + better-sqlite3** - local data persistence,
+  migrations applied automatically on server boot
+- **AniList GraphQL API** - anime metadata lookup (`graphql.anilist.co`)
+- **animethemes.moe GraphQL API** (`graphql.animethemes.moe`) - OP/ED theme
+  video/audio and metadata. Requires a non-default `User-Agent` header
+  (blocks Node's bare default with a `403`) - see feature 3's archive.
+- **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - not yet
+  added; needed for feature 6c's furigana generation
 - **Node `fs`** - reads the user-configured local media library
 
 ## Monetization
@@ -147,19 +197,30 @@ Non-profit. No monetization planned.
 Cute/moe, a little cartoony - Akihabara, anime posters, otaku culture as the
 visual reference. Rounded corners throughout. Japanese text renders as real,
 selectable DOM text (never baked into an image or video) so the Migaku
-browser extension can attach to it.
+browser extension can attach to it. Theme tokens (colors, fonts, radii) live
+in `nuxt-app/app/assets/css/main.css`, ported from `prototypes/theme.css`.
 
-Routes below are a reasonable structure derived from the feature list; the
-plan doesn't name them explicitly, so treat these as a starting point for
-`/feature`, not a fixed contract:
+Established conventions across every page/route built so far (settings,
+cards, decks): `useFetch` for the initial load (with explicit
+loading/error states, never just the happy path), `$fetch` for mutations,
+scoped `<style>` blocks using `var(--token)`. No dynamic route segments
+(`[id].ts`) exist anywhere yet - every route uses query-string parameters
+(`?type=&id=`) or a body-carried `id` for mutations, and that convention
+should continue rather than mixing in a new one.
 
-- `/study` - the study session: video centered, title/artist info panel on
-  the right, language toggles, pass/fail (or left/right arrow) controls
-- `/decks` - Artist and Anime-Title deck groupings
-- `/cards` - flashcard list/management
-- `/cards/new` - add a card via AniList/animethemes.moe lookup
-- `/stats` - guess-rate stats by artist and by anime title
-- `/settings` - media library folder configuration, deck export/import
+Routes:
+
+- `/settings` - done. Media library folder configuration.
+- `/cards` - done. Flashcard list/management.
+- `/cards/new` - done. Add a card via AniList/animethemes.moe lookup.
+- `/decks` - done. Artist and Anime-Title deck groupings, list + detail.
+- `/study` - next up (feature 6b). The study session: video centered,
+  title/artist info panel on the right, pass/fail (or left/right arrow)
+  controls. `prototypes/study.html` is its design reference.
+- `/stats` - not started (feature 7). Guess-rate stats by artist and by
+  anime title.
+- Deck export/import (feature 8) UI location not yet decided - the original
+  plan suggested folding it into `/settings`, not yet confirmed.
 
 ## Deployment
 
@@ -168,11 +229,20 @@ Localhost-only - no remote hosting, no accounts, no multi-device sync.
 - **App type**: Nuxt server (Nitro), run on the user's own machine
 - **Build**: `bun run build` (see Commands in `AGENTS.md`)
 - **Run**: `bun run preview` (production) or `bun run dev` (development)
-- **Storage**: SQLite database file on disk (exact path/location not yet
-  decided - `> TODO`, settle when the Data layer feature is spec'd) plus the
-  user-configured media library folder(s)
+- **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` (resolved in
+  feature 1; gitignored, created and migrated automatically on first boot)
+  plus the user-configured media library folder(s)
 - **Env vars**: none identified yet
 - **Health check / domain**: not applicable (local-only)
+
+## Open questions
+
+`project-plan.md`'s Flashcard CRUD section has an uncommitted note (added
+outside the normal feature-planning flow) about auto-importing an artist's
+entire catalog and optionally downloading video files. It hasn't been
+folded into any build-plan item yet and isn't reflected here. Resolve it
+as a deliberate plan decision (new build-plan item or an amendment to an
+existing one) before building anything against it.
 
 ## Notes
 

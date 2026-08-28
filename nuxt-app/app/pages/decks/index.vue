@@ -114,6 +114,7 @@ function backToDecks() {
   <main class="decks">
     <h1>Decks</h1>
     <p class="hint">Cards grouped by artist or by anime title.</p>
+    <NuxtLink to="/study?type=all" class="study-link">Study all decks</NuxtLink>
 
     <template v-if="selectedId === null">
       <div class="toggle">
@@ -157,7 +158,10 @@ function backToDecks() {
       <div v-if="detailPending" class="state">Loading...</div>
       <div v-else-if="detailError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
       <template v-else-if="deckDetail">
-        <h2>{{ deckDetail.deckLabel }}</h2>
+        <div class="deck-detail-header">
+          <h2>{{ deckDetail.deckLabel }}</h2>
+          <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}`" class="study-link">Study this deck</NuxtLink>
+        </div>
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
           <li v-for="c in deckDetail.cards" :key="c.id" class="deck-card-row">
             <span class="song-title">{{ c.songTitle }}</span>
@@ -187,14 +191,34 @@ h1 {
 }
 
 .hint {
-  margin: 0 0 24px;
+  margin: 0 0 16px;
   color: var(--muted);
 }
 
+.study-link {
+  display: inline-block;
+  margin-bottom: 24px;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 h2 {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 22px;
   font-weight: 800;
+}
+
+.deck-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .back-btn {

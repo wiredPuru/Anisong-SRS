@@ -1,9 +1,9 @@
 import { existsSync, statSync } from "node:fs";
-import { isAbsolute, normalize, relative } from "node:path";
+import { isAbsolute, normalize } from "node:path";
 import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
-import { getLibraryPaths } from "./mediaLibrary.ts";
+import { isPathWithinLibrary } from "./mediaLibrary.ts";
 
 export interface CardWithDetails {
   id: number;
@@ -90,12 +90,7 @@ function validateLocalPath(rawPath: string): { error: string } | { path: string 
     return { error: "Local path is not a file." };
   }
 
-  const libraryPaths = getLibraryPaths();
-  const withinLibrary = libraryPaths.some((libraryPath) => {
-    const rel = relative(libraryPath, normalized);
-    return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
-  });
-  if (!withinLibrary) {
+  if (!isPathWithinLibrary(normalized)) {
     return { error: "Local file must be inside a configured media library folder." };
   }
 

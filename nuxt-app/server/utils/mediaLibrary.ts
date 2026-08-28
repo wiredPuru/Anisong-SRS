@@ -1,5 +1,5 @@
 import { existsSync, statSync } from "node:fs";
-import { isAbsolute, normalize } from "node:path";
+import { isAbsolute, normalize, relative } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { mediaLibrarySettings } from "../db/schema.ts";
@@ -60,6 +60,13 @@ export function addLibraryPath(rawPath: string): { error: string } | { libraryPa
   const libraryPaths = [...current, normalized];
   saveLibraryPaths(libraryPaths);
   return { libraryPaths };
+}
+
+export function isPathWithinLibrary(candidatePath: string): boolean {
+  return getLibraryPaths().some((libraryPath) => {
+    const rel = relative(libraryPath, candidatePath);
+    return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+  });
 }
 
 export function removeLibraryPath(rawPath: string): string[] {
