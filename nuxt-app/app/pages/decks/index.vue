@@ -115,6 +115,7 @@ function backToDecks() {
     <h1>Decks</h1>
     <p class="hint">Cards grouped by artist or by anime title.</p>
     <NuxtLink to="/study?type=all" class="study-link">Study all decks</NuxtLink>
+    <NuxtLink to="/stats" class="study-link stats-link">Review stats</NuxtLink>
 
     <template v-if="selectedId === null">
       <div class="toggle">
@@ -205,6 +206,12 @@ h1 {
   font-family: var(--font-sans);
   font-weight: 700;
   text-decoration: none;
+}
+
+.stats-link {
+  margin-left: 8px;
+  background: var(--accent-secondary);
+  color: var(--accent-secondary-ink);
 }
 
 h2 {

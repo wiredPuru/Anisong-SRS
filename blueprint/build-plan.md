@@ -94,7 +94,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 6c. **Language display toggles** - independently toggleable
     English/Romaji/Japanese+Furigana display on the study screen; adds a
     Japanese morphological analyzer dependency for furigana generation.
-- [ ] 7. **Review stats** - guess-rate tracking, sliceable by artist and by
+- [x] 7. **Review stats** - guess-rate tracking, sliceable by artist and by
   anime title.
 - [ ] 8. **Deck export/import** - bundle metadata always and audio optionally
   (never video); re-link missing local media from animethemes.moe on import
