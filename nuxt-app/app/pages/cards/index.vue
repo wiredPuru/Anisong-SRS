@@ -14,6 +14,7 @@ interface CardWithDetails {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
 }
 
 const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[] }>("/api/cards");
@@ -30,6 +31,8 @@ const editError = ref<string | null>(null);
 
 const downloading = reactive<Record<string, boolean>>({});
 const downloadError = reactive<Record<number, string | null>>({});
+
+const previewCard = ref<CardWithDetails | null>(null);
 
 function downloadKey(cardId: number, kind: "video" | "audio"): string {
   return `${cardId}:${kind}`;
@@ -185,6 +188,14 @@ async function removeCard(id: number) {
             </div>
           </template>
           <div v-else class="card-actions">
+            <button
+              v-if="sourceBadges(c).length"
+              type="button"
+              class="preview-btn"
+              @click="previewCard = c"
+            >
+              Preview
+            </button>
             <button type="button" class="edit-btn" @click="startEdit(c)">Edit</button>
             <button type="button" class="remove-btn" @click="removeCard(c.id)">Delete</button>
           </div>
@@ -192,6 +203,8 @@ async function removeCard(id: number) {
       </ul>
       <p v-else class="state">No cards yet. <NuxtLink to="/cards/new">Add one</NuxtLink>.</p>
     </template>
+
+    <CardPreviewModal :card="previewCard" :open="previewCard !== null" @close="previewCard = null" />
   </main>
 </template>
 
@@ -311,6 +324,7 @@ h1 {
   gap: 8px;
 }
 
+.preview-btn,
 .edit-btn,
 .save-btn {
   padding: 6px 14px;

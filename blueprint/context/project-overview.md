@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash fa9aefb4913c18f6a26346f625a1800d3aea70bb32aa5d4a7bcfc5986ce9a772 -->
+<!-- blueprint:source-hash 60a87204da81205ea5c20db61fba6a826d758e300b5711e861a7e453e0f24dee -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,7 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-8 are built and merged; 9 and 10 are next.
+Build-plan order. Features 1-8 and 10 are built and merged; 9 and 11 are next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -56,10 +56,17 @@ Build-plan order. Features 1-8 are built and merged; 9 and 10 are next.
 9. **Deck export/import** - not started. Bundles card metadata always, audio
    optionally (never video); import can re-link missing local media from
    animethemes.moe when a remote reference exists.
-10. **Study session display toggles** - not started. Session-only toggles on
-    `/study`: Hide Video, Hide Info, and Start at random times (except the
-    last 15 seconds of the clip). Reset every time a session starts; not
-    persisted.
+10. **Study session display toggles** - done. Session-only toggles on
+    `/study`: Hide Video (`v`), Hide Info (`i`, blurs the info panel rather
+    than removing it), and Start at random times (except the last 15
+    seconds, re-rolled on every presentation of a card - including a repeat
+    after a fail, not just a fresh card id). Reset every time a session
+    starts; not persisted. Play/pause also picked up an `s` hotkey here.
+11. **Card preview** - not started. A preview panel per card in `/cards`
+    (and likely `/cards/new`) showing playback and the same title/artist/anime
+    info a study card shows, to verify a card works without starting a full
+    study session. Expected to reuse `StudyMediaPlayer`/`StudyInfoPanel`
+    rather than duplicating their logic.
 
 ## Data model
 
@@ -231,15 +238,20 @@ Routes:
   default download folder picker shown once 2+ folders are configured.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
-  file yet.
+  file yet. Gains a preview panel in feature 11 (not started).
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail.
 - `/study` - done. Video centered, title/artist info panel on the right,
   pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
   toggles. `prototypes/study.html` was its original design reference
-  (consumed; `prototypes/` no longer exists). Feature 10 adds three more
-  session-only toggles here (Hide Video, Hide Info, Start at random times).
+  (consumed; `prototypes/` no longer exists). Feature 10 added three more
+  session-only toggles here (Hide Video `v`, Hide Info `i`, Start at random
+  times), plus an `s` hotkey for play/pause - each hotkeyed button shows a
+  hover tooltip naming its key (established convention: any hotkeyed button
+  gets one, via a custom `<span class="tooltip">` rather than the native
+  `title` attribute, which only triggers over a button's text glyphs in some
+  browsers).
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
 - Deck export/import (feature 9) UI location not yet decided - the original

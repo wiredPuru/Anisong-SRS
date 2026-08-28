@@ -104,3 +104,7 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 10. **Study session display toggles** - session-only Hide Video, Hide
   Info, and Start at random times (except the last 15 seconds) toggles for
   the study screen.
+- [x] 11. **Card preview** - a preview panel per card in card management
+  showing playback (video/audio, scrub) and the same title/artist/anime
+  info a study card shows, to verify a card works without starting a full
+  study session.
