@@ -25,7 +25,8 @@ const scopeResult = computed<ScopeResult>(() => {
 
 const scope = computed<StudyScope | null>(() => (scopeResult.value.valid ? scopeResult.value.scope : null));
 
-const { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, submit } = useStudySession(scope);
+const { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, submit } =
+  useStudySession(scope);
 
 const deckLabel = ref<string | null>(null);
 
@@ -52,6 +53,22 @@ const scopeChipLabel = computed(() => {
   if (!result.valid) return "";
   return result.scope.type === "all" ? "All decks" : (deckLabel.value ?? "...");
 });
+
+const hideVideo = ref(false);
+const hideInfo = ref(false);
+const randomStart = ref(false);
+
+function onKeydown(event: KeyboardEvent) {
+  const key = event.key.toLowerCase();
+  if (key === "i") {
+    hideInfo.value = !hideInfo.value;
+  } else if (key === "v") {
+    hideVideo.value = !hideVideo.value;
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
@@ -69,10 +86,19 @@ const scopeChipLabel = computed(() => {
         <span class="chip">{{ scopeChipLabel }}</span>
         <span class="count">Card {{ reviewedCount + 1 }} this session</span>
       </div>
+      <StudyDisplayToggles
+        :hide-video="hideVideo"
+        :hide-info="hideInfo"
+        :random-start="randomStart"
+        @toggle-hide-video="hideVideo = !hideVideo"
+        @toggle-hide-info="hideInfo = !hideInfo"
+        @toggle-random-start="randomStart = !randomStart"
+      />
       <div class="study-grid">
-        <StudyMediaPlayer :key="currentCard.id" :card="currentCard" />
+        <StudyMediaPlayer :key="presentationKey" :card="currentCard" :hide-video="hideVideo" :random-start="randomStart" />
         <div class="side">
           <StudyInfoPanel
+            :blurred="hideInfo"
             :song-title="currentCard.songTitle"
             :artist-name="currentCard.artistName"
             :anime-title-english="currentCard.animeTitleEnglish"

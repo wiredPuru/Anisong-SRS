@@ -101,3 +101,6 @@ cleaned-up checkbox version before generating the project overview.
 - [ ] 9. **Deck export/import** - bundle metadata always and audio optionally
   (never video); re-link missing local media from animethemes.moe on import
   when available.
+- [x] 10. **Study session display toggles** - session-only Hide Video, Hide
+  Info, and Start at random times (except the last 15 seconds) toggles for
+  the study screen.

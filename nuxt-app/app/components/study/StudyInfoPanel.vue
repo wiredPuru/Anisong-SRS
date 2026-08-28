@@ -6,6 +6,7 @@ const props = defineProps<{
   animeTitleRomaji: string;
   animeTitleNative: string;
   box: number;
+  blurred?: boolean;
 }>();
 
 const showEn = ref(true);
@@ -40,7 +41,7 @@ watch(
 </script>
 
 <template>
-  <div class="info-card">
+  <div class="info-card" :class="{ blurred }">
     <div class="lang-toggles">
       <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
       <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
@@ -82,6 +83,12 @@ watch(
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
+  filter: blur(0);
+  transition: filter 0.4s ease;
+}
+
+.info-card.blurred {
+  filter: blur(14px);
 }
 
 .lang-toggles {

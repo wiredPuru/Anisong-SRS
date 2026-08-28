@@ -3,6 +3,8 @@ import type { CardWithDetails } from "~/composables/useStudySession";
 
 const props = defineProps<{
   card: Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "animethemesVideoUrl" | "animethemesAudioUrl" | "themeSlot">;
+  hideVideo?: boolean;
+  randomStart?: boolean;
 }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
@@ -11,12 +13,20 @@ function mediaUrl(localPath: string | null, remoteUrl: string | null): string | 
   return null;
 }
 
-const quizType = computed<"video" | "audio">(() =>
-  props.card.localVideoPath || props.card.animethemesVideoUrl ? "video" : "audio",
-);
+const hasVideoSource = computed(() => Boolean(props.card.localVideoPath || props.card.animethemesVideoUrl));
+
+// Which element/src actually mounts - deliberately independent of hideVideo,
+// so toggling it never swaps the underlying element mid-playback (that
+// remount was resetting playback to paused, which felt like a bug).
+const mediaKind = computed<"video" | "audio">(() => (hasVideoSource.value ? "video" : "audio"));
+
+// Whether the video frame is actually shown. Hiding video always forces the
+// audio-style veil, even when the video element keeps playing underneath for
+// its own audio track (no separate audio source needed for this to work).
+const quizType = computed<"video" | "audio">(() => (props.hideVideo ? "audio" : mediaKind.value));
 
 const src = computed(() =>
-  quizType.value === "video"
+  mediaKind.value === "video"
     ? mediaUrl(props.card.localVideoPath, props.card.animethemesVideoUrl)
     : mediaUrl(props.card.localAudioPath, props.card.animethemesAudioUrl),
 );
@@ -29,7 +39,7 @@ const duration = ref(0);
 const errorMessage = ref<string | null>(null);
 
 const activeEl = computed<HTMLMediaElement | null>(() =>
-  quizType.value === "video" ? videoRef.value : audioRef.value,
+  mediaKind.value === "video" ? videoRef.value : audioRef.value,
 );
 
 const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value);
@@ -46,12 +56,19 @@ function onTimeUpdate() {
   if (activeEl.value) currentTime.value = activeEl.value.currentTime;
 }
 
+function randomStartTime(resolvedDuration: number): number {
+  return Math.random() * Math.max(resolvedDuration - 15, 0);
+}
+
 function onLoadedMetadata() {
   const el = activeEl.value;
   if (!el) return;
 
   if (Number.isFinite(el.duration)) {
     duration.value = el.duration;
+    if (props.randomStart && el.duration > 0) {
+      el.currentTime = randomStartTime(el.duration);
+    }
     return;
   }
 
@@ -61,8 +78,9 @@ function onLoadedMetadata() {
   el.addEventListener(
     "durationchange",
     () => {
-      duration.value = Number.isFinite(el.duration) ? el.duration : 0;
-      el.currentTime = 0;
+      const resolved = Number.isFinite(el.duration) ? el.duration : 0;
+      duration.value = resolved;
+      el.currentTime = props.randomStart && resolved > 0 ? randomStartTime(resolved) : 0;
     },
     { once: true },
   );
@@ -85,6 +103,15 @@ function togglePlay() {
   }
 }
 
+function onKeydown(event: KeyboardEvent) {
+  if (event.key.toLowerCase() === "s") {
+    togglePlay();
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
 function onSeek(event: MouseEvent) {
   const el = activeEl.value;
   if (!el || !Number.isFinite(duration.value) || !duration.value) return;
@@ -100,7 +127,7 @@ function onSeek(event: MouseEvent) {
       <span class="theme-badge">{{ card.themeSlot }}</span>
 
       <video
-        v-if="quizType === 'video' && src"
+        v-if="mediaKind === 'video' && src"
         ref="videoRef"
         class="media-el"
         :src="src"
@@ -125,15 +152,21 @@ function onSeek(event: MouseEvent) {
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
       </div>
-      <div v-else-if="showVeil" class="veil">
-        <div class="listening-icon">🎵</div>
-        <p>{{ quizType === "audio" ? "Listening..." : "Paused" }}</p>
+      <div v-else-if="showVeil" class="veil" :class="quizType === 'audio' ? 'audio-veil' : 'paused-veil'">
+        <div v-if="quizType === 'audio' && isPlaying" class="listening-icon">
+          <span class="eq-bar" />
+          <span class="eq-bar" />
+          <span class="eq-bar" />
+          <span class="eq-bar" />
+        </div>
+        <p>{{ isPlaying ? "Listening..." : "Paused" }}</p>
       </div>
     </div>
 
     <div class="player-controls">
       <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
         {{ isPlaying ? "⏸" : "▶" }}
+        <span class="tooltip">Hotkey: S</span>
       </button>
       <div class="scrub" @click="onSeek">
         <span :style="{ width: progressPercent + '%' }" />
@@ -194,13 +227,23 @@ function onSeek(event: MouseEvent) {
 .veil {
   position: absolute;
   inset: 0;
-  backdrop-filter: blur(18px);
-  background: rgba(10, 6, 15, 0.45);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+
+.paused-veil {
+  backdrop-filter: blur(18px);
+  background: rgba(10, 6, 15, 0.45);
+}
+
+.audio-veil {
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(255, 93, 162, 0.35), transparent 55%),
+    radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),
+    #120c19;
 }
 
 .error-veil {
@@ -220,10 +263,46 @@ function onSeek(event: MouseEvent) {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  font-size: 28px;
+  gap: 5px;
+  padding: 20px 18px;
   box-shadow: var(--shadow-accent);
+}
+
+.eq-bar {
+  width: 5px;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-secondary);
+  transform-origin: bottom;
+  animation: eq-bounce 1s ease-in-out infinite;
+}
+
+.eq-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.eq-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.eq-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.eq-bar:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+@keyframes eq-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 .veil p {
@@ -242,6 +321,7 @@ function onSeek(event: MouseEvent) {
 }
 
 .play-btn {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -259,6 +339,32 @@ function onSeek(event: MouseEvent) {
 .play-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.play-btn:hover .tooltip,
+.play-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .scrub {

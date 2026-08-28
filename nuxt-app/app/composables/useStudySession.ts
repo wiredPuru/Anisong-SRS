@@ -37,6 +37,10 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
   const sessionComplete = ref(false);
   const reviewing = ref(false);
   const reviewedCount = ref(0);
+  // Bumped on every fetched card, even a repeat of the same id (e.g. a failed
+  // card coming right back up) - lets the player key off "this presentation"
+  // rather than "this card id" so it always gets a fresh mount.
+  const presentationKey = ref(0);
 
   async function fetchNext() {
     if (!scope.value) return;
@@ -48,6 +52,7 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
       });
       currentCard.value = result.card;
       sessionComplete.value = result.card === null;
+      if (result.card) presentationKey.value += 1;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to load the next card.");
     } finally {
@@ -85,5 +90,5 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
     { immediate: true },
   );
 
-  return { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, submit };
+  return { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, submit };
 }

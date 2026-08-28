@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 24d902a9727ad4240d4fede647634b35a6f93dbed6db5589723a9ae909d8199c -->
+<!-- blueprint:source-hash fa9aefb4913c18f6a26346f625a1800d3aea70bb32aa5d4a7bcfc5986ce9a772 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,7 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-6a are built and merged; 6b is next.
+Build-plan order. Features 1-8 are built and merged; 9 and 10 are next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -41,17 +41,25 @@ Build-plan order. Features 1-6a are built and merged; 6b is next.
 6. **Study session** - the headline feature, split into three sub-features:
    - **6a. Leitner queue + review API** - done. `/api/study/next`,
      `/api/study/review` - the scheduling engine (no UI).
-   - **6b. Study session UI** - next up. `/study` - the actual session
-     screen: video/audio playback, pass/fail controls, looping through the
-     due-card queue.
-   - **6c. Language display toggles** - not started. Independently
-     toggleable English/Romaji/Japanese+Furigana display on the study
-     screen; adds a Japanese morphological analyzer dependency.
-7. **Review stats** - not started. Guess-rate tracking, sliceable by artist
-   and by anime title.
-8. **Deck export/import** - not started. Bundles card metadata always, audio
+   - **6b. Study session UI** - done. `/study` - the actual session screen:
+     video/audio playback, pass/fail controls, looping through the due-card
+     queue.
+   - **6c. Language display toggles** - done. Independently toggleable
+     English/Romaji/Japanese+Furigana display on the study screen; added a
+     Japanese morphological analyzer dependency.
+7. **Review stats** - done. `/stats` - guess-rate tracking (overall and
+   sliced by artist / by anime title), read from `ReviewLog`.
+8. **Downloadable options for Cards** - done. A default download folder
+   setting (`/settings`) plus a download action on `/cards` and `/cards/new`
+   that pulls a card's `animethemesVideoUrl`/`animethemesAudioUrl` into the
+   local media library and sets the matching local path.
+9. **Deck export/import** - not started. Bundles card metadata always, audio
    optionally (never video); import can re-link missing local media from
    animethemes.moe when a remote reference exists.
+10. **Study session display toggles** - not started. Session-only toggles on
+    `/study`: Hide Video, Hide Info, and Start at random times (except the
+    last 15 seconds of the clip). Reset every time a session starts; not
+    persisted.
 
 ## Data model
 
@@ -102,10 +110,13 @@ stored: video if any video source is present, audio-only otherwise.
 
 > A card must have at least one non-null source across the four
 > local/remote fields (enforced by feature 4's create/update validation). A
-> card can hold a local reference, a remote reference, or both.
+> card can hold a local reference, a remote reference, or both. Feature 8
+> adds a way to turn a remote-only source into a local one (download into
+> the default download folder) without changing this shape.
 
 **`CardWithDetails`** (load-bearing shared shape, returned by `/api/cards`,
-`/api/decks/cards`, `/api/study/next`, `/api/study/review`):
+`/api/decks/cards`, `/api/study/next`, `/api/study/review`,
+`/api/cards/download`):
 
 ```ts
 interface CardWithDetails {
@@ -123,6 +134,7 @@ interface CardWithDetails {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
 }
 ```
 
@@ -145,6 +157,9 @@ Singleton row (`id` always `1`).
 - `id` (integer, PK)
 - `libraryPaths` (JSON array of strings) - local/external folders the app
   reads clip files from
+- `defaultDownloadFolder` (string, nullable) - added in feature 8; must be
+  one of `libraryPaths`. Where a downloaded card source is saved. Cleared
+  automatically if its folder is removed from `libraryPaths`.
 
 > **No Deck table.** Decks are derived, query-time groupings of `Card`
 > joined through `Song` by `artistId` or `animeId` - not a stored entity.
@@ -181,12 +196,15 @@ stored session queue.
 - **SQLite + Drizzle ORM + better-sqlite3** - local data persistence,
   migrations applied automatically on server boot
 - **AniList GraphQL API** - anime metadata lookup (`graphql.anilist.co`)
-- **animethemes.moe GraphQL API** (`graphql.animethemes.moe`) - OP/ED theme
-  video/audio and metadata. Requires a non-default `User-Agent` header
-  (blocks Node's bare default with a `403`) - see feature 3's archive.
-- **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - not yet
-  added; needed for feature 6c's furigana generation
-- **Node `fs`** - reads the user-configured local media library
+- **animethemes.moe GraphQL + media CDN** (`graphql.animethemes.moe`,
+  `v.animethemes.moe`, `a.animethemes.moe`) - OP/ED theme video/audio and
+  metadata, and the files feature 8 downloads. Requires a non-default
+  `User-Agent` header (blocks Node's bare default with a `403`) - see
+  feature 3's archive.
+- **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - added in
+  feature 6c for furigana generation
+- **Node `fs`** - reads the user-configured local media library and writes
+  files downloaded by feature 8
 
 ## Monetization
 
@@ -200,26 +218,31 @@ selectable DOM text (never baked into an image or video) so the Migaku
 browser extension can attach to it. Theme tokens (colors, fonts, radii) live
 in `nuxt-app/app/assets/css/main.css`, ported from `prototypes/theme.css`.
 
-Established conventions across every page/route built so far (settings,
-cards, decks): `useFetch` for the initial load (with explicit
-loading/error states, never just the happy path), `$fetch` for mutations,
-scoped `<style>` blocks using `var(--token)`. No dynamic route segments
-(`[id].ts`) exist anywhere yet - every route uses query-string parameters
-(`?type=&id=`) or a body-carried `id` for mutations, and that convention
-should continue rather than mixing in a new one.
+Established conventions across every page/route built so far: `useFetch` for
+the initial load (with explicit loading/error states, never just the happy
+path), `$fetch` for mutations, scoped `<style>` blocks using `var(--token)`.
+No dynamic route segments (`[id].ts`) exist anywhere yet - every route uses
+query-string parameters (`?type=&id=`) or a body-carried `id` for mutations,
+and that convention should continue rather than mixing in a new one.
 
 Routes:
 
-- `/settings` - done. Media library folder configuration.
-- `/cards` - done. Flashcard list/management.
-- `/cards/new` - done. Add a card via AniList/animethemes.moe lookup.
+- `/settings` - done. Media library folder configuration, plus (feature 8) a
+  default download folder picker shown once 2+ folders are configured.
+- `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
+  download action shown when a card has a remote reference and no local
+  file yet.
+- `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
+  the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail.
-- `/study` - next up (feature 6b). The study session: video centered,
-  title/artist info panel on the right, pass/fail (or left/right arrow)
-  controls. `prototypes/study.html` is its design reference.
-- `/stats` - not started (feature 7). Guess-rate stats by artist and by
-  anime title.
-- Deck export/import (feature 8) UI location not yet decided - the original
+- `/study` - done. Video centered, title/artist info panel on the right,
+  pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
+  toggles. `prototypes/study.html` was its original design reference
+  (consumed; `prototypes/` no longer exists). Feature 10 adds three more
+  session-only toggles here (Hide Video, Hide Info, Start at random times).
+- `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
+  each row's guess rate.
+- Deck export/import (feature 9) UI location not yet decided - the original
   plan suggested folding it into `/settings`, not yet confirmed.
 
 ## Deployment
@@ -237,12 +260,13 @@ Localhost-only - no remote hosting, no accounts, no multi-device sync.
 
 ## Open questions
 
-`project-plan.md`'s Flashcard CRUD section has an uncommitted note (added
-outside the normal feature-planning flow) about auto-importing an artist's
-entire catalog and optionally downloading video files. It hasn't been
-folded into any build-plan item yet and isn't reflected here. Resolve it
-as a deliberate plan decision (new build-plan item or an amendment to an
-existing one) before building anything against it.
+`project-plan.md`'s Flashcard CRUD section still has an uncommitted note
+about auto-importing an artist's **entire catalog** in one action. Feature 8
+deliberately covered only the narrower half of that note (a per-card
+download option) and explicitly left bulk artist import out of scope. The
+bulk-import idea remains unresolved and unbuilt - fold it into a future
+build-plan item (its own feature, not an amendment to 8) before building
+anything against it.
 
 ## Notes
 
