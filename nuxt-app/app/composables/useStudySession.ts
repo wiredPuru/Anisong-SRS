@@ -15,6 +15,7 @@ export interface CardWithDetails {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {

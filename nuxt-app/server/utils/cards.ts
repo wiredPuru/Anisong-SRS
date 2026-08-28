@@ -20,6 +20,7 @@ export interface CardWithDetails {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
 }
 
 const cardSelection = {
@@ -37,6 +38,7 @@ const cardSelection = {
   artistName: artist.name,
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
+  animeTitleNative: anime.titleNative,
 };
 
 function cardQuery() {

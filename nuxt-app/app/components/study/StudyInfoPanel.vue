@@ -1,18 +1,58 @@
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   songTitle: string;
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
   box: number;
 }>();
+
+const showEn = ref(true);
+const showRomaji = ref(true);
+const showJp = ref(true);
+
+const jpHtml = ref(props.animeTitleNative);
+let lastFetchedText: string | null = null;
+
+async function loadFurigana() {
+  const text = props.animeTitleNative;
+  if (lastFetchedText === text) return;
+  jpHtml.value = text;
+  try {
+    const result = await $fetch<{ html: string }>("/api/furigana", { query: { text } });
+    if (props.animeTitleNative === text) {
+      jpHtml.value = result.html;
+      lastFetchedText = text;
+    }
+  } catch {
+    jpHtml.value = text;
+  }
+}
+
+watch(
+  [() => props.animeTitleNative, showJp],
+  ([, jpOn]) => {
+    if (jpOn) loadFurigana();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <div class="info-card">
+    <div class="lang-toggles">
+      <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
+      <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
+        Romaji
+      </button>
+      <button type="button" class="lang-btn" :class="{ on: showJp }" @click="showJp = !showJp">JP + Furigana</button>
+    </div>
+
     <div class="title-block">
-      <span class="en">{{ animeTitleEnglish }}</span>
-      <span class="romaji">{{ animeTitleRomaji }}</span>
+      <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
+      <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
+      <span v-if="showJp" class="jp" v-html="jpHtml" />
     </div>
 
     <div class="song-block">
@@ -29,6 +69,8 @@ defineProps<{
         <span class="pill">Box {{ box }}</span>
       </div>
     </div>
+
+    <p class="hint">Japanese text is real, selectable text - Migaku can look up any word here.</p>
   </div>
 </template>
 
@@ -44,6 +86,31 @@ defineProps<{
   box-shadow: var(--shadow-soft);
 }
 
+.lang-toggles {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lang-btn {
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.lang-btn.on {
+  background: color-mix(in srgb, var(--accent-secondary) 24%, var(--surface-raised));
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+}
+
 .title-block {
   display: flex;
   flex-direction: column;
@@ -57,6 +124,18 @@ defineProps<{
 
 .title-block .romaji {
   font-size: 16px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.title-block .jp {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+}
+
+.title-block .jp :deep(rt) {
+  font-size: 11px;
   color: var(--muted);
   font-weight: 600;
 }
@@ -107,5 +186,12 @@ defineProps<{
   color: var(--accent-secondary);
   font-size: 12px;
   font-weight: 800;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+  line-height: 1.5;
 }
 </style>

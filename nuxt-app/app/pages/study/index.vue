@@ -77,6 +77,7 @@ const scopeChipLabel = computed(() => {
             :artist-name="currentCard.artistName"
             :anime-title-english="currentCard.animeTitleEnglish"
             :anime-title-romaji="currentCard.animeTitleRomaji"
+            :anime-title-native="currentCard.animeTitleNative"
             :box="currentCard.box"
           />
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />

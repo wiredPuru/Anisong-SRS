@@ -81,7 +81,7 @@ cleaned-up checkbox version before generating the project overview.
   song data; attach a local file and/or an animethemes.moe reference.
 - [x] 5. **Decks by Artist/Title** - automatic grouping of cards into Artist
   and Anime-Title decks.
-- [ ] 6. **Study session** - Leitner-box scheduled review queue, video/audio
+- [x] 6. **Study session** - Leitner-box scheduled review queue, video/audio
   playback, pass/fail (left/right arrow) controls, language toggle display
   with auto-generated furigana.
   - [x] 6a. **Leitner queue + review API** - scheduling logic (box/interval
@@ -91,7 +91,7 @@ cleaned-up checkbox version before generating the project overview.
     video/audio playback (quiz type derived from attached sources),
     left/right arrow pass/fail controls, looping through the queue,
     deck-scoped or all-decks entry points.
-  - [ ] 6c. **Language display toggles** - independently toggleable
+  - [x] 6c. **Language display toggles** - independently toggleable
     English/Romaji/Japanese+Furigana display on the study screen; adds a
     Japanese morphological analyzer dependency for furigana generation.
 - [ ] 7. **Review stats** - guess-rate tracking, sliceable by artist and by
