@@ -54,10 +54,12 @@ accounts, no remote hosting, no multi-device sync (see Non-Goals in
 
 ## Styling
 
-> TODO: no styling framework chosen yet. Direction from the project plan:
-> cute/moe, Akihabara/otaku aesthetic, rounded corners. Pick a concrete
-> approach (e.g. Tailwind, UnoCSS, or plain scoped CSS) when the first UI
-> feature is spec'd, then replace this TODO.
+Plain CSS custom properties, no framework (no Tailwind/UnoCSS/UI kit). The
+design tokens (colors, fonts, radii, shadows) live in
+`nuxt-app/app/assets/css/main.css` as `:root` custom properties, ported from
+`prototypes/theme.css` - keep the two in sync if the look changes. Components
+use scoped `<style>` blocks that reference `var(--token)`, never hard-coded
+colors/sizes.
 
 - No inline styles
 - Japanese text must render as real, selectable DOM text (not an image or

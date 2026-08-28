@@ -63,6 +63,14 @@ export const reviewLog = sqliteTable("review_log", {
   boxAfter: integer("box_after").notNull(),
 });
 
+export const mediaLibrarySettings = sqliteTable("media_library_settings", {
+  id: integer("id").primaryKey(),
+  libraryPaths: text("library_paths", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'`),
+});
+
 export type Anime = typeof anime.$inferSelect;
 export type NewAnime = typeof anime.$inferInsert;
 
@@ -77,3 +85,6 @@ export type NewCard = typeof card.$inferInsert;
 
 export type ReviewLog = typeof reviewLog.$inferSelect;
 export type NewReviewLog = typeof reviewLog.$inferInsert;
+
+export type MediaLibrarySettings = typeof mediaLibrarySettings.$inferSelect;
+export type NewMediaLibrarySettings = typeof mediaLibrarySettings.$inferInsert;
