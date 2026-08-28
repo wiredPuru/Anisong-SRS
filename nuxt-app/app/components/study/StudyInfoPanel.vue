@@ -69,8 +69,6 @@ watch(
         <span class="pill">Box {{ box }}</span>
       </div>
     </div>
-
-    <p class="hint">Japanese text is real, selectable text - Migaku can look up any word here.</p>
   </div>
 </template>
 
@@ -186,12 +184,5 @@ watch(
   color: var(--accent-secondary);
   font-size: 12px;
   font-weight: 800;
-}
-
-.hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--faint);
-  line-height: 1.5;
 }
 </style>

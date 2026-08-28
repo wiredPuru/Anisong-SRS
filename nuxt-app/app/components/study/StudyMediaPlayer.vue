@@ -47,7 +47,26 @@ function onTimeUpdate() {
 }
 
 function onLoadedMetadata() {
-  if (activeEl.value) duration.value = activeEl.value.duration;
+  const el = activeEl.value;
+  if (!el) return;
+
+  if (Number.isFinite(el.duration)) {
+    duration.value = el.duration;
+    return;
+  }
+
+  // Some webm streams report an Infinity/NaN duration until the browser scans to
+  // the end of the stream; seeking past the end forces that scan, then durationchange
+  // reports the real value. Standard workaround for this browser quirk.
+  el.addEventListener(
+    "durationchange",
+    () => {
+      duration.value = Number.isFinite(el.duration) ? el.duration : 0;
+      el.currentTime = 0;
+    },
+    { once: true },
+  );
+  el.currentTime = 1e101;
 }
 
 function onError() {
@@ -68,7 +87,7 @@ function togglePlay() {
 
 function onSeek(event: MouseEvent) {
   const el = activeEl.value;
-  if (!el || !duration.value) return;
+  if (!el || !Number.isFinite(duration.value) || !duration.value) return;
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
   const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
   el.currentTime = ratio * duration.value;
