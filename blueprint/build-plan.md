@@ -114,12 +114,12 @@ cleaned-up checkbox version before generating the project overview.
 
 ## Post-MVP
 
-- [ ] 13. **Manual decks + library view** - create/rename/delete named decks
+- [x] 13. **Manual decks + library view** - create/rename/delete named decks
   and assign cards to any number of them (many-to-many, flat - no nesting);
   browse decks in a library view groupable by Created (manual), Artist, or
   Anime.
   - [x] 13a. **Deck CRUD** - the `Deck` table; create/rename/delete; a third
     "Created" option on the existing `/decks` toggle (list + an empty
     detail view - no card assignment yet).
-  - [ ] 13b. **Card assignment** - the `DeckCard` join table and UI to add or
+  - [x] 13b. **Card assignment** - the `DeckCard` join table and UI to add or
     remove a card from any number of manual decks, populating 13a's decks.

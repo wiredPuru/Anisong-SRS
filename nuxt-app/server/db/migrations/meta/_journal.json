@@ -43,6 +43,13 @@
       "when": 1787970786759,
       "tag": "0005_daffy_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787971515000,
+      "tag": "0006_faulty_joystick",
+      "breakpoints": true
     }
   ]
 }

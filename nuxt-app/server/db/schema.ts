@@ -72,6 +72,20 @@ export const deck = sqliteTable("deck", {
     .default(sql`(unixepoch())`),
 });
 
+export const deckCard = sqliteTable(
+  "deck_card",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    deckId: integer("deck_id")
+      .notNull()
+      .references(() => deck.id, { onDelete: "cascade" }),
+    cardId: integer("card_id")
+      .notNull()
+      .references(() => card.id, { onDelete: "cascade" }),
+  },
+  (table) => [unique("deck_card_unique").on(table.deckId, table.cardId)],
+);
+
 export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   id: integer("id").primaryKey(),
   libraryPaths: text("library_paths", { mode: "json" })
@@ -101,3 +115,6 @@ export type NewMediaLibrarySettings = typeof mediaLibrarySettings.$inferInsert;
 
 export type Deck = typeof deck.$inferSelect;
 export type NewDeck = typeof deck.$inferInsert;
+
+export type DeckCard = typeof deckCard.$inferSelect;
+export type NewDeckCard = typeof deckCard.$inferInsert;

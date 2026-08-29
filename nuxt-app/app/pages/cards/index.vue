@@ -18,11 +18,56 @@ interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
+interface ManualDeck {
+  id: number;
+  name: string;
+  createdAt: string;
+  cardCount: number;
+}
+
 const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[] }>("/api/cards");
 const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
   "/api/media-library",
 );
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+
+const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
+  query: { type: "created" },
+});
+const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
+
+const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
+  memberships: Record<number, number[]>;
+}>("/api/decks/memberships");
+
+const openDecksPanelId = ref<number | null>(null);
+const togglingMembership = reactive<Record<string, boolean>>({});
+const deckToggleError = ref<string | null>(null);
+
+function cardDeckIds(cardId: number): number[] {
+  return membershipsData.value?.memberships[cardId] ?? [];
+}
+
+function isInDeck(cardId: number, deckId: number): boolean {
+  return cardDeckIds(cardId).includes(deckId);
+}
+
+async function toggleDeckMembership(cardId: number, deckId: number, checked: boolean) {
+  const key = `${cardId}-${deckId}`;
+  deckToggleError.value = null;
+  togglingMembership[key] = true;
+  try {
+    await $fetch("/api/decks/cards", {
+      method: checked ? "POST" : "DELETE",
+      body: { deckId, cardId },
+    });
+  } catch (err) {
+    deckToggleError.value = extractErrorMessage(err, "Failed to update deck membership.");
+  } finally {
+    await refreshMemberships();
+    togglingMembership[key] = false;
+  }
+}
 
 const editingId = ref<number | null>(null);
 const editVideoPath = ref("");
@@ -170,6 +215,22 @@ async function removeCard(id: number) {
               </p>
               <p v-if="downloadError[c.id]" class="edit-error">{{ downloadError[c.id] }}</p>
             </div>
+
+            <div v-if="openDecksPanelId === c.id" class="decks-panel">
+              <p v-if="!manualDecks.length" class="decks-hint">
+                No manual decks yet - <NuxtLink to="/decks?type=created">create one on the Decks page</NuxtLink>.
+              </p>
+              <label v-for="d in manualDecks" :key="d.id" class="deck-checkbox-row">
+                <input
+                  type="checkbox"
+                  :checked="isInDeck(c.id, d.id)"
+                  :disabled="togglingMembership[`${c.id}-${d.id}`]"
+                  @change="toggleDeckMembership(c.id, d.id, ($event.target as HTMLInputElement).checked)"
+                />
+                {{ d.name }}
+              </label>
+              <p v-if="deckToggleError" class="edit-error">{{ deckToggleError }}</p>
+            </div>
           </div>
 
           <template v-if="editingId === c.id">
@@ -203,6 +264,13 @@ async function removeCard(id: number) {
               @click="previewCard = c"
             >
               Preview
+            </button>
+            <button
+              type="button"
+              class="edit-btn"
+              @click="openDecksPanelId = openDecksPanelId === c.id ? null : c.id"
+            >
+              Decks
             </button>
             <button type="button" class="edit-btn" @click="startEdit(c)">Edit</button>
             <button type="button" class="remove-btn" @click="removeCard(c.id)">Delete</button>
@@ -409,6 +477,35 @@ h1 {
 
 .download-section {
   margin-top: 6px;
+}
+
+.decks-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.decks-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.decks-hint a {
+  color: var(--accent);
+}
+
+.deck-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .download-actions {

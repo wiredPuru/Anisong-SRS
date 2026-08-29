@@ -1,4 +1,4 @@
-import { listCardsByAnime, listCardsByArtist } from "../../utils/cards.ts";
+import { listCardsByAnime, listCardsByArtist, listCardsByManualDeck } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/decks.ts";
 
 export default defineEventHandler((event) => {
@@ -18,7 +18,7 @@ export default defineEventHandler((event) => {
     if (deckLabel === undefined) {
       throw createError({ statusCode: 404, statusMessage: "Deck not found" });
     }
-    return { deckLabel, cards: [] };
+    return { deckLabel, cards: listCardsByManualDeck(id) };
   }
 
   const deckLabel = type === "artist" ? getArtistLabel(id) : getAnimeLabel(id);

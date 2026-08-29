@@ -17,6 +17,7 @@ interface ManualDeck {
   id: number;
   name: string;
   createdAt: string;
+  cardCount: number;
 }
 
 type DeckType = "artist" | "anime" | "created";
@@ -84,13 +85,12 @@ const deckItems = computed<DeckItem[]>(() => {
     }));
   }
   if (activeType.value === "created") {
-    // No cardCount from the API yet - always 0 until 13b's join table exists.
     return (data.value.decks as ManualDeck[]).map((d) => ({
       id: d.id,
       label: d.name,
       sublabel: `Created ${formatDate(d.createdAt)}`,
       coverImageUrl: null,
-      cardCount: 0,
+      cardCount: d.cardCount,
     }));
   }
   return (data.value.decks as AnimeDeck[]).map((d) => ({
@@ -230,6 +230,24 @@ async function exportDeck() {
     exportError.value = extractErrorMessage(err, "Failed to export deck.");
   } finally {
     isExporting.value = false;
+  }
+}
+
+const removingCardId = ref<number | null>(null);
+const removeCardError = ref<string | null>(null);
+
+async function removeCardFromManualDeck(cardId: number) {
+  if (selectedId.value === null) return;
+
+  removeCardError.value = null;
+  removingCardId.value = cardId;
+  try {
+    await $fetch("/api/decks/cards", { method: "DELETE", body: { deckId: selectedId.value, cardId } });
+    await fetchDeckDetail();
+  } catch (err) {
+    removeCardError.value = extractErrorMessage(err, "Failed to remove card from deck.");
+  } finally {
+    removingCardId.value = null;
   }
 }
 
@@ -400,10 +418,20 @@ function backToDecks() {
                   <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
                 </div>
               </div>
+              <button
+                v-if="activeType === 'created'"
+                type="button"
+                class="remove-btn deck-card-remove-btn"
+                :disabled="removingCardId === c.id"
+                @click="removeCardFromManualDeck(c.id)"
+              >
+                {{ removingCardId === c.id ? "Removing..." : "Remove" }}
+              </button>
             </div>
           </li>
         </ul>
         <p v-else class="state">No cards in this deck.</p>
+        <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
 
         <div v-if="activeType !== 'created'" class="export-block">
           <h3>Export deck</h3>
@@ -591,9 +619,14 @@ h2 {
 
 .deck-card-row-text {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+
+.deck-card-remove-btn {
+  flex: none;
 }
 
 .song-title {

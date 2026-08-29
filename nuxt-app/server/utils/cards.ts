@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
 import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { anime, artist, card, song } from "../db/schema.ts";
+import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
 
 export interface CardWithDetails {
@@ -70,6 +70,14 @@ export function listCardsByArtist(artistId: number): CardWithDetails[] {
 
 export function listCardsByAnime(animeId: number): CardWithDetails[] {
   return cardQuery().where(eq(anime.id, animeId)).orderBy(desc(card.createdAt)).all();
+}
+
+export function listCardsByManualDeck(deckId: number): CardWithDetails[] {
+  return cardQuery()
+    .innerJoin(deckCard, eq(card.id, deckCard.cardId))
+    .where(eq(deckCard.deckId, deckId))
+    .orderBy(desc(card.createdAt))
+    .all();
 }
 
 export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
