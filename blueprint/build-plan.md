@@ -127,3 +127,6 @@ cleaned-up checkbox version before generating the project overview.
   glow behind the video player on /study (à la YouTube's Ambient Mode),
   active only while a real video frame is showing (not audio-only, not
   Hide Video).
+- [x] 15. **Home page + navigation bar** - a `/` launcher hub (links to
+  Study, Cards, Decks, Stats, Settings - no live data) plus a persistent top
+  nav bar, via a shared Nuxt layout, present on every page.

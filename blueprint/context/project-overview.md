@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 6c594aebc0e29c93e31e266395cf3edb45f09827a1e033c31c68057a6e6be256 -->
+<!-- blueprint:source-hash 45e19ff9e5afd278b8de8b809c49a5af762d20fd6fd97df54dca8ba8405d35f6 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,8 +24,8 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-13 (the full MVP plus manual decks) are built
-and merged; 14 is next.
+Build-plan order. Features 1-14 (the full MVP plus manual decks and the
+study-screen ambient glow) are built and merged; 15 is next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -95,9 +95,13 @@ and merged; 14 is next.
       shows real card counts and a real card list per manual deck with a
       "Remove" action. Not on `/cards/new` (same deferral feature 11 made
       for its own Preview button on that page).
-14. **Ambient video glow on Study** - not started. A soft, blurred,
-    color-sampled glow behind the video player on `/study`, active only
-    while a real video frame is showing (not audio-only, not Hide Video).
+14. **Ambient video glow on Study** - done. A soft, blurred, color-sampled
+    glow behind the video player on `/study`, active only while a real video
+    frame is showing (not audio-only, not Hide Video); covers the whole
+    background and is toggleable.
+15. **Home page + navigation bar** - not started. A `/` launcher hub (links
+    to Study, Cards, Decks, Stats, Settings - no live data) plus a
+    persistent top nav bar, via a shared Nuxt layout, present on every page.
 
 ## Data model
 
@@ -316,13 +320,19 @@ Routes:
   hover tooltip naming its key (established convention: any hotkeyed button
   gets one, via a custom `<span class="tooltip">` rather than the native
   `title` attribute, which only triggers over a button's text glyphs in some
-  browsers). Feature 14 (not yet built) adds an ambient glow behind the
-  player, sampled from the video via canvas rather than a second `<video>`
-  element, to avoid double-loading remote animethemes.moe clips - `/study`
-  only, `CardPreviewModal` (which reuses the same `StudyMediaPlayer`
-  component) stays unaffected.
+  browsers). Feature 14 added an ambient glow behind the player, sampled
+  from the video via canvas rather than a second `<video>` element, to
+  avoid double-loading remote animethemes.moe clips - `/study` only,
+  gated on a real video frame showing (not audio-only, not Hide Video),
+  covers the whole background, and is user-toggleable.
+  `CardPreviewModal` (which reuses the same `StudyMediaPlayer` component)
+  stays unaffected.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
+- `/` - not started (feature 15). A launcher hub with links to Study,
+  Cards, Decks, Stats, Settings - no live data, no dashboard stats.
+  Ships alongside a persistent top nav bar in a shared Nuxt layout,
+  present on every page.
 
 ## Deployment
 
