@@ -57,8 +57,7 @@ const scopeChipLabel = computed(() => {
 const hideVideo = ref(false);
 const hideInfo = ref(false);
 const randomStart = ref(false);
-const ambientMode = useAmbientMode();
-ambientMode.value = false;
+const ambientMode = ref(false);
 
 function onKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase();

@@ -14,7 +14,6 @@ const links: NavLink[] = [
 ];
 
 const route = useRoute();
-const ambientMode = useAmbientMode();
 
 function isActive(to: string): boolean {
   if (to === "/") return route.path === "/";
@@ -23,7 +22,7 @@ function isActive(to: string): boolean {
 </script>
 
 <template>
-  <nav class="app-nav" :class="{ ambient: ambientMode }">
+  <nav class="app-nav">
     <NuxtLink
       v-for="link in links"
       :key="link.to"
@@ -42,16 +41,6 @@ function isActive(to: string): boolean {
   gap: 4px;
   align-items: center;
   padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.app-nav.ambient {
-  background: color-mix(in srgb, var(--surface) 45%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--border) 45%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .nav-link {
