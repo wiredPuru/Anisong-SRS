@@ -172,7 +172,7 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 22. **Preview on deck detail card rows** - add a per-row Preview
   button to a deck's detail card list (Artist/Anime/Created), reusing the
   existing `CardPreviewModal` from `/cards` unchanged.
-- [ ] 23. **Expand toggle on /study's player** - a viewport-filling expand
+- [x] 23. **Expand toggle on /study's player** - a viewport-filling expand
   control for `/study`'s own video/audio player, separate from Preview's
   own expand (feature 20) since `/study`'s layout (video + side info panel
   + pass/fail controls) needs its own expand design.

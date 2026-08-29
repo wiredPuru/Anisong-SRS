@@ -6,6 +6,7 @@ const props = defineProps<{
   hideVideo?: boolean;
   randomStart?: boolean;
   ambient?: boolean;
+  allowExpand?: boolean;
 }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
@@ -62,6 +63,8 @@ watch(volume, (value) => {
     // just won't persist.
   }
 });
+
+const expanded = ref(false);
 
 const activeEl = computed<HTMLMediaElement | null>(() =>
   mediaKind.value === "video" ? videoRef.value : audioRef.value,
@@ -205,6 +208,8 @@ function onSeeked() {
 function onKeydown(event: KeyboardEvent) {
   if (event.key.toLowerCase() === "s") {
     togglePlay();
+  } else if (event.key === "Escape" && expanded.value) {
+    expanded.value = false;
   }
 }
 
@@ -224,9 +229,18 @@ function onSeek(event: MouseEvent) {
   <Teleport to="body">
     <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
   </Teleport>
-  <div class="player-card">
+  <div class="player-card" :class="{ expanded }">
     <div class="player-frame">
       <span class="theme-badge">{{ card.themeSlot }}</span>
+      <button
+        v-if="allowExpand"
+        type="button"
+        class="expand-btn"
+        :aria-label="expanded ? 'Collapse' : 'Expand'"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? "⤡" : "⤢" }}
+      </button>
 
       <video
         v-if="mediaKind === 'video' && src"
@@ -303,6 +317,33 @@ function onSeek(event: MouseEvent) {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
+}
+
+.player-card.expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: auto;
+  border-radius: 0;
+}
+
+.player-card.expanded .player-frame {
+  max-height: 90vh;
+}
+
+.expand-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 3;
 }
 
 .player-frame {

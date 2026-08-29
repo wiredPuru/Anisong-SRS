@@ -104,6 +104,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :hide-video="hideVideo"
           :random-start="randomStart"
           :ambient="ambientMode"
+          :allow-expand="true"
         />
         <div class="side">
           <StudyInfoPanel
