@@ -307,6 +307,7 @@ onUnmounted(() => stopDrag?.());
         @loadeddata="onLoadedData"
         @seeked="onSeeked"
         @error="onError"
+        @click="togglePlay"
       />
       <audio
         v-else-if="src"
@@ -324,7 +325,12 @@ onUnmounted(() => stopDrag?.());
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
       </div>
-      <div v-else-if="showVeil" class="veil" :class="quizType === 'audio' ? 'audio-veil' : 'paused-veil'">
+      <div
+        v-else-if="showVeil"
+        class="veil"
+        :class="quizType === 'audio' ? 'audio-veil' : 'paused-veil'"
+        @click="togglePlay"
+      >
         <div v-if="quizType === 'audio' && isPlaying" class="listening-icon">
           <span class="eq-bar" />
           <span class="eq-bar" />
@@ -423,6 +429,7 @@ onUnmounted(() => stopDrag?.());
   width: 100%;
   height: 100%;
   object-fit: contain;
+  cursor: pointer;
 }
 
 .hidden-audio {
@@ -457,6 +464,7 @@ onUnmounted(() => stopDrag?.());
 .paused-veil {
   backdrop-filter: blur(18px);
   background: rgba(10, 6, 15, 0.45);
+  cursor: pointer;
 }
 
 .audio-veil {
@@ -464,6 +472,7 @@ onUnmounted(() => stopDrag?.());
     radial-gradient(120% 120% at 30% 20%, rgba(255, 93, 162, 0.35), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),
     #120c19;
+  cursor: pointer;
 }
 
 .error-veil {
