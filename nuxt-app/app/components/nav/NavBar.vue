@@ -39,18 +39,6 @@ interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
-interface NamedResult {
-  id: number;
-  name: string;
-}
-
-interface AnimeResult {
-  id: number;
-  titleEnglish: string;
-  titleRomaji: string;
-  coverImageUrl: string | null;
-}
-
 interface AniListResult {
   aniListId: number;
   titleRomaji: string;
@@ -60,13 +48,10 @@ interface AniListResult {
 
 interface SearchResults {
   cards: CardWithDetails[];
-  artists: NamedResult[];
-  anime: AnimeResult[];
-  decks: NamedResult[];
 }
 
 function emptyResults(): SearchResults {
-  return { cards: [], artists: [], anime: [], decks: [] };
+  return { cards: [] };
 }
 
 const searchQuery = ref("");
@@ -79,14 +64,7 @@ const searchContainerRef = ref<HTMLElement | null>(null);
 const externalAnime = ref<AniListResult[] | null>(null);
 const externalPending = ref(false);
 
-const hasResults = computed(
-  () =>
-    results.value.cards.length +
-      results.value.artists.length +
-      results.value.anime.length +
-      results.value.decks.length >
-    0,
-);
+const hasResults = computed(() => results.value.cards.length > 0);
 const hasExternalResults = computed(() => Boolean(externalAnime.value && externalAnime.value.length));
 const showNoResults = computed(() => !hasResults.value && !externalPending.value && !hasExternalResults.value);
 
@@ -124,7 +102,7 @@ async function runSearch() {
   results.value = localResults;
   searchPending.value = false;
 
-  if (localResults.anime.length === 0) {
+  if (localResults.cards.length === 0) {
     externalPending.value = true;
     try {
       const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
@@ -149,6 +127,13 @@ function onSearchFocus() {
   if (searchQuery.value.trim().length >= 2) dropdownOpen.value = true;
 }
 
+function onSearchEnter() {
+  const q = searchQuery.value.trim();
+  if (q.length < 2) return;
+  resetSearch();
+  navigateTo(`/cards/new?q=${encodeURIComponent(q)}`);
+}
+
 function closeDropdown() {
   dropdownOpen.value = false;
 }
@@ -167,21 +152,6 @@ function selectCard(card: CardWithDetails) {
   pendingCardPreview.value = card;
   resetSearch();
   navigateTo("/cards");
-}
-
-function selectArtist(result: NamedResult) {
-  resetSearch();
-  navigateTo(`/decks?type=artist&id=${result.id}`);
-}
-
-function selectAnime(result: AnimeResult) {
-  resetSearch();
-  navigateTo(`/decks?type=anime&id=${result.id}`);
-}
-
-function selectDeck(result: NamedResult) {
-  resetSearch();
-  navigateTo(`/decks?type=created&id=${result.id}`);
 }
 
 function addShow(result: AniListResult) {
@@ -217,11 +187,12 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search..."
+        placeholder="Search Anime"
         class="search-input"
         @input="onSearchInput"
         @focus="onSearchFocus"
         @keydown.escape="closeDropdown"
+        @keydown.enter="onSearchEnter"
       />
       <div v-if="dropdownOpen" class="search-dropdown">
         <p v-if="searchPending" class="search-status">Searching...</p>
@@ -240,52 +211,19 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
               <span class="search-result-sub">{{ c.artistName }}</span>
             </button>
           </div>
-          <div v-if="results.artists.length" class="search-group">
-            <span class="search-group-label">Artists</span>
-            <button
-              v-for="a in results.artists"
-              :key="`artist-${a.id}`"
-              type="button"
-              class="search-result"
-              @click="selectArtist(a)"
-            >
-              {{ a.name }}
-            </button>
-          </div>
-          <div v-if="results.anime.length" class="search-group">
-            <span class="search-group-label">Anime</span>
-            <button
-              v-for="a in results.anime"
-              :key="`anime-${a.id}`"
-              type="button"
-              class="search-result"
-              @click="selectAnime(a)"
-            >
-              {{ a.titleEnglish }}
-            </button>
-          </div>
-          <div v-if="results.decks.length" class="search-group">
-            <span class="search-group-label">Decks</span>
-            <button
-              v-for="d in results.decks"
-              :key="`deck-${d.id}`"
-              type="button"
-              class="search-result"
-              @click="selectDeck(d)"
-            >
-              {{ d.name }}
-            </button>
-          </div>
           <p v-if="externalPending" class="search-status">Searching for shows...</p>
           <div v-else-if="hasExternalResults" class="search-group">
             <span class="search-group-label">Add a show</span>
-            <div v-for="a in externalAnime" :key="`external-${a.aniListId}`" class="search-result external-result">
-              <span class="search-result-text">
-                {{ a.titleRomaji }}
-                <span v-if="a.titleEnglish" class="search-result-sub">{{ a.titleEnglish }}</span>
-              </span>
-              <button type="button" class="add-show-btn" @click="addShow(a)">Add</button>
-            </div>
+            <button
+              v-for="a in externalAnime"
+              :key="`external-${a.aniListId}`"
+              type="button"
+              class="search-result"
+              @click="addShow(a)"
+            >
+              {{ a.titleRomaji }}
+              <span v-if="a.titleEnglish" class="search-result-sub">{{ a.titleEnglish }}</span>
+            </button>
           </div>
           <p v-if="showNoResults" class="search-status">No results.</p>
         </template>
@@ -420,30 +358,5 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
-}
-
-.external-result {
-  justify-content: space-between;
-  cursor: default;
-}
-
-.search-result-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.add-show-btn {
-  flex: none;
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 </style>

@@ -141,11 +141,13 @@ number is retired, not reused. 26 is done; 27-32 are queued, not started
       deck's detail view, via a shared `<Pager>` component and a
       `Paginated<T>` return shape.
     - **19b. Global search** - done. An autocomplete dropdown in the
-      persistent nav bar (`/api/search`), searching across
-      cards/decks/anime/artists, jumping straight to a result on
-      selection - a card result hands off to `/cards` via a shared
-      `pendingCardPreview` `useState`, pre-opening that card's Preview
-      modal on arrival.
+      persistent nav bar (`/api/search`), searching `Card`s only - a result
+      hands off to `/cards` via a shared `pendingCardPreview` `useState`,
+      pre-opening that card's Preview modal on arrival. Originally also
+      searched Artists/Anime/manual Decks and jumped to their `/decks`
+      pages; narrowed to cards-only by a fix (see feature 26's entry below)
+      after that deck-navigating behavior turned out to be unwanted UX, not
+      the search bar's job.
 20. **Preview expand + ambient mode** - done. `CardPreviewModal` gained an
     expand button that grows the modal to fill the viewport (in-page
     overlay via an `expanded` class, not the native Fullscreen API) and,
@@ -193,11 +195,19 @@ number is retired, not reused. 26 is done; 27-32 are queued, not started
     launcher UX on top of it.
 26. **Global search: find + add shows** - done. The nav search bar
     (`NavBar.vue`) falls back to `GET /api/lookup/anilist-search` when the
-    local `anime` result group is empty, showing an "Add a show" dropdown
-    group with an inline "Add" button per AniList match. "Add" navigates to
-    `/cards/new?aniListId=<id>`, which now reads that param on mount and
+    local `Cards` group is empty, showing an "Add a show" dropdown group -
+    a single full-width button per AniList match, same pattern as the
+    `Cards` group's own result buttons. Clicking one navigates to
+    `/cards/new?aniListId=<id>`, which reads that param on mount and
     auto-triggers the existing `selectAnime` import flow - no new server
-    routes, no duplicated theme-list UI.
+    routes, no duplicated theme-list UI. Pressing Enter in the search box
+    (2+ characters) hands off to `/cards/new?q=<query>` instead, which
+    auto-runs that page's existing manual AniList search. A same-day fix
+    (`blueprint/history/fixes/narrow-global-search-to-cards.md`) removed
+    the dropdown's Artists/Anime/manual-Decks groups entirely (search is
+    cards-only now) and moved this fallback's trigger from the removed
+    `anime` group to the `Cards` group being empty; placeholder text reads
+    "Search Anime".
 27. **Explicit "Clear local file" action on cards** - not started. A
     one-click button next to a card's local video/audio path (in both
     `/cards`' row edit and `CardPreviewModal`'s edit mode, feature 16) that

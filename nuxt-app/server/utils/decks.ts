@@ -1,4 +1,4 @@
-import { and, count, countDistinct, eq, like, or } from "drizzle-orm";
+import { and, count, countDistinct, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, song } from "../db/schema.ts";
 import type { Paginated } from "./cards.ts";
@@ -76,34 +76,6 @@ export function getAnimeLabel(id: number): string | undefined {
   return db.select({ titleEnglish: anime.titleEnglish }).from(anime).where(eq(anime.id, id)).get()?.titleEnglish;
 }
 
-export function searchArtists(query: string): { id: number; name: string }[] {
-  return db
-    .select({ id: artist.id, name: artist.name })
-    .from(artist)
-    .where(like(artist.name, `%${query}%`))
-    .orderBy(artist.name)
-    .limit(5)
-    .all();
-}
-
-export function searchAnime(
-  query: string,
-): { id: number; titleEnglish: string; titleRomaji: string; coverImageUrl: string | null }[] {
-  const pattern = `%${query}%`;
-  return db
-    .select({
-      id: anime.id,
-      titleEnglish: anime.titleEnglish,
-      titleRomaji: anime.titleRomaji,
-      coverImageUrl: anime.coverImageUrl,
-    })
-    .from(anime)
-    .where(or(like(anime.titleEnglish, pattern), like(anime.titleRomaji, pattern), like(anime.titleNative, pattern)))
-    .orderBy(anime.titleEnglish)
-    .limit(5)
-    .all();
-}
-
 export interface ManualDeck {
   id: number;
   name: string;
@@ -129,16 +101,6 @@ export function listManualDecks(page: number): Paginated<ManualDeck> {
 
 export function getManualDeckLabel(id: number): string | undefined {
   return db.select({ name: deck.name }).from(deck).where(eq(deck.id, id)).get()?.name;
-}
-
-export function searchManualDecks(query: string): { id: number; name: string }[] {
-  return db
-    .select({ id: deck.id, name: deck.name })
-    .from(deck)
-    .where(like(deck.name, `%${query}%`))
-    .orderBy(deck.name)
-    .limit(5)
-    .all();
 }
 
 function nameExists(name: string, excludeId?: number): boolean {

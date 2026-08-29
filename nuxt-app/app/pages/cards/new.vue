@@ -161,11 +161,19 @@ async function addCard(theme: ThemeResult) {
 const route = useRoute();
 
 onMounted(() => {
-  const raw = route.query.aniListId;
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  const aniListId = typeof value === "string" ? Number(value) : NaN;
+  const rawAniListId = route.query.aniListId;
+  const aniListIdValue = Array.isArray(rawAniListId) ? rawAniListId[0] : rawAniListId;
+  const aniListId = typeof aniListIdValue === "string" ? Number(aniListIdValue) : NaN;
   if (Number.isInteger(aniListId) && aniListId > 0) {
     selectAnime({ aniListId, titleRomaji: "", titleEnglish: null, titleNative: null });
+    return;
+  }
+
+  const rawQuery = route.query.q;
+  const queryValue = Array.isArray(rawQuery) ? rawQuery[0] : rawQuery;
+  if (typeof queryValue === "string" && queryValue.trim()) {
+    searchQuery.value = queryValue;
+    search();
   }
 });
 </script>
