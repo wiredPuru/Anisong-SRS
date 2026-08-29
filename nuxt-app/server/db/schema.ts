@@ -8,6 +8,7 @@ export const anime = sqliteTable("anime", {
   titleEnglish: text("title_english").notNull(),
   titleRomaji: text("title_romaji").notNull(),
   titleNative: text("title_native").notNull(),
+  coverImageUrl: text("cover_image_url"),
 });
 
 export const artist = sqliteTable("artist", {

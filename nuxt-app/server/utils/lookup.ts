@@ -9,21 +9,24 @@ export function upsertAnime(data: {
   titleEnglish: string | null;
   titleRomaji: string;
   titleNative: string | null;
+  // Omitted (not null) means "leave the stored cover art alone" - callers that don't
+  // have fresh AniList data (e.g. deck import) must not clobber an existing cover.
+  coverImageUrl?: string | null;
 }): Anime {
-  const values = {
+  const values: typeof anime.$inferInsert = {
     aniListId: data.aniListId,
     animethemesId: data.animethemesId,
     titleEnglish: data.titleEnglish ?? data.titleRomaji,
     titleRomaji: data.titleRomaji,
     titleNative: data.titleNative ?? data.titleRomaji,
   };
+  const set: typeof values = { ...values };
+  if (data.coverImageUrl !== undefined) {
+    values.coverImageUrl = data.coverImageUrl;
+    set.coverImageUrl = data.coverImageUrl;
+  }
 
-  return db
-    .insert(anime)
-    .values(values)
-    .onConflictDoUpdate({ target: anime.aniListId, set: values })
-    .returning()
-    .get();
+  return db.insert(anime).values(values).onConflictDoUpdate({ target: anime.aniListId, set }).returning().get();
 }
 
 export function getOrCreateArtist(name: string): Artist {

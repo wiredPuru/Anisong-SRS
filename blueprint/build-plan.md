@@ -108,6 +108,6 @@ cleaned-up checkbox version before generating the project overview.
   showing playback (video/audio, scrub) and the same title/artist/anime
   info a study card shows, to verify a card works without starting a full
   study session.
-- [ ] 12. **Anime cover art** - fetch and store each anime's AniList cover
+- [x] 12. **Anime cover art** - fetch and store each anime's AniList cover
   image, and display it in card/deck browsing so anime are visually
   recognizable.

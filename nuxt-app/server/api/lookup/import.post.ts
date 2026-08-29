@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     titleEnglish: aniListAnime.titleEnglish,
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,
+    coverImageUrl: aniListAnime.coverImageUrl,
   });
 
   const themes = (animethemesResult?.themes ?? []).map((theme) => {

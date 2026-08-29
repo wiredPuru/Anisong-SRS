@@ -9,6 +9,7 @@ interface AnimeDeck {
   id: number;
   titleEnglish: string;
   titleRomaji: string;
+  coverImageUrl: string | null;
   cardCount: number;
 }
 
@@ -18,6 +19,7 @@ interface DeckItem {
   id: number;
   label: string;
   sublabel: string | null;
+  coverImageUrl: string | null;
   cardCount: number;
 }
 
@@ -36,6 +38,7 @@ interface DeckCard {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeCoverImageUrl: string | null;
 }
 
 const route = useRoute();
@@ -61,6 +64,7 @@ const deckItems = computed<DeckItem[]>(() => {
       id: d.id,
       label: d.name,
       sublabel: null,
+      coverImageUrl: null,
       cardCount: d.cardCount,
     }));
   }
@@ -68,8 +72,14 @@ const deckItems = computed<DeckItem[]>(() => {
     id: d.id,
     label: d.titleEnglish,
     sublabel: d.titleRomaji,
+    coverImageUrl: d.coverImageUrl,
     cardCount: d.cardCount,
   }));
+});
+
+const selectedDeckCover = computed<string | null>(() => {
+  if (selectedId.value === null) return null;
+  return deckItems.value.find((item) => item.id === selectedId.value)?.coverImageUrl ?? null;
 });
 
 const {
@@ -184,6 +194,7 @@ function backToDecks() {
       <template v-else>
         <ul v-if="deckItems.length" class="deck-list">
           <li v-for="item in deckItems" :key="item.id" class="deck-row deck-row-clickable" @click="selectDeck(item.id)">
+            <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" class="cover-thumb" />
             <div class="deck-info">
               <span class="deck-label">{{ item.label }}</span>
               <span v-if="item.sublabel" class="deck-sublabel">{{ item.sublabel }}</span>
@@ -202,15 +213,28 @@ function backToDecks() {
       <div v-else-if="detailError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
       <template v-else-if="deckDetail">
         <div class="deck-detail-header">
-          <h2>{{ deckDetail.deckLabel }}</h2>
+          <div class="deck-detail-title">
+            <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
+            <h2>{{ deckDetail.deckLabel }}</h2>
+          </div>
           <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}`" class="study-link">Study this deck</NuxtLink>
         </div>
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
           <li v-for="c in deckDetail.cards" :key="c.id" class="deck-card-row">
-            <span class="song-title">{{ c.songTitle }}</span>
-            <span class="deck-sublabel">{{ c.artistName }} - {{ c.animeTitleEnglish }} ({{ c.themeSlot }})</span>
-            <div class="badges">
-              <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
+            <div class="deck-card-row-main">
+              <img
+                v-if="activeType === 'anime' && c.animeCoverImageUrl"
+                :src="c.animeCoverImageUrl"
+                alt=""
+                class="cover-thumb"
+              />
+              <div class="deck-card-row-text">
+                <span class="song-title">{{ c.songTitle }}</span>
+                <span class="deck-sublabel">{{ c.artistName }} - {{ c.animeTitleEnglish }} ({{ c.themeSlot }})</span>
+                <div class="badges">
+                  <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
+                </div>
+              </div>
             </div>
           </li>
         </ul>
@@ -290,6 +314,12 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.deck-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .back-btn {
@@ -382,17 +412,41 @@ h2 {
 }
 
 .deck-card-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   padding: 14px 16px;
   border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--border);
 }
 
+.deck-card-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.deck-card-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .song-title {
   font-weight: 700;
+}
+
+.cover-thumb {
+  flex: none;
+  width: 48px;
+  height: 68px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-raised);
+}
+
+.cover-thumb-lg {
+  width: 64px;
+  height: 90px;
 }
 
 .badges {

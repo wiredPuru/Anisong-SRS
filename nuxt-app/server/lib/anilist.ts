@@ -5,6 +5,7 @@ export interface AniListAnime {
   titleRomaji: string;
   titleEnglish: string | null;
   titleNative: string | null;
+  coverImageUrl: string | null;
 }
 
 interface AniListMediaTitle {
@@ -13,9 +14,14 @@ interface AniListMediaTitle {
   native: string | null;
 }
 
+interface AniListMediaCoverImage {
+  large: string | null;
+}
+
 interface AniListMedia {
   id: number;
   title: AniListMediaTitle;
+  coverImage?: AniListMediaCoverImage;
 }
 
 interface GraphQLResponse<T> {
@@ -39,6 +45,7 @@ const BY_ID_QUERY = `
     Media(id: $id, type: ANIME) {
       id
       title { romaji english native }
+      coverImage { large }
     }
   }
 `;
@@ -62,6 +69,7 @@ function toAniListAnime(media: AniListMedia): AniListAnime {
     titleRomaji: media.title.romaji,
     titleEnglish: media.title.english,
     titleNative: media.title.native,
+    coverImageUrl: media.coverImage?.large ?? null,
   };
 }
 

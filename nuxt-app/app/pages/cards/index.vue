@@ -15,6 +15,7 @@ interface CardWithDetails {
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 
 const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[] }>("/api/cards");
@@ -127,6 +128,7 @@ async function removeCard(id: number) {
     <template v-else>
       <ul v-if="data?.cards.length" class="card-list">
         <li v-for="c in data.cards" :key="c.id" class="card-row">
+          <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
           <div class="card-info">
             <span class="song-title">{{ c.songTitle }}</span>
             <span class="meta">{{ c.artistName }} - {{ c.animeTitleEnglish }} ({{ c.themeSlot }})</span>
@@ -285,6 +287,15 @@ h1 {
   border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--border);
+}
+
+.cover-thumb {
+  flex: none;
+  width: 48px;
+  height: 68px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-raised);
 }
 
 .card-info {

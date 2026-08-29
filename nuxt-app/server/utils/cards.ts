@@ -21,6 +21,7 @@ export interface CardWithDetails {
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 
 const cardSelection = {
@@ -39,6 +40,7 @@ const cardSelection = {
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,
+  animeCoverImageUrl: anime.coverImageUrl,
 };
 
 function cardQuery() {

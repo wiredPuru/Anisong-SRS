@@ -12,6 +12,7 @@ export interface AnimeDeck {
   id: number;
   titleEnglish: string;
   titleRomaji: string;
+  coverImageUrl: string | null;
   cardCount: number;
 }
 
@@ -32,6 +33,7 @@ export function listAnimeDecks(): AnimeDeck[] {
       id: anime.id,
       titleEnglish: anime.titleEnglish,
       titleRomaji: anime.titleRomaji,
+      coverImageUrl: anime.coverImageUrl,
       cardCount: count(card.id),
     })
     .from(card)
