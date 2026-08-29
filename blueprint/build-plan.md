@@ -158,7 +158,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 19b. **Global search** - an autocomplete dropdown in the persistent
     nav bar, searching across cards/decks/anime/artists, jumping straight to
     a result on selection.
-- [ ] 20. **Preview expand + ambient mode** - `CardPreviewModal` gains an
+- [x] 20. **Preview expand + ambient mode** - `CardPreviewModal` gains an
   expand button that grows the modal to fill the viewport (in-page overlay,
   not the native Fullscreen API) and, independently, a minimal ambient-mode
   toggle reusing `StudyMediaPlayer`'s existing `ambient` prop - not the full
@@ -169,3 +169,10 @@ cleaned-up checkbox version before generating the project overview.
   covering both `/study` and `CardPreviewModal` since both share that
   component. The chosen level persists across sessions (localStorage), unlike
   Study's other session-only display toggles.
+- [ ] 22. **Preview on deck detail card rows** - add a per-row Preview
+  button to a deck's detail card list (Artist/Anime/Created), reusing the
+  existing `CardPreviewModal` from `/cards` unchanged.
+- [ ] 23. **Expand toggle on /study's player** - a viewport-filling expand
+  control for `/study`'s own video/audio player, separate from Preview's
+  own expand (feature 20) since `/study`'s layout (video + side info panel
+  + pass/fail controls) needs its own expand design.

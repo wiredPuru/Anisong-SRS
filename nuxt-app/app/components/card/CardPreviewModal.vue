@@ -30,6 +30,29 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
+const expanded = ref(false);
+
+const AMBIENT_STORAGE_KEY = "gaqSrs:previewAmbient";
+const ambientMode = ref(false);
+
+onMounted(() => {
+  try {
+    ambientMode.value = localStorage.getItem(AMBIENT_STORAGE_KEY) === "1";
+  } catch {
+    ambientMode.value = false;
+  }
+});
+
+function toggleAmbient() {
+  ambientMode.value = !ambientMode.value;
+  try {
+    localStorage.setItem(AMBIENT_STORAGE_KEY, ambientMode.value ? "1" : "0");
+  } catch {
+    // localStorage unavailable (private browsing, locked-down environment) -
+    // the toggle still works for this session, it just won't persist.
+  }
+}
+
 const editing = ref(false);
 const editSongTitle = ref("");
 const editThemeSlot = ref("");
@@ -96,15 +119,33 @@ watch(
   () => {
     editing.value = false;
     editError.value = null;
+    expanded.value = false;
   },
 );
 </script>
 
 <template>
-  <div v-if="open && card" class="backdrop" @click.self="emit('close')">
-    <div class="panel">
+  <div v-if="open && card" class="backdrop" :class="{ expanded }" @click.self="emit('close')">
+    <div class="panel" :class="{ expanded }">
+      <button
+        type="button"
+        class="expand-btn"
+        :aria-label="expanded ? 'Collapse' : 'Expand'"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? "⤡" : "⤢" }}
+      </button>
+      <button
+        type="button"
+        class="ambient-btn"
+        :class="{ active: ambientMode }"
+        :aria-label="ambientMode ? 'Turn off ambient glow' : 'Turn on ambient glow'"
+        @click="toggleAmbient"
+      >
+        ✨
+      </button>
       <button type="button" class="close-btn" @click="emit('close')">✕</button>
-      <StudyMediaPlayer :card="card" />
+      <StudyMediaPlayer :card="card" :ambient="ambientMode" />
 
       <form v-if="editing" class="edit-form" @submit.prevent="saveEdit">
         <label class="field">
@@ -180,6 +221,10 @@ watch(
   z-index: 50;
 }
 
+.backdrop.expanded {
+  padding: 0;
+}
+
 .panel {
   position: relative;
   width: 100%;
@@ -196,10 +241,19 @@ watch(
   box-shadow: var(--shadow-soft);
 }
 
-.close-btn {
+.panel.expanded {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+}
+
+.close-btn,
+.expand-btn,
+.ambient-btn {
   position: absolute;
   top: 16px;
-  right: 16px;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -209,6 +263,23 @@ watch(
   font-size: 16px;
   cursor: pointer;
   z-index: 1;
+}
+
+.close-btn {
+  right: 16px;
+}
+
+.expand-btn {
+  right: 60px;
+}
+
+.ambient-btn {
+  right: 104px;
+}
+
+.ambient-btn.active {
+  border-color: var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 24%, var(--surface-raised));
 }
 
 .edit-toggle-btn {
