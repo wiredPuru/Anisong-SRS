@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 0570a61f0433df5794beb006b7744a280c508b0df5f0f44bb9d4f3d829eea78e -->
+<!-- blueprint:source-hash 10a12cafd9f5fc0dedcbdc8b990b7c57d5338402fbf23487da7e0216b05ea470 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,9 +24,12 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-17 (the full MVP, manual decks, the study-screen
-ambient glow, the home page/nav bar, Preview editing, and delete cleanup) are
-built and merged; 18 is next.
+Build-plan order. Features 1-17 and 19-23 (the full MVP, manual decks, the
+study-screen ambient glow, the home page/nav bar, Preview editing, delete
+cleanup, pagination/search, Preview expand + ambient mode, the volume
+slider, deck-detail Preview, and Study's own expand toggle) are built and
+merged. Feature 18 was built then rolled back (see its entry below) and is
+pending a redesign; 24 is next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -118,33 +121,59 @@ built and merged; 18 is next.
     Best-effort: a missing file or a filesystem error is swallowed, same
     degrade-gracefully behavior as everywhere else. Remote sources
     (`animethemesVideoUrl`/`animethemesAudioUrl`) are never touched.
-18. **Per-scope quiz-mode preference** - not started. A settings table keyed
-    by study scope (artist id / anime id / "all" - manual decks excluded
-    since `/study` can't be scoped to one yet), each independently settable
-    to Auto / Audio-only / Video-only. A forced mode prefers that source
-    type (still local-then-remote per source, same as today) and falls back
-    to whatever the card actually has if the preferred type isn't available
-    at all, rather than skipping the card. See Data model below for the
-    locked shape.
-19. **Library scale-up: pagination + search** - not started, two
-    sub-features:
-    - **19a. Pagination** - numbered pages, ~25/page, on the top-level
+18. **Per-scope quiz-mode preference** - built, then rolled back
+    2026-08-29 (pending a redesign). A settings table keyed by study scope
+    (artist id / anime id / "all" - manual decks excluded since `/study`
+    can't be scoped to one yet), each independently settable to Auto /
+    Audio-only / Video-only. Rolled back because its `forcedMode`
+    mechanism let `StudyMediaPlayer`'s `mediaKind` change after playback
+    had already started, causing two audio streams to play at once; a
+    targeted fix didn't resolve it. See
+    `blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`.
+    A future rebuild is not bound to the old shape - the mid-playback swap
+    is exactly what needs to change.
+19. **Library scale-up: pagination + search** - done, two sub-features:
+    - **19a. Pagination** - done. Numbered pages, ~25/page
+      (`PAGE_SIZE` in `server/utils/pagination.ts`), on the top-level
       `/cards` list, top-level `/decks` list, and the card list inside a
-      deck's detail view.
-    - **19b. Global search** - an autocomplete dropdown in the persistent
-      nav bar, searching across cards/decks/anime/artists, jumping straight
-      to a result on selection.
-20. **Preview expand + ambient mode** - not started. `CardPreviewModal`
-    gains an expand button that grows the modal to fill the viewport
-    (in-page overlay, not the native Fullscreen API) and, independently, a
-    minimal ambient-mode toggle reusing `StudyMediaPlayer`'s existing
-    `ambient` prop. The ambient choice persists across Preview opens
-    (localStorage) - the app's first persisted UI preference; everywhere
-    else (Study's toggles) resets every session.
-21. **Video volume slider** - not started. A volume control in
-    `StudyMediaPlayer`, covering both `/study` and `CardPreviewModal` since
-    both share that component. The chosen level persists across sessions
-    (localStorage), unlike Study's other session-only display toggles.
+      deck's detail view, via a shared `<Pager>` component and a
+      `Paginated<T>` return shape.
+    - **19b. Global search** - done. An autocomplete dropdown in the
+      persistent nav bar (`/api/search`), searching across
+      cards/decks/anime/artists, jumping straight to a result on
+      selection - a card result hands off to `/cards` via a shared
+      `pendingCardPreview` `useState`, pre-opening that card's Preview
+      modal on arrival.
+20. **Preview expand + ambient mode** - done. `CardPreviewModal` gained an
+    expand button that grows the modal to fill the viewport (in-page
+    overlay via an `expanded` class, not the native Fullscreen API) and,
+    independently, a minimal ambient-mode toggle (✨) reusing
+    `StudyMediaPlayer`'s existing `ambient` prop. The ambient choice
+    persists across Preview opens (`localStorage` key
+    `gaqSrs:previewAmbient`) - the app's first persisted UI preference;
+    everywhere else (Study's toggles) resets every session.
+21. **Video volume slider** - done. A volume control in `StudyMediaPlayer`,
+    covering both `/study` and `CardPreviewModal` since both share that
+    component. The chosen level persists across sessions (localStorage),
+    unlike Study's other session-only display toggles.
+22. **Preview on deck detail card rows** - done. A per-row Preview button on
+    a deck's detail card list (Artist/Anime/Created), reusing the existing
+    `CardPreviewModal` from `/cards` unchanged.
+23. **Expand toggle on /study's player** - done. A viewport-filling expand
+    control for `/study`'s own video/audio player, separate from Preview's
+    own expand (feature 20) since `/study`'s layout (video + side info
+    panel + pass/fail controls) needs its own expand design.
+24. **Glass surface, automatic with ambient mode** - not started.
+    `/study`'s player and `CardPreviewModal`'s panel turn translucent and
+    frosted (`backdrop-filter` blur, via plain `--glass-surface` /
+    `--glass-border` / `--glass-blur` tokens) automatically whenever that
+    surface's own ambient-mode toggle is on - an `ambient-glass` class
+    bound directly to each component's existing `ambient`/`ambientMode`
+    state, no separate theme setting, no persistence, no `/settings` UI.
+    Redirected from an initial standalone Theme picker design (built,
+    verified working, then found to read as pointless since most of the
+    app barely visibly reacted to a separate toggle) before that version
+    was ever merged.
 
 ## Data model
 
@@ -286,27 +315,19 @@ type DeckRef = { type: "artist"; id: number } | { type: "anime"; id: number };
 type StudyScope = { type: "all" } | DeckRef;
 ```
 
-### Study scope playback preference (planned, feature 18)
+### Study scope playback preference (rolled back, feature 18)
 
-Not yet built. One row per study scope, matching `StudyScope` above exactly
-(`"all" | "artist" | "anime"`) - manual decks are excluded because `/study`
-can't be scoped to one yet (feature 13a deliberately hid "Study this deck"
-for Created decks). Not tied to the `Deck` table since Artist and Anime
-scopes have no stored row of their own.
-
-- `id` (integer, PK)
-- `scopeType` (`"artist" | "anime" | "all"`)
-- `scopeId` (integer, nullable) - the artist/anime id; null only when
-  `scopeType` is `"all"`
-- `mode` (`"auto" | "audioOnly" | "videoOnly"`, default `"auto"`)
-- Unique on `(scopeType, scopeId)`
-
-> Exact table/column naming is feature 18's call at spec time - this shape
-> is locked enough to build against. A non-`"auto"` mode is a *preference*,
-> not a hard filter: `StudyMediaPlayer` already falls back from local to
-> remote per source type, so "prefer audio" just means trying the audio
-> source (local, else remote URL) first; if the card has no audio source at
-> all, it falls back to whatever it actually has rather than being skipped.
+Built as a `studyScopeSetting` table (one row per study scope, plus a
+`forcedMode` prop threaded into `StudyMediaPlayer`), then rolled back
+2026-08-29 - the table was dropped from the live database and its
+migration removed, so it is **not** part of the current schema. The
+rollback reason (changing `mediaKind` after playback had already started,
+causing overlapping audio) means a future redesign should not simply
+rebuild the old shape - the mid-playback swap is exactly what needs to
+change. Full detail lives in
+`blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`
+and the original archive at
+`blueprint/history/features/18-per-scope-quiz-mode-preference.md`.
 
 ### Leitner scheduling (locked in feature 6a)
 
@@ -390,7 +411,10 @@ Routes:
   for manual decks - create/rename/delete inline, real card counts and card
   list once 13b landed, with a per-card "Remove" action found only in the
   manual-deck detail view. Neither "Study this deck" nor the export block
-  appears there.
+  appears there. Feature 22 added a per-row "Preview" button to the detail
+  card list (all three deck types), reusing `CardPreviewModal` unchanged
+  and refetching via the page's existing `fetchDeckDetail()` when an
+  in-modal edit is saved.
 - `/study` - done. Video centered, title/artist info panel on the right,
   pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
   toggles. `prototypes/study.html` was its original design reference
@@ -406,7 +430,12 @@ Routes:
   gated on a real video frame showing (not audio-only, not Hide Video),
   covers the whole background, and is user-toggleable.
   `CardPreviewModal` (which reuses the same `StudyMediaPlayer` component)
-  stays unaffected.
+  stays unaffected. Feature 21 added a persisted volume slider
+  (`localStorage` key `gaqSrs:playerVolume`) inside `StudyMediaPlayer`
+  itself, so `/study` and `CardPreviewModal` share the same volume level.
+  Feature 23 added a separate, `/study`-only expand toggle (`allowExpand`
+  prop, not passed from `CardPreviewModal`) that grows the player to fill
+  the viewport - independent of Preview's own expand from feature 20.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
 

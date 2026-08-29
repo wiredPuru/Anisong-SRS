@@ -69,7 +69,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 13px;
   padding: 3px 9px;
   border-radius: 7px;
-  background: var(--surface-raised);
   color: var(--muted);
   font-weight: 700;
 }

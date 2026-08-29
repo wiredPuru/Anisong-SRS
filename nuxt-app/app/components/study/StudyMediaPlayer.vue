@@ -229,7 +229,7 @@ function onSeek(event: MouseEvent) {
   <Teleport to="body">
     <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
   </Teleport>
-  <div class="player-card" :class="{ expanded }">
+  <div class="player-card" :class="{ expanded, 'ambient-glass': ambient }">
     <div class="player-frame">
       <span class="theme-badge">{{ card.themeSlot }}</span>
       <button
@@ -317,6 +317,12 @@ function onSeek(event: MouseEvent) {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
+}
+
+.player-card.ambient-glass {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
 }
 
 .player-card.expanded {

@@ -50,9 +50,9 @@ const emit = defineEmits<{
 }
 
 .toggle-btn.on {
-  background: color-mix(in srgb, var(--accent-secondary) 24%, var(--surface-raised));
   border-color: var(--accent-secondary);
   color: var(--accent-secondary);
+  box-shadow: 0 0 14px var(--accent-secondary-glow);
 }
 
 .tooltip {

@@ -43,6 +43,13 @@ onMounted(() => {
   }
 });
 
+const { setAmbientGlass } = useAmbientGlass();
+watch(
+  () => ambientMode.value && props.open,
+  (active) => setAmbientGlass(active),
+  { immediate: true },
+);
+
 function toggleAmbient() {
   ambientMode.value = !ambientMode.value;
   try {
@@ -126,7 +133,7 @@ watch(
 
 <template>
   <div v-if="open && card" class="backdrop" :class="{ expanded }" @click.self="emit('close')">
-    <div class="panel" :class="{ expanded }">
+    <div class="panel" :class="{ expanded, 'ambient-glass': ambientMode }">
       <button
         type="button"
         class="expand-btn"
@@ -200,7 +207,7 @@ watch(
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"
-          :box="card.box"
+          :ambient="ambientMode"
         />
         <button type="button" class="edit-toggle-btn" @click="startEdit">Edit card</button>
       </template>
@@ -241,6 +248,12 @@ watch(
   box-shadow: var(--shadow-soft);
 }
 
+.panel.ambient-glass {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+}
+
 .panel.expanded {
   width: 100vw;
   height: 100vh;
@@ -279,7 +292,7 @@ watch(
 
 .ambient-btn.active {
   border-color: var(--accent-secondary);
-  background: color-mix(in srgb, var(--accent-secondary) 24%, var(--surface-raised));
+  box-shadow: 0 0 14px var(--accent-secondary-glow);
 }
 
 .edit-toggle-btn {

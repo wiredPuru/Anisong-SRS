@@ -59,6 +59,10 @@ const hideInfo = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
 
+const { setAmbientGlass } = useAmbientGlass();
+watch(ambientMode, (value) => setAmbientGlass(value), { immediate: true });
+onUnmounted(() => setAmbientGlass(false));
+
 function onKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase();
   if (key === "i") {
@@ -109,12 +113,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div class="side">
           <StudyInfoPanel
             :blurred="hideInfo"
+            :ambient="ambientMode"
             :song-title="currentCard.songTitle"
             :artist-name="currentCard.artistName"
             :anime-title-english="currentCard.animeTitleEnglish"
             :anime-title-romaji="currentCard.animeTitleRomaji"
             :anime-title-native="currentCard.animeTitleNative"
-            :box="currentCard.box"
           />
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
         </div>

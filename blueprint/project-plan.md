@@ -109,6 +109,10 @@ Non-profit. No monetization planned.
 - Study video gets an ambient glow (YouTube Ambient Mode-style): a blurred,
   color-sampled halo behind the player while a real video frame is visible,
   off for audio-only cards or when Hide Video is active.
+- The study player (and its Preview-modal equivalent) turns translucent
+  and frosted automatically whenever ambient mode is on - no separate
+  theme setting, since the glass look only makes sense paired with the
+  ambient glow it's meant to show through.
 
 ## 8. Deployment - Where and how will this ship?
 

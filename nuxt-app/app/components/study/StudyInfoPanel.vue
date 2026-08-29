@@ -5,8 +5,8 @@ const props = defineProps<{
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
-  box: number;
   blurred?: boolean;
+  ambient?: boolean;
 }>();
 
 const showEn = ref(true);
@@ -41,7 +41,7 @@ watch(
 </script>
 
 <template>
-  <div class="info-card" :class="{ blurred }">
+  <div class="info-card" :class="{ blurred, 'ambient-glass': ambient }">
     <div class="lang-toggles">
       <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
       <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
@@ -66,9 +66,6 @@ watch(
         <span class="label">Artist</span>
         <span class="name">{{ artistName }}</span>
       </div>
-      <div class="box-badge">
-        <span class="pill">Box {{ box }}</span>
-      </div>
     </div>
   </div>
 </template>
@@ -91,6 +88,12 @@ watch(
   filter: blur(14px);
 }
 
+.info-card.ambient-glass {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+}
+
 .lang-toggles {
   display: flex;
   gap: 10px;
@@ -111,9 +114,9 @@ watch(
 }
 
 .lang-btn.on {
-  background: color-mix(in srgb, var(--accent-secondary) 24%, var(--surface-raised));
   border-color: var(--accent-secondary);
   color: var(--accent-secondary);
+  box-shadow: 0 0 14px var(--accent-secondary-glow);
 }
 
 .title-block {
@@ -147,7 +150,7 @@ watch(
 
 .label {
   font-size: 12px;
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -181,15 +184,5 @@ watch(
 .meta-row .artist .name {
   font-size: 18px;
   font-weight: 700;
-}
-
-.box-badge .pill {
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent-secondary) 18%, var(--surface));
-  border: 1px solid var(--accent-secondary);
-  color: var(--accent-secondary);
-  font-size: 12px;
-  font-weight: 800;
 }
 </style>

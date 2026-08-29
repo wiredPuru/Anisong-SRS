@@ -21,6 +21,7 @@
   /* accent - secondary (lavender, for JP text / box indicators) */
   --accent-secondary: #b18cff;
   --accent-secondary-ink: #1c1330;
+  --accent-secondary-glow: rgba(177, 140, 255, 0.45);
 
   /* review states */
   --pass: #7ee2b8;
@@ -37,10 +38,49 @@
   --radius-pill: 999px;
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-accent: 0 0 28px var(--accent-glow);
+
+  /* glass - a translucent, frosted look applied automatically wherever
+     ambient mode is on (StudyMediaPlayer, StudyInfoPanel, CardPreviewModal) */
+  --glass-surface: rgba(42, 31, 56, 0.2);
+  --glass-border: rgba(245, 238, 248, 0.16);
+  --glass-blur: blur(20px) saturate(1.6);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Ambient glass: automatically applied to shared UI chrome (nav bar,
+   search, toggle/answer/expand buttons) whenever ambient mode is active
+   anywhere on screen - set via useAmbientGlass(), read here as a plain
+   attribute selector so it can reach components (like NavBar) that have
+   no other connection to /study's or CardPreviewModal's ambient state.
+   !important is needed: these selectors match component-scoped class
+   names from outside their own <style scoped> blocks, so specificity
+   ties with each component's own background rule and would otherwise be
+   decided by unreliable stylesheet load order. .toggle-btn/.lang-btn/
+   .ambient-btn's own .on/.active rules no longer set a background at
+   all (border-color + box-shadow glow indicate "active" instead), so
+   they're included here too - active buttons stay glass, not a solid
+   fill. .nav-link.active keeps its own distinct accent-pink background
+   (page wayfinding, not part of this treatment) and is excluded.
+   .toggle-btn and .search-input are scoped through a unique parent
+   container (.display-toggles / .nav-search) because those bare class
+   names are also used, unrelated to ambient mode, on /decks, /stats,
+   and /cards/new. */
+[data-ambient-glass="true"] .app-nav,
+[data-ambient-glass="true"] .nav-link:not(.active),
+[data-ambient-glass="true"] .nav-search .search-input,
+[data-ambient-glass="true"] .search-dropdown,
+[data-ambient-glass="true"] .display-toggles .toggle-btn,
+[data-ambient-glass="true"] .answer-btn,
+[data-ambient-glass="true"] .expand-btn,
+[data-ambient-glass="true"] .close-btn,
+[data-ambient-glass="true"] .ambient-btn,
+[data-ambient-glass="true"] .scrub,
+[data-ambient-glass="true"] .lang-btn {
+  background: var(--glass-surface) !important;
+  backdrop-filter: var(--glass-blur) !important;
 }
 
 body {

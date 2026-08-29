@@ -176,3 +176,10 @@ cleaned-up checkbox version before generating the project overview.
   control for `/study`'s own video/audio player, separate from Preview's
   own expand (feature 20) since `/study`'s layout (video + side info panel
   + pass/fail controls) needs its own expand design.
+- [x] 24. **Glass surface, automatic with ambient mode** - `/study`'s
+  player and `CardPreviewModal`'s panel turn translucent and frosted
+  (`backdrop-filter` blur) automatically whenever that surface's own
+  ambient-mode toggle is on - no separate theme setting. Redirected from
+  an initial standalone Theme picker design in `/settings`, which shipped
+  working but read as pointless since most of the app barely visibly
+  reacted to it.
