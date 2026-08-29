@@ -13,7 +13,13 @@ interface AnimeDeck {
   cardCount: number;
 }
 
-type DeckType = "artist" | "anime";
+interface ManualDeck {
+  id: number;
+  name: string;
+  createdAt: string;
+}
+
+type DeckType = "artist" | "anime" | "created";
 
 interface DeckItem {
   id: number;
@@ -44,7 +50,11 @@ interface DeckCard {
 const route = useRoute();
 const router = useRouter();
 
-const activeType = computed<DeckType>(() => (route.query.type === "anime" ? "anime" : "artist"));
+const activeType = computed<DeckType>(() => {
+  if (route.query.type === "anime") return "anime";
+  if (route.query.type === "created") return "created";
+  return "artist";
+});
 
 const selectedId = computed<number | null>(() => {
   const raw = route.query.id;
@@ -53,9 +63,14 @@ const selectedId = computed<number | null>(() => {
   return Number.isFinite(id) ? id : null;
 });
 
-const { data, pending, error } = await useFetch<{ decks: ArtistDeck[] | AnimeDeck[] }>("/api/decks", {
-  query: computed(() => ({ type: activeType.value })),
-});
+const { data, pending, error, refresh } = await useFetch<{ decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[] }>(
+  "/api/decks",
+  { query: computed(() => ({ type: activeType.value })) },
+);
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
 
 const deckItems = computed<DeckItem[]>(() => {
   if (!data.value) return [];
@@ -66,6 +81,16 @@ const deckItems = computed<DeckItem[]>(() => {
       sublabel: null,
       coverImageUrl: null,
       cardCount: d.cardCount,
+    }));
+  }
+  if (activeType.value === "created") {
+    // No cardCount from the API yet - always 0 until 13b's join table exists.
+    return (data.value.decks as ManualDeck[]).map((d) => ({
+      id: d.id,
+      label: d.name,
+      sublabel: `Created ${formatDate(d.createdAt)}`,
+      coverImageUrl: null,
+      cardCount: 0,
     }));
   }
   return (data.value.decks as AnimeDeck[]).map((d) => ({
@@ -104,6 +129,76 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     if (data?.statusMessage) return data.statusMessage;
   }
   return fallback;
+}
+
+const newDeckName = ref("");
+const isCreatingDeck = ref(false);
+const createDeckError = ref<string | null>(null);
+
+async function createDeck() {
+  const name = newDeckName.value.trim();
+  if (!name) return;
+
+  createDeckError.value = null;
+  isCreatingDeck.value = true;
+  try {
+    await $fetch("/api/decks", { method: "POST", body: { name } });
+    newDeckName.value = "";
+    await refresh();
+  } catch (err) {
+    createDeckError.value = extractErrorMessage(err, "Failed to create deck.");
+  } finally {
+    isCreatingDeck.value = false;
+  }
+}
+
+const editingDeckId = ref<number | null>(null);
+const editDeckName = ref("");
+const isRenamingDeck = ref(false);
+const renameDeckError = ref<string | null>(null);
+
+function startRenameDeck(item: DeckItem) {
+  editingDeckId.value = item.id;
+  editDeckName.value = item.label;
+  renameDeckError.value = null;
+}
+
+function cancelRenameDeck() {
+  editingDeckId.value = null;
+  renameDeckError.value = null;
+}
+
+async function saveRenameDeck(id: number) {
+  const name = editDeckName.value.trim();
+  if (!name) return;
+
+  renameDeckError.value = null;
+  isRenamingDeck.value = true;
+  try {
+    await $fetch("/api/decks", { method: "PATCH", body: { id, name } });
+    editingDeckId.value = null;
+    await refresh();
+  } catch (err) {
+    renameDeckError.value = extractErrorMessage(err, "Failed to rename deck.");
+  } finally {
+    isRenamingDeck.value = false;
+  }
+}
+
+const deletingDeckId = ref<number | null>(null);
+const deleteDeckError = ref<string | null>(null);
+
+async function deleteDeck(id: number) {
+  deleteDeckError.value = null;
+  deletingDeckId.value = id;
+  try {
+    await $fetch("/api/decks", { method: "DELETE", body: { id } });
+    await refresh();
+  } catch (err) {
+    deleteDeckError.value = extractErrorMessage(err, "Failed to delete deck.");
+  } finally {
+    deletingDeckId.value = null;
+  }
 }
 
 const exportPath = ref("");
@@ -148,6 +243,8 @@ function sourceBadges(c: DeckCard): string[] {
 }
 
 function setType(type: DeckType) {
+  editingDeckId.value = null;
+  createDeckError.value = null;
   router.push({ query: { type } });
 }
 
@@ -187,22 +284,84 @@ function backToDecks() {
         >
           By Title
         </button>
+        <button
+          type="button"
+          class="toggle-btn"
+          :class="{ active: activeType === 'created' }"
+          @click="setType('created')"
+        >
+          Created
+        </button>
       </div>
+
+      <form v-if="activeType === 'created'" class="export-form create-deck-form" @submit.prevent="createDeck">
+        <input
+          v-model="newDeckName"
+          type="text"
+          placeholder="New deck name"
+          :disabled="isCreatingDeck"
+          class="path-input"
+        />
+        <button type="submit" class="export-btn" :disabled="isCreatingDeck || !newDeckName.trim()">
+          {{ isCreatingDeck ? "Creating..." : "New deck" }}
+        </button>
+      </form>
+      <p v-if="createDeckError" class="export-error create-deck-error">{{ createDeckError }}</p>
 
       <div v-if="pending" class="state">Loading...</div>
       <div v-else-if="error" class="state state-error">Couldn't load decks. Try refreshing.</div>
       <template v-else>
         <ul v-if="deckItems.length" class="deck-list">
-          <li v-for="item in deckItems" :key="item.id" class="deck-row deck-row-clickable" @click="selectDeck(item.id)">
+          <li
+            v-for="item in deckItems"
+            :key="item.id"
+            class="deck-row"
+            :class="{ 'deck-row-clickable': editingDeckId !== item.id }"
+            @click="editingDeckId === item.id ? undefined : selectDeck(item.id)"
+          >
             <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" class="cover-thumb" />
-            <div class="deck-info">
-              <span class="deck-label">{{ item.label }}</span>
-              <span v-if="item.sublabel" class="deck-sublabel">{{ item.sublabel }}</span>
-            </div>
-            <span class="deck-count">{{ item.cardCount }} card{{ item.cardCount === 1 ? "" : "s" }}</span>
+            <template v-if="activeType === 'created' && editingDeckId === item.id">
+              <div class="deck-rename-form" @click.stop>
+                <input v-model="editDeckName" type="text" :disabled="isRenamingDeck" class="path-input" />
+                <button
+                  type="button"
+                  class="export-btn"
+                  :disabled="isRenamingDeck || !editDeckName.trim()"
+                  @click="saveRenameDeck(item.id)"
+                >
+                  Save
+                </button>
+                <button type="button" class="rename-btn" :disabled="isRenamingDeck" @click="cancelRenameDeck">
+                  Cancel
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="deck-info">
+                <span class="deck-label">{{ item.label }}</span>
+                <span v-if="item.sublabel" class="deck-sublabel">{{ item.sublabel }}</span>
+              </div>
+              <span class="deck-count">{{ item.cardCount }} card{{ item.cardCount === 1 ? "" : "s" }}</span>
+              <div v-if="activeType === 'created'" class="deck-manual-actions" @click.stop>
+                <button type="button" class="rename-btn" @click="startRenameDeck(item)">Rename</button>
+                <button
+                  type="button"
+                  class="remove-btn"
+                  :disabled="deletingDeckId === item.id"
+                  @click="deleteDeck(item.id)"
+                >
+                  {{ deletingDeckId === item.id ? "Deleting..." : "Delete" }}
+                </button>
+              </div>
+            </template>
           </li>
         </ul>
+        <p v-else-if="activeType === 'created'" class="state">
+          No manual decks yet. Create one above.
+        </p>
         <p v-else class="state">No decks yet. <NuxtLink to="/cards/new">Add a card</NuxtLink> to start one.</p>
+        <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
+        <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
       </template>
     </template>
 
@@ -217,7 +376,13 @@ function backToDecks() {
             <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
             <h2>{{ deckDetail.deckLabel }}</h2>
           </div>
-          <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}`" class="study-link">Study this deck</NuxtLink>
+          <NuxtLink
+            v-if="activeType !== 'created'"
+            :to="`/study?type=${activeType}&id=${selectedId}`"
+            class="study-link"
+          >
+            Study this deck
+          </NuxtLink>
         </div>
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
           <li v-for="c in deckDetail.cards" :key="c.id" class="deck-card-row">
@@ -240,7 +405,7 @@ function backToDecks() {
         </ul>
         <p v-else class="state">No cards in this deck.</p>
 
-        <div class="export-block">
+        <div v-if="activeType !== 'created'" class="export-block">
           <h3>Export deck</h3>
           <div class="export-form">
             <input
@@ -485,6 +650,64 @@ h2 {
   flex: none;
   color: var(--muted);
   font-size: 14px;
+}
+
+.create-deck-form {
+  margin-bottom: 20px;
+}
+
+.create-deck-error {
+  margin-top: -8px;
+  margin-bottom: 16px;
+}
+
+.deck-manual-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.rename-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rename-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.remove-btn {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--fail);
+  background: transparent;
+  color: var(--fail);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.remove-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deck-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .export-block {

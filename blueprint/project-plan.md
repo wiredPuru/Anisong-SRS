@@ -32,8 +32,10 @@ instance against their own local media and database.
 - **Card quiz type** - not chosen manually; derived from whichever media is
   attached. Video-backed cards can play video; audio-only cards play MP3 only.
 - **Decks** - automatic categorization by Artist (all songs in the DB by that
-  artist) or by Anime Title (all songs in the DB for that anime). No manual
-  deck management needed for the default grouping.
+  artist) or by Anime Title (all songs in the DB for that anime), plus
+  user-created manual decks: named, flat (no nesting), and a card can belong
+  to any number of manual decks at once. A library view browses/groups decks
+  by Created (manual), Artist, or Anime.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
@@ -58,8 +60,9 @@ instance against their own local media and database.
   cached locally from AniList/animethemes.moe lookups.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state.
-- Decks: derived groupings by Artist and by Anime Title (not separately stored
-  as manually-curated entities unless that changes later).
+- Decks: derived groupings by Artist and by Anime Title, plus manually-created
+  decks stored as their own entity with a many-to-many link to cards (a card
+  can belong to zero or more manual decks).
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
   artist and by anime title.
 - User-configured media library folder path(s).

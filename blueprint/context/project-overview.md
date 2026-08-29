@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash fd32af56eb0638f1124dae82e8a058a644369d6c65a064fbd051d41b517d1926 -->
+<!-- blueprint:source-hash 25d8b5c8ee794fe714e05c1b03f7a865bdd1490c093b1a7be35154092dcda8ea -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,7 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-8, 10, and 11 are built and merged; 9 and 12 are next.
+Build-plan order. Features 1-12 (the full MVP) are built and merged; 13 is next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -53,9 +53,12 @@ Build-plan order. Features 1-8, 10, and 11 are built and merged; 9 and 12 are ne
    setting (`/settings`) plus a download action on `/cards` and `/cards/new`
    that pulls a card's `animethemesVideoUrl`/`animethemesAudioUrl` into the
    local media library and sets the matching local path.
-9. **Deck export/import** - not started. Bundles card metadata always, audio
-   optionally (never video); import can re-link missing local media from
-   animethemes.moe when a remote reference exists.
+9. **Deck export/import** - done. `POST /api/decks/export`/`/api/decks/import`
+   bundle one deck (artist or anime) to a plain directory - `manifest.json`
+   always, an `audio/` folder of copied local files only when requested,
+   never video. Import is self-contained (no live API calls), idempotent per
+   song (re-importing skips existing cards), and falls back to the
+   manifest's stored remote URLs when no local file was bundled.
 10. **Study session display toggles** - done. Session-only toggles on
     `/study`: Hide Video (`v`), Hide Info (`i`, blurs the info panel rather
     than removing it), and Start at random times (except the last 15
@@ -71,9 +74,15 @@ Build-plan order. Features 1-8, 10, and 11 are built and merged; 9 and 12 are ne
     `card/`, not `cards/` - Nuxt's auto-import prefix-stripping needs the
     filename to start with the folder name, so plural `cards/` would have
     registered it as `<CardsCardPreviewModal>`).
-12. **Anime cover art** - not started. Fetch and store each anime's AniList
-    cover image, and display it in card/deck browsing so anime are visually
-    recognizable.
+12. **Anime cover art** - done. Fetches each anime's AniList cover image on
+    lookup and stores it as a hotlinked CDN URL (not downloaded); shown as a
+    thumbnail on `/cards` and on anime-type `/decks` (list, detail header,
+    detail card rows) - never on artist-type decks, since an artist can span
+    multiple anime with no single cover to show.
+13. **Manual decks + library view** - not started. User-created, named,
+    flat decks (no nesting/parent-child); a card can belong to any number of
+    manual decks at once (many-to-many, unlike Artist/Anime grouping). A
+    library view browses/groups decks by Created (manual), Artist, or Anime.
 
 ## Data model
 
@@ -175,8 +184,28 @@ Singleton row (`id` always `1`).
   one of `libraryPaths`. Where a downloaded card source is saved. Cleared
   automatically if its folder is removed from `libraryPaths`.
 
-> **No Deck table.** Decks are derived, query-time groupings of `Card`
-> joined through `Song` by `artistId` or `animeId` - not a stored entity.
+> **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
+> through `Song` by `artistId` or `animeId`, not a stored entity. Feature 13
+> (not yet built) adds the one deck type that *is* stored: manual decks, via
+> the `Deck`/`DeckCard` shapes below.
+
+### Deck
+
+Feature 13, not yet built. A user-created, flat (no parent/child) named deck.
+
+- `id` (integer, PK)
+- `name` (string)
+- `createdAt` (datetime)
+
+### DeckCard
+
+Feature 13, not yet built. Many-to-many join between `Deck` and `Card` - a
+card can belong to zero or more manual decks, independent of its Artist/Anime
+grouping.
+
+- `deckId` (FK -> Deck, cascades on delete)
+- `cardId` (FK -> Card, cascades on delete)
+- Unique on `(deckId, cardId)`
 
 **Deck / study scope shapes** (load-bearing, shared across features 5, 6a,
 and 6b):
@@ -242,14 +271,24 @@ and that convention should continue rather than mixing in a new one.
 Routes:
 
 - `/settings` - done. Media library folder configuration, plus (feature 8) a
-  default download folder picker shown once 2+ folders are configured.
+  default download folder picker shown once 2+ folders are configured, plus
+  (feature 9) an "Import deck" form (source path -> created/skipped summary
+  or per-entry errors) - this is where feature 9 resolved its own
+  then-undecided placement question.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal
-  (playback + info, reused from `/study`'s components).
+  (playback + info, reused from `/study`'s components). Feature 12 added an
+  anime cover thumbnail per row (absent, not broken, when that anime has
+  none).
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
-- `/decks` - done. Artist and Anime-Title deck groupings, list + detail.
+- `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
+  (feature 9) a per-deck export control and (feature 12) anime cover
+  thumbnails on anime-type decks. Feature 13 (not yet built) adds a third,
+  Created toggle alongside Artist/Anime for browsing manual decks, plus deck
+  CRUD and card-assignment UI - exact placement (here vs. `/cards` vs. a new
+  route) not yet decided.
 - `/study` - done. Video centered, title/artist info panel on the right,
   pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
   toggles. `prototypes/study.html` was its original design reference
@@ -262,8 +301,6 @@ Routes:
   browsers).
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
-- Deck export/import (feature 9) UI location not yet decided - the original
-  plan suggested folding it into `/settings`, not yet confirmed.
 
 ## Deployment
 

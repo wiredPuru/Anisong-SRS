@@ -64,6 +64,14 @@ export const reviewLog = sqliteTable("review_log", {
   boxAfter: integer("box_after").notNull(),
 });
 
+export const deck = sqliteTable("deck", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   id: integer("id").primaryKey(),
   libraryPaths: text("library_paths", { mode: "json" })
@@ -90,3 +98,6 @@ export type NewReviewLog = typeof reviewLog.$inferInsert;
 
 export type MediaLibrarySettings = typeof mediaLibrarySettings.$inferSelect;
 export type NewMediaLibrarySettings = typeof mediaLibrarySettings.$inferInsert;
+
+export type Deck = typeof deck.$inferSelect;
+export type NewDeck = typeof deck.$inferInsert;
