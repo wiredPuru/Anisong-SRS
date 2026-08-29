@@ -64,10 +64,20 @@ const selectedId = computed<number | null>(() => {
   return Number.isFinite(id) ? id : null;
 });
 
-const { data, pending, error, refresh } = await useFetch<{ decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[] }>(
-  "/api/decks",
-  { query: computed(() => ({ type: activeType.value })) },
-);
+const page = computed(() => {
+  const raw = Number(route.query.page);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+});
+
+const { data, pending, error, refresh } = await useFetch<{
+  decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[];
+  page: number;
+  totalPages: number;
+}>("/api/decks", { query: computed(() => ({ type: activeType.value, page: page.value })) });
+
+function goToPage(p: number) {
+  router.push({ query: { ...route.query, page: p } });
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -107,21 +117,33 @@ const selectedDeckCover = computed<string | null>(() => {
   return deckItems.value.find((item) => item.id === selectedId.value)?.coverImageUrl ?? null;
 });
 
+const cardPage = computed(() => {
+  const raw = Number(route.query.cardPage);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+});
+
 const {
   data: deckDetail,
   pending: detailPending,
   error: detailError,
   execute: fetchDeckDetail,
-} = await useFetch<{ deckLabel: string; cards: DeckCard[] }>("/api/decks/cards", {
-  query: computed(() => ({ type: activeType.value, id: selectedId.value })),
-  immediate: selectedId.value !== null,
-});
+} = await useFetch<{ deckLabel: string; cards: DeckCard[]; page: number; totalPages: number }>(
+  "/api/decks/cards",
+  {
+    query: computed(() => ({ type: activeType.value, id: selectedId.value, page: cardPage.value })),
+    immediate: selectedId.value !== null,
+  },
+);
 
-watch(selectedId, (id) => {
+watch([selectedId, cardPage], ([id]) => {
   if (id !== null) {
     fetchDeckDetail();
   }
 });
+
+function goToCardPage(p: number) {
+  router.push({ query: { ...route.query, cardPage: p } });
+}
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === "object" && "data" in err) {
@@ -452,6 +474,7 @@ function backToDecks() {
         <p v-else class="state">No decks yet. <NuxtLink to="/cards/new">Add a card</NuxtLink> to start one.</p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
+        <Pager :page="data?.page ?? 1" :total-pages="data?.totalPages ?? 1" @change="goToPage" />
       </template>
     </template>
 
@@ -515,6 +538,7 @@ function backToDecks() {
         </ul>
         <p v-else class="state">No cards in this deck.</p>
         <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
+        <Pager :page="deckDetail.page" :total-pages="deckDetail.totalPages" @change="goToCardPage" />
 
         <div v-if="activeType !== 'created'" class="export-block">
           <h3>Export deck</h3>

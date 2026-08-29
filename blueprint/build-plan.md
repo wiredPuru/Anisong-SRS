@@ -148,7 +148,7 @@ cleaned-up checkbox version before generating the project overview.
   back to whatever the card actually has if the preferred type isn't
   available at all, rather than skipping the card.
 - [ ] 19. **Library scale-up: pagination + search**
-  - [ ] 19a. **Pagination** - numbered pages, ~25/page, applied to the
+  - [x] 19a. **Pagination** - numbered pages, ~25/page, applied to the
     top-level `/cards` list, top-level `/decks` list, and the card list
     inside a deck's detail view.
   - [ ] 19b. **Global search** - an autocomplete dropdown in the persistent

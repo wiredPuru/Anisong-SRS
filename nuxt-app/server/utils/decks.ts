@@ -1,6 +1,8 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, countDistinct, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, song } from "../db/schema.ts";
+import type { Paginated } from "./cards.ts";
+import { PAGE_SIZE } from "./pagination.ts";
 
 export interface ArtistDeck {
   id: number;
@@ -16,19 +18,37 @@ export interface AnimeDeck {
   cardCount: number;
 }
 
-export function listArtistDecks(): ArtistDeck[] {
-  return db
+export function listArtistDecks(page: number): Paginated<ArtistDeck> {
+  const total = db
+    .select({ count: countDistinct(artist.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .get()!.count;
+
+  const items = db
     .select({ id: artist.id, name: artist.name, cardCount: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .groupBy(artist.id)
     .orderBy(artist.name)
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
     .all();
+
+  return { items, total };
 }
 
-export function listAnimeDecks(): AnimeDeck[] {
-  return db
+export function listAnimeDecks(page: number): Paginated<AnimeDeck> {
+  const total = db
+    .select({ count: countDistinct(anime.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .get()!.count;
+
+  const items = db
     .select({
       id: anime.id,
       titleEnglish: anime.titleEnglish,
@@ -41,7 +61,11 @@ export function listAnimeDecks(): AnimeDeck[] {
     .innerJoin(anime, eq(song.animeId, anime.id))
     .groupBy(anime.id)
     .orderBy(anime.titleEnglish)
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
     .all();
+
+  return { items, total };
 }
 
 export function getArtistLabel(id: number): string | undefined {
@@ -59,14 +83,20 @@ export interface ManualDeck {
   cardCount: number;
 }
 
-export function listManualDecks(): ManualDeck[] {
-  return db
+export function listManualDecks(page: number): Paginated<ManualDeck> {
+  const total = db.select({ count: count(deck.id) }).from(deck).get()!.count;
+
+  const items = db
     .select({ id: deck.id, name: deck.name, createdAt: deck.createdAt, cardCount: count(deckCard.id) })
     .from(deck)
     .leftJoin(deckCard, eq(deck.id, deckCard.deckId))
     .groupBy(deck.id)
     .orderBy(deck.name)
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
     .all();
+
+  return { items, total };
 }
 
 export function getManualDeckLabel(id: number): string | undefined {

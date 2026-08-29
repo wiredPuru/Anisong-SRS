@@ -1,8 +1,9 @@
 import { listCardsByAnime, listCardsByArtist, listCardsByManualDeck } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/decks.ts";
+import { PAGE_SIZE, parsePage } from "../../utils/pagination.ts";
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw } = getQuery(event);
+  const { type, id: idRaw, page: pageRaw } = getQuery(event);
 
   if (type !== "artist" && type !== "anime" && type !== "created") {
     throw createError({ statusCode: 400, statusMessage: "type must be 'artist', 'anime', or 'created'" });
@@ -13,12 +14,18 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 400, statusMessage: "id is required and must be a number" });
   }
 
+  const requestedPage = parsePage(pageRaw);
+
   if (type === "created") {
     const deckLabel = getManualDeckLabel(id);
     if (deckLabel === undefined) {
       throw createError({ statusCode: 404, statusMessage: "Deck not found" });
     }
-    return { deckLabel, cards: listCardsByManualDeck(id) };
+    const first = listCardsByManualDeck(id, requestedPage);
+    const totalPages = Math.max(Math.ceil(first.total / PAGE_SIZE), 1);
+    const page = Math.min(requestedPage, totalPages);
+    const result = page === requestedPage ? first : listCardsByManualDeck(id, page);
+    return { deckLabel, cards: result.items, page, totalPages };
   }
 
   const deckLabel = type === "artist" ? getArtistLabel(id) : getAnimeLabel(id);
@@ -29,6 +36,11 @@ export default defineEventHandler((event) => {
     });
   }
 
-  const cards = type === "artist" ? listCardsByArtist(id) : listCardsByAnime(id);
-  return { deckLabel, cards };
+  const list = type === "artist" ? listCardsByArtist : listCardsByAnime;
+  const first = list(id, requestedPage);
+  const totalPages = Math.max(Math.ceil(first.total / PAGE_SIZE), 1);
+  const page = Math.min(requestedPage, totalPages);
+  const result = page === requestedPage ? first : list(id, page);
+
+  return { deckLabel, cards: result.items, page, totalPages };
 });

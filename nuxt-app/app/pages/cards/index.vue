@@ -25,7 +25,22 @@ interface ManualDeck {
   cardCount: number;
 }
 
-const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[] }>("/api/cards");
+const route = useRoute();
+const router = useRouter();
+
+const page = computed(() => {
+  const raw = Number(route.query.page);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+});
+
+const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[]; page: number; totalPages: number }>(
+  "/api/cards",
+  { query: computed(() => ({ page: page.value })) },
+);
+
+function goToPage(p: number) {
+  router.push({ query: { ...route.query, page: p } });
+}
 const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
   "/api/media-library",
 );
@@ -283,6 +298,7 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
         </li>
       </ul>
       <p v-else class="state">No cards yet. <NuxtLink to="/cards/new">Add one</NuxtLink>.</p>
+      <Pager :page="data?.page ?? 1" :total-pages="data?.totalPages ?? 1" @change="goToPage" />
     </template>
 
     <CardPreviewModal

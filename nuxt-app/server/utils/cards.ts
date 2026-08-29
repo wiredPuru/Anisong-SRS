@@ -1,11 +1,17 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, desc, eq, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, lte, ne, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
 import { getOrCreateArtist } from "./lookup.ts";
 import { getAnimeLabel, getArtistLabel } from "./decks.ts";
+import { PAGE_SIZE } from "./pagination.ts";
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+}
 
 export interface CardWithDetails {
   id: number;
@@ -54,8 +60,14 @@ function cardQuery() {
     .innerJoin(anime, eq(song.animeId, anime.id));
 }
 
-export function listCards(): CardWithDetails[] {
-  return cardQuery().orderBy(desc(card.createdAt)).all();
+export function listCards(page: number): Paginated<CardWithDetails> {
+  const total = db.select({ count: count(card.id) }).from(card).get()!.count;
+  const items = cardQuery()
+    .orderBy(desc(card.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
+    .all();
+  return { items, total };
 }
 
 export function getCardWithDetails(id: number): CardWithDetails | undefined {
@@ -66,20 +78,59 @@ export function cardExistsForSong(songId: number): boolean {
   return db.select({ id: card.id }).from(card).where(eq(card.songId, songId)).get() !== undefined;
 }
 
-export function listCardsByArtist(artistId: number): CardWithDetails[] {
-  return cardQuery().where(eq(artist.id, artistId)).orderBy(desc(card.createdAt)).all();
+export function listCardsByArtist(artistId: number, page: number): Paginated<CardWithDetails> {
+  const total = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .where(eq(song.artistId, artistId))
+    .get()!.count;
+
+  const items = cardQuery()
+    .where(eq(artist.id, artistId))
+    .orderBy(desc(card.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
+    .all();
+
+  return { items, total };
 }
 
-export function listCardsByAnime(animeId: number): CardWithDetails[] {
-  return cardQuery().where(eq(anime.id, animeId)).orderBy(desc(card.createdAt)).all();
+export function listCardsByAnime(animeId: number, page: number): Paginated<CardWithDetails> {
+  const total = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .where(eq(song.animeId, animeId))
+    .get()!.count;
+
+  const items = cardQuery()
+    .where(eq(anime.id, animeId))
+    .orderBy(desc(card.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
+    .all();
+
+  return { items, total };
 }
 
-export function listCardsByManualDeck(deckId: number): CardWithDetails[] {
-  return cardQuery()
+export function listCardsByManualDeck(deckId: number, page: number): Paginated<CardWithDetails> {
+  const total = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(deckCard, eq(card.id, deckCard.cardId))
+    .where(eq(deckCard.deckId, deckId))
+    .get()!.count;
+
+  const items = cardQuery()
     .innerJoin(deckCard, eq(card.id, deckCard.cardId))
     .where(eq(deckCard.deckId, deckId))
     .orderBy(desc(card.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
     .all();
+
+  return { items, total };
 }
 
 export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
