@@ -39,6 +39,7 @@ const isPlaying = ref(false);
 const currentTime = ref(0);
 const duration = ref(0);
 const errorMessage = ref<string | null>(null);
+const isDragging = ref(false);
 
 const VOLUME_STORAGE_KEY = "gaqSrs:playerVolume";
 const volume = ref(1);
@@ -255,12 +256,14 @@ let stopDrag: (() => void) | null = null;
 
 function onScrubMouseDown(event: MouseEvent) {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  isDragging.value = true;
   seekToClientX(event.clientX, rect);
 
   function onMouseMove(e: MouseEvent) {
     seekToClientX(e.clientX, rect);
   }
   function onMouseUp() {
+    isDragging.value = false;
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("mouseup", onMouseUp);
     stopDrag = null;
@@ -337,7 +340,7 @@ onUnmounted(() => stopDrag?.());
         {{ isPlaying ? "⏸" : "▶" }}
         <span class="tooltip">Hotkey: S</span>
       </button>
-      <div class="scrub" @mousedown="onScrubMouseDown">
+      <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
         <span :style="{ width: progressPercent + '%' }" />
       </div>
       <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
@@ -592,6 +595,12 @@ onUnmounted(() => stopDrag?.());
   border: 1px solid var(--border);
   overflow: hidden;
   cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.scrub:hover,
+.scrub.dragging {
+  height: 12px;
 }
 
 .scrub > span {
