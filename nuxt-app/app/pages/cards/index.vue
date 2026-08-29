@@ -92,6 +92,18 @@ const editError = ref<string | null>(null);
 
 const previewCard = ref<CardWithDetails | null>(null);
 
+const pendingCardPreview = useState<CardWithDetails | null>("pendingCardPreview", () => null);
+watch(
+  pendingCardPreview,
+  (card) => {
+    if (card) {
+      previewCard.value = card;
+      pendingCardPreview.value = null;
+    }
+  },
+  { immediate: true },
+);
+
 const {
   downloading,
   downloadProgress,

@@ -1,6 +1,6 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, like, lte, ne, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -58,6 +58,10 @@ function cardQuery() {
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id));
+}
+
+export function searchCards(query: string): CardWithDetails[] {
+  return cardQuery().where(like(song.title, `%${query}%`)).orderBy(desc(card.createdAt)).limit(5).all();
 }
 
 export function listCards(page: number): Paginated<CardWithDetails> {
