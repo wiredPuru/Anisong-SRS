@@ -205,6 +205,32 @@ function onSeeked() {
   if (ambientActive.value) drawAmbientFrame();
 }
 
+function onLoadedData() {
+  retryAmbientPreload(4);
+}
+
+// readyState reaching HAVE_CURRENT_DATA (the loadeddata event) doesn't
+// guarantee the frame is actually blittable to canvas yet - empirically,
+// drawImage can still read back fully transparent immediately at that
+// event, with no fixed delay before it starts working (varies by
+// codec/source). Draw, then check whether it actually produced content
+// (any non-zero alpha) rather than trusting the event alone; if not,
+// retry briefly. Harmless if it never succeeds before playback starts -
+// onPlay's own draw takes over as before.
+function retryAmbientPreload(retriesLeft: number) {
+  if (!ambientActive.value) return;
+  drawAmbientFrame();
+  if (retriesLeft <= 0) return;
+  const canvas = ambientCanvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) return;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] !== 0) return;
+  }
+  setTimeout(() => retryAmbientPreload(retriesLeft - 1), 150);
+}
+
 function onKeydown(event: KeyboardEvent) {
   if (event.key.toLowerCase() === "s") {
     togglePlay();
@@ -252,6 +278,7 @@ function onSeek(event: MouseEvent) {
         @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
+        @loadeddata="onLoadedData"
         @seeked="onSeeked"
         @error="onError"
       />
