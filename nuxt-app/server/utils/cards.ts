@@ -58,6 +58,10 @@ export function getCardWithDetails(id: number): CardWithDetails | undefined {
   return cardQuery().where(eq(card.id, id)).get();
 }
 
+export function cardExistsForSong(songId: number): boolean {
+  return db.select({ id: card.id }).from(card).where(eq(card.songId, songId)).get() !== undefined;
+}
+
 export function listCardsByArtist(artistId: number): CardWithDetails[] {
   return cardQuery().where(eq(artist.id, artistId)).orderBy(desc(card.createdAt)).all();
 }

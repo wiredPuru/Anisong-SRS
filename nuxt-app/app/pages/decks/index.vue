@@ -88,6 +88,46 @@ watch(selectedId, (id) => {
   }
 });
 
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data?: { statusMessage?: string } }).data;
+    if (data?.statusMessage) return data.statusMessage;
+  }
+  return fallback;
+}
+
+const exportPath = ref("");
+const includeAudio = ref(false);
+const isExporting = ref(false);
+const exportSummary = ref<string | null>(null);
+const exportError = ref<string | null>(null);
+
+async function exportDeck() {
+  if (selectedId === null || !exportPath.value.trim()) return;
+
+  exportSummary.value = null;
+  exportError.value = null;
+  isExporting.value = true;
+  try {
+    const result = await $fetch<{ exportedTo: string; cardCount: number; audioFileCount: number }>(
+      "/api/decks/export",
+      {
+        method: "POST",
+        body: {
+          scope: { type: activeType.value, id: selectedId.value },
+          destPath: exportPath.value.trim(),
+          includeAudio: includeAudio.value,
+        },
+      },
+    );
+    exportSummary.value = `Exported ${result.cardCount} card${result.cardCount === 1 ? "" : "s"} (${result.audioFileCount} audio file${result.audioFileCount === 1 ? "" : "s"}) to ${result.exportedTo}`;
+  } catch (err) {
+    exportError.value = extractErrorMessage(err, "Failed to export deck.");
+  } finally {
+    isExporting.value = false;
+  }
+}
+
 function sourceBadges(c: DeckCard): string[] {
   const badges: string[] = [];
   if (c.localVideoPath) badges.push("Local video");
@@ -102,6 +142,8 @@ function setType(type: DeckType) {
 }
 
 function selectDeck(id: number) {
+  exportSummary.value = null;
+  exportError.value = null;
   router.push({ query: { type: activeType.value, id } });
 }
 
@@ -173,6 +215,28 @@ function backToDecks() {
           </li>
         </ul>
         <p v-else class="state">No cards in this deck.</p>
+
+        <div class="export-block">
+          <h3>Export deck</h3>
+          <div class="export-form">
+            <input
+              v-model="exportPath"
+              type="text"
+              placeholder="/path/to/empty/or/new/folder"
+              :disabled="isExporting"
+              class="path-input"
+            />
+            <label class="checkbox-label">
+              <input v-model="includeAudio" type="checkbox" :disabled="isExporting" />
+              Include audio
+            </label>
+            <button type="button" class="export-btn" :disabled="isExporting || !exportPath.trim()" @click="exportDeck">
+              {{ isExporting ? "Exporting..." : "Export" }}
+            </button>
+          </div>
+          <p v-if="exportSummary" class="export-summary">{{ exportSummary }}</p>
+          <p v-if="exportError" class="export-error">{{ exportError }}</p>
+        </div>
       </template>
     </template>
   </main>
@@ -366,6 +430,83 @@ h2 {
 .deck-count {
   flex: none;
   color: var(--muted);
+  font-size: 14px;
+}
+
+.export-block {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.export-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.export-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.path-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.path-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.export-btn {
+  flex: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-summary {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.export-error {
+  margin: 10px 0 0;
+  color: var(--fail);
   font-size: 14px;
 }
 </style>

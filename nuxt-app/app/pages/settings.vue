@@ -52,6 +52,34 @@ async function setDefaultDownloadFolder(path: string) {
     isSettingDefault.value = false;
   }
 }
+
+const importPath = ref("");
+const isImporting = ref(false);
+const importSummary = ref<string | null>(null);
+const importErrors = ref<string[]>([]);
+const importError = ref<string | null>(null);
+
+async function importDeck() {
+  const sourcePath = importPath.value.trim();
+  if (!sourcePath) return;
+
+  importSummary.value = null;
+  importErrors.value = [];
+  importError.value = null;
+  isImporting.value = true;
+  try {
+    const result = await $fetch<{ created: number; skipped: number; errors: string[] }>("/api/decks/import", {
+      method: "POST",
+      body: { sourcePath },
+    });
+    importSummary.value = `Imported ${result.created} card${result.created === 1 ? "" : "s"} (${result.skipped} skipped)`;
+    importErrors.value = result.errors;
+  } catch (err) {
+    importError.value = extractErrorMessage(err, "Failed to import deck.");
+  } finally {
+    isImporting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -100,6 +128,26 @@ async function setDefaultDownloadFolder(path: string) {
       <button type="submit" class="add-btn" :disabled="isAdding">Add folder</button>
     </form>
     <p v-if="addError" class="add-error">{{ addError }}</p>
+
+    <h2>Import deck</h2>
+    <p class="hint">Recreate cards from a bundle written by an "Export deck" action on <NuxtLink to="/decks">/decks</NuxtLink>.</p>
+    <form class="add-form" @submit.prevent="importDeck">
+      <input
+        v-model="importPath"
+        type="text"
+        placeholder="/path/to/exported/deck"
+        :disabled="isImporting"
+        class="path-input"
+      />
+      <button type="submit" class="add-btn" :disabled="isImporting || !importPath.trim()">
+        {{ isImporting ? "Importing..." : "Import" }}
+      </button>
+    </form>
+    <p v-if="importSummary" class="import-summary">{{ importSummary }}</p>
+    <ul v-if="importErrors.length" class="import-error-list">
+      <li v-for="(msg, i) in importErrors" :key="i">{{ msg }}</li>
+    </ul>
+    <p v-if="importError" class="add-error">{{ importError }}</p>
   </main>
 </template>
 
@@ -251,5 +299,28 @@ h1 {
 .download-folder-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+h2 {
+  margin: 40px 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+h2 + .hint {
+  margin-bottom: 20px;
+}
+
+.import-summary {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.import-error-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--fail);
+  font-size: 14px;
 }
 </style>

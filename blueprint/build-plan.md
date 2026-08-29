@@ -98,7 +98,7 @@ cleaned-up checkbox version before generating the project overview.
   anime title.
 - [x] 8. **Downloadable options for Cards** - download from animethemes.moe as
   an option when editing or creating a card.
-- [ ] 9. **Deck export/import** - bundle metadata always and audio optionally
+- [x] 9. **Deck export/import** - bundle metadata always and audio optionally
   (never video); re-link missing local media from animethemes.moe on import
   when available.
 - [x] 10. **Study session display toggles** - session-only Hide Video, Hide
@@ -108,3 +108,6 @@ cleaned-up checkbox version before generating the project overview.
   showing playback (video/audio, scrub) and the same title/artist/anime
   info a study card shows, to verify a card works without starting a full
   study session.
+- [ ] 12. **Anime cover art** - fetch and store each anime's AniList cover
+  image, and display it in card/deck browsing so anime are visually
+  recognizable.

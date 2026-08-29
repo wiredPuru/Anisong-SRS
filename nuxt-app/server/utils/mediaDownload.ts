@@ -6,7 +6,7 @@ import { join } from "node:path";
 const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 
-function sanitizeSegment(value: string): string {
+export function sanitizeSegment(value: string): string {
   const cleaned = value.replace(/[\\/:*?"<>|]/g, "").trim();
   return cleaned.slice(0, 80) || "untitled";
 }
@@ -34,7 +34,7 @@ export function buildDownloadBaseName(input: DownloadFilenameInput): { baseName:
   return { baseName, ext };
 }
 
-function resolveUniquePath(destDir: string, baseName: string, ext: string): string {
+export function resolveUniquePath(destDir: string, baseName: string, ext: string): string {
   let candidate = join(destDir, `${baseName}${ext}`);
   let suffix = 2;
   while (existsSync(candidate)) {

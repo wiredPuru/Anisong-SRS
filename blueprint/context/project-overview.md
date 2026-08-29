@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 60a87204da81205ea5c20db61fba6a826d758e300b5711e861a7e453e0f24dee -->
+<!-- blueprint:source-hash fd32af56eb0638f1124dae82e8a058a644369d6c65a064fbd051d41b517d1926 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,7 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-8 and 10 are built and merged; 9 and 11 are next.
+Build-plan order. Features 1-8, 10, and 11 are built and merged; 9 and 12 are next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -62,11 +62,18 @@ Build-plan order. Features 1-8 and 10 are built and merged; 9 and 11 are next.
     seconds, re-rolled on every presentation of a card - including a repeat
     after a fail, not just a fresh card id). Reset every time a session
     starts; not persisted. Play/pause also picked up an `s` hotkey here.
-11. **Card preview** - not started. A preview panel per card in `/cards`
-    (and likely `/cards/new`) showing playback and the same title/artist/anime
-    info a study card shows, to verify a card works without starting a full
-    study session. Expected to reuse `StudyMediaPlayer`/`StudyInfoPanel`
-    rather than duplicating their logic.
+11. **Card preview** - done. `/cards` has a "Preview" button per row (hidden
+    for a card with no source) opening a modal that reuses
+    `StudyMediaPlayer`/`StudyInfoPanel` as-is - playback, scrub, and the
+    language toggles, no pass/fail or study-state writes. Closes via ✕,
+    backdrop click, or `Escape`. Not on `/cards/new` (deferred). Its
+    component lives at `components/card/CardPreviewModal.vue` (singular
+    `card/`, not `cards/` - Nuxt's auto-import prefix-stripping needs the
+    filename to start with the folder name, so plural `cards/` would have
+    registered it as `<CardsCardPreviewModal>`).
+12. **Anime cover art** - not started. Fetch and store each anime's AniList
+    cover image, and display it in card/deck browsing so anime are visually
+    recognizable.
 
 ## Data model
 
@@ -238,7 +245,8 @@ Routes:
   default download folder picker shown once 2+ folders are configured.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
-  file yet. Gains a preview panel in feature 11 (not started).
+  file yet. Feature 11 added a per-row "Preview" button opening a modal
+  (playback + info, reused from `/study`'s components).
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail.
