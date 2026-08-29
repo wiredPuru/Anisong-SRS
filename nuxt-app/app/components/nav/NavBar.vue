@@ -51,6 +51,13 @@ interface AnimeResult {
   coverImageUrl: string | null;
 }
 
+interface AniListResult {
+  aniListId: number;
+  titleRomaji: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+}
+
 interface SearchResults {
   cards: CardWithDetails[];
   artists: NamedResult[];
@@ -69,6 +76,9 @@ const searchError = ref(false);
 const dropdownOpen = ref(false);
 const searchContainerRef = ref<HTMLElement | null>(null);
 
+const externalAnime = ref<AniListResult[] | null>(null);
+const externalPending = ref(false);
+
 const hasResults = computed(
   () =>
     results.value.cards.length +
@@ -77,24 +87,55 @@ const hasResults = computed(
       results.value.decks.length >
     0,
 );
+const hasExternalResults = computed(() => Boolean(externalAnime.value && externalAnime.value.length));
+const showNoResults = computed(() => !hasResults.value && !externalPending.value && !hasExternalResults.value);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let searchGeneration = 0;
 
 async function runSearch() {
   const q = searchQuery.value.trim();
+  const gen = ++searchGeneration;
+
   if (q.length < 2) {
     results.value = emptyResults();
+    externalAnime.value = null;
+    externalPending.value = false;
     searchPending.value = false;
     return;
   }
+
   searchPending.value = true;
   searchError.value = false;
+  externalAnime.value = null;
+
+  let localResults: SearchResults;
   try {
-    results.value = await $fetch<SearchResults>("/api/search", { query: { q } });
+    localResults = await $fetch<SearchResults>("/api/search", { query: { q } });
   } catch {
-    searchError.value = true;
-  } finally {
-    searchPending.value = false;
+    if (gen === searchGeneration) {
+      searchError.value = true;
+      searchPending.value = false;
+    }
+    return;
+  }
+
+  if (gen !== searchGeneration) return;
+  results.value = localResults;
+  searchPending.value = false;
+
+  if (localResults.anime.length === 0) {
+    externalPending.value = true;
+    try {
+      const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
+      if (gen === searchGeneration) externalAnime.value = res.results;
+    } catch {
+      // AniList unreachable folds into the generic "No results" state below,
+      // not a separate error message - the dropdown never shows two
+      // different "nothing here" states at once.
+    } finally {
+      if (gen === searchGeneration) externalPending.value = false;
+    }
   }
 }
 
@@ -115,6 +156,8 @@ function closeDropdown() {
 function resetSearch() {
   searchQuery.value = "";
   results.value = emptyResults();
+  externalAnime.value = null;
+  externalPending.value = false;
   dropdownOpen.value = false;
 }
 
@@ -139,6 +182,11 @@ function selectAnime(result: AnimeResult) {
 function selectDeck(result: NamedResult) {
   resetSearch();
   navigateTo(`/decks?type=created&id=${result.id}`);
+}
+
+function addShow(result: AniListResult) {
+  resetSearch();
+  navigateTo(`/cards/new?aniListId=${result.aniListId}`);
 }
 
 function onClickOutside(event: MouseEvent) {
@@ -178,7 +226,7 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
       <div v-if="dropdownOpen" class="search-dropdown">
         <p v-if="searchPending" class="search-status">Searching...</p>
         <p v-else-if="searchError" class="search-status search-status-error">Search failed.</p>
-        <template v-else-if="hasResults">
+        <template v-else>
           <div v-if="results.cards.length" class="search-group">
             <span class="search-group-label">Cards</span>
             <button
@@ -228,8 +276,19 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
               {{ d.name }}
             </button>
           </div>
+          <p v-if="externalPending" class="search-status">Searching for shows...</p>
+          <div v-else-if="hasExternalResults" class="search-group">
+            <span class="search-group-label">Add a show</span>
+            <div v-for="a in externalAnime" :key="`external-${a.aniListId}`" class="search-result external-result">
+              <span class="search-result-text">
+                {{ a.titleRomaji }}
+                <span v-if="a.titleEnglish" class="search-result-sub">{{ a.titleEnglish }}</span>
+              </span>
+              <button type="button" class="add-show-btn" @click="addShow(a)">Add</button>
+            </div>
+          </div>
+          <p v-if="showNoResults" class="search-status">No results.</p>
         </template>
-        <p v-else class="search-status">No results.</p>
       </div>
     </div>
   </nav>
@@ -361,5 +420,30 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+}
+
+.external-result {
+  justify-content: space-between;
+  cursor: default;
+}
+
+.search-result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.add-show-btn {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 </style>

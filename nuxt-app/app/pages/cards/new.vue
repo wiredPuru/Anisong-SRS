@@ -157,6 +157,17 @@ async function addCard(theme: ThemeResult) {
     adding[theme.songId] = false;
   }
 }
+
+const route = useRoute();
+
+onMounted(() => {
+  const raw = route.query.aniListId;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const aniListId = typeof value === "string" ? Number(value) : NaN;
+  if (Number.isInteger(aniListId) && aniListId > 0) {
+    selectAnime({ aniListId, titleRomaji: "", titleEnglish: null, titleNative: null });
+  }
+});
 </script>
 
 <template>

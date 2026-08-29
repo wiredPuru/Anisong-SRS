@@ -36,22 +36,27 @@ instance against their own local media and database.
   user-created manual decks: named, flat (no nesting), and a card can belong
   to any number of manual decks at once. A library view browses/groups decks
   by Created (manual), Artist, or Anime.
-- **Per-scope playback preference** - a setting per study scope (Artist deck,
-  Anime deck, or "study all" - manual decks aren't a study scope yet) of
-  Auto / Audio-only / Video-only, controlling which source type a study
-  session prefers for cards in that scope. Preferring a type still uses
-  local media first and falls back to the remote animethemes.moe URL, same
-  as today; if the preferred type isn't available at all, the card falls
-  back to whatever source it actually has.
+- **Study playback-mode option** - a session-only choice (set fresh each
+  study session, not persisted per scope) of Audio-only / Video-only / Any
+  (locals preferred), controlling which source type that session prefers.
+  Preferring a type still uses local media first and falls back to the
+  remote animethemes.moe URL, same as today; if the preferred type isn't
+  available at all, the card falls back to whatever source it actually has.
+  An earlier per-scope, persisted version of this was built and rolled back
+  (changing source mid-playback caused overlapping audio) - this
+  session-only version must not repeat that mistake.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
   arrow (pass), matching the Anki/Migaku convention. Fail returns a card to a
   shorter review interval; pass advances it to a longer one.
-- **Language display** - English, Romaji, and Japanese-with-Furigana are each
-  independently toggleable and can all be shown at once if desired. Furigana is
+- **Language display** - English, Romaji, and Japanese are each independently
+  toggleable and can all be shown at once if desired; Furigana is a separate
+  sub-toggle under Japanese (only relevant when Japanese is on). Furigana is
   auto-generated (not sourced from the API) via a Japanese morphological
-  analyzer.
+  analyzer. Applies to both anime titles and song titles - song titles gain a
+  native-Japanese variant sourced from lookup, alongside the anime title's
+  existing English/Romaji/Native fields.
 - **Playback** - "play song" plays audio only and requires a guess; "show
   video" plays from the start of the clip if a video exists.
 - **Review stats** - guess-rate tracking, sliceable by artist and by anime
@@ -70,10 +75,11 @@ instance against their own local media and database.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks).
-- Per-scope playback preference: one row per study scope (Artist id / Anime
-  id / "all"), not tied to the Deck table since Artist and Anime scopes have
-  no stored row of their own. Manual decks aren't included - `/study` can't
-  be scoped to one yet.
+- Study playback-mode preference: a session-only in-memory choice, not
+  stored in the database (an earlier persisted, per-scope version was built
+  and rolled back).
+- Song metadata gains a native-Japanese title field, alongside its existing
+  title.
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
   artist and by anime title.
 - User-configured media library folder path(s).
@@ -99,8 +105,12 @@ Non-profit. No monetization planned.
   visual reference point.
 - Rounded corners throughout.
 - Layout: video centered, song/title info panel on the right.
-- Language toggles (EN/Romaji/JP+Furigana) as buttons, independently
-  switchable, with the option to show all at once.
+- Language toggles (EN/Romaji/Japanese, with Furigana as a Japanese
+  sub-toggle) live in a settings panel on the study screen rather than as
+  always-visible inline buttons, alongside the screen's other display
+  toggles (Hide Video, Hide Info, Random Start, Ambient mode). Core
+  playback/interaction controls (play/pause, pass/fail, scrub, volume,
+  expand) stay inline.
 - Review controls follow Anki/Migaku convention: pass/fail buttons, or left
   arrow (fail) / right arrow (pass) as keyboard shortcuts.
 - Japanese text must render as real, selectable DOM text (not baked into an
@@ -119,6 +129,11 @@ Non-profit. No monetization planned.
 Localhost-only. A website reachable in any browser of choice as long as the
 app is running on the user's own system. No remote hosting, no accounts, no
 multi-device sync.
+
+- A packaged, standalone build (per OS) for non-technical end users: no
+  Node/Bun/Nuxt install required, launched by double-clicking, opens the
+  user's default browser to the running local server. The developer's own
+  workflow (`bun run dev`/`bun run preview`) is unaffected.
 
 ## 9. Non-Goals
 

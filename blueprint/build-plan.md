@@ -140,17 +140,12 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 17. **Delete card cleans up orphaned files** - deleting a card
   auto-deletes its local video/audio files, skipping any file path still
   referenced by another card.
-- [ ] 18. **Per-scope quiz-mode preference** - a settings table keyed by
-  study scope (artist id / anime id / "all" - manual decks excluded since
-  `/study` can't be scoped to one yet), each independently settable to Auto
-  / Audio-only / Video-only. A forced mode prefers that source type
-  (falling back to local-then-remote per source, same as today) and falls
-  back to whatever the card actually has if the preferred type isn't
-  available at all, rather than skipping the card.
-  Rolled back 2026-08-29 - `forcedMode` let quiz mode change after playback
-  started, causing overlapping audio; a targeted fix didn't resolve it. See
+- ~~18. **Per-scope quiz-mode preference**~~ - abandoned 2026-08-29. Built,
+  then rolled back the same day (`forcedMode` let quiz mode change after
+  playback started, causing overlapping audio - a targeted fix didn't
+  resolve it), and now dropped from the roadmap entirely rather than
+  redesigned. Not a build target; number retired, not reused. See
   `blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`.
-  Pending a redesign before rebuilding.
 - [x] 19. **Library scale-up: pagination + search**
   - [x] 19a. **Pagination** - numbered pages, ~25/page, applied to the
     top-level `/cards` list, top-level `/decks` list, and the card list
@@ -183,3 +178,42 @@ cleaned-up checkbox version before generating the project overview.
   an initial standalone Theme picker design in `/settings`, which shipped
   working but read as pointless since most of the app barely visibly
   reacted to it.
+- [ ] 25. **Standalone desktop packaging** - a double-clickable, per-OS
+  build (no Node/Bun/Nuxt install required) that starts the local server
+  and opens the user's default browser to it. The SQLite database and
+  media library settings move from the current project-relative path to
+  an OS-appropriate user-data directory, since a distributed build won't
+  live inside a cloned repo.
+- [x] 26. **Global search: find + add shows** - the nav search bar also
+  surfaces AniList results when local results don't cover the query, with
+  an inline "Add" action that reuses the existing `/cards/new` lookup/import
+  flow rather than duplicating it.
+- [ ] 27. **Explicit "Clear local file" action on cards** - a one-click
+  button next to a card's local video/audio path (in both `/cards`' row
+  edit and `CardPreviewModal`'s edit mode) that deletes the referenced file
+  from disk (reusing feature 17's cleanup logic) and blanks the field,
+  instead of relying on manually clearing the text input to the same effect.
+- [ ] 28. **Add existing cards to a deck from the deck page** - manual
+  decks only (artist/anime decks are derived, not stored, so there is
+  nothing to add to). A control on a manual deck's detail view to
+  search/pick existing cards and attach them - the same action as `/cards`'
+  "Decks" checkbox panel, initiated from the other direction.
+- [ ] 29. **Stats refresh + clear** - a manual refresh action on `/stats`,
+  plus a destructive "clear" action that deletes `ReviewLog` history only
+  (stats reset to zero; card box levels and due dates are untouched).
+- [ ] 30. **Native Japanese song titles + split Furigana toggle** - add a
+  native-Japanese title field to `Song` (alongside the anime title fields
+  that already exist), shown on Study/Preview. Split the current single
+  "JP + Furigana" toggle into an independent Japanese toggle plus a
+  Furigana sub-toggle, applying to both anime and song titles.
+- [ ] 31. **Study settings panel** - move `/study`'s display toggles (Hide
+  Video, Hide Info, Random Start, Ambient mode) and language toggles
+  (EN/Romaji/Japanese/Furigana) behind one settings panel reachable via a
+  button on the study screen. Play/Pause, Pass/Fail, the scrub bar, volume,
+  and expand stay inline as core playback/interaction controls, unchanged.
+- [ ] 32. **Study playback-mode option** - in the settings panel from
+  feature 31, a session-only choice (not persisted per scope, unlike the
+  abandoned feature 18) between Audio-only / Video-only / Any (locals
+  preferred). Must not repeat feature 18's rollback bug: never change the
+  media source after playback has already started, which caused two audio
+  streams to play at once.

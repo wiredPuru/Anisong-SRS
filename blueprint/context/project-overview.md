@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 10a12cafd9f5fc0dedcbdc8b990b7c57d5338402fbf23487da7e0216b05ea470 -->
+<!-- blueprint:source-hash 7c882b4fbbdb9ae195b4e663c94c723d9cfeee0fa5a9a7533a73bf0654582f22 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,12 +24,14 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-17 and 19-23 (the full MVP, manual decks, the
+Build-plan order. Features 1-17 and 19-24 (the full MVP, manual decks, the
 study-screen ambient glow, the home page/nav bar, Preview editing, delete
 cleanup, pagination/search, Preview expand + ambient mode, the volume
-slider, deck-detail Preview, and Study's own expand toggle) are built and
-merged. Feature 18 was built then rolled back (see its entry below) and is
-pending a redesign; 24 is next.
+slider, deck-detail Preview, Study's own expand toggle, and the
+ambient-driven glass surface) are built and merged. Feature 18 was built,
+then rolled back, then abandoned outright (see its entry below) - its
+number is retired, not reused. 26 is done; 27-32 are queued, not started
+(25 is set aside for now).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -121,8 +123,8 @@ pending a redesign; 24 is next.
     Best-effort: a missing file or a filesystem error is swallowed, same
     degrade-gracefully behavior as everywhere else. Remote sources
     (`animethemesVideoUrl`/`animethemesAudioUrl`) are never touched.
-18. **Per-scope quiz-mode preference** - built, then rolled back
-    2026-08-29 (pending a redesign). A settings table keyed by study scope
+18. ~~**Per-scope quiz-mode preference**~~ - abandoned 2026-08-29. Built,
+    then rolled back the same day. A settings table keyed by study scope
     (artist id / anime id / "all" - manual decks excluded since `/study`
     can't be scoped to one yet), each independently settable to Auto /
     Audio-only / Video-only. Rolled back because its `forcedMode`
@@ -130,8 +132,8 @@ pending a redesign; 24 is next.
     had already started, causing two audio streams to play at once; a
     targeted fix didn't resolve it. See
     `blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`.
-    A future rebuild is not bound to the old shape - the mid-playback swap
-    is exactly what needs to change.
+    Dropped from the roadmap entirely rather than redesigned - not a build
+    target, and its number is retired, not reused.
 19. **Library scale-up: pagination + search** - done, two sub-features:
     - **19a. Pagination** - done. Numbered pages, ~25/page
       (`PAGE_SIZE` in `server/utils/pagination.ts`), on the top-level
@@ -163,17 +165,74 @@ pending a redesign; 24 is next.
     control for `/study`'s own video/audio player, separate from Preview's
     own expand (feature 20) since `/study`'s layout (video + side info
     panel + pass/fail controls) needs its own expand design.
-24. **Glass surface, automatic with ambient mode** - not started.
-    `/study`'s player and `CardPreviewModal`'s panel turn translucent and
-    frosted (`backdrop-filter` blur, via plain `--glass-surface` /
-    `--glass-border` / `--glass-blur` tokens) automatically whenever that
-    surface's own ambient-mode toggle is on - an `ambient-glass` class
-    bound directly to each component's existing `ambient`/`ambientMode`
-    state, no separate theme setting, no persistence, no `/settings` UI.
-    Redirected from an initial standalone Theme picker design (built,
-    verified working, then found to read as pointless since most of the
-    app barely visibly reacted to a separate toggle) before that version
-    was ever merged.
+24. **Glass surface, automatic with ambient mode** - done. `/study`'s
+    player, `CardPreviewModal`'s panel, `StudyInfoPanel`, and shared UI
+    chrome (nav bar, search bar, toggle/answer/expand buttons) turn
+    translucent and frosted (`backdrop-filter` blur, via plain
+    `--glass-surface` / `--glass-border` / `--glass-blur` tokens)
+    automatically whenever that surface's own ambient-mode toggle is on -
+    an `ambient-glass` class bound directly to each component's existing
+    `ambient`/`ambientMode` state, plus a shared `data-ambient-glass`
+    attribute (via `useAmbientGlass()`) so components outside that state's
+    own tree (the nav bar) can react too. No separate theme setting, no
+    persistence, no `/settings` UI. Redirected mid-build from an initial
+    standalone Theme picker design (built, verified working, then found to
+    read as pointless since most of the app barely visibly reacted to a
+    separate toggle) before that version was ever merged. Active-state
+    highlights (current nav tab, an "on" toggle, the selected language)
+    use a border + glow instead of a solid fill, so they stay glass too.
+25. **Standalone desktop packaging** - not started. A double-clickable,
+    per-OS build (no Node/Bun/Nuxt install required) that starts the
+    local server and opens the user's default browser to it. The SQLite
+    database and media library settings move from the current
+    project-relative path to an OS-appropriate user-data directory, since
+    a distributed build won't live inside a cloned repo. Packaging
+    toolchain not yet decided - `better-sqlite3` is a native addon, and
+    native-module support inside a compiled Bun/Node executable has real
+    rough edges worth a small validation spike before building the
+    launcher UX on top of it.
+26. **Global search: find + add shows** - done. The nav search bar
+    (`NavBar.vue`) falls back to `GET /api/lookup/anilist-search` when the
+    local `anime` result group is empty, showing an "Add a show" dropdown
+    group with an inline "Add" button per AniList match. "Add" navigates to
+    `/cards/new?aniListId=<id>`, which now reads that param on mount and
+    auto-triggers the existing `selectAnime` import flow - no new server
+    routes, no duplicated theme-list UI.
+27. **Explicit "Clear local file" action on cards** - not started. A
+    one-click button next to a card's local video/audio path (in both
+    `/cards`' row edit and `CardPreviewModal`'s edit mode, feature 16) that
+    deletes the referenced file from disk (reusing feature 17's cleanup
+    logic) and blanks the field, instead of relying on manually clearing
+    the text input to the same effect.
+28. **Add existing cards to a deck from the deck page** - not started.
+    Manual decks only (artist/anime decks are derived, not stored, so
+    there is nothing to add to). A control on a manual deck's detail view
+    (feature 13a) to search/pick existing cards and attach them - the same
+    action as `/cards`' "Decks" checkbox panel (feature 13b), initiated
+    from the other direction.
+29. **Stats refresh + clear** - not started. A manual refresh action on
+    `/stats`, plus a destructive "clear" action that deletes `ReviewLog`
+    history only (stats reset to zero; card box levels and due dates are
+    untouched).
+30. **Native Japanese song titles + split Furigana toggle** - not started.
+    Adds a native-Japanese title field to `Song` (alongside the anime
+    title fields that already exist on `Anime`), shown on Study/Preview.
+    Splits the current single "JP + Furigana" toggle (feature 6c) into an
+    independent Japanese toggle plus a Furigana sub-toggle, applying to
+    both anime and song titles.
+31. **Study settings panel** - not started. Moves `/study`'s display
+    toggles (Hide Video, Hide Info, Random Start, Ambient mode - feature
+    10/14) and language toggles (EN/Romaji/Japanese/Furigana - feature 6c,
+    as split by feature 30) behind one settings panel reachable via a
+    button on the study screen. Play/Pause, Pass/Fail, the scrub bar,
+    volume, and expand stay inline as core playback/interaction controls,
+    unchanged.
+32. **Study playback-mode option** - not started. In the settings panel
+    from feature 31, a session-only choice (not persisted per scope,
+    unlike the abandoned feature 18) between Audio-only / Video-only / Any
+    (locals preferred). Must not repeat feature 18's rollback bug: never
+    change the media source after playback has already started, which
+    caused two audio streams to play at once.
 
 ## Data model
 
@@ -315,16 +374,15 @@ type DeckRef = { type: "artist"; id: number } | { type: "anime"; id: number };
 type StudyScope = { type: "all" } | DeckRef;
 ```
 
-### Study scope playback preference (rolled back, feature 18)
+### Study scope playback preference (abandoned, feature 18)
 
 Built as a `studyScopeSetting` table (one row per study scope, plus a
 `forcedMode` prop threaded into `StudyMediaPlayer`), then rolled back
 2026-08-29 - the table was dropped from the live database and its
-migration removed, so it is **not** part of the current schema. The
-rollback reason (changing `mediaKind` after playback had already started,
-causing overlapping audio) means a future redesign should not simply
-rebuild the old shape - the mid-playback swap is exactly what needs to
-change. Full detail lives in
+migration removed, so it is **not** part of the current schema. Abandoned
+outright the same day rather than queued for a redesign: it is not a
+build-plan target and its number (18) is retired, not reused. Full detail
+lives in
 `blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`
 and the original archive at
 `blueprint/history/features/18-per-scope-quiz-mode-preference.md`.
@@ -448,8 +506,17 @@ Localhost-only - no remote hosting, no accounts, no multi-device sync.
 - **Run**: `bun run preview` (production) or `bun run dev` (development)
 - **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` (resolved in
   feature 1; gitignored, created and migrated automatically on first boot)
-  plus the user-configured media library folder(s)
+  plus the user-configured media library folder(s). Feature 25 (not
+  started) moves this to an OS-appropriate user-data directory for the
+  packaged build, since a distributed executable won't live inside a
+  cloned repo - the project-relative path stays the default for the
+  developer's own `bun run dev`/`preview` workflow.
 - **Env vars**: none identified yet
+- **Packaged build** (feature 25, not started): a double-clickable,
+  per-OS executable for non-technical end users - no Node/Bun/Nuxt
+  install required, starts the local server and opens the user's default
+  browser to it. Toolchain undecided; `better-sqlite3`'s native addon is
+  the main packaging risk.
 - **Health check / domain**: not applicable (local-only)
 
 ## Open questions
