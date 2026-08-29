@@ -242,13 +242,36 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
-function onSeek(event: MouseEvent) {
+function seekToClientX(clientX: number, rect: DOMRect) {
   const el = activeEl.value;
   if (!el || !Number.isFinite(duration.value) || !duration.value) return;
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-  const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
-  el.currentTime = ratio * duration.value;
+  const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+  const time = ratio * duration.value;
+  el.currentTime = time;
+  currentTime.value = time;
 }
+
+let stopDrag: (() => void) | null = null;
+
+function onScrubMouseDown(event: MouseEvent) {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  seekToClientX(event.clientX, rect);
+
+  function onMouseMove(e: MouseEvent) {
+    seekToClientX(e.clientX, rect);
+  }
+  function onMouseUp() {
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    stopDrag = null;
+  }
+
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+  stopDrag = onMouseUp;
+}
+
+onUnmounted(() => stopDrag?.());
 </script>
 
 <template>
@@ -314,7 +337,7 @@ function onSeek(event: MouseEvent) {
         {{ isPlaying ? "⏸" : "▶" }}
         <span class="tooltip">Hotkey: S</span>
       </button>
-      <div class="scrub" @click="onSeek">
+      <div class="scrub" @mousedown="onScrubMouseDown">
         <span :style="{ width: progressPercent + '%' }" />
       </div>
       <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
