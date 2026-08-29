@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 45e19ff9e5afd278b8de8b809c49a5af762d20fd6fd97df54dca8ba8405d35f6 -->
+<!-- blueprint:source-hash 0570a61f0433df5794beb006b7744a280c508b0df5f0f44bb9d4f3d829eea78e -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,8 +24,9 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-14 (the full MVP plus manual decks and the
-study-screen ambient glow) are built and merged; 15 is next.
+Build-plan order. Features 1-17 (the full MVP, manual decks, the study-screen
+ambient glow, the home page/nav bar, Preview editing, and delete cleanup) are
+built and merged; 18 is next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -99,9 +100,51 @@ study-screen ambient glow) are built and merged; 15 is next.
     glow behind the video player on `/study`, active only while a real video
     frame is showing (not audio-only, not Hide Video); covers the whole
     background and is toggleable.
-15. **Home page + navigation bar** - not started. A `/` launcher hub (links
-    to Study, Cards, Decks, Stats, Settings - no live data) plus a
-    persistent top nav bar, via a shared Nuxt layout, present on every page.
+15. **Home page + navigation bar** - done. `/` - a launcher hub (links to
+    Study, Cards, Decks, Stats, Settings - no live data) plus a persistent
+    top nav bar, via a shared Nuxt layout, present on every page.
+16. **Edit card metadata from Preview** - done. `CardPreviewModal` gained an
+    edit mode: song title, theme slot (validated against `Song`'s
+    `(animeId, themeSlot)` uniqueness), local video/audio paths, and artist -
+    either rename the `Artist` row in place (affects every card built from
+    any song by that artist, since `Song.artistId` is shared) or reassign
+    the song to a different/new artist (get-or-create, only affects that
+    song). `PATCH /api/cards` carries the new fields; `/cards`' existing
+    local-path-only row edit is untouched, a second entry point to the same
+    underlying capability.
+17. **Delete card cleans up orphaned files** - done. `DELETE /api/cards`
+    (`deleteCard`) now removes a deleted card's local video/audio files from
+    disk, unless another remaining card's local path is the exact same file.
+    Best-effort: a missing file or a filesystem error is swallowed, same
+    degrade-gracefully behavior as everywhere else. Remote sources
+    (`animethemesVideoUrl`/`animethemesAudioUrl`) are never touched.
+18. **Per-scope quiz-mode preference** - not started. A settings table keyed
+    by study scope (artist id / anime id / "all" - manual decks excluded
+    since `/study` can't be scoped to one yet), each independently settable
+    to Auto / Audio-only / Video-only. A forced mode prefers that source
+    type (still local-then-remote per source, same as today) and falls back
+    to whatever the card actually has if the preferred type isn't available
+    at all, rather than skipping the card. See Data model below for the
+    locked shape.
+19. **Library scale-up: pagination + search** - not started, two
+    sub-features:
+    - **19a. Pagination** - numbered pages, ~25/page, on the top-level
+      `/cards` list, top-level `/decks` list, and the card list inside a
+      deck's detail view.
+    - **19b. Global search** - an autocomplete dropdown in the persistent
+      nav bar, searching across cards/decks/anime/artists, jumping straight
+      to a result on selection.
+20. **Preview expand + ambient mode** - not started. `CardPreviewModal`
+    gains an expand button that grows the modal to fill the viewport
+    (in-page overlay, not the native Fullscreen API) and, independently, a
+    minimal ambient-mode toggle reusing `StudyMediaPlayer`'s existing
+    `ambient` prop. The ambient choice persists across Preview opens
+    (localStorage) - the app's first persisted UI preference; everywhere
+    else (Study's toggles) resets every session.
+21. **Video volume slider** - not started. A volume control in
+    `StudyMediaPlayer`, covering both `/study` and `CardPreviewModal` since
+    both share that component. The chosen level persists across sessions
+    (localStorage), unlike Study's other session-only display toggles.
 
 ## Data model
 
@@ -121,6 +164,12 @@ study-screen ambient glow) are built and merged; 15 is next.
 - `id` (integer, PK)
 - `name` (string, unique) - uniqueness added in feature 3 so lookups can
   get-or-create without duplicating an artist across imports
+
+> Feature 16 added two ways to change an artist after creation: rename the
+> row in place (global, affects every song by that artist) or reassign a
+> single song to a different/new artist via the same get-or-create helper
+> the lookup flow uses. Reassigning away from an artist can leave it with
+> zero songs - nothing prunes that row automatically.
 
 ### Song
 
@@ -154,7 +203,9 @@ stored: video if any video source is present, audio-only otherwise.
 > local/remote fields (enforced by feature 4's create/update validation). A
 > card can hold a local reference, a remote reference, or both. Feature 8
 > adds a way to turn a remote-only source into a local one (download into
-> the default download folder) without changing this shape.
+> the default download folder) without changing this shape. Feature 17
+> means deleting a card also deletes its local file(s) from disk, unless
+> another remaining card's local path points at the exact same file.
 
 **`CardWithDetails`** (load-bearing shared shape, returned by `/api/cards`,
 `/api/decks/cards`, `/api/study/next`, `/api/study/review`,
@@ -235,6 +286,28 @@ type DeckRef = { type: "artist"; id: number } | { type: "anime"; id: number };
 type StudyScope = { type: "all" } | DeckRef;
 ```
 
+### Study scope playback preference (planned, feature 18)
+
+Not yet built. One row per study scope, matching `StudyScope` above exactly
+(`"all" | "artist" | "anime"`) - manual decks are excluded because `/study`
+can't be scoped to one yet (feature 13a deliberately hid "Study this deck"
+for Created decks). Not tied to the `Deck` table since Artist and Anime
+scopes have no stored row of their own.
+
+- `id` (integer, PK)
+- `scopeType` (`"artist" | "anime" | "all"`)
+- `scopeId` (integer, nullable) - the artist/anime id; null only when
+  `scopeType` is `"all"`
+- `mode` (`"auto" | "audioOnly" | "videoOnly"`, default `"auto"`)
+- Unique on `(scopeType, scopeId)`
+
+> Exact table/column naming is feature 18's call at spec time - this shape
+> is locked enough to build against. A non-`"auto"` mode is a *preference*,
+> not a hard filter: `StudyMediaPlayer` already falls back from local to
+> remote per source type, so "prefer audio" just means trying the audio
+> source (local, else remote URL) first; if the card has no audio source at
+> all, it falls back to whatever it actually has rather than being skipped.
+
 ### Leitner scheduling (locked in feature 6a)
 
 5 boxes. Pass advances one box (capped at 5); fail resets to box 1.
@@ -267,7 +340,7 @@ stored session queue.
 - **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - added in
   feature 6c for furigana generation
 - **Node `fs`** - reads the user-configured local media library and writes
-  files downloaded by feature 8
+  files downloaded by feature 8, and removes files feature 17 cleans up
 
 ## Monetization
 
@@ -290,6 +363,9 @@ and that convention should continue rather than mixing in a new one.
 
 Routes:
 
+- `/` - done (feature 15). A launcher hub with links to Study, Cards, Decks,
+  Stats, Settings - no live data, no dashboard stats. Ships alongside a
+  persistent top nav bar in a shared Nuxt layout, present on every page.
 - `/settings` - done. Media library folder configuration, plus (feature 8) a
   default download folder picker shown once 2+ folders are configured, plus
   (feature 9) an "Import deck" form (source path -> created/skipped summary
@@ -298,10 +374,14 @@ Routes:
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal
-  (playback + info, reused from `/study`'s components). Feature 12 added an
-  anime cover thumbnail per row (absent, not broken, when that anime has
-  none). Feature 13b added a per-row "Decks" panel (checkbox per manual
-  deck, toggling calls the assignment API immediately - no save step).
+  (playback + info, reused from `/study`'s components) - feature 16 later
+  gave that modal an edit mode (song title, theme slot, artist, local
+  paths). Feature 12 added an anime cover thumbnail per row (absent, not
+  broken, when that anime has none). Feature 13b added a per-row "Decks"
+  panel (checkbox per manual deck, toggling calls the assignment API
+  immediately - no save step). Feature 17 made the existing Delete button
+  also remove the card's now-unreferenced local file(s), with no added
+  confirmation step.
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
@@ -329,10 +409,6 @@ Routes:
   stays unaffected.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
-- `/` - not started (feature 15). A launcher hub with links to Study,
-  Cards, Decks, Stats, Settings - no live data, no dashboard stats.
-  Ships alongside a persistent top nav bar in a shared Nuxt layout,
-  present on every page.
 
 ## Deployment
 

@@ -36,6 +36,13 @@ instance against their own local media and database.
   user-created manual decks: named, flat (no nesting), and a card can belong
   to any number of manual decks at once. A library view browses/groups decks
   by Created (manual), Artist, or Anime.
+- **Per-scope playback preference** - a setting per study scope (Artist deck,
+  Anime deck, or "study all" - manual decks aren't a study scope yet) of
+  Auto / Audio-only / Video-only, controlling which source type a study
+  session prefers for cards in that scope. Preferring a type still uses
+  local media first and falls back to the remote animethemes.moe URL, same
+  as today; if the preferred type isn't available at all, the card falls
+  back to whatever source it actually has.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
@@ -63,6 +70,10 @@ instance against their own local media and database.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks).
+- Per-scope playback preference: one row per study scope (Artist id / Anime
+  id / "all"), not tied to the Deck table since Artist and Anime scopes have
+  no stored row of their own. Manual decks aren't included - `/study` can't
+  be scoped to one yet.
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
   artist and by anime title.
 - User-configured media library folder path(s).

@@ -23,13 +23,13 @@
 **Suggested fix:** Wrap both in the same `try { ... } catch (err) { ...Error.value = extractErrorMessage(err, "Failed to remove ..."); }` shape already used by every sibling mutation on each of these pages, with a matching inline error element in the template.
 **Resolution:**
 
-### F-06 [P3] open - Stray untracked duplicate files (` 2` suffix) causing dev-server import warnings
+### F-06 [P3] fixed - Stray untracked duplicate files (` 2` suffix) causing dev-server import warnings
 
-**File:** blueprint/history/features/13b-card-assignment 2.md, blueprint/history/fixes/card-download-progress-and-refresh 2.md, nuxt-app/app/composables/useCardDownloads 2.ts, nuxt-app/server/api/decks/cards.delete 2.ts, nuxt-app/server/api/decks/cards.post 2.ts, nuxt-app/server/api/decks/memberships.get 2.ts, nuxt-app/server/db/migrations/0006_faulty_joystick 2.sql, nuxt-app/server/db/migrations/meta/0006_snapshot 2.json
+**File:** blueprint/history/features/13b-card-assignment 2.md, blueprint/history/features/17-delete-card-cleans-up-orphaned-files 2.md, blueprint/history/fixes/card-download-progress-and-refresh 2.md, blueprint/history/fixes/deck-import-path-traversal 2.md, nuxt-app/app/composables/useCardDownloads 2.ts, nuxt-app/server/api/decks/cards.delete 2.ts, nuxt-app/server/api/decks/cards.post 2.ts, nuxt-app/server/api/decks/memberships.get 2.ts, nuxt-app/server/db/migrations/0006_faulty_joystick 2.sql, nuxt-app/server/db/migrations/meta/0006_snapshot 2.json
 **Found:** 2026-08-29 by /audit (scope: full; lens: quality)
-**Why it matters:** Eight untracked files, byte-identical duplicates of already-committed files, have accumulated across this session (first two appeared before this session started; six more appeared after the feature 13b merge). They're not in any commit and don't affect production behavior, but `useCardDownloads 2.ts` is confirmed actively causing "Duplicated imports" warnings in the dev server on every boot (observed repeatedly this session). Left untouched throughout the session pending the user's own call on deleting them.
-**Suggested fix:** Delete all eight (user decision, not this audit's to make) and figure out what's generating them - the timing (appearing right after merges) suggests some tool or process in the local environment, not anything this session's workflow wrote.
-**Resolution:**
+**Why it matters:** Ten untracked files, byte-identical duplicates of already-committed files, accumulated across the session (two more appeared after the original audit, matching the same pattern). They're not in any commit and don't affect production behavior, but `useCardDownloads 2.ts` was confirmed causing "Duplicated imports" warnings in the dev server on every boot, and `meta/0006_snapshot 2.json` started actively blocking `bun run db:generate` for feature 18's migration with a snapshot-collision error.
+**Suggested fix:** Delete all ten (user decision, not this audit's to make) and figure out what's generating them - the timing (appearing right after merges) suggests some tool or process in the local environment, not anything this session's workflow wrote.
+**Resolution:** Re-verified all 10 as untracked and byte-identical to their committed counterparts, then deleted them with explicit user approval (2026-08-29, during feature 18's Step 1) after one of them started actively blocking `db:generate`. The root cause (what's generating these) is still unknown - re-open if the pattern recurs.
 
 ### F-07 [P3] unverified - Furigana HTML rendered via `v-html` from AniList-sourced title text, escaping behavior unverified
 

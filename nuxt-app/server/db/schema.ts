@@ -95,6 +95,17 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   defaultDownloadFolder: text("default_download_folder"),
 });
 
+// No unique constraint on (scopeType, scopeId): SQLite treats every NULL as
+// distinct in a unique index, which would let duplicate "all" rows (scopeId
+// null) slip through. One-row-per-scope is enforced in application code
+// instead (see getScopeMode/setScopeMode).
+export const studyScopeSetting = sqliteTable("study_scope_setting", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  scopeType: text("scope_type").notNull().$type<"artist" | "anime" | "all">(),
+  scopeId: integer("scope_id"),
+  mode: text("mode").notNull().default("auto").$type<"auto" | "audioOnly" | "videoOnly">(),
+});
+
 export type Anime = typeof anime.$inferSelect;
 export type NewAnime = typeof anime.$inferInsert;
 

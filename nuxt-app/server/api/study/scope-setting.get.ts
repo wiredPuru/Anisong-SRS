@@ -1,4 +1,5 @@
-import { getNextDueCard, parseStudyScope } from "../../utils/cards.ts";
+import { parseStudyScope } from "../../utils/cards.ts";
+import { getScopeMode } from "../../utils/studyScopeSettings.ts";
 
 export default defineEventHandler((event) => {
   const { type, id } = getQuery(event);
@@ -14,5 +15,5 @@ export default defineEventHandler((event) => {
     });
   }
 
-  return { card: getNextDueCard(result.scope) ?? null };
+  return { mode: getScopeMode(result.scope) };
 });

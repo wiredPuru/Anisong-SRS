@@ -140,13 +140,13 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 17. **Delete card cleans up orphaned files** - deleting a card
   auto-deletes its local video/audio files, skipping any file path still
   referenced by another card.
-- [ ] 18. **Per-scope quiz-mode preference** - a settings table keyed by
-  study scope (artist id / anime id / manual deck id / "all"), each
-  independently settable to Auto / Audio-only / Video-only. When a scope
-  forces a mode, a card missing that source locally triggers an on-demand
-  remote fetch from animethemes.moe; if remote doesn't have it either, the
-  card plays with whatever source it actually has rather than being
-  skipped.
+- [x] 18. **Per-scope quiz-mode preference** - a settings table keyed by
+  study scope (artist id / anime id / "all" - manual decks excluded since
+  `/study` can't be scoped to one yet), each independently settable to Auto
+  / Audio-only / Video-only. A forced mode prefers that source type
+  (falling back to local-then-remote per source, same as today) and falls
+  back to whatever the card actually has if the preferred type isn't
+  available at all, rather than skipping the card.
 - [ ] 19. **Library scale-up: pagination + search**
   - [ ] 19a. **Pagination** - numbered pages, ~25/page, applied to the
     top-level `/cards` list, top-level `/decks` list, and the card list

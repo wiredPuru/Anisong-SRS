@@ -6,6 +6,7 @@ const props = defineProps<{
   hideVideo?: boolean;
   randomStart?: boolean;
   ambient?: boolean;
+  forcedMode?: "auto" | "audioOnly" | "videoOnly";
 }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
@@ -15,11 +16,22 @@ function mediaUrl(localPath: string | null, remoteUrl: string | null): string | 
 }
 
 const hasVideoSource = computed(() => Boolean(props.card.localVideoPath || props.card.animethemesVideoUrl));
+const hasAudioSource = computed(() => Boolean(props.card.localAudioPath || props.card.animethemesAudioUrl));
 
 // Which element/src actually mounts - deliberately independent of hideVideo,
 // so toggling it never swaps the underlying element mid-playback (that
 // remount was resetting playback to paused, which felt like a bug).
-const mediaKind = computed<"video" | "audio">(() => (hasVideoSource.value ? "video" : "audio"));
+//
+// forcedMode is a preference, not a filter: it only wins when the card
+// actually has that source type. Otherwise this falls through to the same
+// default as always (video if the card has any video source, else audio),
+// which is exactly the graceful "play whatever it has" fallback a scope's
+// forced mode is supposed to degrade to.
+const mediaKind = computed<"video" | "audio">(() => {
+  if (props.forcedMode === "videoOnly" && hasVideoSource.value) return "video";
+  if (props.forcedMode === "audioOnly" && hasAudioSource.value) return "audio";
+  return hasVideoSource.value ? "video" : "audio";
+});
 
 // Whether the video frame is actually shown. Hiding video always forces the
 // audio-style veil, even when the video element keeps playing underneath for

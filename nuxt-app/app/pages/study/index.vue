@@ -48,6 +48,28 @@ async function fetchDeckLabel() {
 
 watch(scopeResult, fetchDeckLabel, { immediate: true });
 
+type QuizMode = "auto" | "audioOnly" | "videoOnly";
+
+const scopeMode = ref<QuizMode>("auto");
+
+async function fetchScopeMode() {
+  const result = scopeResult.value;
+  if (!result.valid) {
+    scopeMode.value = "auto";
+    return;
+  }
+  try {
+    const query =
+      result.scope.type === "all" ? { type: "all" } : { type: result.scope.type, id: result.scope.id };
+    const response = await $fetch<{ mode: QuizMode }>("/api/study/scope-setting", { query });
+    scopeMode.value = response.mode;
+  } catch {
+    scopeMode.value = "auto";
+  }
+}
+
+watch(scopeResult, fetchScopeMode, { immediate: true });
+
 const scopeChipLabel = computed(() => {
   const result = scopeResult.value;
   if (!result.valid) return "";
@@ -104,6 +126,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :hide-video="hideVideo"
           :random-start="randomStart"
           :ambient="ambientMode"
+          :forced-mode="scopeMode"
         />
         <div class="side">
           <StudyInfoPanel

@@ -5,6 +5,7 @@ import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
 import { getOrCreateArtist } from "./lookup.ts";
+import { getAnimeLabel, getArtistLabel } from "./decks.ts";
 
 export interface CardWithDetails {
   id: number;
@@ -82,6 +83,30 @@ export function listCardsByManualDeck(deckId: number): CardWithDetails[] {
 }
 
 export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
+
+export type ParseStudyScopeResult = { error: string } | { notFound: true } | { scope: StudyScope };
+
+export function parseStudyScope(type: unknown, idRaw: unknown): ParseStudyScopeResult {
+  if (type !== "all" && type !== "artist" && type !== "anime") {
+    return { error: "type must be 'all', 'artist', or 'anime'" };
+  }
+
+  if (type === "all") {
+    return { scope: { type: "all" } };
+  }
+
+  const id = Number(idRaw);
+  if (typeof idRaw !== "string" || idRaw.trim() === "" || !Number.isFinite(id)) {
+    return { error: "id is required and must be a number" };
+  }
+
+  const label = type === "artist" ? getArtistLabel(id) : getAnimeLabel(id);
+  if (label === undefined) {
+    return { notFound: true };
+  }
+
+  return { scope: type === "artist" ? { type: "artist", id } : { type: "anime", id } };
+}
 
 export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
   const dueCondition = lte(card.nextReviewAt, new Date());

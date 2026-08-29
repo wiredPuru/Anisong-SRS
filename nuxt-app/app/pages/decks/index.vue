@@ -131,6 +131,65 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+type QuizMode = "auto" | "audioOnly" | "videoOnly";
+
+const { data: allModeData, refresh: refreshAllMode } = await useFetch<{ mode: QuizMode }>(
+  "/api/study/scope-setting",
+  { query: { type: "all" } },
+);
+const allScopeMode = computed<QuizMode>(() => allModeData.value?.mode ?? "auto");
+const isSavingAllMode = ref(false);
+const allScopeModeError = ref<string | null>(null);
+
+async function setAllScopeMode(mode: QuizMode) {
+  allScopeModeError.value = null;
+  isSavingAllMode.value = true;
+  try {
+    await $fetch("/api/study/scope-setting", { method: "PATCH", body: { type: "all", mode } });
+    await refreshAllMode();
+  } catch (err) {
+    allScopeModeError.value = extractErrorMessage(err, "Failed to update quiz mode.");
+  } finally {
+    isSavingAllMode.value = false;
+  }
+}
+
+const {
+  data: scopeModeData,
+  refresh: refreshScopeMode,
+  execute: fetchScopeMode,
+} = await useFetch<{ mode: QuizMode }>("/api/study/scope-setting", {
+  query: computed(() => ({ type: activeType.value, id: selectedId.value })),
+  immediate: selectedId.value !== null && activeType.value !== "created",
+});
+const scopeMode = computed<QuizMode>(() => scopeModeData.value?.mode ?? "auto");
+const isSavingScopeMode = ref(false);
+const scopeModeError = ref<string | null>(null);
+
+watch(selectedId, (id) => {
+  if (id !== null && activeType.value !== "created") {
+    fetchScopeMode();
+  }
+});
+
+async function setScopeMode(mode: QuizMode) {
+  if (selectedId.value === null) return;
+
+  scopeModeError.value = null;
+  isSavingScopeMode.value = true;
+  try {
+    await $fetch("/api/study/scope-setting", {
+      method: "PATCH",
+      body: { type: activeType.value, id: selectedId.value, mode },
+    });
+    await refreshScopeMode();
+  } catch (err) {
+    scopeModeError.value = extractErrorMessage(err, "Failed to update quiz mode.");
+  } finally {
+    isSavingScopeMode.value = false;
+  }
+}
+
 const newDeckName = ref("");
 const isCreatingDeck = ref(false);
 const createDeckError = ref<string | null>(null);
@@ -283,6 +342,19 @@ function backToDecks() {
     <p class="hint">Cards grouped by artist or by anime title.</p>
     <NuxtLink to="/study?type=all" class="study-link">Study all decks</NuxtLink>
     <NuxtLink to="/stats" class="study-link stats-link">Review stats</NuxtLink>
+    <label class="quiz-mode-select">
+      Quiz mode
+      <select
+        :value="allScopeMode"
+        :disabled="isSavingAllMode"
+        @change="setAllScopeMode(($event.target as HTMLSelectElement).value as QuizMode)"
+      >
+        <option value="auto">Auto</option>
+        <option value="audioOnly">Audio only</option>
+        <option value="videoOnly">Video only</option>
+      </select>
+    </label>
+    <p v-if="allScopeModeError" class="export-error">{{ allScopeModeError }}</p>
 
     <template v-if="selectedId === null">
       <div class="toggle">
@@ -394,14 +466,25 @@ function backToDecks() {
             <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
             <h2>{{ deckDetail.deckLabel }}</h2>
           </div>
-          <NuxtLink
-            v-if="activeType !== 'created'"
-            :to="`/study?type=${activeType}&id=${selectedId}`"
-            class="study-link"
-          >
-            Study this deck
-          </NuxtLink>
+          <div v-if="activeType !== 'created'" class="deck-study-actions">
+            <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}`" class="study-link">
+              Study this deck
+            </NuxtLink>
+            <label class="quiz-mode-select">
+              Quiz mode
+              <select
+                :value="scopeMode"
+                :disabled="isSavingScopeMode"
+                @change="setScopeMode(($event.target as HTMLSelectElement).value as QuizMode)"
+              >
+                <option value="auto">Auto</option>
+                <option value="audioOnly">Audio only</option>
+                <option value="videoOnly">Video only</option>
+              </select>
+            </label>
+          </div>
         </div>
+        <p v-if="scopeModeError" class="export-error">{{ scopeModeError }}</p>
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
           <li v-for="c in deckDetail.cards" :key="c.id" class="deck-card-row">
             <div class="deck-card-row-main">
@@ -493,6 +576,33 @@ h1 {
   margin-left: 8px;
   background: var(--accent-secondary);
   color: var(--accent-secondary-ink);
+}
+
+.quiz-mode-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quiz-mode-select select {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.deck-study-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 h2 {
