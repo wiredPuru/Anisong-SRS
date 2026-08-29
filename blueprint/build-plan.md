@@ -140,13 +140,17 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 17. **Delete card cleans up orphaned files** - deleting a card
   auto-deletes its local video/audio files, skipping any file path still
   referenced by another card.
-- [x] 18. **Per-scope quiz-mode preference** - a settings table keyed by
+- [ ] 18. **Per-scope quiz-mode preference** - a settings table keyed by
   study scope (artist id / anime id / "all" - manual decks excluded since
   `/study` can't be scoped to one yet), each independently settable to Auto
   / Audio-only / Video-only. A forced mode prefers that source type
   (falling back to local-then-remote per source, same as today) and falls
   back to whatever the card actually has if the preferred type isn't
   available at all, rather than skipping the card.
+  Rolled back 2026-08-29 - `forcedMode` let quiz mode change after playback
+  started, causing overlapping audio; a targeted fix didn't resolve it. See
+  `blueprint/history/rollbacks/2026-08-29-18-per-scope-quiz-mode-preference.md`.
+  Pending a redesign before rebuilding.
 - [x] 19. **Library scale-up: pagination + search**
   - [x] 19a. **Pagination** - numbered pages, ~25/page, applied to the
     top-level `/cards` list, top-level `/decks` list, and the card list
