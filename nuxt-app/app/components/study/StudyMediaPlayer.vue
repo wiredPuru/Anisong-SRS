@@ -39,6 +39,30 @@ const currentTime = ref(0);
 const duration = ref(0);
 const errorMessage = ref<string | null>(null);
 
+const VOLUME_STORAGE_KEY = "gaqSrs:playerVolume";
+const volume = ref(1);
+
+onMounted(() => {
+  try {
+    const stored = Number(localStorage.getItem(VOLUME_STORAGE_KEY));
+    if (Number.isFinite(stored) && stored >= 0 && stored <= 1) {
+      volume.value = stored;
+    }
+  } catch {
+    // localStorage unavailable (private browsing, locked-down environment) -
+    // falls back to the default volume for this session.
+  }
+});
+
+watch(volume, (value) => {
+  try {
+    localStorage.setItem(VOLUME_STORAGE_KEY, String(value));
+  } catch {
+    // localStorage unavailable - the slider still works for this session, it
+    // just won't persist.
+  }
+});
+
 const activeEl = computed<HTMLMediaElement | null>(() =>
   mediaKind.value === "video" ? videoRef.value : audioRef.value,
 );
@@ -209,6 +233,7 @@ function onSeek(event: MouseEvent) {
         ref="videoRef"
         class="media-el"
         :src="src"
+        :volume="volume"
         @play="onPlay"
         @pause="onPause"
         @timeupdate="onTimeUpdate"
@@ -221,6 +246,7 @@ function onSeek(event: MouseEvent) {
         ref="audioRef"
         class="hidden-audio"
         :src="src"
+        :volume="volume"
         @play="isPlaying = true"
         @pause="isPlaying = false"
         @timeupdate="onTimeUpdate"
@@ -251,6 +277,10 @@ function onSeek(event: MouseEvent) {
         <span :style="{ width: progressPercent + '%' }" />
       </div>
       <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+      <div class="volume-control">
+        <span class="volume-icon" aria-hidden="true">🔊</span>
+        <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+      </div>
     </div>
   </div>
 </template>
@@ -479,5 +509,22 @@ function onSeek(event: MouseEvent) {
   font-weight: 600;
   min-width: 76px;
   text-align: right;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.volume-icon {
+  font-size: 14px;
+}
+
+.volume-slider {
+  width: 90px;
+  accent-color: var(--accent-secondary);
+  cursor: pointer;
 }
 </style>

@@ -165,7 +165,7 @@ cleaned-up checkbox version before generating the project overview.
   `StudyDisplayToggles` bar. The ambient choice defaults off but persists
   across Preview opens (localStorage), the first persisted UI preference in
   the app - everywhere else (Study's toggles) resets every session.
-- [ ] 21. **Video volume slider** - a volume control in `StudyMediaPlayer`,
+- [x] 21. **Video volume slider** - a volume control in `StudyMediaPlayer`,
   covering both `/study` and `CardPreviewModal` since both share that
   component. The chosen level persists across sessions (localStorage), unlike
   Study's other session-only display toggles.
