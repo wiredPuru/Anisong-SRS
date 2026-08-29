@@ -45,6 +45,7 @@ interface DeckCard {
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
   animeCoverImageUrl: string | null;
 }
 
@@ -255,6 +256,13 @@ async function exportDeck() {
   }
 }
 
+const previewCard = ref<DeckCard | null>(null);
+
+async function onPreviewCardUpdated(updated: DeckCard) {
+  previewCard.value = updated;
+  await fetchDeckDetail();
+}
+
 const removingCardId = ref<number | null>(null);
 const removeCardError = ref<string | null>(null);
 
@@ -442,6 +450,14 @@ function backToDecks() {
                 </div>
               </div>
               <button
+                v-if="sourceBadges(c).length"
+                type="button"
+                class="preview-btn"
+                @click="previewCard = c"
+              >
+                Preview
+              </button>
+              <button
                 v-if="activeType === 'created'"
                 type="button"
                 class="remove-btn deck-card-remove-btn"
@@ -480,6 +496,13 @@ function backToDecks() {
         </div>
       </template>
     </template>
+
+    <CardPreviewModal
+      :card="previewCard"
+      :open="previewCard !== null"
+      @close="previewCard = null"
+      @updated="onPreviewCardUpdated"
+    />
   </main>
 </template>
 
@@ -651,6 +674,19 @@ h2 {
 
 .deck-card-remove-btn {
   flex: none;
+}
+
+.preview-btn {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .song-title {

@@ -169,7 +169,7 @@ cleaned-up checkbox version before generating the project overview.
   covering both `/study` and `CardPreviewModal` since both share that
   component. The chosen level persists across sessions (localStorage), unlike
   Study's other session-only display toggles.
-- [ ] 22. **Preview on deck detail card rows** - add a per-row Preview
+- [x] 22. **Preview on deck detail card rows** - add a per-row Preview
   button to a deck's detail card list (Artist/Anime/Created), reusing the
   existing `CardPreviewModal` from `/cards` unchanged.
 - [ ] 23. **Expand toggle on /study's player** - a viewport-filling expand
