@@ -1,6 +1,6 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, desc, eq, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, lte, ne, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -288,7 +288,39 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
   return { card: getCardWithDetails(input.id)! };
 }
 
+function deleteFileIfUnreferenced(path: string): void {
+  const stillReferenced = db
+    .select({ id: card.id })
+    .from(card)
+    .where(or(eq(card.localVideoPath, path), eq(card.localAudioPath, path)))
+    .get();
+  if (stillReferenced) return;
+
+  try {
+    if (existsSync(path)) {
+      unlinkSync(path);
+    }
+  } catch {
+    // Best-effort cleanup - a permission error or a file that vanished
+    // underneath us just means it stays behind, same as before this feature.
+  }
+}
+
 export function deleteCard(id: number): boolean {
-  const result = db.delete(card).where(eq(card.id, id)).run();
-  return result.changes > 0;
+  const existing = db.select().from(card).where(eq(card.id, id)).get();
+  if (!existing) {
+    return false;
+  }
+
+  const localPaths = [existing.localVideoPath, existing.localAudioPath].filter(
+    (path): path is string => path !== null,
+  );
+
+  db.delete(card).where(eq(card.id, id)).run();
+
+  for (const path of localPaths) {
+    deleteFileIfUnreferenced(path);
+  }
+
+  return true;
 }
