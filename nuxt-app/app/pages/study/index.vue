@@ -59,8 +59,27 @@ const hideInfo = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
 
+const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
+
+onMounted(() => {
+  try {
+    const stored = localStorage.getItem(AMBIENT_STORAGE_KEY);
+    ambientMode.value = stored !== null ? stored === "1" : window.innerWidth > 820;
+  } catch {
+    ambientMode.value = window.innerWidth > 820;
+  }
+});
+
 const { setAmbientGlass } = useAmbientGlass();
-watch(ambientMode, (value) => setAmbientGlass(value), { immediate: true });
+watch(ambientMode, (value) => {
+  setAmbientGlass(value);
+  try {
+    localStorage.setItem(AMBIENT_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // localStorage unavailable (private browsing, locked-down environment) -
+    // the toggle still works for this session, it just won't persist.
+  }
+});
 onUnmounted(() => setAmbientGlass(false));
 
 function onKeydown(event: KeyboardEvent) {
@@ -69,6 +88,8 @@ function onKeydown(event: KeyboardEvent) {
     hideInfo.value = !hideInfo.value;
   } else if (key === "v") {
     hideVideo.value = !hideVideo.value;
+  } else if (key === "a") {
+    ambientMode.value = !ambientMode.value;
   }
 }
 

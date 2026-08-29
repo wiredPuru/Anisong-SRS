@@ -23,6 +23,7 @@ const emit = defineEmits<{
     </button>
     <button type="button" class="toggle-btn" :class="{ on: ambientMode }" @click="emit('toggle-ambient-mode')">
       Ambient mode
+      <span class="tooltip">Hotkey: A</span>
     </button>
   </div>
 </template>
