@@ -182,9 +182,10 @@ function onSeek(event: MouseEvent) {
 </script>
 
 <template>
-  <div class="player-ambient-host">
+  <Teleport to="body">
     <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
-    <div class="player-card">
+  </Teleport>
+  <div class="player-card">
     <div class="player-frame">
       <span class="theme-badge">{{ card.themeSlot }}</span>
 
@@ -236,30 +237,22 @@ function onSeek(event: MouseEvent) {
       </div>
       <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
     </div>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.player-ambient-host {
-  position: relative;
-}
-
-.ambient-glow {
-  position: absolute;
-  inset: -60px;
-  width: calc(100% + 120px);
-  height: calc(100% + 120px);
-  z-index: 0;
-  filter: blur(50px) saturate(1.6) brightness(1.1);
-  opacity: 0.85;
+:global(.ambient-glow) {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  filter: blur(80px) saturate(1.6) brightness(0.9);
+  opacity: 0.55;
   pointer-events: none;
-  border-radius: var(--radius);
 }
 
 .player-card {
-  position: relative;
-  z-index: 1;
   padding: 24px;
   background: var(--surface);
   border: 1px solid var(--border);

@@ -1,6 +1,11 @@
 <script setup lang="ts">
-defineProps<{ hideVideo: boolean; hideInfo: boolean; randomStart: boolean }>();
-const emit = defineEmits<{ "toggle-hide-video": []; "toggle-hide-info": []; "toggle-random-start": [] }>();
+defineProps<{ hideVideo: boolean; hideInfo: boolean; randomStart: boolean; ambientMode: boolean }>();
+const emit = defineEmits<{
+  "toggle-hide-video": [];
+  "toggle-hide-info": [];
+  "toggle-random-start": [];
+  "toggle-ambient-mode": [];
+}>();
 </script>
 
 <template>
@@ -15,6 +20,9 @@ const emit = defineEmits<{ "toggle-hide-video": []; "toggle-hide-info": []; "tog
     </button>
     <button type="button" class="toggle-btn" :class="{ on: randomStart }" @click="emit('toggle-random-start')">
       Start at random times
+    </button>
+    <button type="button" class="toggle-btn" :class="{ on: ambientMode }" @click="emit('toggle-ambient-mode')">
+      Ambient mode
     </button>
   </div>
 </template>

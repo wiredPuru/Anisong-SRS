@@ -57,6 +57,7 @@ const scopeChipLabel = computed(() => {
 const hideVideo = ref(false);
 const hideInfo = ref(false);
 const randomStart = ref(false);
+const ambientMode = ref(false);
 
 function onKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase();
@@ -90,9 +91,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         :hide-video="hideVideo"
         :hide-info="hideInfo"
         :random-start="randomStart"
+        :ambient-mode="ambientMode"
         @toggle-hide-video="hideVideo = !hideVideo"
         @toggle-hide-info="hideInfo = !hideInfo"
         @toggle-random-start="randomStart = !randomStart"
+        @toggle-ambient-mode="ambientMode = !ambientMode"
       />
       <div class="study-grid">
         <StudyMediaPlayer
@@ -100,7 +103,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :card="currentCard"
           :hide-video="hideVideo"
           :random-start="randomStart"
-          :ambient="true"
+          :ambient="ambientMode"
         />
         <div class="side">
           <StudyInfoPanel
