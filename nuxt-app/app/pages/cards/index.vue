@@ -29,35 +29,33 @@ const editAudioPath = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
 
-const downloading = reactive<Record<string, boolean>>({});
-const downloadError = reactive<Record<number, string | null>>({});
-
 const previewCard = ref<CardWithDetails | null>(null);
 
-function downloadKey(cardId: number, kind: "video" | "audio"): string {
-  return `${cardId}:${kind}`;
-}
-
-function canDownload(c: CardWithDetails, kind: "video" | "audio"): boolean {
-  return kind === "video" ? Boolean(c.animethemesVideoUrl) && !c.localVideoPath : Boolean(c.animethemesAudioUrl) && !c.localAudioPath;
-}
-
-function hasAnyDownloadableSource(c: CardWithDetails): boolean {
-  return canDownload(c, "video") || canDownload(c, "audio");
-}
+const {
+  downloading,
+  downloadProgress,
+  downloadError,
+  downloadKey,
+  canDownload,
+  hasAnyDownloadableSource,
+  downloadMedia: downloadMediaBase,
+} = useCardDownloads();
 
 async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
-  const key = downloadKey(c.id, kind);
-  downloadError[c.id] = null;
-  downloading[key] = true;
-  try {
-    await $fetch("/api/cards/download", { method: "POST", body: { cardId: c.id, kind } });
+  const updated = await downloadMediaBase<CardWithDetails>(c.id, c.id, kind);
+  if (updated) {
     await refresh();
-  } catch (err) {
-    downloadError[c.id] = extractErrorMessage(err, "Failed to download the file.");
-  } finally {
-    downloading[key] = false;
+    if (editingId.value === c.id) {
+      editVideoPath.value = updated.localVideoPath ?? "";
+      editAudioPath.value = updated.localAudioPath ?? "";
+    }
   }
+}
+
+function progressPercent(cardId: number, kind: "video" | "audio"): number {
+  const progress = downloadProgress[downloadKey(cardId, kind)];
+  if (!progress || progress.total <= 0) return 0;
+  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -138,24 +136,32 @@ async function removeCard(id: number) {
             </div>
             <div v-if="hasAnyDownloadableSource(c)" class="download-section">
               <div v-if="hasDefaultDownloadFolder" class="download-actions">
-                <button
-                  v-if="canDownload(c, 'video')"
-                  type="button"
-                  class="download-btn"
-                  :disabled="downloading[downloadKey(c.id, 'video')]"
-                  @click="downloadMedia(c, 'video')"
-                >
-                  {{ downloading[downloadKey(c.id, "video")] ? "Downloading..." : "Download video" }}
-                </button>
-                <button
-                  v-if="canDownload(c, 'audio')"
-                  type="button"
-                  class="download-btn"
-                  :disabled="downloading[downloadKey(c.id, 'audio')]"
-                  @click="downloadMedia(c, 'audio')"
-                >
-                  {{ downloading[downloadKey(c.id, "audio")] ? "Downloading..." : "Download audio" }}
-                </button>
+                <template v-if="canDownload(c, 'video')">
+                  <div v-if="downloading[downloadKey(c.id, 'video')]" class="download-progress">
+                    <div class="download-progress-bar">
+                      <span :style="{ width: progressPercent(c.id, 'video') + '%' }" />
+                    </div>
+                    <span class="download-progress-label">{{
+                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "video")])
+                    }}</span>
+                  </div>
+                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'video')">
+                    Download video
+                  </button>
+                </template>
+                <template v-if="canDownload(c, 'audio')">
+                  <div v-if="downloading[downloadKey(c.id, 'audio')]" class="download-progress">
+                    <div class="download-progress-bar">
+                      <span :style="{ width: progressPercent(c.id, 'audio') + '%' }" />
+                    </div>
+                    <span class="download-progress-label">{{
+                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "audio")])
+                    }}</span>
+                  </div>
+                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'audio')">
+                    Download audio
+                  </button>
+                </template>
               </div>
               <p v-else class="download-hint">
                 Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
@@ -412,9 +418,36 @@ h1 {
   cursor: pointer;
 }
 
-.download-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.download-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.download-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.download-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent-secondary);
+  transition: width 0.15s ease;
+}
+
+.download-progress-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
 }
 
 .download-hint {

@@ -71,39 +71,29 @@ const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defa
 );
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
 
-const downloading = reactive<Record<string, boolean>>({});
-const downloadError = reactive<Record<number, string | null>>({});
+const {
+  downloading,
+  downloadProgress,
+  downloadError,
+  downloadKey,
+  canDownload,
+  hasAnyDownloadableSource,
+  downloadMedia: downloadMediaBase,
+} = useCardDownloads();
 
-function downloadKey(songId: number, kind: "video" | "audio"): string {
-  return `${songId}:${kind}`;
-}
-
-function canDownload(card: CardWithDetails, kind: "video" | "audio"): boolean {
-  return kind === "video"
-    ? Boolean(card.animethemesVideoUrl) && !card.localVideoPath
-    : Boolean(card.animethemesAudioUrl) && !card.localAudioPath;
-}
-
-function hasAnyDownloadableSource(card: CardWithDetails): boolean {
-  return canDownload(card, "video") || canDownload(card, "audio");
+function progressPercent(songId: number, kind: "video" | "audio"): number {
+  const progress = downloadProgress[downloadKey(songId, kind)];
+  if (!progress || progress.total <= 0) return 0;
+  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
 }
 
 async function downloadMedia(songId: number, kind: "video" | "audio") {
   const card = addedCards[songId];
   if (!card) return;
 
-  const key = downloadKey(songId, kind);
-  downloadError[songId] = null;
-  downloading[key] = true;
-  try {
-    addedCards[songId] = await $fetch<CardWithDetails>("/api/cards/download", {
-      method: "POST",
-      body: { cardId: card.id, kind },
-    });
-  } catch (err) {
-    downloadError[songId] = extractErrorMessage(err, "Failed to download the file.");
-  } finally {
-    downloading[key] = false;
+  const updated = await downloadMediaBase<CardWithDetails>(songId, card.id, kind);
+  if (updated) {
+    addedCards[songId] = updated;
   }
 }
 
@@ -223,24 +213,32 @@ async function addCard(theme: ThemeResult) {
               <span class="added-badge">Added</span>
               <div v-if="hasAnyDownloadableSource(addedCards[theme.songId])" class="download-section">
                 <div v-if="hasDefaultDownloadFolder" class="download-actions">
-                  <button
-                    v-if="canDownload(addedCards[theme.songId], 'video')"
-                    type="button"
-                    class="download-btn"
-                    :disabled="downloading[downloadKey(theme.songId, 'video')]"
-                    @click="downloadMedia(theme.songId, 'video')"
-                  >
-                    {{ downloading[downloadKey(theme.songId, "video")] ? "Downloading..." : "Download video" }}
-                  </button>
-                  <button
-                    v-if="canDownload(addedCards[theme.songId], 'audio')"
-                    type="button"
-                    class="download-btn"
-                    :disabled="downloading[downloadKey(theme.songId, 'audio')]"
-                    @click="downloadMedia(theme.songId, 'audio')"
-                  >
-                    {{ downloading[downloadKey(theme.songId, "audio")] ? "Downloading..." : "Download audio" }}
-                  </button>
+                  <template v-if="canDownload(addedCards[theme.songId], 'video')">
+                    <div v-if="downloading[downloadKey(theme.songId, 'video')]" class="download-progress">
+                      <div class="download-progress-bar">
+                        <span :style="{ width: progressPercent(theme.songId, 'video') + '%' }" />
+                      </div>
+                      <span class="download-progress-label">{{
+                        formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "video")])
+                      }}</span>
+                    </div>
+                    <button v-else type="button" class="download-btn" @click="downloadMedia(theme.songId, 'video')">
+                      Download video
+                    </button>
+                  </template>
+                  <template v-if="canDownload(addedCards[theme.songId], 'audio')">
+                    <div v-if="downloading[downloadKey(theme.songId, 'audio')]" class="download-progress">
+                      <div class="download-progress-bar">
+                        <span :style="{ width: progressPercent(theme.songId, 'audio') + '%' }" />
+                      </div>
+                      <span class="download-progress-label">{{
+                        formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "audio")])
+                      }}</span>
+                    </div>
+                    <button v-else type="button" class="download-btn" @click="downloadMedia(theme.songId, 'audio')">
+                      Download audio
+                    </button>
+                  </template>
                 </div>
                 <p v-else class="download-hint">
                   Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
@@ -493,9 +491,36 @@ h2 {
   cursor: pointer;
 }
 
-.download-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.download-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.download-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.download-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent-secondary);
+  transition: width 0.15s ease;
+}
+
+.download-progress-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
 }
 
 .download-hint {

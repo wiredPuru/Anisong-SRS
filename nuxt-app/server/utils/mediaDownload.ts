@@ -1,4 +1,5 @@
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
+import { open } from "node:fs/promises";
 import { join } from "node:path";
 
 // animethemes.moe blocks Node's default fetch User-Agent with a bare 403; matches server/lib/animethemes.ts.
@@ -47,9 +48,17 @@ function isTimeout(err: unknown): boolean {
   return err instanceof Error && err.name === "TimeoutError";
 }
 
-export type DownloadResult = { path: string } | { error: string };
+export type DownloadProgressEvent =
+  | { type: "progress"; loaded: number; total: number }
+  | { type: "success"; path: string }
+  | { type: "error"; message: string };
 
-export async function downloadMediaFile(url: string, destDir: string, baseName: string, ext: string): Promise<DownloadResult> {
+export async function* downloadMediaFile(
+  url: string,
+  destDir: string,
+  baseName: string,
+  ext: string,
+): AsyncGenerator<DownloadProgressEvent> {
   const destPath = resolveUniquePath(destDir, baseName, ext);
 
   let response: Response;
@@ -59,20 +68,35 @@ export async function downloadMediaFile(url: string, destDir: string, baseName: 
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
   } catch (err) {
-    return { error: isTimeout(err) ? "Download timed out." : "Failed to download the file." };
+    yield { type: "error", message: isTimeout(err) ? "Download timed out." : "Failed to download the file." };
+    return;
   }
 
-  if (!response.ok) {
-    return { error: "Failed to download the file." };
+  if (!response.ok || !response.body) {
+    yield { type: "error", message: "Failed to download the file." };
+    return;
   }
+
+  const total = Number(response.headers.get("content-length")) || 0;
+  let loaded = 0;
+  const fileHandle = await open(destPath, "w");
+  const reader = response.body.getReader();
 
   try {
-    const buffer = Buffer.from(await response.arrayBuffer());
-    writeFileSync(destPath, buffer);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      await fileHandle.write(value);
+      loaded += value.byteLength;
+      yield { type: "progress", loaded, total };
+    }
   } catch (err) {
+    await fileHandle.close();
     if (existsSync(destPath)) unlinkSync(destPath);
-    return { error: isTimeout(err) ? "Download timed out." : "Failed to download the file." };
+    yield { type: "error", message: isTimeout(err) ? "Download timed out." : "Failed to download the file." };
+    return;
   }
 
-  return { path: destPath };
+  await fileHandle.close();
+  yield { type: "success", path: destPath };
 }

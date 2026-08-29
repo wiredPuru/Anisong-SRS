@@ -1,7 +1,38 @@
 import { existsSync, unlinkSync } from "node:fs";
+import { Readable } from "node:stream";
 import { getCardWithDetails, updateCard } from "../../utils/cards.ts";
 import { buildDownloadBaseName, downloadMediaFile } from "../../utils/mediaDownload.ts";
 import { getDefaultDownloadFolder } from "../../utils/mediaLibrary.ts";
+
+async function* streamDownloadResponse(
+  sourceUrl: string,
+  destDir: string,
+  baseName: string,
+  ext: string,
+  cardId: number,
+  kind: "video" | "audio",
+): AsyncGenerator<string> {
+  for await (const event of downloadMediaFile(sourceUrl, destDir, baseName, ext)) {
+    if (event.type === "progress") {
+      yield `${JSON.stringify({ type: "progress", loaded: event.loaded, total: event.total })}\n`;
+      continue;
+    }
+    if (event.type === "error") {
+      yield `${JSON.stringify({ type: "error", message: event.message })}\n`;
+      return;
+    }
+
+    const updateResult = updateCard(
+      kind === "video" ? { id: cardId, localVideoPath: event.path } : { id: cardId, localAudioPath: event.path },
+    );
+    if ("error" in updateResult || "notFound" in updateResult) {
+      if (existsSync(event.path)) unlinkSync(event.path);
+      yield `${JSON.stringify({ type: "error", message: "Downloaded the file but failed to save it to the card." })}\n`;
+      return;
+    }
+    yield `${JSON.stringify({ type: "done", card: updateResult.card })}\n`;
+  }
+}
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -51,20 +82,6 @@ export default defineEventHandler(async (event) => {
     kind,
   });
 
-  const downloadResult = await downloadMediaFile(sourceUrl, destDir, baseName, ext);
-  if ("error" in downloadResult) {
-    throw createError({ statusCode: 502, statusMessage: downloadResult.error });
-  }
-
-  const updateResult = updateCard(
-    kind === "video"
-      ? { id: card.id, localVideoPath: downloadResult.path }
-      : { id: card.id, localAudioPath: downloadResult.path },
-  );
-  if ("error" in updateResult || "notFound" in updateResult) {
-    if (existsSync(downloadResult.path)) unlinkSync(downloadResult.path);
-    throw createError({ statusCode: 500, statusMessage: "Downloaded the file but failed to save it to the card." });
-  }
-
-  return updateResult.card;
+  setResponseHeader(event, "content-type", "application/x-ndjson");
+  return sendStream(event, Readable.from(streamDownloadResponse(sourceUrl, destDir, baseName, ext, card.id, kind)));
 });
