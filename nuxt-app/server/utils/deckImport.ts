@@ -1,10 +1,18 @@
 import { copyFileSync, existsSync, readFileSync } from "node:fs";
-import { extname, isAbsolute, join } from "node:path";
+import { extname, isAbsolute, join, relative } from "node:path";
 import { cardExistsForSong, createCard } from "./cards.ts";
 import type { DeckBundleManifest } from "./deckExport.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import { getDefaultDownloadFolder } from "./mediaLibrary.ts";
 import { resolveUniquePath, sanitizeSegment } from "./mediaDownload.ts";
+
+// Mirrors mediaLibrary.ts's isPathWithinLibrary - a manifest is untrusted
+// content, so a bundled path must be proven to stay inside the bundle
+// directory before it's ever passed to existsSync/copyFileSync.
+function isWithinDir(baseDir: string, candidatePath: string): boolean {
+  const rel = relative(baseDir, candidatePath);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
 
 export interface ImportBundleSummary {
   created: number;
@@ -67,7 +75,7 @@ export function importBundle(sourcePath: string): ImportBundleResult {
       let localAudioPath: string | null = null;
       if (entry.audioFile && defaultFolder) {
         const bundledPath = join(sourcePath, entry.audioFile);
-        if (existsSync(bundledPath)) {
+        if (isWithinDir(sourcePath, bundledPath) && existsSync(bundledPath)) {
           const baseName = `${sanitizeSegment(animeRow.titleRomaji)} - ${sanitizeSegment(songRow.themeSlot)} - ${sanitizeSegment(artistRow.name)}`;
           const ext = extname(bundledPath) || ".mp3";
           const destPath = resolveUniquePath(defaultFolder, baseName, ext);
