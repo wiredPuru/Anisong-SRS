@@ -82,7 +82,10 @@ watch(ambientMode, (value) => {
 });
 onUnmounted(() => setAmbientGlass(false));
 
+const { isTypingTarget } = useHotkeyGuard();
+
 function onKeydown(event: KeyboardEvent) {
+  if (isTypingTarget(event)) return;
   const key = event.key.toLowerCase();
   if (key === "i") {
     hideInfo.value = !hideInfo.value;

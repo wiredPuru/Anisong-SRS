@@ -234,6 +234,8 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
 
 <style scoped>
 .app-nav {
+  position: relative;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -232,7 +232,10 @@ function retryAmbientPreload(retriesLeft: number) {
   setTimeout(() => retryAmbientPreload(retriesLeft - 1), 150);
 }
 
+const { isTypingTarget } = useHotkeyGuard();
+
 function onKeydown(event: KeyboardEvent) {
+  if (isTypingTarget(event)) return;
   if (event.key.toLowerCase() === "s") {
     togglePlay();
   } else if (event.key === "Escape" && expanded.value) {

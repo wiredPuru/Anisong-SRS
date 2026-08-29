@@ -21,7 +21,10 @@ interface CardWithDetails {
 const props = defineProps<{ card: CardWithDetails | null; open: boolean }>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
+const { isTypingTarget } = useHotkeyGuard();
+
 function onKeydown(event: KeyboardEvent) {
+  if (isTypingTarget(event)) return;
   if (event.key === "Escape") {
     emit("close");
   }

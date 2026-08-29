@@ -42,6 +42,7 @@
   /* glass - a translucent, frosted look applied automatically wherever
      ambient mode is on (StudyMediaPlayer, StudyInfoPanel, CardPreviewModal) */
   --glass-surface: rgba(42, 31, 56, 0.2);
+  --glass-surface-panel: rgba(42, 31, 56, 0.82);
   --glass-border: rgba(245, 238, 248, 0.16);
   --glass-blur: blur(20px) saturate(1.6);
 }
@@ -81,6 +82,16 @@
 [data-ambient-glass="true"] .lang-btn {
   background: var(--glass-surface) !important;
   backdrop-filter: var(--glass-blur) !important;
+}
+
+/* The dropdown holds a scrollable list of text rows, not a small chrome
+   control - the shared 20%-opacity glass surface above reads fine for
+   buttons/pills but leaves list text illegible over an arbitrary, colorful
+   ambient background, so it gets a denser variant here instead. Source
+   order (after the shared block, same selector specificity) is what wins
+   the tie. */
+[data-ambient-glass="true"] .search-dropdown {
+  background: var(--glass-surface-panel) !important;
 }
 
 body {

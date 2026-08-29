@@ -2,8 +2,10 @@
 const props = defineProps<{ disabled: boolean }>();
 const emit = defineEmits<{ pass: []; fail: [] }>();
 
+const { isTypingTarget } = useHotkeyGuard();
+
 function onKeydown(event: KeyboardEvent) {
-  if (props.disabled) return;
+  if (props.disabled || isTypingTarget(event)) return;
   if (event.key === "ArrowLeft") emit("fail");
   else if (event.key === "ArrowRight") emit("pass");
 }
