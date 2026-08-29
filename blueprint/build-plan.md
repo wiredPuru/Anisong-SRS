@@ -123,3 +123,7 @@ cleaned-up checkbox version before generating the project overview.
     detail view - no card assignment yet).
   - [x] 13b. **Card assignment** - the `DeckCard` join table and UI to add or
     remove a card from any number of manual decks, populating 13a's decks.
+- [x] 14. **Ambient video glow on Study** - a soft, blurred, color-sampled
+  glow behind the video player on /study (à la YouTube's Ambient Mode),
+  active only while a real video frame is showing (not audio-only, not
+  Hide Video).

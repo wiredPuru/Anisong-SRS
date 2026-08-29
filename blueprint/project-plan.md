@@ -95,6 +95,9 @@ Non-profit. No monetization planned.
 - Japanese text must render as real, selectable DOM text (not baked into an
   image or video) so the Migaku browser extension can attach its dictionary
   popup to it.
+- Study video gets an ambient glow (YouTube Ambient Mode-style): a blurred,
+  color-sampled halo behind the player while a real video frame is visible,
+  off for audio-only cards or when Hide Video is active.
 
 ## 8. Deployment - Where and how will this ship?
 

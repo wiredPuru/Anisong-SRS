@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 25d8b5c8ee794fe714e05c1b03f7a865bdd1490c093b1a7be35154092dcda8ea -->
+<!-- blueprint:source-hash 6c594aebc0e29c93e31e266395cf3edb45f09827a1e033c31c68057a6e6be256 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,8 @@ local training tool.
 
 ## Features
 
-Build-plan order. Features 1-12 (the full MVP) are built and merged; 13 is next.
+Build-plan order. Features 1-13 (the full MVP plus manual decks) are built
+and merged; 14 is next.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -79,10 +80,24 @@ Build-plan order. Features 1-12 (the full MVP) are built and merged; 13 is next.
     thumbnail on `/cards` and on anime-type `/decks` (list, detail header,
     detail card rows) - never on artist-type decks, since an artist can span
     multiple anime with no single cover to show.
-13. **Manual decks + library view** - not started. User-created, named,
-    flat decks (no nesting/parent-child); a card can belong to any number of
-    manual decks at once (many-to-many, unlike Artist/Anime grouping). A
-    library view browses/groups decks by Created (manual), Artist, or Anime.
+13. **Manual decks + library view** - done, in two sub-features:
+    - **13a. Deck CRUD** - done. `deck` table; `POST`/`PATCH`/`DELETE
+      /api/decks` create/rename/delete a manual deck (name trimmed,
+      duplicate-checked); a third "Created" toggle on `/decks` lists them
+      with inline rename/delete. A manual deck's detail view suppresses
+      "Study this deck" and the export block - `StudyScope` and export both
+      still only cover artist/anime, deliberately not extended here.
+    - **13b. Card assignment** - done. `deck_card` join table (own `id` PK
+      plus a `(deckId, cardId)` unique, cascading both ways); `POST`/`DELETE
+      /api/decks/cards` add/remove a card from a deck (idempotent both
+      ways), `GET /api/decks/memberships` returns every card's membership
+      in one query. `/cards` has a per-row "Decks" checkbox panel; `/decks`
+      shows real card counts and a real card list per manual deck with a
+      "Remove" action. Not on `/cards/new` (same deferral feature 11 made
+      for its own Preview button on that page).
+14. **Ambient video glow on Study** - not started. A soft, blurred,
+    color-sampled glow behind the video player on `/study`, active only
+    while a real video frame is showing (not audio-only, not Hide Video).
 
 ## Data model
 
@@ -185,24 +200,25 @@ Singleton row (`id` always `1`).
   automatically if its folder is removed from `libraryPaths`.
 
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
-> through `Song` by `artistId` or `animeId`, not a stored entity. Feature 13
-> (not yet built) adds the one deck type that *is* stored: manual decks, via
-> the `Deck`/`DeckCard` shapes below.
+> through `Song` by `artistId` or `animeId`, not a stored entity. Manual
+> decks (feature 13) are the one deck type that *is* stored, via the
+> `Deck`/`DeckCard` shapes below.
 
 ### Deck
 
-Feature 13, not yet built. A user-created, flat (no parent/child) named deck.
+Feature 13a. A user-created, flat (no parent/child) named deck.
 
 - `id` (integer, PK)
-- `name` (string)
+- `name` (string, unique) - trimmed and duplicate-checked before insert, not
+  relying on the DB constraint as the primary validation path
 - `createdAt` (datetime)
 
 ### DeckCard
 
-Feature 13, not yet built. Many-to-many join between `Deck` and `Card` - a
-card can belong to zero or more manual decks, independent of its Artist/Anime
-grouping.
+Feature 13b. Many-to-many join between `Deck` and `Card` - a card can belong
+to zero or more manual decks, independent of its Artist/Anime grouping.
 
+- `id` (integer, PK)
 - `deckId` (FK -> Deck, cascades on delete)
 - `cardId` (FK -> Card, cascades on delete)
 - Unique on `(deckId, cardId)`
@@ -280,15 +296,17 @@ Routes:
   file yet. Feature 11 added a per-row "Preview" button opening a modal
   (playback + info, reused from `/study`'s components). Feature 12 added an
   anime cover thumbnail per row (absent, not broken, when that anime has
-  none).
+  none). Feature 13b added a per-row "Decks" panel (checkbox per manual
+  deck, toggling calls the assignment API immediately - no save step).
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
-  thumbnails on anime-type decks. Feature 13 (not yet built) adds a third,
-  Created toggle alongside Artist/Anime for browsing manual decks, plus deck
-  CRUD and card-assignment UI - exact placement (here vs. `/cards` vs. a new
-  route) not yet decided.
+  thumbnails on anime-type decks. Feature 13a added a third "Created" toggle
+  for manual decks - create/rename/delete inline, real card counts and card
+  list once 13b landed, with a per-card "Remove" action found only in the
+  manual-deck detail view. Neither "Study this deck" nor the export block
+  appears there.
 - `/study` - done. Video centered, title/artist info panel on the right,
   pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
   toggles. `prototypes/study.html` was its original design reference
@@ -298,7 +316,11 @@ Routes:
   hover tooltip naming its key (established convention: any hotkeyed button
   gets one, via a custom `<span class="tooltip">` rather than the native
   `title` attribute, which only triggers over a button's text glyphs in some
-  browsers).
+  browsers). Feature 14 (not yet built) adds an ambient glow behind the
+  player, sampled from the video via canvas rather than a second `<video>`
+  element, to avoid double-loading remote animethemes.moe clips - `/study`
+  only, `CardPreviewModal` (which reuses the same `StudyMediaPlayer`
+  component) stays unaffected.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate.
 

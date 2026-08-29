@@ -5,6 +5,7 @@ const props = defineProps<{
   card: Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "animethemesVideoUrl" | "animethemesAudioUrl" | "themeSlot">;
   hideVideo?: boolean;
   randomStart?: boolean;
+  ambient?: boolean;
 }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
@@ -103,6 +104,65 @@ function togglePlay() {
   }
 }
 
+// Ambient glow: samples the *same* <video> already decoding for playback via
+// canvas, rather than a second <video> playing a duplicate stream - avoids
+// doubling network/decode cost for remote animethemes.moe clips.
+const ambientCanvasRef = ref<HTMLCanvasElement | null>(null);
+let ambientInterval: ReturnType<typeof setInterval> | null = null;
+
+const ambientActive = computed(() => Boolean(props.ambient) && quizType.value === "video");
+
+function drawAmbientFrame() {
+  const canvas = ambientCanvasRef.value;
+  const video = videoRef.value;
+  if (!canvas || !video || video.readyState < 2) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+}
+
+function stopAmbientInterval() {
+  if (ambientInterval !== null) {
+    clearInterval(ambientInterval);
+    ambientInterval = null;
+  }
+}
+
+function startAmbientLoop() {
+  stopAmbientInterval();
+  drawAmbientFrame();
+  ambientInterval = setInterval(drawAmbientFrame, 150);
+}
+
+function stopAmbientLoop() {
+  stopAmbientInterval();
+  drawAmbientFrame();
+}
+
+watch(ambientActive, (active) => {
+  if (active && isPlaying.value) {
+    startAmbientLoop();
+  } else {
+    stopAmbientLoop();
+  }
+});
+
+onUnmounted(stopAmbientInterval);
+
+function onPlay() {
+  isPlaying.value = true;
+  if (ambientActive.value) startAmbientLoop();
+}
+
+function onPause() {
+  isPlaying.value = false;
+  stopAmbientLoop();
+}
+
+function onSeeked() {
+  if (ambientActive.value) drawAmbientFrame();
+}
+
 function onKeydown(event: KeyboardEvent) {
   if (event.key.toLowerCase() === "s") {
     togglePlay();
@@ -122,7 +182,9 @@ function onSeek(event: MouseEvent) {
 </script>
 
 <template>
-  <div class="player-card">
+  <div class="player-ambient-host">
+    <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
+    <div class="player-card">
     <div class="player-frame">
       <span class="theme-badge">{{ card.themeSlot }}</span>
 
@@ -131,10 +193,11 @@ function onSeek(event: MouseEvent) {
         ref="videoRef"
         class="media-el"
         :src="src"
-        @play="isPlaying = true"
-        @pause="isPlaying = false"
+        @play="onPlay"
+        @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
+        @seeked="onSeeked"
         @error="onError"
       />
       <audio
@@ -173,11 +236,30 @@ function onSeek(event: MouseEvent) {
       </div>
       <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.player-ambient-host {
+  position: relative;
+}
+
+.ambient-glow {
+  position: absolute;
+  inset: -60px;
+  width: calc(100% + 120px);
+  height: calc(100% + 120px);
+  z-index: 0;
+  filter: blur(50px) saturate(1.6) brightness(1.1);
+  opacity: 0.85;
+  pointer-events: none;
+  border-radius: var(--radius);
+}
+
 .player-card {
+  position: relative;
+  z-index: 1;
   padding: 24px;
   background: var(--surface);
   border: 1px solid var(--border);

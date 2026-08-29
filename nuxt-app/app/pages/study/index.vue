@@ -95,7 +95,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         @toggle-random-start="randomStart = !randomStart"
       />
       <div class="study-grid">
-        <StudyMediaPlayer :key="presentationKey" :card="currentCard" :hide-video="hideVideo" :random-start="randomStart" />
+        <StudyMediaPlayer
+          :key="presentationKey"
+          :card="currentCard"
+          :hide-video="hideVideo"
+          :random-start="randomStart"
+          :ambient="true"
+        />
         <div class="side">
           <StudyInfoPanel
             :blurred="hideInfo"
