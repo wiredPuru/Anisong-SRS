@@ -130,3 +130,34 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 15. **Home page + navigation bar** - a `/` launcher hub (links to
   Study, Cards, Decks, Stats, Settings - no live data) plus a persistent top
   nav bar, via a shared Nuxt layout, present on every page.
+- [x] 16. **Edit card metadata from Preview** - the Preview modal gains an
+  edit mode for song title, theme slot (validated against the existing
+  `(animeId, themeSlot)` uniqueness), local file paths, and artist - with a
+  choice at edit time to either rename the artist globally (affects every
+  card built from any song by that artist, since Artist is a shared table)
+  or reassign the song to a different/new artist (get-or-create, only
+  affects this song).
+- [ ] 17. **Delete card cleans up orphaned files** - deleting a card
+  auto-deletes its local video/audio files, skipping any file path still
+  referenced by another card.
+- [ ] 18. **Per-scope quiz-mode preference** - a settings table keyed by
+  study scope (artist id / anime id / manual deck id / "all"), each
+  independently settable to Auto / Audio-only / Video-only. When a scope
+  forces a mode, a card missing that source locally triggers an on-demand
+  remote fetch from animethemes.moe; if remote doesn't have it either, the
+  card plays with whatever source it actually has rather than being
+  skipped.
+- [ ] 19. **Library scale-up: pagination + search**
+  - [ ] 19a. **Pagination** - numbered pages, ~25/page, applied to the
+    top-level `/cards` list, top-level `/decks` list, and the card list
+    inside a deck's detail view.
+  - [ ] 19b. **Global search** - an autocomplete dropdown in the persistent
+    nav bar, searching across cards/decks/anime/artists, jumping straight to
+    a result on selection.
+- [ ] 20. **Preview expand + ambient mode** - `CardPreviewModal` gains an
+  expand button that grows the modal to fill the viewport (in-page overlay,
+  not the native Fullscreen API) and, independently, a minimal ambient-mode
+  toggle reusing `StudyMediaPlayer`'s existing `ambient` prop - not the full
+  `StudyDisplayToggles` bar. The ambient choice defaults off but persists
+  across Preview opens (localStorage), the first persisted UI preference in
+  the app - everywhere else (Study's toggles) resets every session.

@@ -1,9 +1,10 @@
 import { existsSync, statSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, lte, ne } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
+import { getOrCreateArtist } from "./lookup.ts";
 
 export interface CardWithDetails {
   id: number;
@@ -174,6 +175,10 @@ export interface UpdateCardInput {
   id: number;
   localVideoPath?: string | null;
   localAudioPath?: string | null;
+  songTitle?: string;
+  themeSlot?: string;
+  artistMode?: "rename" | "reassign";
+  artistName?: string;
 }
 
 export type UpdateCardResult = { error: string } | { notFound: true } | { card: CardWithDetails };
@@ -182,6 +187,62 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
   const existing = db.select().from(card).where(eq(card.id, input.id)).get();
   if (!existing) {
     return { notFound: true };
+  }
+
+  const songRow = db.select().from(song).where(eq(song.id, existing.songId)).get()!;
+
+  const songUpdates: { title?: string; themeSlot?: string } = {};
+
+  if (input.songTitle !== undefined) {
+    const trimmed = input.songTitle.trim();
+    if (trimmed === "") {
+      return { error: "Song title cannot be empty." };
+    }
+    songUpdates.title = trimmed;
+  }
+
+  if (input.themeSlot !== undefined) {
+    const trimmed = input.themeSlot.trim();
+    if (trimmed === "") {
+      return { error: "Theme slot cannot be empty." };
+    }
+    if (trimmed !== songRow.themeSlot) {
+      const collision = db
+        .select({ id: song.id })
+        .from(song)
+        .where(and(eq(song.animeId, songRow.animeId), eq(song.themeSlot, trimmed), ne(song.id, songRow.id)))
+        .get();
+      if (collision) {
+        return { error: "Another song on this anime already uses that theme slot." };
+      }
+    }
+    songUpdates.themeSlot = trimmed;
+  }
+
+  if (input.artistMode !== undefined) {
+    const trimmedName = (input.artistName ?? "").trim();
+    if (trimmedName === "") {
+      return { error: "Artist name cannot be empty." };
+    }
+
+    if (input.artistMode === "rename") {
+      const collision = db
+        .select({ id: artist.id })
+        .from(artist)
+        .where(and(eq(artist.name, trimmedName), ne(artist.id, songRow.artistId)))
+        .get();
+      if (collision) {
+        return { error: "Another artist already has that name - use the reassign mode instead." };
+      }
+      db.update(artist).set({ name: trimmedName }).where(eq(artist.id, songRow.artistId)).run();
+    } else {
+      const targetArtist = getOrCreateArtist(trimmedName);
+      db.update(song).set({ artistId: targetArtist.id }).where(eq(song.id, songRow.id)).run();
+    }
+  }
+
+  if (Object.keys(songUpdates).length > 0) {
+    db.update(song).set(songUpdates).where(eq(song.id, songRow.id)).run();
   }
 
   const updates: { localVideoPath?: string | null; localAudioPath?: string | null } = {};

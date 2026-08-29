@@ -15,10 +15,11 @@ interface CardWithDetails {
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 
-defineProps<{ card: CardWithDetails | null; open: boolean }>();
-const emit = defineEmits<{ close: [] }>();
+const props = defineProps<{ card: CardWithDetails | null; open: boolean }>();
+const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") {
@@ -28,6 +29,75 @@ function onKeydown(event: KeyboardEvent) {
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
+const editing = ref(false);
+const editSongTitle = ref("");
+const editThemeSlot = ref("");
+const editArtistMode = ref<"rename" | "reassign">("rename");
+const editArtistName = ref("");
+const editVideoPath = ref("");
+const editAudioPath = ref("");
+const editSaving = ref(false);
+const editError = ref<string | null>(null);
+
+function startEdit() {
+  if (!props.card) return;
+  editSongTitle.value = props.card.songTitle;
+  editThemeSlot.value = props.card.themeSlot;
+  editArtistMode.value = "rename";
+  editArtistName.value = props.card.artistName;
+  editVideoPath.value = props.card.localVideoPath ?? "";
+  editAudioPath.value = props.card.localAudioPath ?? "";
+  editError.value = null;
+  editing.value = true;
+}
+
+function cancelEdit() {
+  editing.value = false;
+  editError.value = null;
+}
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "data" in err) {
+    const data = (err as { data?: { statusMessage?: string } }).data;
+    if (data?.statusMessage) return data.statusMessage;
+  }
+  return fallback;
+}
+
+async function saveEdit() {
+  if (!props.card) return;
+  editError.value = null;
+  editSaving.value = true;
+  try {
+    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", {
+      method: "PATCH",
+      body: {
+        id: props.card.id,
+        songTitle: editSongTitle.value,
+        themeSlot: editThemeSlot.value,
+        artistMode: editArtistMode.value,
+        artistName: editArtistName.value,
+        localVideoPath: editVideoPath.value.trim() === "" ? null : editVideoPath.value.trim(),
+        localAudioPath: editAudioPath.value.trim() === "" ? null : editAudioPath.value.trim(),
+      },
+    });
+    editing.value = false;
+    emit("updated", result.card);
+  } catch (err) {
+    editError.value = extractErrorMessage(err, "Failed to update card.");
+  } finally {
+    editSaving.value = false;
+  }
+}
+
+watch(
+  () => props.card?.id,
+  () => {
+    editing.value = false;
+    editError.value = null;
+  },
+);
 </script>
 
 <template>
@@ -35,14 +105,64 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div class="panel">
       <button type="button" class="close-btn" @click="emit('close')">✕</button>
       <StudyMediaPlayer :card="card" />
-      <StudyInfoPanel
-        :song-title="card.songTitle"
-        :artist-name="card.artistName"
-        :anime-title-english="card.animeTitleEnglish"
-        :anime-title-romaji="card.animeTitleRomaji"
-        :anime-title-native="card.animeTitleNative"
-        :box="card.box"
-      />
+
+      <form v-if="editing" class="edit-form" @submit.prevent="saveEdit">
+        <label class="field">
+          <span class="field-label">Song title</span>
+          <input v-model="editSongTitle" type="text" :disabled="editSaving" />
+        </label>
+        <label class="field">
+          <span class="field-label">Theme slot</span>
+          <input v-model="editThemeSlot" type="text" :disabled="editSaving" />
+        </label>
+
+        <div class="field">
+          <span class="field-label">Artist</span>
+          <div class="artist-mode-row">
+            <label class="radio-row">
+              <input v-model="editArtistMode" type="radio" value="rename" :disabled="editSaving" />
+              Rename this artist everywhere
+            </label>
+            <label class="radio-row">
+              <input v-model="editArtistMode" type="radio" value="reassign" :disabled="editSaving" />
+              Use a different artist
+            </label>
+          </div>
+          <input
+            v-model="editArtistName"
+            type="text"
+            :placeholder="editArtistMode === 'rename' ? 'New name for this artist' : 'Existing or new artist name'"
+            :disabled="editSaving"
+          />
+        </div>
+
+        <label class="field">
+          <span class="field-label">Local video path</span>
+          <input v-model="editVideoPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+        </label>
+        <label class="field">
+          <span class="field-label">Local audio path</span>
+          <input v-model="editAudioPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+        </label>
+
+        <p v-if="editError" class="edit-error">{{ editError }}</p>
+
+        <div class="edit-actions">
+          <button type="submit" class="save-btn" :disabled="editSaving">Save</button>
+          <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
+        </div>
+      </form>
+      <template v-else>
+        <StudyInfoPanel
+          :song-title="card.songTitle"
+          :artist-name="card.artistName"
+          :anime-title-english="card.animeTitleEnglish"
+          :anime-title-romaji="card.animeTitleRomaji"
+          :anime-title-native="card.animeTitleNative"
+          :box="card.box"
+        />
+        <button type="button" class="edit-toggle-btn" @click="startEdit">Edit card</button>
+      </template>
     </div>
   </div>
 </template>
@@ -89,5 +209,111 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 16px;
   cursor: pointer;
   z-index: 1;
+}
+
+.edit-toggle-btn {
+  align-self: flex-start;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--faint);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.field input[type="text"] {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.artist-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.save-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancel-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--fail);
+  background: transparent;
+  color: var(--fail);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.save-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.edit-error {
+  margin: 0;
+  color: var(--fail);
+  font-size: 13px;
 }
 </style>

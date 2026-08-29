@@ -11,6 +11,10 @@ export default defineEventHandler(async (event) => {
     id: body.id,
     localVideoPath: body.localVideoPath,
     localAudioPath: body.localAudioPath,
+    songTitle: body.songTitle,
+    themeSlot: body.themeSlot,
+    artistMode: body.artistMode,
+    artistName: body.artistName,
   });
 
   if ("notFound" in result) {

@@ -158,6 +158,11 @@ async function removeCard(id: number) {
   await $fetch("/api/cards", { method: "DELETE", body: { id } });
   await refresh();
 }
+
+async function onPreviewCardUpdated(updated: CardWithDetails) {
+  previewCard.value = updated;
+  await refresh();
+}
 </script>
 
 <template>
@@ -280,7 +285,12 @@ async function removeCard(id: number) {
       <p v-else class="state">No cards yet. <NuxtLink to="/cards/new">Add one</NuxtLink>.</p>
     </template>
 
-    <CardPreviewModal :card="previewCard" :open="previewCard !== null" @close="previewCard = null" />
+    <CardPreviewModal
+      :card="previewCard"
+      :open="previewCard !== null"
+      @close="previewCard = null"
+      @updated="onPreviewCardUpdated"
+    />
   </main>
 </template>
 
