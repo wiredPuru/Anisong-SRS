@@ -55,6 +55,21 @@ const activeEl = computed<HTMLMediaElement | null>(() =>
   mediaKind.value === "video" ? videoRef.value : audioRef.value,
 );
 
+// mediaKind can change after mount and after playback has started: forcedMode
+// (a scope's quiz-mode preference) loads asynchronously and can resolve after
+// the user hits play. When that happens, Vue swaps the mounted <video>/<audio>
+// element - but nothing else stops the outgoing one first, and some browsers
+// keep a removed media element's audio playing in the background. This runs
+// in Vue's default "pre" flush, before that DOM swap, so the ref below still
+// points at the outgoing element when we pause it.
+watch(mediaKind, () => {
+  videoRef.value?.pause();
+  audioRef.value?.pause();
+  isPlaying.value = false;
+  currentTime.value = 0;
+  duration.value = 0;
+});
+
 const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value);
 const progressPercent = computed(() => (duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0));
 
