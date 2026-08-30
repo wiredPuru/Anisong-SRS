@@ -198,7 +198,7 @@ cleaned-up checkbox version before generating the project overview.
   nothing to add to). A control on a manual deck's detail view to
   search/pick existing cards and attach them - the same action as `/cards`'
   "Decks" checkbox panel, initiated from the other direction.
-- [ ] 29. **Stats refresh + clear** - a manual refresh action on `/stats`,
+- [x] 29. **Stats refresh + clear** - a manual refresh action on `/stats`,
   plus a destructive "clear" action that deletes `ReviewLog` history only
   (stats reset to zero; card box levels and due dates are untouched).
 - [ ] 30. **Native Japanese song titles + split Furigana toggle** - add a
@@ -222,3 +222,9 @@ cleaned-up checkbox version before generating the project overview.
   same lookup/import flow as `/cards/new`), auto-attaching the created card
   to that deck - complementing feature 28's "add existing cards" search,
   not replacing it.
+- [ ] 34. **Deck assignment from card edit / Preview edit** - editing a
+  card - either `/cards`' row edit or `CardPreviewModal`'s edit mode
+  (feature 16) - gains the same "assign to any number of manual decks"
+  checkbox panel `/cards` already has as its own separate "Decks" action
+  (feature 13b), so deck membership can be managed right from the edit
+  flow instead of only through that standalone panel.

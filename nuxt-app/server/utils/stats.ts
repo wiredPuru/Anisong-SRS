@@ -85,3 +85,8 @@ export function listAnimeStats(): AnimeStats[] {
       ...deriveCounts(row.totalReviews, row.passCount),
     }));
 }
+
+export function clearReviewLog(): number {
+  const result = db.delete(reviewLog).run();
+  return result.changes;
+}
