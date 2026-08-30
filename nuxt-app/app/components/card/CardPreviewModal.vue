@@ -29,17 +29,23 @@ const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
 const { isTypingTarget } = useHotkeyGuard();
 
+const immersive = ref(false);
+
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
   if (event.key === "Escape") {
+    // Two-step: StudyMediaPlayer's own Escape handling collapses immersive
+    // first (v-model:immersive below); only close once that's already off,
+    // so this handler and that one don't both fire the same keypress.
+    if (immersive.value) return;
     emit("close");
+  } else if (event.key.toLowerCase() === "e" && !editing.value) {
+    immersive.value = !immersive.value;
   }
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
-
-const expanded = ref(false);
 
 const AMBIENT_STORAGE_KEY = "gaqSrs:previewAmbient";
 const ambientMode = ref(false);
@@ -195,22 +201,14 @@ watch(
   () => {
     editing.value = false;
     editError.value = null;
-    expanded.value = false;
+    immersive.value = false;
   },
 );
 </script>
 
 <template>
-  <div v-if="open && card" class="backdrop" :class="{ expanded }" @click.self="emit('close')">
-    <div class="panel" :class="{ expanded, 'ambient-glass': ambientMode }">
-      <button
-        type="button"
-        class="expand-btn"
-        :aria-label="expanded ? 'Collapse' : 'Expand'"
-        @click="expanded = !expanded"
-      >
-        {{ expanded ? "⤡" : "⤢" }}
-      </button>
+  <div v-if="open && card" class="backdrop" @click.self="emit('close')">
+    <div class="panel" :class="{ 'ambient-glass': ambientMode, immersive }">
       <button
         type="button"
         class="ambient-btn"
@@ -221,7 +219,22 @@ watch(
         ✨
       </button>
       <button type="button" class="close-btn" @click="emit('close')">✕</button>
-      <StudyMediaPlayer :card="card" :ambient="ambientMode" />
+      <StudyMediaPlayer :card="card" :ambient="ambientMode" :allow-expand="!editing" v-model:immersive="immersive">
+        <template v-if="immersive" #immersive>
+          <div class="info-slot">
+            <StudyInfoPanel
+              :immersive="true"
+              :song-title="card.songTitle"
+              :song-title-native="card.songTitleNative"
+              :artist-name="card.artistName"
+              :anime-title-english="card.animeTitleEnglish"
+              :anime-title-romaji="card.animeTitleRomaji"
+              :anime-title-native="card.animeTitleNative"
+              :ambient="ambientMode"
+            />
+          </div>
+        </template>
+      </StudyMediaPlayer>
 
       <form v-if="editing" class="edit-form" @submit.prevent="saveEdit">
         <label class="field">
@@ -298,7 +311,7 @@ watch(
           <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
         </div>
       </form>
-      <template v-else>
+      <template v-else-if="!immersive">
         <StudyInfoPanel
           :song-title="card.songTitle"
           :song-title-native="card.songTitleNative"
@@ -327,10 +340,6 @@ watch(
   z-index: 50;
 }
 
-.backdrop.expanded {
-  padding: 0;
-}
-
 .panel {
   position: relative;
   width: 100%;
@@ -353,16 +362,35 @@ watch(
   backdrop-filter: var(--glass-blur);
 }
 
-.panel.expanded {
-  width: 100vw;
-  height: 100vh;
-  max-width: 100vw;
-  max-height: 100vh;
-  border-radius: 0;
+/* overflow: visible isn't load-bearing on its own (kept for safety/harmless),
+   but backdrop-filter is: .panel.ambient-glass sets backdrop-filter, which
+   creates a new containing block for position: fixed descendants in current
+   browsers (same mechanism as `filter`) - so StudyMediaPlayer's
+   .player-card.expanded resolved its fixed positioning against .panel's own
+   box instead of the viewport. .panel's other content collapses to ~0
+   height while immersive (nothing else renders in-flow then), so the
+   "fullscreen" player inherited that collapsed size instead. /study never
+   hits this since nothing in its ancestor chain uses backdrop-filter or
+   overflow. Confirmed via DevTools: .player-card.expanded's computed width
+   was exactly .panel's own max-width (638px), not the viewport. */
+.panel.immersive {
+  overflow: visible;
+  backdrop-filter: none;
+}
+
+/* StudyMediaPlayer.vue's own .player-card.expanded reserves top:
+   var(--nav-height) so /study's persistent nav bar stays visible above its
+   page-level immersive mode. Preview is a modal, not a page - .backdrop
+   already covers the full viewport (including the nav bar) before
+   immersive even starts, so there's nothing to leave room for; reserving
+   that space here just left a visible gap at the top. !important to
+   reliably beat StudyMediaPlayer.vue's own scoped rule, matching the same
+   pattern study/index.vue's :deep() overrides already use. */
+.panel :deep(.player-card.expanded) {
+  top: 0 !important;
 }
 
 .close-btn,
-.expand-btn,
 .ambient-btn {
   position: absolute;
   top: 16px;
@@ -381,17 +409,30 @@ watch(
   right: 16px;
 }
 
-.expand-btn {
-  right: 60px;
-}
-
 .ambient-btn {
-  right: 104px;
+  right: 60px;
 }
 
 .ambient-btn.active {
   border-color: var(--accent-secondary);
   box-shadow: 0 0 14px var(--accent-secondary-glow);
+}
+
+/* Rendered through StudyMediaPlayer.vue's "immersive" slot, so this is a
+   real DOM child of .player-frame (position: relative) - same offsets as
+   study/index.vue's own .info-slot, kept in sync deliberately so Preview's
+   immersive overlay looks and scales identically to /study's (both inherit
+   the same proportional cqw-based sizing from StudyInfoPanel.vue's
+   .info-card.overlay styles, since it's the same component). */
+.info-slot {
+  position: absolute;
+  top: 7.36%;
+  left: 1.1%;
+  max-width: 55%;
+  max-height: 67%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 10;
 }
 
 .edit-toggle-btn {

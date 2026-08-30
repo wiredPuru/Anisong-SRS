@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash db4bc2e3dd41a59ddace4c18578f338b88dcc0f35462f8b50b1b4d14f45952a8 -->
+<!-- blueprint:source-hash 7f69f62733d622e372f2e161104904d0f5692871238f3105b4f86a1e760b2034 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -32,7 +32,8 @@ ambient-driven glass surface) are built and merged, as are 26-31 and 33-34
 (global search find+add, clear-local-file, add-existing-cards-to-deck,
 stats refresh+clear, native Japanese titles + split furigana toggle, the
 immersive study mode, add-new-anime-from-a-deck, and deck assignment from
-card edit). 35 (35a-35c) is queued, not started. Features 18, 25, and 32
+card edit). 35a is also built and merged (cards library search + infinite
+scroll); 35b, 35c, and 36 are queued, not started. Features 18, 25, and 32
 were each abandoned outright (see their entries below) - all three numbers
 are retired, not reused: 18 was built, then rolled back, then dropped; 25
 was dropped before any code was written; 32 was spec'd and partially
@@ -290,18 +291,27 @@ implemented, then dropped before any code was committed to master.
     state, no new fetches. `/cards`' original standalone "Decks"
     button/panel is untouched and still works exactly as before; this adds
     a second, complementary entry point rather than replacing it.
-35. **Library search + infinite scroll** - not started, three sub-features
-    (per-page search/filter plus scroll-triggered loading, replacing
-    feature 19a's numbered pagination one list surface at a time):
-    - **35a. Cards library search + infinite scroll** - not started. A
-      search box on `/cards` narrows the list by song/artist/anime title;
-      its numbered `Pager` is replaced by "load more as you scroll."
+35. **Library search + infinite scroll** - three sub-features (per-page
+    search/filter plus scroll-triggered loading, replacing feature 19a's
+    numbered pagination one list surface at a time); 35a done, 35b/35c not
+    started:
+    - **35a. Cards library search + infinite scroll** - done. A search box
+      on `/cards` narrows the list by song/artist/anime title; its
+      numbered `Pager` is replaced by "load more as you scroll."
     - **35b. Decks library search + infinite scroll** - not started. The
       same two changes applied to `/decks`' top-level list (Artist/Anime/
       Created).
     - **35c. Deck detail search + infinite scroll** - not started. The
       same two changes applied to the card list inside a selected
       manual/artist/anime deck's detail view.
+36. **Unify Preview's expand mode with Study's immersive overlay** - not
+    started. `CardPreviewModal`'s own separate expand mechanism (feature
+    20 - grows the whole modal panel, video and info stacked, scrollable)
+    is replaced by reusing `StudyMediaPlayer`'s existing immersive/overlay
+    mechanism (feature 31 - info card over the video, `E` hotkey), so
+    Preview and `/study` share one expand implementation instead of two
+    independently-evolved ones. No Pass/Fail overlay in Preview (no
+    quiz/review state there).
 
 ## Data model
 

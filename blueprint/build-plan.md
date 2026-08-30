@@ -241,3 +241,11 @@ cleaned-up checkbox version before generating the project overview.
   - [ ] 35c. **Deck detail search + infinite scroll** - the same two
     changes applied to the card list inside a selected manual/artist/anime
     deck's detail view.
+- [x] 36. **Unify Preview's expand mode with Study's immersive overlay** -
+  `CardPreviewModal`'s own separate expand mechanism (feature 20 - grows
+  the whole modal panel, video and info stacked, scrollable) is replaced
+  by reusing `StudyMediaPlayer`'s existing immersive/overlay mechanism
+  (feature 31 - info card over the video, `E` hotkey), so Preview and
+  `/study` share one expand implementation instead of two
+  independently-evolved ones. No Pass/Fail overlay in Preview (no
+  quiz/review state there).
