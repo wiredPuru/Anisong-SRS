@@ -367,6 +367,8 @@ onUnmounted(() => stopDrag?.());
           <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
         </div>
       </div>
+
+      <slot v-if="immersive" name="immersive" />
     </div>
   </div>
 </template>
