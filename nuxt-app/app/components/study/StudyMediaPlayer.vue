@@ -7,7 +7,10 @@ const props = defineProps<{
   randomStart?: boolean;
   ambient?: boolean;
   allowExpand?: boolean;
+  immersive?: boolean;
+  hideThemeBadge?: boolean;
 }>();
+const emit = defineEmits<{ "update:immersive": [boolean] }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
@@ -65,7 +68,6 @@ watch(volume, (value) => {
   }
 });
 
-const expanded = ref(false);
 const { height: navHeight } = useNavHeight();
 
 const activeEl = computed<HTMLMediaElement | null>(() =>
@@ -240,8 +242,8 @@ function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
   if (event.key.toLowerCase() === "s") {
     togglePlay();
-  } else if (event.key === "Escape" && expanded.value) {
-    expanded.value = false;
+  } else if (event.key === "Escape" && props.immersive) {
+    emit("update:immersive", false);
   }
 }
 
@@ -288,20 +290,21 @@ onUnmounted(() => stopDrag?.());
   </Teleport>
   <div
     class="player-card"
-    :class="{ expanded, 'ambient-glass': ambient }"
+    :class="{ expanded: immersive, 'ambient-glass': ambient }"
     :style="{ '--nav-height': `${navHeight}px` }"
-    @click.self="expanded = false"
+    @click.self="emit('update:immersive', false)"
   >
     <div class="player-frame">
-      <span class="theme-badge">{{ card.themeSlot }}</span>
+      <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
       <button
         v-if="allowExpand"
         type="button"
         class="expand-btn"
-        :aria-label="expanded ? 'Collapse' : 'Expand'"
-        @click="expanded = !expanded"
+        :aria-label="immersive ? 'Collapse' : 'Expand'"
+        @click="emit('update:immersive', !immersive)"
       >
-        {{ expanded ? "⤡" : "⤢" }}
+        {{ immersive ? "⤡" : "⤢" }}
+        <span class="tooltip">Hotkey: E</span>
       </button>
 
       <video
@@ -427,6 +430,20 @@ onUnmounted(() => stopDrag?.());
   font-size: 16px;
   cursor: pointer;
   z-index: 3;
+}
+
+/* Opens downward, not upward like .play-btn's tooltip - .expand-btn sits at
+   the very top of .player-frame, so an upward tooltip has nowhere to go
+   before hitting the frame's overflow: hidden. */
+.expand-btn .tooltip {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
+.expand-btn:hover .tooltip,
+.expand-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .player-frame {

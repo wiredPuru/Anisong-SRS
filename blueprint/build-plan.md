@@ -206,12 +206,14 @@ cleaned-up checkbox version before generating the project overview.
   that already exist), shown on Study/Preview. Split the current single
   "JP + Furigana" toggle into an independent Japanese toggle plus a
   Furigana sub-toggle, applying to both anime and song titles.
-- [ ] 31. **Study settings panel** - move `/study`'s display toggles (Hide
-  Video, Hide Info, Random Start, Ambient mode) and language toggles
-  (EN/Romaji/Japanese/Furigana) behind one settings panel reachable via a
-  button on the study screen. Play/Pause, Pass/Fail, the scrub bar, volume,
-  and expand stay inline as core playback/interaction controls, unchanged.
-- [ ] 32. **Study playback-mode option** - in the settings panel from
+- [x] 31. **Immersive expanded study mode** - replaces the retired
+  settings-panel idea. An `E` hotkey toggles an immersive expanded mode
+  that overlays all card info (everything currently on the side info
+  card - titles, artist, language toggles) directly on the video instead
+  of beside it, with Pass/Fail also part of the overlay; unlike today's
+  expand toggle, staying immersive carries across moving to the next card
+  rather than resetting per card.
+- [ ] 32. **Study playback-mode option** - in the immersive overlay from
   feature 31, a session-only choice (not persisted per scope, unlike the
   abandoned feature 18) between Audio-only / Video-only / Any (locals
   preferred). Must not repeat feature 18's rollback bug: never change the

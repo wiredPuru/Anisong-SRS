@@ -59,6 +59,8 @@ const hideInfo = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
 const showControls = ref(true);
+const immersive = ref(false);
+const { height: navHeight } = useNavHeight();
 
 const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
 
@@ -96,6 +98,8 @@ function onKeydown(event: KeyboardEvent) {
     ambientMode.value = !ambientMode.value;
   } else if (key === "h") {
     showControls.value = !showControls.value;
+  } else if (key === "e") {
+    immersive.value = !immersive.value;
   }
 }
 
@@ -104,7 +108,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <main class="study">
+  <main class="study" :style="{ '--nav-height': `${navHeight}px` }">
     <h1>Study</h1>
 
     <div v-if="!scopeResult.valid" class="state state-error">
@@ -146,20 +150,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :random-start="randomStart"
           :ambient="ambientMode"
           :allow-expand="true"
+          :hide-theme-badge="hideInfo"
+          v-model:immersive="immersive"
         />
-        <div class="side">
-          <StudyInfoPanel
-            :blurred="hideInfo"
-            :ambient="ambientMode"
-            :hide-toggles="!showControls"
-            :song-title="currentCard.songTitle"
-            :song-title-native="currentCard.songTitleNative"
-            :artist-name="currentCard.artistName"
-            :anime-title-english="currentCard.animeTitleEnglish"
-            :anime-title-romaji="currentCard.animeTitleRomaji"
-            :anime-title-native="currentCard.animeTitleNative"
-          />
-          <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
+        <div class="side" :class="{ 'immersive-overlay': immersive }">
+          <div class="info-slot">
+            <StudyInfoPanel
+              :blurred="hideInfo"
+              :ambient="ambientMode"
+              :hide-toggles="!showControls"
+              :immersive="immersive"
+              :song-title="currentCard.songTitle"
+              :song-title-native="currentCard.songTitleNative"
+              :artist-name="currentCard.artistName"
+              :anime-title-english="currentCard.animeTitleEnglish"
+              :anime-title-romaji="currentCard.animeTitleRomaji"
+              :anime-title-native="currentCard.animeTitleNative"
+            />
+          </div>
+          <div class="answer-slot">
+            <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
+          </div>
         </div>
       </div>
     </template>
@@ -285,5 +296,58 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 26px;
+}
+
+/* Matches StudyMediaPlayer.vue's .player-card.expanded .player-frame sizing
+   formula exactly, so these slots track the video's real (centered,
+   letterboxed) box instead of the full viewport. */
+.side.immersive-overlay {
+  --video-width: min(90vw, calc((100vh - var(--nav-height)) * 0.9 * 16 / 9));
+}
+
+.info-slot,
+.answer-slot {
+  pointer-events: none;
+}
+
+.side.immersive-overlay .info-slot,
+.side.immersive-overlay .answer-slot {
+  position: fixed;
+  z-index: 65;
+  pointer-events: auto;
+}
+
+/* Narrow: not enough room beside the video, so both slots anchor inside its
+   own box - clearing the theme badge/expand button at the top and the
+   playback-controls bar at the bottom. */
+.side.immersive-overlay .info-slot {
+  top: calc(var(--nav-height) + 76px);
+  left: calc(50vw - (var(--video-width) / 2) + 16px);
+  max-width: calc(var(--video-width) * 0.55);
+}
+
+.side.immersive-overlay .answer-slot {
+  left: calc(50vw - (var(--video-width) / 2) + 16px);
+  bottom: 74px;
+  width: calc(var(--video-width) - 32px);
+}
+
+/* Wide: enough leftover space beside the video to flank it instead - info
+   card back in its familiar left-hand spot, Pass/Fail moves to the right. */
+@media (min-width: 1400px) {
+  .side.immersive-overlay .info-slot {
+    top: calc(var(--nav-height) + 24px);
+    left: 24px;
+    max-width: calc(50vw - (var(--video-width) / 2) - 40px);
+  }
+
+  .side.immersive-overlay .answer-slot {
+    left: auto;
+    right: 24px;
+    bottom: auto;
+    top: 50%;
+    width: calc(50vw - (var(--video-width) / 2) - 40px);
+    transform: translateY(-50%);
+  }
 }
 </style>

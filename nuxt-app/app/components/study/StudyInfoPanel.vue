@@ -9,6 +9,7 @@ const props = defineProps<{
   blurred?: boolean;
   ambient?: boolean;
   hideToggles?: boolean;
+  immersive?: boolean;
 }>();
 
 const showEn = ref(true);
@@ -61,7 +62,11 @@ watch(
 </script>
 
 <template>
-  <div class="info-card" :class="{ blurred, 'ambient-glass': ambient }">
+  <div
+    v-if="!(immersive && blurred)"
+    class="info-card"
+    :class="{ blurred: blurred && !immersive, 'ambient-glass': ambient, overlay: immersive }"
+  >
     <div v-if="!hideToggles" class="lang-toggles">
       <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
       <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
@@ -124,6 +129,23 @@ watch(
   background: var(--glass-surface);
   border-color: var(--glass-border);
   backdrop-filter: var(--glass-blur);
+}
+
+.info-card.overlay {
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.info-card.overlay .meta-row {
+  border-top: none;
+}
+
+.info-card.overlay :is(.en, .romaji, .jp, .song-title, .label, .name) {
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 .lang-toggles {
