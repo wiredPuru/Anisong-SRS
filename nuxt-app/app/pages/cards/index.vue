@@ -25,22 +25,83 @@ interface ManualDeck {
   cardCount: number;
 }
 
-const route = useRoute();
-const router = useRouter();
+const searchInput = ref("");
+const searchQuery = ref("");
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-const page = computed(() => {
-  const raw = Number(route.query.page);
-  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+function onSearchInput() {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    searchQuery.value = searchInput.value.trim();
+  }, 250);
+}
+
+const cards = ref<CardWithDetails[]>([]);
+const initialPending = ref(true);
+const initialError = ref(false);
+const nextPage = ref(1);
+const totalPages = ref(1);
+const loadingMore = ref(false);
+const sentinelRef = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
+
+async function loadFirstPage() {
+  initialPending.value = true;
+  initialError.value = false;
+  try {
+    const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number }>("/api/cards", {
+      query: { page: 1, q: searchQuery.value || undefined },
+    });
+    cards.value = res.cards;
+    nextPage.value = 2;
+    totalPages.value = res.totalPages;
+  } catch {
+    initialError.value = true;
+  } finally {
+    initialPending.value = false;
+  }
+}
+
+async function loadMore() {
+  if (loadingMore.value || nextPage.value > totalPages.value) return;
+  loadingMore.value = true;
+  try {
+    const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number }>("/api/cards", {
+      query: { page: nextPage.value, q: searchQuery.value || undefined },
+    });
+    cards.value.push(...res.cards);
+    nextPage.value += 1;
+    totalPages.value = res.totalPages;
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+function replaceCard(updated: CardWithDetails) {
+  const idx = cards.value.findIndex((c) => c.id === updated.id);
+  if (idx !== -1) cards.value[idx] = updated;
+}
+
+watch(searchQuery, () => {
+  loadFirstPage();
 });
 
-const { data, pending, error, refresh } = await useFetch<{ cards: CardWithDetails[]; page: number; totalPages: number }>(
-  "/api/cards",
-  { query: computed(() => ({ page: page.value })) },
-);
+watch(sentinelRef, (el, oldEl) => {
+  if (oldEl) observer?.unobserve(oldEl);
+  if (el) observer?.observe(el);
+});
 
-function goToPage(p: number) {
-  router.push({ query: { ...route.query, page: p } });
-}
+onMounted(() => {
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) loadMore();
+  });
+  loadFirstPage();
+});
+
+onUnmounted(() => {
+  observer?.disconnect();
+});
+
 const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
   "/api/media-library",
 );
@@ -110,7 +171,7 @@ const {
 async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
   const updated = await downloadMediaBase<CardWithDetails>(c.id, c.id, kind);
   if (updated) {
-    await refresh();
+    replaceCard(updated);
     if (editingId.value === c.id) {
       editVideoPath.value = updated.localVideoPath ?? "";
       editAudioPath.value = updated.localAudioPath ?? "";
@@ -157,7 +218,7 @@ async function saveEdit(id: number) {
   editError.value = null;
   editSaving.value = true;
   try {
-    await $fetch("/api/cards", {
+    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", {
       method: "PATCH",
       body: {
         id,
@@ -166,7 +227,7 @@ async function saveEdit(id: number) {
       },
     });
     editingId.value = null;
-    await refresh();
+    replaceCard(result.card);
   } catch (err) {
     editError.value = extractErrorMessage(err, "Failed to update card.");
   } finally {
@@ -180,10 +241,10 @@ async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
   clearingField[key] = true;
   try {
     const body = kind === "video" ? { id: c.id, localVideoPath: null } : { id: c.id, localAudioPath: null };
-    await $fetch("/api/cards", { method: "PATCH", body });
+    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", { method: "PATCH", body });
     if (kind === "video") editVideoPath.value = "";
     else editAudioPath.value = "";
-    await refresh();
+    replaceCard(result.card);
   } catch (err) {
     editError.value = extractErrorMessage(err, "Failed to clear local file.");
   } finally {
@@ -193,12 +254,12 @@ async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
 
 async function removeCard(id: number) {
   await $fetch("/api/cards", { method: "DELETE", body: { id } });
-  await refresh();
+  cards.value = cards.value.filter((c) => c.id !== id);
 }
 
 async function onPreviewCardUpdated(updated: CardWithDetails) {
   previewCard.value = updated;
-  await refresh();
+  replaceCard(updated);
 }
 </script>
 
@@ -210,11 +271,19 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
     </div>
     <p class="hint">Flashcards built from looked-up anime songs.</p>
 
-    <div v-if="pending" class="state">Loading...</div>
-    <div v-else-if="error" class="state state-error">Couldn't load cards. Try refreshing.</div>
+    <input
+      v-model="searchInput"
+      type="text"
+      placeholder="Search by song, artist, or anime title..."
+      class="search-input"
+      @input="onSearchInput"
+    />
+
+    <div v-if="initialPending" class="state">Loading...</div>
+    <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
     <template v-else>
-      <ul v-if="data?.cards.length" class="card-list">
-        <li v-for="c in data.cards" :key="c.id" class="card-row">
+      <ul v-if="cards.length" class="card-list">
+        <li v-for="c in cards" :key="c.id" class="card-row">
           <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
           <div class="card-info">
             <span class="song-title">{{ c.songTitle }}</span>
@@ -341,8 +410,11 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
           </div>
         </li>
       </ul>
+      <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
       <p v-else class="state">No cards yet. <NuxtLink to="/cards/new">Add one</NuxtLink>.</p>
-      <Pager :page="data?.page ?? 1" :total-pages="data?.totalPages ?? 1" @change="goToPage" />
+      <div v-if="cards.length" ref="sentinelRef" class="scroll-sentinel">
+        <span v-if="loadingMore" class="loading-more">Loading more...</span>
+      </div>
     </template>
 
     <CardPreviewModal
@@ -390,6 +462,26 @@ h1 {
   color: var(--muted);
 }
 
+.search-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
 .state {
   padding: 16px;
   border-radius: var(--radius-sm);
@@ -414,6 +506,19 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.scroll-sentinel {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 4px;
+  min-height: 1px;
+}
+
+.loading-more {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .card-row {

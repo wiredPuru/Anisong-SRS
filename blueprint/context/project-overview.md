@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash c33b13e45414df91d36bf343087f2c4908c042cad47a871858bda799f928864b -->
+<!-- blueprint:source-hash db4bc2e3dd41a59ddace4c18578f338b88dcc0f35462f8b50b1b4d14f45952a8 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -28,10 +28,14 @@ Build-plan order. Features 1-17 and 19-24 (the full MVP, manual decks, the
 study-screen ambient glow, the home page/nav bar, Preview editing, delete
 cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
-ambient-driven glass surface) are built and merged. Feature 18 was built,
-then rolled back, then abandoned outright (see its entry below) - its
-number is retired, not reused. 26-28 are done; 29-33 are queued, not
-started (25 is set aside for now).
+ambient-driven glass surface) are built and merged, as are 26-31 and 33-34
+(global search find+add, clear-local-file, add-existing-cards-to-deck,
+stats refresh+clear, native Japanese titles + split furigana toggle, the
+immersive study mode, add-new-anime-from-a-deck, and deck assignment from
+card edit). 32 and 35 (35a-35c) are queued, not started. Features 18 and 25
+were each abandoned outright (see their entries below) - both numbers are
+retired, not reused: 18 was built, then
+rolled back, then dropped; 25 was dropped before any code was written.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -183,16 +187,16 @@ started (25 is set aside for now).
     separate toggle) before that version was ever merged. Active-state
     highlights (current nav tab, an "on" toggle, the selected language)
     use a border + glow instead of a solid fill, so they stay glass too.
-25. **Standalone desktop packaging** - not started. A double-clickable,
-    per-OS build (no Node/Bun/Nuxt install required) that starts the
-    local server and opens the user's default browser to it. The SQLite
-    database and media library settings move from the current
-    project-relative path to an OS-appropriate user-data directory, since
-    a distributed build won't live inside a cloned repo. Packaging
-    toolchain not yet decided - `better-sqlite3` is a native addon, and
-    native-module support inside a compiled Bun/Node executable has real
-    rough edges worth a small validation spike before building the
-    launcher UX on top of it.
+25. ~~**Standalone desktop packaging**~~ - abandoned 2026-08-30. Never
+    started - dropped from the roadmap by user decision before any code
+    was written, so there was nothing to roll back. Not a build target;
+    its number is retired, not reused. The idea had been a double-
+    clickable, per-OS build (no Node/Bun/Nuxt install required) that
+    started the local server and opened the user's default browser to
+    it, with the SQLite database and media library settings moving to an
+    OS-appropriate user-data directory. `project-plan.md`'s Deployment
+    section (§8) was updated to match: it now states the app runs only
+    via the developer workflow, no packaged build planned.
 26. **Global search: find + add shows** - done. The nav search bar
     (`NavBar.vue`) falls back to `GET /api/lookup/anilist-search` when the
     local `Cards` group is empty, showing an "Add a show" dropdown group -
@@ -232,40 +236,69 @@ started (25 is set aside for now).
     `/stats`, plus a destructive "clear" action that deletes `ReviewLog`
     history only (stats reset to zero; card box levels and due dates are
     untouched).
-30. **Native Japanese song titles + split Furigana toggle** - not started.
-    Adds a native-Japanese title field to `Song` (alongside the anime
-    title fields that already exist on `Anime`), shown on Study/Preview.
-    Splits the current single "JP + Furigana" toggle (feature 6c) into an
-    independent Japanese toggle plus a Furigana sub-toggle, applying to
-    both anime and song titles.
-31. **Immersive expanded study mode** - not started. Replaces the retired
+30. **Native Japanese song titles + split Furigana toggle** - done. Adds a
+    native-Japanese `titleNative` column to `Song` (alongside the anime
+    title fields that already exist on `Anime`), populated from
+    animethemes.moe's `song.title.native` field on import and exposed as a
+    never-null `songTitleNative` on the shared `CardWithDetails` shape
+    (falls back to `Song.title`, mirroring how `Anime.titleNative` already
+    behaves). Splits the old single "JP + Furigana" toggle (feature 6c) on
+    Study/Preview into an independent Japanese toggle plus a Furigana
+    sub-toggle, applying to both anime and song titles.
+31. **Immersive expanded study mode** - done. Replaces the retired
     "settings panel" idea (a version of this feature was built, then
     explicitly rolled back after several placement attempts didn't land -
     see the `study-player-polish` fix archive). An `E` hotkey toggles an
-    immersive expanded mode that overlays everything currently on the side
+    immersive expanded mode that overlays everything that was on the side
     info card (titles, artist, language toggles - feature 6c, as split by
     feature 30) directly on the video instead of showing it beside the
-    player, with Pass/Fail also part of the overlay. Unlike today's expand
-    toggle (feature 23), staying immersive carries across moving to the
-    next card rather than resetting per card. The `i` hotkey keeps its
-    existing blur behavior (feature 10) outside immersive mode; while
-    immersive, `i` instead shows or hides the overlaid info entirely (no
-    blur - a plain visibility toggle). The display toggles
-    (Hide Video, Hide Info, Random Start, Ambient mode) and language
-    toggles stay inline on the study screen either way, with the `H`
-    hotkey + icon (from the `study-player-polish` fix) to hide/show them
-    together.
+    player, with Pass/Fail also part of the overlay. Unlike the earlier
+    expand toggle (feature 23), staying immersive carries across moving to
+    the next card rather than resetting per card - immersive state moved
+    from `StudyMediaPlayer.vue` (remounts every card) up to
+    `study/index.vue` (page-level, survives card transitions) to make that
+    possible. The `i` hotkey keeps its existing blur behavior (feature 10)
+    outside immersive mode; while immersive, `i` instead shows or hides the
+    overlaid info entirely (no blur - a plain visibility toggle). The
+    display toggles (Hide Video, Hide Info, Random Start, Ambient mode) and
+    language toggles stay inline on the study screen either way, with the
+    `H` hotkey + icon (from the `study-player-polish` fix) to hide/show
+    them together.
 32. **Study playback-mode option** - not started. In the immersive overlay
     from feature 31, a session-only choice (not persisted per scope,
     unlike the abandoned feature 18) between Audio-only / Video-only / Any
     (locals preferred). Must not repeat feature 18's rollback bug: never
     change the media source after playback has already started, which
     caused two audio streams to play at once.
-33. **Add new anime cards from a deck page** - not started. A manual
-    deck's detail view gains a way to look up and import a new anime/card
-    via AniList (the same lookup/import flow as `/cards/new`),
-    auto-attaching the created card to that deck - complementing feature
-    28's "add existing cards" search, not replacing it.
+33. **Add new anime cards from a deck page** - done. A manual deck's
+    detail view can create a brand-new card straight from an AniList
+    lookup, not just attach cards that already exist (feature 28's job).
+    Revised after first-pass review into a single unified search box
+    (merged into the existing "Add cards" box) that searches local cards
+    first and falls back to an AniList search - picking an anime never
+    navigates away from the deck page; closing the flow (Cancel or Done)
+    always lands back on the deck page, since the user never left it.
+34. **Deck assignment from card edit / Preview edit** - done. A new shared
+    `components/deck/DeckMembershipPanel.vue` (the manual-deck checkbox
+    list, extracted from `/cards`' pre-existing standalone "Decks" panel)
+    is reused in two more places: `/cards`' row edit form and
+    `CardPreviewModal`'s edit mode (feature 16) - both wired to the same
+    already-loaded `manualDecks`/`membershipsData`/`toggleDeckMembership`
+    state, no new fetches. `/cards`' original standalone "Decks"
+    button/panel is untouched and still works exactly as before; this adds
+    a second, complementary entry point rather than replacing it.
+35. **Library search + infinite scroll** - not started, three sub-features
+    (per-page search/filter plus scroll-triggered loading, replacing
+    feature 19a's numbered pagination one list surface at a time):
+    - **35a. Cards library search + infinite scroll** - not started. A
+      search box on `/cards` narrows the list by song/artist/anime title;
+      its numbered `Pager` is replaced by "load more as you scroll."
+    - **35b. Decks library search + infinite scroll** - not started. The
+      same two changes applied to `/decks`' top-level list (Artist/Anime/
+      Created).
+    - **35c. Deck detail search + infinite scroll** - not started. The
+      same two changes applied to the card list inside a selected
+      manual/artist/anime deck's detail view.
 
 ## Data model
 
@@ -539,17 +572,12 @@ Localhost-only - no remote hosting, no accounts, no multi-device sync.
 - **Run**: `bun run preview` (production) or `bun run dev` (development)
 - **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` (resolved in
   feature 1; gitignored, created and migrated automatically on first boot)
-  plus the user-configured media library folder(s). Feature 25 (not
-  started) moves this to an OS-appropriate user-data directory for the
-  packaged build, since a distributed executable won't live inside a
-  cloned repo - the project-relative path stays the default for the
-  developer's own `bun run dev`/`preview` workflow.
+  plus the user-configured media library folder(s). Project-relative path
+  only - no packaged build is planned (feature 25 was abandoned before any
+  code was written; see its entry above).
 - **Env vars**: none identified yet
-- **Packaged build** (feature 25, not started): a double-clickable,
-  per-OS executable for non-technical end users - no Node/Bun/Nuxt
-  install required, starts the local server and opens the user's default
-  browser to it. Toolchain undecided; `better-sqlite3`'s native addon is
-  the main packaging risk.
+- **Packaged build**: not planned. Run via the developer workflow
+  (`bun run dev`/`bun run preview`) only.
 - **Health check / domain**: not applicable (local-only)
 
 ## Open questions

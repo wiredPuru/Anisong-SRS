@@ -178,12 +178,10 @@ cleaned-up checkbox version before generating the project overview.
   an initial standalone Theme picker design in `/settings`, which shipped
   working but read as pointless since most of the app barely visibly
   reacted to it.
-- [ ] 25. **Standalone desktop packaging** - a double-clickable, per-OS
-  build (no Node/Bun/Nuxt install required) that starts the local server
-  and opens the user's default browser to it. The SQLite database and
-  media library settings move from the current project-relative path to
-  an OS-appropriate user-data directory, since a distributed build won't
-  live inside a cloned repo.
+- ~~25. **Standalone desktop packaging**~~ - abandoned 2026-08-30. Never
+  started; dropped from the roadmap by user decision before any code was
+  written, so there is nothing to roll back. Not a build target; number
+  retired, not reused.
 - [x] 26. **Global search: find + add shows** - the nav search bar also
   surfaces AniList results when local results don't cover the query, with
   an inline "Add" action that reuses the existing `/cards/new` lookup/import
@@ -230,3 +228,15 @@ cleaned-up checkbox version before generating the project overview.
   checkbox panel `/cards` already has as its own separate "Decks" action
   (feature 13b), so deck membership can be managed right from the edit
   flow instead of only through that standalone panel.
+- [ ] 35. **Library search + infinite scroll** - per-page search/filter plus
+  scroll-triggered loading, replacing feature 19a's numbered pagination, one
+  list surface at a time.
+  - [x] 35a. **Cards library search + infinite scroll** - a search box on
+    `/cards` narrows the list by song/artist/anime title; its numbered
+    `Pager` is replaced by "load more as you scroll."
+  - [ ] 35b. **Decks library search + infinite scroll** - the same two
+    changes (search box + infinite scroll) applied to `/decks`' top-level
+    list (Artist/Anime/Created).
+  - [ ] 35c. **Deck detail search + infinite scroll** - the same two
+    changes applied to the card list inside a selected manual/artist/anime
+    deck's detail view.

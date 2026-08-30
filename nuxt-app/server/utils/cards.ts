@@ -65,13 +65,37 @@ export function searchCards(query: string): CardWithDetails[] {
   return cardQuery().where(like(song.title, `%${query}%`)).orderBy(desc(card.createdAt)).limit(5).all();
 }
 
-export function listCards(page: number): Paginated<CardWithDetails> {
-  const total = db.select({ count: count(card.id) }).from(card).get()!.count;
-  const items = cardQuery()
+function cardSearchCondition(query?: string) {
+  const trimmed = query?.trim();
+  if (!trimmed) return undefined;
+  const pattern = `%${trimmed}%`;
+  return or(
+    like(song.title, pattern),
+    like(artist.name, pattern),
+    like(anime.titleEnglish, pattern),
+    like(anime.titleRomaji, pattern),
+    like(anime.titleNative, pattern),
+  );
+}
+
+export function listCards(page: number, query?: string): Paginated<CardWithDetails> {
+  const condition = cardSearchCondition(query);
+
+  const totalBase = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id));
+  const total = (condition ? totalBase.where(condition) : totalBase).get()!.count;
+
+  const itemsBase = cardQuery();
+  const items = (condition ? itemsBase.where(condition) : itemsBase)
     .orderBy(desc(card.createdAt))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)
     .all();
+
   return { items, total };
 }
 
