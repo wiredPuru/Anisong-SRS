@@ -143,6 +143,17 @@ watch(
      real video. Immersive mode never uses that blur-transition mechanism
      (it's a plain show/hide instead), so resetting filter here is safe. */
   filter: none;
+  /* Overlay-only: sized in cqw against .player-frame's actual rendered
+     width (see its container-type: inline-size), so this keeps constant
+     proportion to the frame at every size - grows on a large frame, shrinks
+     on a small one - rather than being capped at a fixed px value that only
+     looked right at one particular frame width. Each cqw multiplier is
+     calibrated so a ~1450px-wide frame (a typical desktop immersive size)
+     lands on today's original px value; the clamp floor keeps text
+     readable on a small frame, and the generous ceiling is a sanity cap
+     against an unrealistically huge display, not a normal-range target. */
+  padding: clamp(10px, 1.79cqw, 42px);
+  gap: clamp(8px, 1.38cqw, 32px);
 }
 
 /* Matches the immersive Pass/Fail buttons' per-element frosted treatment
@@ -158,13 +169,54 @@ watch(
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   backdrop-filter: blur(10px) saturate(1.3);
-  padding: 12px 16px;
+  padding: clamp(8px, 0.83cqw, 19px) clamp(10px, 1.1cqw, 26px);
+}
+
+.info-card.overlay .meta-row {
+  padding-top: clamp(8px, 0.83cqw, 19px);
 }
 
 .info-card.overlay :is(.en, .romaji, .jp, .song-title, .label, .name) {
   text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.85),
     0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Overlay-only font-size overrides - more specific than the base rules below
+   (which the non-immersive side panel still uses unchanged), so they only
+   apply here. Proportional (cqw), not capped at the base rule's px value -
+   see the comment on .info-card.overlay above for why. */
+.info-card.overlay .title-block .en {
+  font-size: clamp(15px, 1.86cqw, 43px);
+}
+
+.info-card.overlay .title-block .romaji {
+  font-size: clamp(11px, 1.1cqw, 26px);
+}
+
+.info-card.overlay .jp {
+  font-size: clamp(13px, 1.38cqw, 32px);
+}
+
+.info-card.overlay .label {
+  font-size: clamp(10px, 0.83cqw, 19px);
+}
+
+.info-card.overlay .song-title {
+  font-size: clamp(12px, 1.24cqw, 29px);
+}
+
+.info-card.overlay .meta-row .artist .name {
+  font-size: clamp(12px, 1.24cqw, 29px);
+}
+
+.info-card.overlay .lang-toggles {
+  gap: clamp(6px, 0.69cqw, 16px);
+}
+
+.info-card.overlay .lang-btn {
+  padding: clamp(6px, 0.62cqw, 14px) clamp(8px, 1.1cqw, 26px);
+  font-size: clamp(10px, 0.9cqw, 21px);
 }
 
 .lang-toggles {

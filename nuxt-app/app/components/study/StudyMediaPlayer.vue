@@ -453,6 +453,12 @@ onUnmounted(() => stopDrag?.());
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-sm);
   overflow: hidden;
+  /* Lets immersive-overlay content (info card, language toggles, Pass/Fail
+     buttons) size itself in cqw against this frame's actual rendered width
+     rather than the raw viewport - the frame's width already accounts for
+     both the 90vw cap and the height-derived cap (see .player-card.expanded
+     .player-frame above), so cqw tracks whichever constraint is active. */
+  container-type: inline-size;
   background:
     radial-gradient(120% 120% at 30% 20%, rgba(255, 93, 162, 0.35), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),

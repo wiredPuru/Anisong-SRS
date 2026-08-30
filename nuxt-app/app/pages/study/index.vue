@@ -322,19 +322,36 @@ h1 {
    plain and exact relative to the video's own box, no need to replicate its
    viewport-centering math (a previous attempt at that got both the
    horizontal AND vertical math wrong in different ways). */
+/* Each offset is a plain percent of .player-frame's own box (the
+   containing block for an absolutely positioned descendant), calibrated
+   against the same ~1450x816 reference frame as the cqw values below, so
+   position keeps constant proportion to the frame at every size instead of
+   sticking to a fixed px offset tuned for one particular width. */
+/* max-height bounds the card so its own content (a long title can wrap to
+   two lines, on top of romaji/JP/song/artist) can never grow tall enough to
+   run under .answer-slot, which paints after it in DOM order and would
+   otherwise silently hide whatever it overlaps - proportional width scaling
+   alone doesn't shrink content to fit a *short* frame, only a narrow one.
+   67% leaves room for the top offset plus .answer-slot's own reserved space
+   below. overflow-y is the backstop for the rare case content still doesn't
+   fit even at the smallest clamped text size - scrollable beats silently
+   hidden. */
 .info-slot {
   position: absolute;
-  top: 60px;
-  left: 16px;
-  max-width: min(340px, 55%);
+  top: 7.36%;
+  left: 1.1%;
+  max-width: 55%;
+  max-height: 67%;
+  overflow-y: auto;
+  overflow-x: hidden;
   z-index: 10;
 }
 
 .answer-slot {
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 90px;
+  left: 1.1%;
+  right: 1.1%;
+  bottom: 11.03%;
   z-index: 10;
 }
 
@@ -357,5 +374,25 @@ h1 {
   text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.85),
     0 1px 2px rgba(0, 0, 0, 0.9);
+  /* Proportional to .player-frame's rendered width (StudyMediaPlayer.vue's
+     container-type: inline-size) instead of StudyAnswerControls.vue's own
+     fixed px, calibrated against the same ~1450px reference frame as
+     StudyInfoPanel.vue - see its .info-card.overlay comment for why this
+     isn't capped at today's fixed value. !important for the same
+     specificity reason as the properties above - StudyAnswerControls.vue is
+     also used outside .player-frame (the non-immersive .side panel), so its
+     own base rule is left untouched and only overridden here. */
+  padding: clamp(12px, 1.38cqw, 32px) !important;
+  gap: clamp(8px, 0.83cqw, 19px) !important;
+  font-size: clamp(13px, 1.24cqw, 29px) !important;
+}
+
+.answer-slot :deep(.answer-bar) {
+  gap: clamp(10px, 1.1cqw, 26px) !important;
+}
+
+.answer-slot :deep(.key) {
+  padding: clamp(2px, 0.21cqw, 5px) clamp(6px, 0.62cqw, 14px) !important;
+  font-size: clamp(9px, 0.9cqw, 21px) !important;
 }
 </style>
