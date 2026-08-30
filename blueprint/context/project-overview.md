@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash c3572910257fe7303c2ecc7140bb416e5ca7b91ba7a5964bcdb110a792260a86 -->
+<!-- blueprint:source-hash 3c0231997098bf0f6b03980d1bd43502a6c97c593db860bd9d733dc04873205c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -30,7 +30,7 @@ cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
 ambient-driven glass surface) are built and merged. Feature 18 was built,
 then rolled back, then abandoned outright (see its entry below) - its
-number is retired, not reused. 26-27 are done; 28-32 are queued, not
+number is retired, not reused. 26-28 are done; 29-32 are queued, not
 started (25 is set aside for now).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
@@ -219,12 +219,15 @@ started (25 is set aside for now).
     path behave the same. The existing "needs at least one source"
     validation is unchanged and still blocks clearing a card's only
     remaining source.
-28. **Add existing cards to a deck from the deck page** - not started.
-    Manual decks only (artist/anime decks are derived, not stored, so
-    there is nothing to add to). A control on a manual deck's detail view
-    (feature 13a) to search/pick existing cards and attach them - the same
-    action as `/cards`' "Decks" checkbox panel (feature 13b), initiated
-    from the other direction.
+28. **Add existing cards to a deck from the deck page** - done. Manual
+    decks only (artist/anime decks are derived, not stored). A search box
+    on a manual deck's detail view (feature 13a) queries the cards-only
+    `/api/search` (feature 26's fix); each result shows "Add" or an
+    "Added" badge, checked against `/api/decks/memberships`'s site-wide
+    map (not the deck's own paginated card list) and attached via the
+    same `POST /api/decks/cards` feature 13b's `/cards`-side checkbox
+    panel already uses - initiated from the other direction, no server
+    changes needed.
 29. **Stats refresh + clear** - not started. A manual refresh action on
     `/stats`, plus a destructive "clear" action that deletes `ReviewLog`
     history only (stats reset to zero; card box levels and due dates are

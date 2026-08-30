@@ -76,6 +76,15 @@ const { data, pending, error, refresh } = await useFetch<{
   totalPages: number;
 }>("/api/decks", { query: computed(() => ({ type: activeType.value, page: page.value })) });
 
+const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
+  memberships: Record<number, number[]>;
+}>("/api/decks/memberships");
+
+function isCardInDeck(cardId: number): boolean {
+  if (selectedId.value === null) return false;
+  return (membershipsData.value?.memberships[cardId] ?? []).includes(selectedId.value);
+}
+
 function goToPage(p: number) {
   router.push({ query: { ...route.query, page: p } });
 }
@@ -281,6 +290,60 @@ async function removeCardFromManualDeck(cardId: number) {
   }
 }
 
+const addCardQuery = ref("");
+const addCardResults = ref<DeckCard[]>([]);
+const addCardPending = ref(false);
+const addCardError = ref<string | null>(null);
+const addingCardId = ref<number | null>(null);
+
+let addCardDebounce: ReturnType<typeof setTimeout> | null = null;
+
+async function runAddCardSearch() {
+  const q = addCardQuery.value.trim();
+  if (q.length < 2) {
+    addCardResults.value = [];
+    addCardPending.value = false;
+    return;
+  }
+
+  addCardPending.value = true;
+  addCardError.value = null;
+  try {
+    const res = await $fetch<{ cards: DeckCard[] }>("/api/search", { query: { q } });
+    addCardResults.value = res.cards;
+  } catch (err) {
+    addCardError.value = extractErrorMessage(err, "Search failed.");
+  } finally {
+    addCardPending.value = false;
+  }
+}
+
+function onAddCardInput() {
+  if (addCardDebounce) clearTimeout(addCardDebounce);
+  addCardDebounce = setTimeout(runAddCardSearch, 250);
+}
+
+function resetAddCardSearch() {
+  addCardQuery.value = "";
+  addCardResults.value = [];
+  addCardError.value = null;
+}
+
+async function addCardToCurrentDeck(cardId: number) {
+  if (selectedId.value === null) return;
+
+  addCardError.value = null;
+  addingCardId.value = cardId;
+  try {
+    await $fetch("/api/decks/cards", { method: "POST", body: { deckId: selectedId.value, cardId } });
+    await Promise.all([fetchDeckDetail(), refreshMemberships()]);
+  } catch (err) {
+    addCardError.value = extractErrorMessage(err, "Failed to add card to deck.");
+  } finally {
+    addingCardId.value = null;
+  }
+}
+
 function sourceBadges(c: DeckCard): string[] {
   const badges: string[] = [];
   if (c.localVideoPath) badges.push("Local video");
@@ -299,10 +362,12 @@ function setType(type: DeckType) {
 function selectDeck(id: number) {
   exportSummary.value = null;
   exportError.value = null;
+  resetAddCardSearch();
   router.push({ query: { type: activeType.value, id } });
 }
 
 function backToDecks() {
+  resetAddCardSearch();
   router.push({ query: { type: activeType.value } });
 }
 </script>
@@ -433,6 +498,39 @@ function backToDecks() {
             Study this deck
           </NuxtLink>
         </div>
+
+        <div v-if="activeType === 'created'" class="add-card-block">
+          <h3>Add cards</h3>
+          <input
+            v-model="addCardQuery"
+            type="text"
+            placeholder="Search cards to add..."
+            class="path-input"
+            @input="onAddCardInput"
+          />
+          <p v-if="addCardPending" class="state">Searching...</p>
+          <p v-else-if="addCardError" class="export-error">{{ addCardError }}</p>
+          <ul v-else-if="addCardResults.length" class="add-card-results">
+            <li v-for="r in addCardResults" :key="r.id" class="add-card-result-row">
+              <span class="add-card-result-text">
+                {{ r.songTitle }}
+                <span class="deck-sublabel">{{ r.artistName }} - {{ r.animeTitleEnglish }}</span>
+              </span>
+              <button
+                v-if="!isCardInDeck(r.id)"
+                type="button"
+                class="export-btn add-card-btn"
+                :disabled="addingCardId === r.id"
+                @click="addCardToCurrentDeck(r.id)"
+              >
+                {{ addingCardId === r.id ? "Adding..." : "Add" }}
+              </button>
+              <span v-else class="added-badge">Added</span>
+            </li>
+          </ul>
+          <p v-else-if="addCardQuery.trim().length >= 2" class="state">No matching cards.</p>
+        </div>
+
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
           <li v-for="c in deckDetail.cards" :key="c.id" class="deck-card-row">
             <div class="deck-card-row-main">
@@ -878,5 +976,60 @@ h2 {
   margin: 10px 0 0;
   color: var(--fail);
   font-size: 14px;
+}
+
+.add-card-block {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.add-card-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.add-card-results {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-card-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.add-card-result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.add-card-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.added-badge {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--pass);
+  color: var(--pass-ink);
+  font-size: 13px;
+  font-weight: 700;
 }
 </style>

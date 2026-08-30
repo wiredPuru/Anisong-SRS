@@ -193,7 +193,7 @@ cleaned-up checkbox version before generating the project overview.
   edit and `CardPreviewModal`'s edit mode) that deletes the referenced file
   from disk (reusing feature 17's cleanup logic) and blanks the field,
   instead of relying on manually clearing the text input to the same effect.
-- [ ] 28. **Add existing cards to a deck from the deck page** - manual
+- [x] 28. **Add existing cards to a deck from the deck page** - manual
   decks only (artist/anime decks are derived, not stored, so there is
   nothing to add to). A control on a manual deck's detail view to
   search/pick existing cards and attach them - the same action as `/cards`'
