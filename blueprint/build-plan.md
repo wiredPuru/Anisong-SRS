@@ -211,12 +211,13 @@ cleaned-up checkbox version before generating the project overview.
   of beside it, with Pass/Fail also part of the overlay; unlike today's
   expand toggle, staying immersive carries across moving to the next card
   rather than resetting per card.
-- [ ] 32. **Study playback-mode option** - in the immersive overlay from
-  feature 31, a session-only choice (not persisted per scope, unlike the
-  abandoned feature 18) between Audio-only / Video-only / Any (locals
-  preferred). Must not repeat feature 18's rollback bug: never change the
-  media source after playback has already started, which caused two audio
-  streams to play at once.
+- ~~32. **Study playback-mode option**~~ - abandoned 2026-08-30. Never
+  merged; dropped by user decision mid-build (spec'd and partially
+  implemented, then discarded before any commit landed on master, so there
+  is nothing to roll back). Not a build target; number retired, not
+  reused. Original scope: in the immersive overlay from feature 31, a
+  session-only choice (not persisted per scope, unlike the abandoned
+  feature 18) between Audio-only / Video-only / Any (locals preferred).
 - [x] 33. **Add new anime cards from a deck page** - a manual deck's detail
   view gains a way to look up and import a new anime/card via AniList (the
   same lookup/import flow as `/cards/new`), auto-attaching the created card

@@ -32,10 +32,11 @@ ambient-driven glass surface) are built and merged, as are 26-31 and 33-34
 (global search find+add, clear-local-file, add-existing-cards-to-deck,
 stats refresh+clear, native Japanese titles + split furigana toggle, the
 immersive study mode, add-new-anime-from-a-deck, and deck assignment from
-card edit). 32 and 35 (35a-35c) are queued, not started. Features 18 and 25
-were each abandoned outright (see their entries below) - both numbers are
-retired, not reused: 18 was built, then
-rolled back, then dropped; 25 was dropped before any code was written.
+card edit). 35 (35a-35c) is queued, not started. Features 18, 25, and 32
+were each abandoned outright (see their entries below) - all three numbers
+are retired, not reused: 18 was built, then rolled back, then dropped; 25
+was dropped before any code was written; 32 was spec'd and partially
+implemented, then dropped before any code was committed to master.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -264,12 +265,14 @@ rolled back, then dropped; 25 was dropped before any code was written.
     language toggles stay inline on the study screen either way, with the
     `H` hotkey + icon (from the `study-player-polish` fix) to hide/show
     them together.
-32. **Study playback-mode option** - not started. In the immersive overlay
-    from feature 31, a session-only choice (not persisted per scope,
-    unlike the abandoned feature 18) between Audio-only / Video-only / Any
-    (locals preferred). Must not repeat feature 18's rollback bug: never
-    change the media source after playback has already started, which
-    caused two audio streams to play at once.
+32. ~~**Study playback-mode option**~~ - abandoned 2026-08-30. Spec'd and
+    partially implemented (a `playbackMode` prop on `StudyMediaPlayer.vue`
+    plus an immersive-overlay control), then dropped by user decision
+    before any commit landed on master - nothing to roll back. Not a
+    build target; number retired, not reused. Original scope: in the
+    immersive overlay from feature 31, a session-only choice (not
+    persisted per scope, unlike the abandoned feature 18) between
+    Audio-only / Video-only / Any (locals preferred).
 33. **Add new anime cards from a deck page** - done. A manual deck's
     detail view can create a brand-new card straight from an AniList
     lookup, not just attach cards that already exist (feature 28's job).
