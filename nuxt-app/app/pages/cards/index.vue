@@ -89,6 +89,7 @@ const editVideoPath = ref("");
 const editAudioPath = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
+const clearingField = reactive<Record<string, boolean>>({});
 
 const previewCard = ref<CardWithDetails | null>(null);
 
@@ -181,6 +182,23 @@ async function saveEdit(id: number) {
   }
 }
 
+async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
+  const key = `${c.id}-${kind}`;
+  editError.value = null;
+  clearingField[key] = true;
+  try {
+    const body = kind === "video" ? { id: c.id, localVideoPath: null } : { id: c.id, localAudioPath: null };
+    await $fetch("/api/cards", { method: "PATCH", body });
+    if (kind === "video") editVideoPath.value = "";
+    else editAudioPath.value = "";
+    await refresh();
+  } catch (err) {
+    editError.value = extractErrorMessage(err, "Failed to clear local file.");
+  } finally {
+    clearingField[key] = false;
+  }
+}
+
 async function removeCard(id: number) {
   await $fetch("/api/cards", { method: "DELETE", body: { id } });
   await refresh();
@@ -267,20 +285,40 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
 
           <template v-if="editingId === c.id">
             <div class="edit-form">
-              <input
-                v-model="editVideoPath"
-                type="text"
-                placeholder="Local video path (blank to clear)"
-                :disabled="editSaving"
-                class="path-input"
-              />
-              <input
-                v-model="editAudioPath"
-                type="text"
-                placeholder="Local audio path (blank to clear)"
-                :disabled="editSaving"
-                class="path-input"
-              />
+              <div class="path-row">
+                <input
+                  v-model="editVideoPath"
+                  type="text"
+                  placeholder="Local video path (blank to clear)"
+                  :disabled="editSaving"
+                  class="path-input"
+                />
+                <button
+                  type="button"
+                  class="clear-btn"
+                  :disabled="!c.localVideoPath || editSaving || clearingField[`${c.id}-video`]"
+                  @click="clearLocalPath(c, 'video')"
+                >
+                  {{ clearingField[`${c.id}-video`] ? "Clearing..." : "Clear" }}
+                </button>
+              </div>
+              <div class="path-row">
+                <input
+                  v-model="editAudioPath"
+                  type="text"
+                  placeholder="Local audio path (blank to clear)"
+                  :disabled="editSaving"
+                  class="path-input"
+                />
+                <button
+                  type="button"
+                  class="clear-btn"
+                  :disabled="!c.localAudioPath || editSaving || clearingField[`${c.id}-audio`]"
+                  @click="clearLocalPath(c, 'audio')"
+                >
+                  {{ clearingField[`${c.id}-audio`] ? "Clearing..." : "Clear" }}
+                </button>
+              </div>
               <div class="edit-actions">
                 <button type="button" class="save-btn" :disabled="editSaving" @click="saveEdit(c.id)">Save</button>
                 <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
@@ -486,7 +524,15 @@ h1 {
   max-width: 320px;
 }
 
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .path-input {
+  flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
@@ -500,6 +546,24 @@ h1 {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);
+}
+
+.clear-btn {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--fail);
+  background: transparent;
+  color: var(--fail);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clear-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .edit-actions {

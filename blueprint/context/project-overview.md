@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 7c882b4fbbdb9ae195b4e663c94c723d9cfeee0fa5a9a7533a73bf0654582f22 -->
+<!-- blueprint:source-hash c3572910257fe7303c2ecc7140bb416e5ca7b91ba7a5964bcdb110a792260a86 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -30,8 +30,8 @@ cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
 ambient-driven glass surface) are built and merged. Feature 18 was built,
 then rolled back, then abandoned outright (see its entry below) - its
-number is retired, not reused. 26 is done; 27-32 are queued, not started
-(25 is set aside for now).
+number is retired, not reused. 26-27 are done; 28-32 are queued, not
+started (25 is set aside for now).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -208,12 +208,17 @@ number is retired, not reused. 26 is done; 27-32 are queued, not started
     cards-only now) and moved this fallback's trigger from the removed
     `anime` group to the `Cards` group being empty; placeholder text reads
     "Search Anime".
-27. **Explicit "Clear local file" action on cards** - not started. A
-    one-click button next to a card's local video/audio path (in both
-    `/cards`' row edit and `CardPreviewModal`'s edit mode, feature 16) that
-    deletes the referenced file from disk (reusing feature 17's cleanup
-    logic) and blanks the field, instead of relying on manually clearing
-    the text input to the same effect.
+27. **Explicit "Clear local file" action on cards** - done. A "Clear"
+    button next to each local video/audio path field (in both `/cards`'
+    row edit and `CardPreviewModal`'s edit mode, feature 16) PATCHes just
+    that field to `null` and deletes the file via the same
+    `deleteFileIfUnreferenced()` helper feature 17's card delete already
+    uses. That cleanup now runs for *any* explicit clear-to-`null` through
+    `PATCH /api/cards` - including the pre-existing "blank the text input,
+    then Save" flow, not just the new buttons - so both ways of clearing a
+    path behave the same. The existing "needs at least one source"
+    validation is unchanged and still blocks clearing a card's only
+    remaining source.
 28. **Add existing cards to a deck from the deck page** - not started.
     Manual decks only (artist/anime decks are derived, not stored, so
     there is nothing to add to). A control on a manual deck's detail view

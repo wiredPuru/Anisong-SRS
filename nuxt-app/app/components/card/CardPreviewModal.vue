@@ -72,6 +72,8 @@ const editVideoPath = ref("");
 const editAudioPath = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
+const clearingVideo = ref(false);
+const clearingAudio = ref(false);
 
 function startEdit() {
   if (!props.card) return;
@@ -121,6 +123,25 @@ async function saveEdit() {
     editError.value = extractErrorMessage(err, "Failed to update card.");
   } finally {
     editSaving.value = false;
+  }
+}
+
+async function clearLocalPath(kind: "video" | "audio") {
+  if (!props.card) return;
+  editError.value = null;
+  const busyRef = kind === "video" ? clearingVideo : clearingAudio;
+  busyRef.value = true;
+  try {
+    const body =
+      kind === "video" ? { id: props.card.id, localVideoPath: null } : { id: props.card.id, localAudioPath: null };
+    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", { method: "PATCH", body });
+    if (kind === "video") editVideoPath.value = "";
+    else editAudioPath.value = "";
+    emit("updated", result.card);
+  } catch (err) {
+    editError.value = extractErrorMessage(err, "Failed to clear local file.");
+  } finally {
+    busyRef.value = false;
   }
 }
 
@@ -189,11 +210,31 @@ watch(
 
         <label class="field">
           <span class="field-label">Local video path</span>
-          <input v-model="editVideoPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+          <div class="path-row">
+            <input v-model="editVideoPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+            <button
+              type="button"
+              class="clear-btn"
+              :disabled="!card.localVideoPath || editSaving || clearingVideo"
+              @click="clearLocalPath('video')"
+            >
+              {{ clearingVideo ? "Clearing..." : "Clear" }}
+            </button>
+          </div>
         </label>
         <label class="field">
           <span class="field-label">Local audio path</span>
-          <input v-model="editAudioPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+          <div class="path-row">
+            <input v-model="editAudioPath" type="text" placeholder="Blank to clear" :disabled="editSaving" />
+            <button
+              type="button"
+              class="clear-btn"
+              :disabled="!card.localAudioPath || editSaving || clearingAudio"
+              @click="clearLocalPath('audio')"
+            >
+              {{ clearingAudio ? "Clearing..." : "Clear" }}
+            </button>
+          </div>
         </label>
 
         <p v-if="editError" class="edit-error">{{ editError }}</p>
@@ -348,6 +389,35 @@ watch(
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);
+}
+
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.path-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.clear-btn {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--fail);
+  background: transparent;
+  color: var(--fail);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clear-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .artist-mode-row {

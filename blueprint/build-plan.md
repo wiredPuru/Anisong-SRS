@@ -188,7 +188,7 @@ cleaned-up checkbox version before generating the project overview.
   surfaces AniList results when local results don't cover the query, with
   an inline "Add" action that reuses the existing `/cards/new` lookup/import
   flow rather than duplicating it.
-- [ ] 27. **Explicit "Clear local file" action on cards** - a one-click
+- [x] 27. **Explicit "Clear local file" action on cards** - a one-click
   button next to a card's local video/audio path (in both `/cards`' row
   edit and `CardPreviewModal`'s edit mode) that deletes the referenced file
   from disk (reusing feature 17's cleanup logic) and blanks the field,

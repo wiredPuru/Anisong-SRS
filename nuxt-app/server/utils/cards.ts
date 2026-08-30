@@ -301,10 +301,12 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
   }
 
   const updates: { localVideoPath?: string | null; localAudioPath?: string | null } = {};
+  const clearedLocalPaths: string[] = [];
 
   if (input.localVideoPath !== undefined) {
     if (input.localVideoPath === null) {
       updates.localVideoPath = null;
+      if (existing.localVideoPath) clearedLocalPaths.push(existing.localVideoPath);
     } else {
       const result = validateLocalPath(input.localVideoPath);
       if ("error" in result) return result;
@@ -315,6 +317,7 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
   if (input.localAudioPath !== undefined) {
     if (input.localAudioPath === null) {
       updates.localAudioPath = null;
+      if (existing.localAudioPath) clearedLocalPaths.push(existing.localAudioPath);
     } else {
       const result = validateLocalPath(input.localAudioPath);
       if ("error" in result) return result;
@@ -338,6 +341,10 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
 
   if (Object.keys(updates).length > 0) {
     db.update(card).set(updates).where(eq(card.id, input.id)).run();
+  }
+
+  for (const path of clearedLocalPaths) {
+    deleteFileIfUnreferenced(path);
   }
 
   return { card: getCardWithDetails(input.id)! };
