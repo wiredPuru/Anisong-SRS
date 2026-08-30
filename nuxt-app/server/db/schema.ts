@@ -27,6 +27,7 @@ export const song = sqliteTable(
       .notNull()
       .references(() => artist.id),
     title: text("title").notNull(),
+    titleNative: text("title_native"),
     themeSlot: text("theme_slot").notNull(),
     animethemesThemeId: integer("animethemes_theme_id"),
   },

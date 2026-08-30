@@ -11,6 +11,7 @@ export interface CardWithDetails {
   nextReviewAt: string;
   createdAt: string;
   songTitle: string;
+  songTitleNative: string;
   themeSlot: string;
   artistName: string;
   animeTitleEnglish: string;

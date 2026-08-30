@@ -1,6 +1,6 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, like, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, like, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, song } from "../db/schema.ts";
 import { isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -23,6 +23,7 @@ export interface CardWithDetails {
   nextReviewAt: Date;
   createdAt: Date;
   songTitle: string;
+  songTitleNative: string;
   themeSlot: string;
   artistName: string;
   animeTitleEnglish: string;
@@ -42,6 +43,7 @@ const cardSelection = {
   nextReviewAt: card.nextReviewAt,
   createdAt: card.createdAt,
   songTitle: song.title,
+  songTitleNative: sql<string>`coalesce(${song.titleNative}, ${song.title})`,
   themeSlot: song.themeSlot,
   artistName: artist.name,
   animeTitleEnglish: anime.titleEnglish,

@@ -42,6 +42,7 @@ export function upsertSong(data: {
   animeId: number;
   artistId: number;
   title: string;
+  titleNative?: string | null;
   themeSlot: string;
   animethemesThemeId: number | null;
 }): Song {
@@ -53,6 +54,7 @@ export function upsertSong(data: {
       set: {
         artistId: data.artistId,
         title: data.title,
+        titleNative: data.titleNative,
         animethemesThemeId: data.animethemesThemeId,
       },
     })

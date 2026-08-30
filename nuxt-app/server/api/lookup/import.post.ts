@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
       animeId: animeRow.id,
       artistId: artistRow.id,
       title: theme.songTitle ?? theme.themeSlot,
+      titleNative: theme.songTitleNative,
       themeSlot: theme.themeSlot,
       animethemesThemeId: theme.animethemesThemeId,
     });

@@ -10,6 +10,7 @@ interface CardWithDetails {
   nextReviewAt: string;
   createdAt: string;
   songTitle: string;
+  songTitleNative: string;
   themeSlot: string;
   artistName: string;
   animeTitleEnglish: string;
@@ -247,6 +248,7 @@ watch(
       <template v-else>
         <StudyInfoPanel
           :song-title="card.songTitle"
+          :song-title-native="card.songTitleNative"
           :artist-name="card.artistName"
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"

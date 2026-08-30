@@ -1,0 +1,1 @@
+ALTER TABLE `song` ADD `title_native` text;

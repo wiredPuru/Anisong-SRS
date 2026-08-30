@@ -7,6 +7,7 @@ export interface AnimeThemeLookup {
   animethemesThemeId: number;
   themeSlot: string;
   songTitle: string | null;
+  songTitleNative: string | null;
   artistName: string | null;
   videoUrl: string | null;
   audioUrl: string | null;
@@ -90,6 +91,7 @@ function toThemeLookup(theme: RawAnimeTheme): AnimeThemeLookup | null {
     return null;
   }
 
+  const songTitleNative = theme.song?.title.native ?? null;
   const artistName = theme.song?.performances[0]?.artist.name.main ?? null;
   const video = theme.animethemeentries[0]?.videos.nodes[0] ?? null;
 
@@ -97,6 +99,7 @@ function toThemeLookup(theme: RawAnimeTheme): AnimeThemeLookup | null {
     animethemesThemeId: theme.id,
     themeSlot: theme.slug,
     songTitle,
+    songTitleNative,
     artistName,
     videoUrl: video?.link ?? null,
     audioUrl: video?.audio?.link ?? null,

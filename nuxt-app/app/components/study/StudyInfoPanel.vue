@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   songTitle: string;
+  songTitleNative: string;
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
@@ -11,30 +12,48 @@ const props = defineProps<{
 
 const showEn = ref(true);
 const showRomaji = ref(true);
-const showJp = ref(true);
+const showJapanese = ref(true);
+const showFurigana = ref(true);
 
-const jpHtml = ref(props.animeTitleNative);
-let lastFetchedText: string | null = null;
+const animeJpHtml = ref(props.animeTitleNative);
+const songJpHtml = ref(props.songTitleNative);
+let lastFetchedKey: string | null = null;
 
-async function loadFurigana() {
-  const text = props.animeTitleNative;
-  if (lastFetchedText === text) return;
-  jpHtml.value = text;
+async function resolveJapaneseText() {
+  const animeText = props.animeTitleNative;
+  const songText = props.songTitleNative;
+  const key = `${animeText}|||${songText}|||${showFurigana.value}`;
+  if (lastFetchedKey === key) return;
+
+  if (!showFurigana.value) {
+    animeJpHtml.value = animeText;
+    songJpHtml.value = songText;
+    lastFetchedKey = key;
+    return;
+  }
+
+  animeJpHtml.value = animeText;
+  songJpHtml.value = songText;
   try {
-    const result = await $fetch<{ html: string }>("/api/furigana", { query: { text } });
-    if (props.animeTitleNative === text) {
-      jpHtml.value = result.html;
-      lastFetchedText = text;
+    const [animeResult, songResult] = await Promise.all([
+      $fetch<{ html: string }>("/api/furigana", { query: { text: animeText } }),
+      $fetch<{ html: string }>("/api/furigana", { query: { text: songText } }),
+    ]);
+    if (props.animeTitleNative === animeText && props.songTitleNative === songText) {
+      animeJpHtml.value = animeResult.html;
+      songJpHtml.value = songResult.html;
+      lastFetchedKey = key;
     }
   } catch {
-    jpHtml.value = text;
+    animeJpHtml.value = animeText;
+    songJpHtml.value = songText;
   }
 }
 
 watch(
-  [() => props.animeTitleNative, showJp],
-  ([, jpOn]) => {
-    if (jpOn) loadFurigana();
+  [() => props.animeTitleNative, () => props.songTitleNative, showJapanese, showFurigana],
+  ([, , jpOn]) => {
+    if (jpOn) resolveJapaneseText();
   },
   { immediate: true },
 );
@@ -47,18 +66,30 @@ watch(
       <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
         Romaji
       </button>
-      <button type="button" class="lang-btn" :class="{ on: showJp }" @click="showJp = !showJp">JP + Furigana</button>
+      <button type="button" class="lang-btn" :class="{ on: showJapanese }" @click="showJapanese = !showJapanese">
+        Japanese
+      </button>
+      <button
+        type="button"
+        class="lang-btn"
+        :class="{ on: showFurigana }"
+        :disabled="!showJapanese"
+        @click="showFurigana = !showFurigana"
+      >
+        Furigana
+      </button>
     </div>
 
     <div class="title-block">
       <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
       <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
-      <span v-if="showJp" class="jp" v-html="jpHtml" />
+      <span v-if="showJapanese" class="jp" v-html="animeJpHtml" />
     </div>
 
     <div class="song-block">
       <span class="label">Song</span>
       <span class="song-title">{{ songTitle }}</span>
+      <span v-if="showJapanese" class="jp" v-html="songJpHtml" />
     </div>
 
     <div class="meta-row">
@@ -119,6 +150,11 @@ watch(
   box-shadow: 0 0 14px var(--accent-secondary-glow);
 }
 
+.lang-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .title-block {
   display: flex;
   flex-direction: column;
@@ -136,13 +172,13 @@ watch(
   font-weight: 600;
 }
 
-.title-block .jp {
+.jp {
   font-size: 20px;
   font-weight: 700;
   color: var(--accent-secondary);
 }
 
-.title-block .jp :deep(rt) {
+.jp :deep(rt) {
   font-size: 11px;
   color: var(--muted);
   font-weight: 600;

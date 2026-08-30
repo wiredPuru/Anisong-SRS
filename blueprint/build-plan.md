@@ -201,7 +201,7 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 29. **Stats refresh + clear** - a manual refresh action on `/stats`,
   plus a destructive "clear" action that deletes `ReviewLog` history only
   (stats reset to zero; card box levels and due dates are untouched).
-- [ ] 30. **Native Japanese song titles + split Furigana toggle** - add a
+- [x] 30. **Native Japanese song titles + split Furigana toggle** - add a
   native-Japanese title field to `Song` (alongside the anime title fields
   that already exist), shown on Study/Preview. Split the current single
   "JP + Furigana" toggle into an independent Japanese toggle plus a

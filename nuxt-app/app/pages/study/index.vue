@@ -139,6 +139,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :blurred="hideInfo"
             :ambient="ambientMode"
             :song-title="currentCard.songTitle"
+            :song-title-native="currentCard.songTitleNative"
             :artist-name="currentCard.artistName"
             :anime-title-english="currentCard.animeTitleEnglish"
             :anime-title-romaji="currentCard.animeTitleRomaji"
