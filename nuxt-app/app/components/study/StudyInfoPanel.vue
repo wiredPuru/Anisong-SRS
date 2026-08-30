@@ -136,10 +136,29 @@ watch(
   border: none;
   box-shadow: none;
   backdrop-filter: none;
+  /* The base .info-card rule sets filter: blur(0) for the non-immersive
+     Hide Info blur toggle - even a no-op blur(0) makes this element a new
+     backdrop-filter sampling root for its descendants (CSS spec behavior),
+     so the chips below were blurring an empty inner layer instead of the
+     real video. Immersive mode never uses that blur-transition mechanism
+     (it's a plain show/hide instead), so resetting filter here is safe. */
+  filter: none;
 }
 
+/* Matches the immersive Pass/Fail buttons' per-element frosted treatment
+   (study/index.vue's .answer-slot :deep(.answer-btn)) rather than one big
+   card background - each block gets its own frosted chip instead. Uses a
+   lighter blur than the shared --glass-blur token (used app-wide - nav
+   bar, search dropdown, etc.) so the video stays more visible through it;
+   study/index.vue's answer-btn override uses the same lighter value. */
+.info-card.overlay .title-block,
+.info-card.overlay .song-block,
 .info-card.overlay .meta-row {
-  border-top: none;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px) saturate(1.3);
+  padding: 12px 16px;
 }
 
 .info-card.overlay :is(.en, .romaji, .jp, .song-title, .label, .name) {

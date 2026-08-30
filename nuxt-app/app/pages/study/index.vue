@@ -336,14 +336,26 @@ h1 {
   right: 16px;
   bottom: 90px;
   z-index: 10;
-  padding: 10px;
-  border-radius: var(--radius);
-  /* --glass-surface (20% opacity) is tuned for sitting over this app's own
-     UI chrome, not arbitrary video content - reuses .player-controls'
-     already-proven-effective darker scrim for actual legibility here,
-     while still using --glass-blur for the frosted look. */
-  background: rgba(10, 6, 14, 0.75);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: var(--glass-blur);
+}
+
+/* Each button gets its own frosted background, matching the info card's
+   overlay treatment, rather than one undifferentiated bar behind both -
+   :deep() reaches into StudyAnswerControls.vue's own scoped .answer-btn
+   without needing to touch that component. Its existing pass/fail-tinted
+   border-color is left alone so the two stay visually distinct. */
+/* Transparent, blur-only "glass" look (the one the user actually wanted -
+   an earlier round mistakenly forced this to a dark tint instead).
+   !important still needed to beat StudyAnswerControls.vue's own scoped
+   .answer-btn rule (background: var(--surface)). */
+.answer-slot :deep(.answer-btn) {
+  background: transparent !important;
+  /* Lighter than the shared --glass-blur token (app-wide default) so the
+     video stays more visible through it - matches StudyInfoPanel.vue's
+     immersive chips, which use the same value. */
+  backdrop-filter: blur(10px) saturate(1.3) !important;
+  /* Matches StudyInfoPanel.vue's immersive text-shadow treatment. */
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
 }
 </style>
