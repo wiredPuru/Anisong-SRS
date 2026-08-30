@@ -101,7 +101,8 @@ function onTimeUpdate() {
 }
 
 function randomStartTime(resolvedDuration: number): number {
-  return Math.random() * Math.max(resolvedDuration - 15, 0);
+  const safeRange = resolvedDuration - 15;
+  return safeRange > 0 ? Math.random() * safeRange : Math.random() * resolvedDuration;
 }
 
 function onLoadedMetadata() {
