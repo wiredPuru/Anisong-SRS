@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 3c0231997098bf0f6b03980d1bd43502a6c97c593db860bd9d733dc04873205c -->
+<!-- blueprint:source-hash cab50afa92b44f142ccb07da135fd9854588c02bfc935e1b4e3eb9001cea8a0e -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -30,7 +30,7 @@ cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
 ambient-driven glass surface) are built and merged. Feature 18 was built,
 then rolled back, then abandoned outright (see its entry below) - its
-number is retired, not reused. 26-28 are done; 29-32 are queued, not
+number is retired, not reused. 26-28 are done; 29-33 are queued, not
 started (25 is set aside for now).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
@@ -251,6 +251,11 @@ started (25 is set aside for now).
     (locals preferred). Must not repeat feature 18's rollback bug: never
     change the media source after playback has already started, which
     caused two audio streams to play at once.
+33. **Add new anime cards from a deck page** - not started. A manual
+    deck's detail view gains a way to look up and import a new anime/card
+    via AniList (the same lookup/import flow as `/cards/new`),
+    auto-attaching the created card to that deck - complementing feature
+    28's "add existing cards" search, not replacing it.
 
 ## Data model
 

@@ -49,6 +49,13 @@ interface DeckCard {
   animeCoverImageUrl: string | null;
 }
 
+interface AniListResult {
+  aniListId: number;
+  titleRomaji: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+}
+
 const route = useRoute();
 const router = useRouter();
 
@@ -153,6 +160,34 @@ watch([selectedId, cardPage], ([id]) => {
 
 function goToCardPage(p: number) {
   router.push({ query: { ...route.query, cardPage: p } });
+}
+
+const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
+  "/api/media-library",
+);
+const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+
+const {
+  downloading,
+  downloadProgress,
+  downloadError,
+  downloadKey,
+  canDownload,
+  hasAnyDownloadableSource,
+  downloadMedia: downloadMediaBase,
+} = useCardDownloads();
+
+function progressPercent(cardId: number, kind: "video" | "audio"): number {
+  const progress = downloadProgress[downloadKey(cardId, kind)];
+  if (!progress || progress.total <= 0) return 0;
+  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
+}
+
+async function downloadMedia(c: DeckCard, kind: "video" | "audio") {
+  const updated = await downloadMediaBase<DeckCard>(c.id, c.id, kind);
+  if (updated) {
+    await fetchDeckDetail();
+  }
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -292,30 +327,50 @@ async function removeCardFromManualDeck(cardId: number) {
 
 const addCardQuery = ref("");
 const addCardResults = ref<DeckCard[]>([]);
+const addAnimeResults = ref<AniListResult[] | null>(null);
 const addCardPending = ref(false);
 const addCardError = ref<string | null>(null);
 const addingCardId = ref<number | null>(null);
+const addAnimeModalTarget = ref<AniListResult | null>(null);
 
 let addCardDebounce: ReturnType<typeof setTimeout> | null = null;
+let addCardSearchGeneration = 0;
 
 async function runAddCardSearch() {
   const q = addCardQuery.value.trim();
+  const generation = ++addCardSearchGeneration;
+
   if (q.length < 2) {
     addCardResults.value = [];
+    addAnimeResults.value = null;
     addCardPending.value = false;
     return;
   }
 
   addCardPending.value = true;
   addCardError.value = null;
+  addAnimeResults.value = null;
   try {
     const res = await $fetch<{ cards: DeckCard[] }>("/api/search", { query: { q } });
+    if (generation !== addCardSearchGeneration) return;
     addCardResults.value = res.cards;
   } catch (err) {
+    if (generation !== addCardSearchGeneration) return;
     addCardError.value = extractErrorMessage(err, "Search failed.");
-  } finally {
     addCardPending.value = false;
+    return;
   }
+
+  if (addCardResults.value.length === 0) {
+    try {
+      const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
+      if (generation === addCardSearchGeneration) addAnimeResults.value = res.results;
+    } catch {
+      // AniList unreachable folds into the plain "no matching cards" state below,
+      // same as the nav bar's global search fallback.
+    }
+  }
+  if (generation === addCardSearchGeneration) addCardPending.value = false;
 }
 
 function onAddCardInput() {
@@ -326,6 +381,7 @@ function onAddCardInput() {
 function resetAddCardSearch() {
   addCardQuery.value = "";
   addCardResults.value = [];
+  addAnimeResults.value = null;
   addCardError.value = null;
 }
 
@@ -342,6 +398,16 @@ async function addCardToCurrentDeck(cardId: number) {
   } finally {
     addingCardId.value = null;
   }
+}
+
+function openAddAnimeModal(result: AniListResult) {
+  addAnimeModalTarget.value = result;
+}
+
+async function closeAddAnimeModal() {
+  addAnimeModalTarget.value = null;
+  resetAddCardSearch();
+  await Promise.all([fetchDeckDetail(), refreshMemberships()]);
 }
 
 function sourceBadges(c: DeckCard): string[] {
@@ -504,7 +570,7 @@ function backToDecks() {
           <input
             v-model="addCardQuery"
             type="text"
-            placeholder="Search cards to add..."
+            placeholder="Search cards, or a new anime title..."
             class="path-input"
             @input="onAddCardInput"
           />
@@ -528,7 +594,19 @@ function backToDecks() {
               <span v-else class="added-badge">Added</span>
             </li>
           </ul>
-          <p v-else-if="addCardQuery.trim().length >= 2" class="state">No matching cards.</p>
+          <template v-else-if="addAnimeResults">
+            <p class="add-card-group-label">Add a new anime</p>
+            <ul v-if="addAnimeResults.length" class="add-card-results">
+              <li v-for="r in addAnimeResults" :key="r.aniListId" class="add-card-result-row">
+                <span class="add-card-result-text">
+                  {{ r.titleRomaji }}
+                  <span v-if="r.titleEnglish" class="deck-sublabel">{{ r.titleEnglish }}</span>
+                </span>
+                <button type="button" class="export-btn add-card-btn" @click="openAddAnimeModal(r)">Select</button>
+              </li>
+            </ul>
+            <p v-else class="state">No matching cards or anime found for "{{ addCardQuery.trim() }}".</p>
+          </template>
         </div>
 
         <ul v-if="deckDetail.cards.length" class="deck-card-list">
@@ -565,6 +643,41 @@ function backToDecks() {
                 {{ removingCardId === c.id ? "Removing..." : "Remove" }}
               </button>
             </div>
+
+            <div v-if="hasAnyDownloadableSource(c)" class="download-section">
+              <div v-if="hasDefaultDownloadFolder" class="download-actions">
+                <template v-if="canDownload(c, 'video')">
+                  <div v-if="downloading[downloadKey(c.id, 'video')]" class="download-progress">
+                    <div class="download-progress-bar">
+                      <span :style="{ width: progressPercent(c.id, 'video') + '%' }" />
+                    </div>
+                    <span class="download-progress-label">{{
+                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "video")])
+                    }}</span>
+                  </div>
+                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'video')">
+                    Download video
+                  </button>
+                </template>
+                <template v-if="canDownload(c, 'audio')">
+                  <div v-if="downloading[downloadKey(c.id, 'audio')]" class="download-progress">
+                    <div class="download-progress-bar">
+                      <span :style="{ width: progressPercent(c.id, 'audio') + '%' }" />
+                    </div>
+                    <span class="download-progress-label">{{
+                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "audio")])
+                    }}</span>
+                  </div>
+                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'audio')">
+                    Download audio
+                  </button>
+                </template>
+              </div>
+              <p v-else class="download-hint">
+                Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+              </p>
+              <p v-if="downloadError[c.id]" class="export-error">{{ downloadError[c.id] }}</p>
+            </div>
           </li>
         </ul>
         <p v-else class="state">No cards in this deck.</p>
@@ -600,6 +713,13 @@ function backToDecks() {
       :open="previewCard !== null"
       @close="previewCard = null"
       @updated="onPreviewCardUpdated"
+    />
+
+    <DeckAddAnimeModal
+      :open="addAnimeModalTarget !== null"
+      :target="addAnimeModalTarget"
+      :deck-id="selectedId"
+      @close="closeAddAnimeModal"
     />
   </main>
 </template>
@@ -800,6 +920,70 @@ h2 {
   background: var(--surface-raised);
 }
 
+.download-section {
+  margin-top: 10px;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.download-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.download-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.download-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.download-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent-secondary);
+  transition: width 0.15s ease;
+}
+
+.download-progress-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
+}
+
+.download-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.download-hint a {
+  color: var(--accent);
+}
+
 .cover-thumb-lg {
   width: 64px;
   height: 90px;
@@ -990,6 +1174,13 @@ h2 {
   margin: 0 0 10px;
   font-size: 16px;
   font-weight: 800;
+}
+
+.add-card-group-label {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .add-card-results {

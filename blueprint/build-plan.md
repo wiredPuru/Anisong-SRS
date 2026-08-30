@@ -217,3 +217,8 @@ cleaned-up checkbox version before generating the project overview.
   preferred). Must not repeat feature 18's rollback bug: never change the
   media source after playback has already started, which caused two audio
   streams to play at once.
+- [x] 33. **Add new anime cards from a deck page** - a manual deck's detail
+  view gains a way to look up and import a new anime/card via AniList (the
+  same lookup/import flow as `/cards/new`), auto-attaching the created card
+  to that deck - complementing feature 28's "add existing cards" search,
+  not replacing it.
