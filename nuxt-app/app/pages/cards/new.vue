@@ -38,10 +38,13 @@ interface CardWithDetails {
   nextReviewAt: string;
   createdAt: string;
   songTitle: string;
+  songTitleNative: string;
   themeSlot: string;
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
+  animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -65,6 +68,7 @@ const addedCards = reactive<Record<number, CardWithDetails>>({});
 const adding = reactive<Record<number, boolean>>({});
 const addError = reactive<Record<number, string | null>>({});
 const localPathInput = reactive<Record<number, string>>({});
+const previewCard = ref<CardWithDetails | null>(null);
 
 const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
   "/api/media-library",
@@ -133,6 +137,25 @@ async function selectAnime(result: AniListResult) {
   } finally {
     importing.value = false;
   }
+}
+
+async function removeCard(songId: number) {
+  const card = addedCards[songId];
+  if (!card) return;
+
+  addError[songId] = null;
+  try {
+    await $fetch("/api/cards", { method: "DELETE", body: { id: card.id } });
+    delete addedCards[songId];
+    if (previewCard.value?.id === card.id) previewCard.value = null;
+  } catch (err) {
+    addError[songId] = extractErrorMessage(err, "Failed to delete card.");
+  }
+}
+
+function onPreviewCardUpdated(updated: CardWithDetails) {
+  addedCards[updated.songId] = updated;
+  previewCard.value = updated;
 }
 
 async function addCard(theme: ThemeResult) {
@@ -229,7 +252,13 @@ onMounted(() => {
 
           <template v-if="addedCards[theme.songId]">
             <div class="added-info">
-              <span class="added-badge">Added</span>
+              <div class="added-actions">
+                <span class="added-badge">Added</span>
+                <button type="button" class="preview-btn" @click="previewCard = addedCards[theme.songId]">
+                  Preview
+                </button>
+                <button type="button" class="remove-btn" @click="removeCard(theme.songId)">Delete</button>
+              </div>
               <div v-if="hasAnyDownloadableSource(addedCards[theme.songId])" class="download-section">
                 <div v-if="hasDefaultDownloadFolder" class="download-actions">
                   <template v-if="canDownload(addedCards[theme.songId], 'video')">
@@ -264,6 +293,7 @@ onMounted(() => {
                 </p>
                 <p v-if="downloadError[theme.songId]" class="inline-error">{{ downloadError[theme.songId] }}</p>
               </div>
+              <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
             </div>
           </template>
           <template v-else>
@@ -289,6 +319,13 @@ onMounted(() => {
         </li>
       </ul>
     </div>
+
+    <CardPreviewModal
+      :card="previewCard"
+      :open="previewCard !== null"
+      @close="previewCard = null"
+      @updated="onPreviewCardUpdated"
+    />
   </main>
 </template>
 
@@ -475,6 +512,12 @@ h2 {
   gap: 6px;
 }
 
+.added-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .added-badge {
   padding: 4px 12px;
   border-radius: var(--radius-pill);
@@ -482,6 +525,28 @@ h2 {
   color: var(--pass-ink);
   font-size: 13px;
   font-weight: 700;
+}
+
+.preview-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--fail);
+  background: transparent;
+  color: var(--fail);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .download-section {
