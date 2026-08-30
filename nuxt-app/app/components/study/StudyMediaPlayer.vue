@@ -66,6 +66,7 @@ watch(volume, (value) => {
 });
 
 const expanded = ref(false);
+const { height: navHeight } = useNavHeight();
 
 const activeEl = computed<HTMLMediaElement | null>(() =>
   mediaKind.value === "video" ? videoRef.value : audioRef.value,
@@ -285,7 +286,12 @@ onUnmounted(() => stopDrag?.());
   <Teleport to="body">
     <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
   </Teleport>
-  <div class="player-card" :class="{ expanded, 'ambient-glass': ambient }">
+  <div
+    class="player-card"
+    :class="{ expanded, 'ambient-glass': ambient }"
+    :style="{ '--nav-height': `${navHeight}px` }"
+    @click.self="expanded = false"
+  >
     <div class="player-frame">
       <span class="theme-badge">{{ card.themeSlot }}</span>
       <button
@@ -343,20 +349,20 @@ onUnmounted(() => stopDrag?.());
         </div>
         <p>{{ isPlaying ? "Listening..." : "Paused" }}</p>
       </div>
-    </div>
 
-    <div class="player-controls">
-      <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
-        {{ isPlaying ? "⏸" : "▶" }}
-        <span class="tooltip">Hotkey: S</span>
-      </button>
-      <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
-        <span :style="{ width: progressPercent + '%' }" />
-      </div>
-      <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-      <div class="volume-control">
-        <span class="volume-icon" aria-hidden="true">🔊</span>
-        <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+      <div class="player-controls">
+        <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
+          {{ isPlaying ? "⏸" : "▶" }}
+          <span class="tooltip">Hotkey: S</span>
+        </button>
+        <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
+          <span :style="{ width: progressPercent + '%' }" />
+        </div>
+        <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+        <div class="volume-control">
+          <span class="volume-icon" aria-hidden="true">🔊</span>
+          <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+        </div>
       </div>
     </div>
   </div>
@@ -390,14 +396,22 @@ onUnmounted(() => stopDrag?.());
 
 .player-card.expanded {
   position: fixed;
-  inset: 0;
+  top: var(--nav-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: auto;
   border-radius: 0;
+  padding: 0;
 }
 
 .player-card.expanded .player-frame {
-  max-height: 90vh;
+  width: min(90vw, calc((100vh - var(--nav-height)) * 0.9 * 16 / 9));
+  height: auto;
 }
 
 .expand-btn {
@@ -547,10 +561,16 @@ onUnmounted(() => stopDrag?.());
 }
 
 .player-controls {
-  margin-top: 18px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(to top, rgba(10, 6, 14, 0.85), transparent);
 }
 
 .play-btn {

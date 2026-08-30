@@ -20,6 +20,19 @@ function isActive(to: string): boolean {
   return route.path === to || route.path.startsWith(`${to}/`);
 }
 
+const navRef = ref<HTMLElement | null>(null);
+const { height: navHeight } = useNavHeight();
+
+function updateNavHeight() {
+  if (navRef.value) navHeight.value = navRef.value.offsetHeight;
+}
+
+onMounted(() => {
+  updateNavHeight();
+  window.addEventListener("resize", updateNavHeight);
+});
+onUnmounted(() => window.removeEventListener("resize", updateNavHeight));
+
 interface CardWithDetails {
   id: number;
   songId: number;
@@ -170,7 +183,7 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
 </script>
 
 <template>
-  <nav class="app-nav">
+  <nav ref="navRef" class="app-nav">
     <div class="nav-links">
       <NuxtLink
         v-for="link in links"

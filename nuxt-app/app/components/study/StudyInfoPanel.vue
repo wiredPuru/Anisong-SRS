@@ -8,6 +8,7 @@ const props = defineProps<{
   animeTitleNative: string;
   blurred?: boolean;
   ambient?: boolean;
+  hideToggles?: boolean;
 }>();
 
 const showEn = ref(true);
@@ -61,7 +62,7 @@ watch(
 
 <template>
   <div class="info-card" :class="{ blurred, 'ambient-glass': ambient }">
-    <div class="lang-toggles">
+    <div v-if="!hideToggles" class="lang-toggles">
       <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
       <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
         Romaji
@@ -83,13 +84,13 @@ watch(
     <div class="title-block">
       <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
       <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
-      <span v-if="showJapanese" class="jp" v-html="animeJpHtml" />
+      <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp" v-html="animeJpHtml" />
     </div>
 
     <div class="song-block">
       <span class="label">Song</span>
       <span class="song-title">{{ songTitle }}</span>
-      <span v-if="showJapanese" class="jp" v-html="songJpHtml" />
+      <span v-if="showJapanese && songTitleNative !== songTitle" class="jp" v-html="songJpHtml" />
     </div>
 
     <div class="meta-row">

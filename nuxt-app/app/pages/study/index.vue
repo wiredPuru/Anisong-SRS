@@ -58,6 +58,7 @@ const hideVideo = ref(false);
 const hideInfo = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
+const showControls = ref(true);
 
 const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
 
@@ -93,6 +94,8 @@ function onKeydown(event: KeyboardEvent) {
     hideVideo.value = !hideVideo.value;
   } else if (key === "a") {
     ambientMode.value = !ambientMode.value;
+  } else if (key === "h") {
+    showControls.value = !showControls.value;
   }
 }
 
@@ -114,8 +117,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="scope-row">
         <span class="chip">{{ scopeChipLabel }}</span>
         <span class="count">Card {{ reviewedCount + 1 }} this session</span>
+        <button
+          type="button"
+          class="controls-toggle-btn"
+          :aria-label="showControls ? 'Hide controls' : 'Show controls'"
+          @click="showControls = !showControls"
+        >
+          <span aria-hidden="true">{{ showControls ? "👁" : "🙈" }}</span>
+          <span class="tooltip">{{ showControls ? "Hide controls" : "Show controls" }} &middot; Hotkey: H</span>
+        </button>
       </div>
       <StudyDisplayToggles
+        v-if="showControls"
         :hide-video="hideVideo"
         :hide-info="hideInfo"
         :random-start="randomStart"
@@ -138,6 +151,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <StudyInfoPanel
             :blurred="hideInfo"
             :ambient="ambientMode"
+            :hide-toggles="!showControls"
             :song-title="currentCard.songTitle"
             :song-title-native="currentCard.songTitleNative"
             :artist-name="currentCard.artistName"
@@ -204,6 +218,54 @@ h1 {
 .count {
   color: var(--muted);
   font-size: 14px;
+}
+
+.controls-toggle-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  font-size: 14px;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.controls-toggle-btn:hover,
+.controls-toggle-btn:focus-visible {
+  opacity: 1;
+}
+
+.controls-toggle-btn .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.controls-toggle-btn:hover .tooltip,
+.controls-toggle-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .study-grid {
