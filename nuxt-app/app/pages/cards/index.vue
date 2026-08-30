@@ -59,14 +59,6 @@ const openDecksPanelId = ref<number | null>(null);
 const togglingMembership = reactive<Record<string, boolean>>({});
 const deckToggleError = ref<string | null>(null);
 
-function cardDeckIds(cardId: number): number[] {
-  return membershipsData.value?.memberships[cardId] ?? [];
-}
-
-function isInDeck(cardId: number, deckId: number): boolean {
-  return cardDeckIds(cardId).includes(deckId);
-}
-
 async function toggleDeckMembership(cardId: number, deckId: number, checked: boolean) {
   const key = `${cardId}-${deckId}`;
   deckToggleError.value = null;
@@ -266,21 +258,15 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
               <p v-if="downloadError[c.id]" class="edit-error">{{ downloadError[c.id] }}</p>
             </div>
 
-            <div v-if="openDecksPanelId === c.id" class="decks-panel">
-              <p v-if="!manualDecks.length" class="decks-hint">
-                No manual decks yet - <NuxtLink to="/decks?type=created">create one on the Decks page</NuxtLink>.
-              </p>
-              <label v-for="d in manualDecks" :key="d.id" class="deck-checkbox-row">
-                <input
-                  type="checkbox"
-                  :checked="isInDeck(c.id, d.id)"
-                  :disabled="togglingMembership[`${c.id}-${d.id}`]"
-                  @change="toggleDeckMembership(c.id, d.id, ($event.target as HTMLInputElement).checked)"
-                />
-                {{ d.name }}
-              </label>
-              <p v-if="deckToggleError" class="edit-error">{{ deckToggleError }}</p>
-            </div>
+            <DeckMembershipPanel
+              v-if="openDecksPanelId === c.id"
+              :card-id="c.id"
+              :decks="manualDecks"
+              :memberships="membershipsData?.memberships ?? {}"
+              :toggling="togglingMembership"
+              :error="deckToggleError"
+              @toggle="(deckId, checked) => toggleDeckMembership(c.id, deckId, checked)"
+            />
           </div>
 
           <template v-if="editingId === c.id">
@@ -319,6 +305,14 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
                   {{ clearingField[`${c.id}-audio`] ? "Clearing..." : "Clear" }}
                 </button>
               </div>
+              <DeckMembershipPanel
+                :card-id="c.id"
+                :decks="manualDecks"
+                :memberships="membershipsData?.memberships ?? {}"
+                :toggling="togglingMembership"
+                :error="deckToggleError"
+                @toggle="(deckId, checked) => toggleDeckMembership(c.id, deckId, checked)"
+              />
               <div class="edit-actions">
                 <button type="button" class="save-btn" :disabled="editSaving" @click="saveEdit(c.id)">Save</button>
                 <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
@@ -579,35 +573,6 @@ h1 {
 
 .download-section {
   margin-top: 6px;
-}
-
-.decks-panel {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.decks-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.decks-hint a {
-  color: var(--accent);
-}
-
-.deck-checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  cursor: pointer;
 }
 
 .download-actions {

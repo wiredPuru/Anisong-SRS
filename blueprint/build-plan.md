@@ -224,7 +224,7 @@ cleaned-up checkbox version before generating the project overview.
   same lookup/import flow as `/cards/new`), auto-attaching the created card
   to that deck - complementing feature 28's "add existing cards" search,
   not replacing it.
-- [ ] 34. **Deck assignment from card edit / Preview edit** - editing a
+- [x] 34. **Deck assignment from card edit / Preview edit** - editing a
   card - either `/cards`' row edit or `CardPreviewModal`'s edit mode
   (feature 16) - gains the same "assign to any number of manual decks"
   checkbox panel `/cards` already has as its own separate "Decks" action

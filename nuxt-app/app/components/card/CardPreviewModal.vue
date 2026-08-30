@@ -19,6 +19,11 @@ interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
+interface ManualDeck {
+  id: number;
+  name: string;
+}
+
 const props = defineProps<{ card: CardWithDetails | null; open: boolean }>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
@@ -76,6 +81,44 @@ const editError = ref<string | null>(null);
 const clearingVideo = ref(false);
 const clearingAudio = ref(false);
 
+const manualDecks = ref<ManualDeck[]>([]);
+const cardMemberships = ref<Record<number, number[]>>({});
+const togglingMembership = reactive<Record<string, boolean>>({});
+const deckToggleError = ref<string | null>(null);
+
+async function loadDeckData() {
+  try {
+    const [decksResult, membershipsResult] = await Promise.all([
+      $fetch<{ decks: ManualDeck[] }>("/api/decks", { query: { type: "created" } }),
+      $fetch<{ memberships: Record<number, number[]> }>("/api/decks/memberships"),
+    ]);
+    manualDecks.value = decksResult.decks;
+    cardMemberships.value = membershipsResult.memberships;
+  } catch (err) {
+    deckToggleError.value = extractErrorMessage(err, "Failed to load decks.");
+  }
+}
+
+async function toggleDeckMembership(deckId: number, checked: boolean) {
+  if (!props.card) return;
+  const cardId = props.card.id;
+  const key = `${cardId}-${deckId}`;
+  deckToggleError.value = null;
+  togglingMembership[key] = true;
+  try {
+    await $fetch("/api/decks/cards", {
+      method: checked ? "POST" : "DELETE",
+      body: { deckId, cardId },
+    });
+    const membershipsResult = await $fetch<{ memberships: Record<number, number[]> }>("/api/decks/memberships");
+    cardMemberships.value = membershipsResult.memberships;
+  } catch (err) {
+    deckToggleError.value = extractErrorMessage(err, "Failed to update deck membership.");
+  } finally {
+    togglingMembership[key] = false;
+  }
+}
+
 function startEdit() {
   if (!props.card) return;
   editSongTitle.value = props.card.songTitle;
@@ -86,6 +129,7 @@ function startEdit() {
   editAudioPath.value = props.card.localAudioPath ?? "";
   editError.value = null;
   editing.value = true;
+  loadDeckData();
 }
 
 function cancelEdit() {
@@ -237,6 +281,15 @@ watch(
             </button>
           </div>
         </label>
+
+        <DeckMembershipPanel
+          :card-id="card.id"
+          :decks="manualDecks"
+          :memberships="cardMemberships"
+          :toggling="togglingMembership"
+          :error="deckToggleError"
+          @toggle="toggleDeckMembership"
+        />
 
         <p v-if="editError" class="edit-error">{{ editError }}</p>
 
