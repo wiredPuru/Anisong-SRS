@@ -72,16 +72,87 @@ const selectedId = computed<number | null>(() => {
   return Number.isFinite(id) ? id : null;
 });
 
-const page = computed(() => {
-  const raw = Number(route.query.page);
-  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+const searchInput = ref("");
+const searchQuery = ref("");
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function onSearchInput() {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    searchQuery.value = searchInput.value.trim();
+  }, 250);
+}
+
+const searchPlaceholder = computed(() => {
+  if (activeType.value === "artist") return "Search artists...";
+  if (activeType.value === "anime") return "Search anime titles...";
+  return "Search deck names...";
 });
 
-const { data, pending, error, refresh } = await useFetch<{
-  decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[];
-  page: number;
-  totalPages: number;
-}>("/api/decks", { query: computed(() => ({ type: activeType.value, page: page.value })) });
+const rawDecks = ref<(ArtistDeck | AnimeDeck | ManualDeck)[]>([]);
+const initialPending = ref(true);
+const initialError = ref(false);
+const nextPage = ref(1);
+const totalPages = ref(1);
+const loadingMore = ref(false);
+const sentinelRef = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
+
+async function loadFirstPage() {
+  initialPending.value = true;
+  initialError.value = false;
+  try {
+    const res = await $fetch<{
+      decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[];
+      page: number;
+      totalPages: number;
+    }>("/api/decks", { query: { type: activeType.value, page: 1, q: searchQuery.value || undefined } });
+    rawDecks.value = res.decks;
+    nextPage.value = 2;
+    totalPages.value = res.totalPages;
+  } catch {
+    initialError.value = true;
+  } finally {
+    initialPending.value = false;
+  }
+}
+
+async function loadMoreDecks() {
+  if (loadingMore.value || nextPage.value > totalPages.value) return;
+  loadingMore.value = true;
+  try {
+    const res = await $fetch<{
+      decks: ArtistDeck[] | AnimeDeck[] | ManualDeck[];
+      page: number;
+      totalPages: number;
+    }>("/api/decks", { query: { type: activeType.value, page: nextPage.value, q: searchQuery.value || undefined } });
+    rawDecks.value.push(...res.decks);
+    nextPage.value += 1;
+    totalPages.value = res.totalPages;
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+watch([activeType, searchQuery], () => {
+  loadFirstPage();
+});
+
+watch(sentinelRef, (el, oldEl) => {
+  if (oldEl) observer?.unobserve(oldEl);
+  if (el) observer?.observe(el);
+});
+
+onMounted(() => {
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) loadMoreDecks();
+  });
+  loadFirstPage();
+});
+
+onUnmounted(() => {
+  observer?.disconnect();
+});
 
 const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
   memberships: Record<number, number[]>;
@@ -92,18 +163,13 @@ function isCardInDeck(cardId: number): boolean {
   return (membershipsData.value?.memberships[cardId] ?? []).includes(selectedId.value);
 }
 
-function goToPage(p: number) {
-  router.push({ query: { ...route.query, page: p } });
-}
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 const deckItems = computed<DeckItem[]>(() => {
-  if (!data.value) return [];
   if (activeType.value === "artist") {
-    return (data.value.decks as ArtistDeck[]).map((d) => ({
+    return (rawDecks.value as ArtistDeck[]).map((d) => ({
       id: d.id,
       label: d.name,
       sublabel: null,
@@ -211,7 +277,7 @@ async function createDeck() {
   try {
     await $fetch("/api/decks", { method: "POST", body: { name } });
     newDeckName.value = "";
-    await refresh();
+    await loadFirstPage();
   } catch (err) {
     createDeckError.value = extractErrorMessage(err, "Failed to create deck.");
   } finally {
@@ -244,7 +310,7 @@ async function saveRenameDeck(id: number) {
   try {
     await $fetch("/api/decks", { method: "PATCH", body: { id, name } });
     editingDeckId.value = null;
-    await refresh();
+    await loadFirstPage();
   } catch (err) {
     renameDeckError.value = extractErrorMessage(err, "Failed to rename deck.");
   } finally {
@@ -260,7 +326,7 @@ async function deleteDeck(id: number) {
   deletingDeckId.value = id;
   try {
     await $fetch("/api/decks", { method: "DELETE", body: { id } });
-    await refresh();
+    await loadFirstPage();
   } catch (err) {
     deleteDeckError.value = extractErrorMessage(err, "Failed to delete deck.");
   } finally {
@@ -422,6 +488,8 @@ function sourceBadges(c: DeckCard): string[] {
 function setType(type: DeckType) {
   editingDeckId.value = null;
   createDeckError.value = null;
+  searchInput.value = "";
+  searchQuery.value = "";
   router.push({ query: { type } });
 }
 
@@ -487,8 +555,16 @@ function backToDecks() {
       </form>
       <p v-if="createDeckError" class="export-error create-deck-error">{{ createDeckError }}</p>
 
-      <div v-if="pending" class="state">Loading...</div>
-      <div v-else-if="error" class="state state-error">Couldn't load decks. Try refreshing.</div>
+      <input
+        v-model="searchInput"
+        type="text"
+        :placeholder="searchPlaceholder"
+        class="search-input"
+        @input="onSearchInput"
+      />
+
+      <div v-if="initialPending" class="state">Loading...</div>
+      <div v-else-if="initialError" class="state state-error">Couldn't load decks. Try refreshing.</div>
       <template v-else>
         <ul v-if="deckItems.length" class="deck-list">
           <li
@@ -535,13 +611,16 @@ function backToDecks() {
             </template>
           </li>
         </ul>
+        <p v-else-if="searchQuery" class="state">No decks match "{{ searchQuery }}".</p>
         <p v-else-if="activeType === 'created'" class="state">
           No manual decks yet. Create one above.
         </p>
         <p v-else class="state">No decks yet. <NuxtLink to="/cards/new">Add a card</NuxtLink> to start one.</p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
-        <Pager :page="data?.page ?? 1" :total-pages="data?.totalPages ?? 1" @change="goToPage" />
+        <div v-if="deckItems.length" ref="sentinelRef" class="scroll-sentinel">
+          <span v-if="loadingMore" class="loading-more">Loading more...</span>
+        </div>
       </template>
     </template>
 
@@ -807,6 +886,39 @@ h2 {
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
+}
+
+.search-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.scroll-sentinel {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 4px;
+  min-height: 1px;
+}
+
+.loading-more {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .toggle-btn.active {

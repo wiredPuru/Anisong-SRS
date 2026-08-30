@@ -1,4 +1,4 @@
-import { and, count, countDistinct, eq } from "drizzle-orm";
+import { and, count, countDistinct, eq, like, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, song } from "../db/schema.ts";
 import type { Paginated } from "./cards.ts";
@@ -18,19 +18,28 @@ export interface AnimeDeck {
   cardCount: number;
 }
 
-export function listArtistDecks(page: number): Paginated<ArtistDeck> {
-  const total = db
+function artistSearchCondition(query?: string) {
+  const trimmed = query?.trim();
+  if (!trimmed) return undefined;
+  return like(artist.name, `%${trimmed}%`);
+}
+
+export function listArtistDecks(page: number, query?: string): Paginated<ArtistDeck> {
+  const condition = artistSearchCondition(query);
+
+  const totalBase = db
     .select({ count: countDistinct(artist.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .innerJoin(artist, eq(song.artistId, artist.id))
-    .get()!.count;
+    .innerJoin(artist, eq(song.artistId, artist.id));
+  const total = (condition ? totalBase.where(condition) : totalBase).get()!.count;
 
-  const items = db
+  const itemsBase = db
     .select({ id: artist.id, name: artist.name, cardCount: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(artist, eq(song.artistId, artist.id));
+  const items = (condition ? itemsBase.where(condition) : itemsBase)
     .groupBy(artist.id)
     .orderBy(artist.name)
     .limit(PAGE_SIZE)
@@ -40,15 +49,24 @@ export function listArtistDecks(page: number): Paginated<ArtistDeck> {
   return { items, total };
 }
 
-export function listAnimeDecks(page: number): Paginated<AnimeDeck> {
-  const total = db
+function animeSearchCondition(query?: string) {
+  const trimmed = query?.trim();
+  if (!trimmed) return undefined;
+  const pattern = `%${trimmed}%`;
+  return or(like(anime.titleEnglish, pattern), like(anime.titleRomaji, pattern), like(anime.titleNative, pattern));
+}
+
+export function listAnimeDecks(page: number, query?: string): Paginated<AnimeDeck> {
+  const condition = animeSearchCondition(query);
+
+  const totalBase = db
     .select({ count: countDistinct(anime.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .innerJoin(anime, eq(song.animeId, anime.id))
-    .get()!.count;
+    .innerJoin(anime, eq(song.animeId, anime.id));
+  const total = (condition ? totalBase.where(condition) : totalBase).get()!.count;
 
-  const items = db
+  const itemsBase = db
     .select({
       id: anime.id,
       titleEnglish: anime.titleEnglish,
@@ -58,7 +76,8 @@ export function listAnimeDecks(page: number): Paginated<AnimeDeck> {
     })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .innerJoin(anime, eq(song.animeId, anime.id))
+    .innerJoin(anime, eq(song.animeId, anime.id));
+  const items = (condition ? itemsBase.where(condition) : itemsBase)
     .groupBy(anime.id)
     .orderBy(anime.titleEnglish)
     .limit(PAGE_SIZE)
@@ -83,13 +102,23 @@ export interface ManualDeck {
   cardCount: number;
 }
 
-export function listManualDecks(page: number): Paginated<ManualDeck> {
-  const total = db.select({ count: count(deck.id) }).from(deck).get()!.count;
+function manualDeckSearchCondition(query?: string) {
+  const trimmed = query?.trim();
+  if (!trimmed) return undefined;
+  return like(deck.name, `%${trimmed}%`);
+}
 
-  const items = db
+export function listManualDecks(page: number, query?: string): Paginated<ManualDeck> {
+  const condition = manualDeckSearchCondition(query);
+
+  const totalBase = db.select({ count: count(deck.id) }).from(deck);
+  const total = (condition ? totalBase.where(condition) : totalBase).get()!.count;
+
+  const itemsBase = db
     .select({ id: deck.id, name: deck.name, createdAt: deck.createdAt, cardCount: count(deckCard.id) })
     .from(deck)
-    .leftJoin(deckCard, eq(deck.id, deckCard.deckId))
+    .leftJoin(deckCard, eq(deck.id, deckCard.deckId));
+  const items = (condition ? itemsBase.where(condition) : itemsBase)
     .groupBy(deck.id)
     .orderBy(deck.name)
     .limit(PAGE_SIZE)

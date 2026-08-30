@@ -235,7 +235,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 35a. **Cards library search + infinite scroll** - a search box on
     `/cards` narrows the list by song/artist/anime title; its numbered
     `Pager` is replaced by "load more as you scroll."
-  - [ ] 35b. **Decks library search + infinite scroll** - the same two
+  - [x] 35b. **Decks library search + infinite scroll** - the same two
     changes (search box + infinite scroll) applied to `/decks`' top-level
     list (Artist/Anime/Created).
   - [ ] 35c. **Deck detail search + infinite scroll** - the same two
