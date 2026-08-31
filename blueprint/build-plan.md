@@ -229,7 +229,7 @@ cleaned-up checkbox version before generating the project overview.
   checkbox panel `/cards` already has as its own separate "Decks" action
   (feature 13b), so deck membership can be managed right from the edit
   flow instead of only through that standalone panel.
-- [ ] 35. **Library search + infinite scroll** - per-page search/filter plus
+- [x] 35. **Library search + infinite scroll** - per-page search/filter plus
   scroll-triggered loading, replacing feature 19a's numbered pagination, one
   list surface at a time.
   - [x] 35a. **Cards library search + infinite scroll** - a search box on
@@ -238,7 +238,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 35b. **Decks library search + infinite scroll** - the same two
     changes (search box + infinite scroll) applied to `/decks`' top-level
     list (Artist/Anime/Created).
-  - [ ] 35c. **Deck detail search + infinite scroll** - the same two
+  - [x] 35c. **Deck detail search + infinite scroll** - the same two
     changes applied to the card list inside a selected manual/artist/anime
     deck's detail view.
 - [x] 36. **Unify Preview's expand mode with Study's immersive overlay** -

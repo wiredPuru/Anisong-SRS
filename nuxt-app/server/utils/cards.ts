@@ -65,7 +65,7 @@ export function searchCards(query: string): CardWithDetails[] {
   return cardQuery().where(like(song.title, `%${query}%`)).orderBy(desc(card.createdAt)).limit(5).all();
 }
 
-function cardSearchCondition(query?: string) {
+export function cardSearchCondition(query?: string) {
   const trimmed = query?.trim();
   if (!trimmed) return undefined;
   const pattern = `%${trimmed}%`;
@@ -107,16 +107,22 @@ export function cardExistsForSong(songId: number): boolean {
   return db.select({ id: card.id }).from(card).where(eq(card.songId, songId)).get() !== undefined;
 }
 
-export function listCardsByArtist(artistId: number, page: number): Paginated<CardWithDetails> {
+export function listCardsByArtist(artistId: number, page: number, query?: string): Paginated<CardWithDetails> {
+  const searchCondition = cardSearchCondition(query);
+  const scopeCondition = eq(artist.id, artistId);
+  const condition = searchCondition ? and(scopeCondition, searchCondition) : scopeCondition;
+
   const total = db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .where(eq(song.artistId, artistId))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(condition)
     .get()!.count;
 
   const items = cardQuery()
-    .where(eq(artist.id, artistId))
+    .where(condition)
     .orderBy(desc(card.createdAt))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)
@@ -125,16 +131,22 @@ export function listCardsByArtist(artistId: number, page: number): Paginated<Car
   return { items, total };
 }
 
-export function listCardsByAnime(animeId: number, page: number): Paginated<CardWithDetails> {
+export function listCardsByAnime(animeId: number, page: number, query?: string): Paginated<CardWithDetails> {
+  const searchCondition = cardSearchCondition(query);
+  const scopeCondition = eq(anime.id, animeId);
+  const condition = searchCondition ? and(scopeCondition, searchCondition) : scopeCondition;
+
   const total = db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
-    .where(eq(song.animeId, animeId))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(condition)
     .get()!.count;
 
   const items = cardQuery()
-    .where(eq(anime.id, animeId))
+    .where(condition)
     .orderBy(desc(card.createdAt))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)
@@ -143,17 +155,24 @@ export function listCardsByAnime(animeId: number, page: number): Paginated<CardW
   return { items, total };
 }
 
-export function listCardsByManualDeck(deckId: number, page: number): Paginated<CardWithDetails> {
+export function listCardsByManualDeck(deckId: number, page: number, query?: string): Paginated<CardWithDetails> {
+  const searchCondition = cardSearchCondition(query);
+  const scopeCondition = eq(deckCard.deckId, deckId);
+  const condition = searchCondition ? and(scopeCondition, searchCondition) : scopeCondition;
+
   const total = db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(deckCard, eq(card.id, deckCard.cardId))
-    .where(eq(deckCard.deckId, deckId))
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(condition)
     .get()!.count;
 
   const items = cardQuery()
     .innerJoin(deckCard, eq(card.id, deckCard.cardId))
-    .where(eq(deckCard.deckId, deckId))
+    .where(condition)
     .orderBy(desc(card.createdAt))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)

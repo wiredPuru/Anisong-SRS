@@ -3,7 +3,7 @@ import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/d
 import { PAGE_SIZE, parsePage } from "../../utils/pagination.ts";
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw, page: pageRaw } = getQuery(event);
+  const { type, id: idRaw, page: pageRaw, q } = getQuery(event);
 
   if (type !== "artist" && type !== "anime" && type !== "created") {
     throw createError({ statusCode: 400, statusMessage: "type must be 'artist', 'anime', or 'created'" });
@@ -15,16 +15,17 @@ export default defineEventHandler((event) => {
   }
 
   const requestedPage = parsePage(pageRaw);
+  const query = typeof q === "string" ? q.trim() : undefined;
 
   if (type === "created") {
     const deckLabel = getManualDeckLabel(id);
     if (deckLabel === undefined) {
       throw createError({ statusCode: 404, statusMessage: "Deck not found" });
     }
-    const first = listCardsByManualDeck(id, requestedPage);
+    const first = listCardsByManualDeck(id, requestedPage, query);
     const totalPages = Math.max(Math.ceil(first.total / PAGE_SIZE), 1);
     const page = Math.min(requestedPage, totalPages);
-    const result = page === requestedPage ? first : listCardsByManualDeck(id, page);
+    const result = page === requestedPage ? first : listCardsByManualDeck(id, page, query);
     return { deckLabel, cards: result.items, page, totalPages };
   }
 
@@ -37,10 +38,10 @@ export default defineEventHandler((event) => {
   }
 
   const list = type === "artist" ? listCardsByArtist : listCardsByAnime;
-  const first = list(id, requestedPage);
+  const first = list(id, requestedPage, query);
   const totalPages = Math.max(Math.ceil(first.total / PAGE_SIZE), 1);
   const page = Math.min(requestedPage, totalPages);
-  const result = page === requestedPage ? first : list(id, page);
+  const result = page === requestedPage ? first : list(id, page, query);
 
   return { deckLabel, cards: result.items, page, totalPages };
 });
