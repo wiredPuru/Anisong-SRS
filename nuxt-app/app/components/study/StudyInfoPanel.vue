@@ -14,11 +14,34 @@ const props = withDefaults(
     ambient?: boolean;
     hideToggles?: boolean;
     immersive?: boolean;
+    presentationKey?: number;
   }>(),
   { streakRequired: 3 },
 );
 
 const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-change": [boolean] }>();
+
+// This panel deliberately isn't remounted per card (it would reset the
+// language toggles below), so the same element carries the CSS blur
+// transition from the previous card's already-settled state. Without this,
+// a new card that should start blurred instantly instead animates into
+// blur from the old card's unblurred state - a visible flash of real text.
+// Suppress the transition for exactly one paint on a genuine card change
+// (double rAF - the first schedules after this paint, the second confirms
+// it happened), then re-enable it so a same-card toggle still fades normally.
+const skipBlurTransition = ref(false);
+
+watch(
+  () => props.presentationKey,
+  () => {
+    skipBlurTransition.value = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        skipBlurTransition.value = false;
+      });
+    });
+  },
+);
 
 const showStreakPopover = ref(false);
 const streakTooltipActive = ref(false);
@@ -103,7 +126,12 @@ watch(
   <div
     v-if="!(immersive && blurred)"
     class="info-card"
-    :class="{ blurred: blurred && !immersive, 'ambient-glass': ambient, overlay: immersive }"
+    :class="{
+      blurred: blurred && !immersive,
+      'ambient-glass': ambient,
+      overlay: immersive,
+      'skip-blur-transition': skipBlurTransition,
+    }"
   >
     <div v-if="!hideToggles" class="lang-toggles">
       <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
@@ -182,6 +210,12 @@ watch(
 
 .info-card.blurred {
   filter: blur(14px);
+}
+
+/* Card-change only - see the watch() on presentationKey in <script setup>.
+   A same-card blur toggle never gets this class, so it keeps transitioning. */
+.info-card.skip-blur-transition {
+  transition: none;
 }
 
 .info-card.ambient-glass {

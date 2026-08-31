@@ -318,6 +318,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
               <StudyInfoPanel
                 :blurred="hideInfo && !autoRevealedThisCard"
+                :presentation-key="presentationKey"
                 :ambient="ambientMode"
                 :hide-toggles="!showControls"
                 :immersive="true"
@@ -349,6 +350,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             />
             <StudyInfoPanel
               :blurred="hideInfo && !autoRevealedThisCard"
+              :presentation-key="presentationKey"
               :ambient="ambientMode"
               :hide-toggles="!showControls"
               :immersive="false"
