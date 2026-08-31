@@ -57,6 +57,13 @@
       "when": 1788061187032,
       "tag": "0007_sparkling_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788186429363,
+      "tag": "0008_puzzling_weapon_omega",
+      "breakpoints": true
     }
   ]
 }

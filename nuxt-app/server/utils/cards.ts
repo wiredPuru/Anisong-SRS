@@ -20,6 +20,7 @@ export interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   box: number;
+  streak: number;
   nextReviewAt: Date;
   createdAt: Date;
   songTitle: string;
@@ -40,6 +41,7 @@ const cardSelection = {
   animethemesVideoUrl: card.animethemesVideoUrl,
   animethemesAudioUrl: card.animethemesAudioUrl,
   box: card.box,
+  streak: card.streak,
   nextReviewAt: card.nextReviewAt,
   createdAt: card.createdAt,
   songTitle: song.title,

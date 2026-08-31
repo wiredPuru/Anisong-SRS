@@ -6,11 +6,15 @@ const props = defineProps<{
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  box?: number;
+  streak?: number;
   blurred?: boolean;
   ambient?: boolean;
   hideToggles?: boolean;
   immersive?: boolean;
 }>();
+
+const BOX_1_STREAK_REQUIRED = 3;
 
 const showEn = ref(true);
 const showRomaji = ref(true);
@@ -102,6 +106,10 @@ watch(
       <div class="artist">
         <span class="label">Artist</span>
         <span class="name">{{ artistName }}</span>
+      </div>
+      <div v-if="box === 1" class="learning">
+        <span class="label">Learning</span>
+        <span class="name">{{ streak ?? 0 }}/{{ BOX_1_STREAK_REQUIRED }}</span>
       </div>
     </div>
   </div>
@@ -211,7 +219,8 @@ watch(
   font-size: clamp(12px, 1.24cqw, 29px);
 }
 
-.info-card.overlay .meta-row .artist .name {
+.info-card.overlay .meta-row .artist .name,
+.info-card.overlay .meta-row .learning .name {
   font-size: clamp(12px, 1.24cqw, 29px);
 }
 
@@ -319,5 +328,18 @@ watch(
 .meta-row .artist .name {
   font-size: 18px;
   font-weight: 700;
+}
+
+.meta-row .learning {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.meta-row .learning .name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-secondary);
 }
 </style>

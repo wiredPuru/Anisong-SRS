@@ -44,6 +44,7 @@ export const card = sqliteTable("card", {
   animethemesVideoUrl: text("animethemes_video_url"),
   animethemesAudioUrl: text("animethemes_audio_url"),
   box: integer("box").notNull().default(1),
+  streak: integer("streak").notNull().default(0),
   nextReviewAt: integer("next_review_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

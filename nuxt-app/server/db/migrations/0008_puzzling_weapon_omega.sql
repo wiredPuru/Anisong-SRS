@@ -1,0 +1,1 @@
+ALTER TABLE `card` ADD `streak` integer DEFAULT 0 NOT NULL;

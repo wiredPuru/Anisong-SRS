@@ -8,10 +8,37 @@ const MAX_BOX = 5;
 const INTERVAL_DAYS: Record<number, number> = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 14 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function computeNextBoxState(currentBox: number, result: "pass" | "fail"): { box: number; nextReviewAt: Date } {
-  const box = result === "pass" ? Math.min(currentBox + 1, MAX_BOX) : 1;
+// Box 1 requires several passes in a row (Migaku-style learning steps)
+// before a card graduates to box 2; boxes 2-5 still move on a single pass/fail.
+const BOX_1_STREAK_REQUIRED = 3;
+
+export function computeNextBoxState(
+  currentBox: number,
+  currentStreak: number,
+  result: "pass" | "fail",
+): { box: number; nextReviewAt: Date; streak: number } {
+  let box: number;
+  let streak: number;
+
+  if (result === "fail") {
+    box = 1;
+    streak = 0;
+  } else if (currentBox === 1) {
+    const nextStreak = currentStreak + 1;
+    if (nextStreak >= BOX_1_STREAK_REQUIRED) {
+      box = 2;
+      streak = 0;
+    } else {
+      box = 1;
+      streak = nextStreak;
+    }
+  } else {
+    box = Math.min(currentBox + 1, MAX_BOX);
+    streak = 0;
+  }
+
   const nextReviewAt = new Date(Date.now() + (INTERVAL_DAYS[box] ?? 0) * DAY_MS);
-  return { box, nextReviewAt };
+  return { box, nextReviewAt, streak };
 }
 
 export type RecordReviewResult = { notFound: true } | { card: CardWithDetails };
@@ -22,9 +49,9 @@ export function recordReview(cardId: number, result: "pass" | "fail"): RecordRev
     return { notFound: true };
   }
 
-  const { box, nextReviewAt } = computeNextBoxState(existing.box, result);
+  const { box, nextReviewAt, streak } = computeNextBoxState(existing.box, existing.streak, result);
 
-  db.update(card).set({ box, nextReviewAt }).where(eq(card.id, cardId)).run();
+  db.update(card).set({ box, nextReviewAt, streak }).where(eq(card.id, cardId)).run();
   db.insert(reviewLog).values({ cardId, result, boxBefore: existing.box, boxAfter: box }).run();
 
   return { card: getCardWithDetails(cardId)! };

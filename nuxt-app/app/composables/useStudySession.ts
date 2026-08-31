@@ -8,6 +8,7 @@ export interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   box: number;
+  streak: number;
   nextReviewAt: string;
   createdAt: string;
   songTitle: string;
