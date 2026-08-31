@@ -204,7 +204,7 @@ export function getNewCardsTodayInfo(): { introduced: number; limit: number | nu
   return { introduced: countCardsIntroducedToday(), limit: getDailyNewCardLimit() };
 }
 
-export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
+function dueCardCondition(scope: StudyScope) {
   const dueCondition = lte(card.nextReviewAt, new Date());
   const scopeCondition =
     scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
@@ -217,7 +217,22 @@ export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
     condition = and(condition, inArray(card.id, reviewedCardIds));
   }
 
-  return cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).get();
+  return condition;
+}
+
+export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
+  return cardQuery().where(dueCardCondition(scope)).orderBy(asc(card.nextReviewAt)).get();
+}
+
+export function getDueCardCount(scope: StudyScope): number {
+  return db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(dueCardCondition(scope))
+    .get()!.count;
 }
 
 function validateLocalPath(rawPath: string): { error: string } | { path: string } {

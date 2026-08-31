@@ -49,18 +49,21 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
   // rather than "this card id" so it always gets a fresh mount.
   const presentationKey = ref(0);
   const newCardsToday = ref<NewCardsToday | null>(null);
+  const dueCount = ref(0);
 
   async function fetchNext() {
     if (!scope.value) return;
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<{ card: CardWithDetails | null; newCardsToday: NewCardsToday }>("/api/study/next", {
-        query: scopeQuery(scope.value),
-      });
+      const result = await $fetch<{ card: CardWithDetails | null; newCardsToday: NewCardsToday; dueCount: number }>(
+        "/api/study/next",
+        { query: scopeQuery(scope.value) },
+      );
       currentCard.value = result.card;
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
+      dueCount.value = result.dueCount;
       if (result.card) presentationKey.value += 1;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to load the next card.");
@@ -108,6 +111,7 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
     reviewedCount,
     presentationKey,
     newCardsToday,
+    dueCount,
     submit,
     refresh: fetchNext,
   };

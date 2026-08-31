@@ -34,6 +34,7 @@ const {
   reviewedCount,
   presentationKey,
   newCardsToday,
+  dueCount,
   submit,
   refresh: refreshStudySession,
 } = useStudySession(scope);
@@ -253,6 +254,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="scope-row">
         <span class="chip">{{ scopeChipLabel }}</span>
         <span class="count">Card {{ reviewedCount + 1 }} this session</span>
+        <span class="count">{{ dueCount }} card{{ dueCount === 1 ? "" : "s" }} left</span>
         <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
           <button
             type="button"

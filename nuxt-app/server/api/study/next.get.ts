@@ -1,5 +1,5 @@
 import type { StudyScope } from "../../utils/cards.ts";
-import { getNewCardsTodayInfo, getNextDueCard } from "../../utils/cards.ts";
+import { getDueCardCount, getNewCardsTodayInfo, getNextDueCard } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel } from "../../utils/decks.ts";
 
 export default defineEventHandler((event) => {
@@ -30,5 +30,5 @@ export default defineEventHandler((event) => {
     scope = type === "artist" ? { type: "artist", id } : { type: "anime", id };
   }
 
-  return { card: getNextDueCard(scope) ?? null, newCardsToday: getNewCardsTodayInfo() };
+  return { card: getNextDueCard(scope) ?? null, newCardsToday: getNewCardsTodayInfo(), dueCount: getDueCardCount(scope) };
 });
