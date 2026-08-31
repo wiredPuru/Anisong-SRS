@@ -10,7 +10,7 @@ const props = defineProps<{
   immersive?: boolean;
   hideThemeBadge?: boolean;
 }>();
-const emit = defineEmits<{ "update:immersive": [boolean] }>();
+const emit = defineEmits<{ "update:immersive": [boolean]; "playback-started": [] }>();
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
@@ -199,6 +199,7 @@ onUnmounted(stopAmbientInterval);
 function onPlay() {
   isPlaying.value = true;
   if (ambientActive.value) startAmbientLoop();
+  emit("playback-started");
 }
 
 function onPause() {
@@ -328,8 +329,8 @@ onUnmounted(() => stopDrag?.());
         class="hidden-audio"
         :src="src"
         :volume="volume"
-        @play="isPlaying = true"
-        @pause="isPlaying = false"
+        @play="onPlay"
+        @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @error="onError"

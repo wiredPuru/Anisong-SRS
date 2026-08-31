@@ -262,3 +262,8 @@ cleaned-up checkbox version before generating the project overview.
     "Add") on that preview list creates a `Card` per selected theme, plus a
     bulk "download all" option reusing feature 8's existing download
     machinery.
+- [x] 38. **Auto-reveal timer for Hide Info** - when Hide Info is on, an
+  optional persisted "Auto Reveal" toggle blurs each new card's info as
+  usual but automatically reveals it after a short, visibly counting-down
+  timer - re-arming on every new card (including after pass/fail), not just
+  once per session.

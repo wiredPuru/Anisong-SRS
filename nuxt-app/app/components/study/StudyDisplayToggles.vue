@@ -1,10 +1,19 @@
 <script setup lang="ts">
-defineProps<{ hideVideo: boolean; hideInfo: boolean; randomStart: boolean; ambientMode: boolean }>();
+defineProps<{
+  hideVideo: boolean;
+  hideInfo: boolean;
+  randomStart: boolean;
+  ambientMode: boolean;
+  autoReveal: boolean;
+  autoRevealSeconds: number;
+}>();
 const emit = defineEmits<{
   "toggle-hide-video": [];
   "toggle-hide-info": [];
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
+  "toggle-auto-reveal": [];
+  "update-auto-reveal-seconds": [number];
 }>();
 </script>
 
@@ -18,6 +27,29 @@ const emit = defineEmits<{
       Hide Info
       <span class="tooltip">Hotkey: I</span>
     </button>
+    <button
+      type="button"
+      class="toggle-btn"
+      :class="{ on: autoReveal }"
+      :disabled="!hideInfo"
+      @click="emit('toggle-auto-reveal')"
+    >
+      Auto Reveal
+      <span class="tooltip">Reveals Hide Info automatically after a short timer</span>
+    </button>
+    <label v-if="autoReveal" class="toggle-btn auto-reveal-seconds">
+      <input
+        type="number"
+        min="1"
+        max="30"
+        step="1"
+        class="auto-reveal-seconds-input"
+        :value="autoRevealSeconds"
+        :disabled="!hideInfo"
+        @change="emit('update-auto-reveal-seconds', Number(($event.target as HTMLInputElement).value))"
+      />
+      sec
+    </label>
     <button type="button" class="toggle-btn" :class="{ on: randomStart }" @click="emit('toggle-random-start')">
       Start at random times
     </button>
@@ -54,6 +86,41 @@ const emit = defineEmits<{
   border-color: var(--accent-secondary);
   color: var(--accent-secondary);
   box-shadow: 0 0 14px var(--accent-secondary-glow);
+}
+
+.toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Reuses .toggle-btn's own pill (padding/border/background/color/font) so
+   this sits and blends exactly like its sibling toggle buttons - including
+   the shared [data-ambient-glass="true"] .display-toggles .toggle-btn rule
+   in main.css, which this needs too since it lives in the same row. */
+.auto-reveal-seconds {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.auto-reveal-seconds-input {
+  width: 32px;
+  padding: 2px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.auto-reveal-seconds-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .tooltip {

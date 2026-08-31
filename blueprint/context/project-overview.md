@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash bfb28c7a9b3cee27da2a5aeaf38a4bf39bc833de3d119e0353e26d68184b5a99 -->
+<!-- blueprint:source-hash ec53431067a7e010807fb787ab04ce3ae1fb8d858b49d83bc41953d52c12f2be -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -28,15 +28,16 @@ Build-plan order. Features 1-17 and 19-24 (the full MVP, manual decks, the
 study-screen ambient glow, the home page/nav bar, Preview editing, delete
 cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
-ambient-driven glass surface) are built and merged, as are 26-31 and 33-36
+ambient-driven glass surface) are built and merged, as are 26-31 and 33-37
 (global search find+add, clear-local-file, add-existing-cards-to-deck,
 stats refresh+clear, native Japanese titles + split furigana toggle, the
 immersive study mode, add-new-anime-from-a-deck, deck assignment from card
-edit, library search + infinite scroll in all three sub-features, and
-unifying Preview's expand mode with Study's immersive overlay). Feature 37
-(bulk artist import) is queued, not started, split into two sub-features
-(37a artist search + theme resolution, 37b bulk card creation + download).
-Features 18, 25, and 32 were each abandoned outright (see their entries
+edit, library search + infinite scroll in all three sub-features, unifying
+Preview's expand mode with Study's immersive overlay, and bulk artist
+import in its two sub-features - 37a artist search + theme resolution, 37b
+bulk card creation + download). Feature 38 (auto-reveal timer for Hide
+Info) is queued, not started. Features 18, 25, and 32 were each abandoned
+outright (see their entries
 below) - all three numbers are retired, not reused: 18 was built, then
 rolled back, then dropped; 25 was dropped before any code was written; 32
 was spec'd and partially implemented, then dropped before any code was
@@ -339,25 +340,47 @@ committed to master.
     carries over, with `CardPreviewModal`'s own Escape-to-close handler
     gated on `!immersive` so the two `window`-level handlers don't both
     fire the same keypress.
-37. **Bulk artist import** - not started, two sub-features. A "search by
-    artist" mode on `/cards/new` (alongside the existing anime search) that
-    pulls in an artist's entire animethemes.moe catalog across every anime
-    they have themes in, instead of one anime at a time - resolves the
-    open question below.
-    - **37a. Artist search + theme resolution** - not started. Finds an
-      artist on animethemes.moe by name (`artistPagination(search: ...)`)
-      and walks `performances -> song -> animethemes -> anime ->
-      resources(site: ANILIST)` to collect every anime that artist has
-      themes in, resolving each via the existing `fetchAnimeFromAniList` +
+37. **Bulk artist import** - done, two sub-features. A "search by artist"
+    mode on `/cards/new` (alongside the existing anime search) that pulls
+    in an artist's entire animethemes.moe catalog across every anime they
+    have themes in, instead of one anime at a time.
+    - **37a. Artist search + theme resolution** - done. Finds an artist on
+      animethemes.moe by name (`artistPagination(search: ...)`) and walks
+      `performances -> song -> animethemes -> anime -> resources(site:
+      ANILIST)` to collect every anime that artist has themes in, resolving
+      each via the existing `fetchAnimeFromAniList` +
       `upsertAnime`/`getOrCreateArtist`/`upsertSong` pipeline
-      `/api/lookup/import` already uses for a single anime - just looped
-      across all of that artist's anime instead of one picked by the user.
-      Shows a preview list of every song/theme found; no `Card` rows
-      created yet.
-    - **37b. Bulk card creation + download** - not started. "Add all" (and
-      per-row "Add") on that preview list creates a `Card` per selected
-      theme via the existing `POST /api/cards`, plus a bulk "download all"
-      option reusing feature 8's existing per-card download machinery.
+      `/api/lookup/import` already uses for a single anime - looped across
+      all of that artist's anime instead of one picked by the user. A "By
+      anime"/"By artist" mode toggle on `/cards/new` gates a parallel
+      artist-search form; selecting a candidate shows a read-only preview
+      list of every song/theme found grouped by anime - no `Card` rows
+      created yet. Only the artist's own direct `performances` are
+      resolved (not `memberPerformances` - themes credited to a different
+      group the artist is a member of); an anime an AniList round-trip
+      fails for is skipped rather than aborting the whole import, and a
+      theme with no linked AniList anime is silently skipped.
+    - **37b. Bulk card creation + download** - done. Per-row "Add" (reusing
+      the same `addCard()` the anime-search flow already uses, its
+      parameter type widened to a small structural shape both flows
+      satisfy) and an "Add all" that loops every theme across every anime
+      group via `POST /api/cards`, skipping any song already added so a
+      re-click after a partial add can't create duplicate cards. A
+      "Download all" (shown once a default download folder is set) loops
+      every added card with a not-yet-local video, downloading them
+      **sequentially** via feature 8's existing per-card download
+      machinery, reusing that machinery's existing per-row progress bar -
+      video only, matching the original feature note's own scope; per-card
+      audio download stays available individually. An artist-added card is
+      otherwise identical everywhere else in the app (Preview, Delete,
+      download) to one added via the anime-search flow.
+38. **Auto-reveal timer for Hide Info** - not started. On `/study`, when
+    Hide Info (feature 10) is active, an optional persisted "Auto Reveal"
+    toggle blurs each new card's info as usual but automatically reveals it
+    after a short, visibly counting-down timer - re-arming on every new
+    card (including after a pass/fail advances the queue), not a one-time
+    reveal for the session. `/study`-only; not extended to
+    `CardPreviewModal`, which has no Hide Info toggle to begin with.
 
 ## Data model
 
@@ -588,7 +611,11 @@ Routes:
   confirmation step. Feature 35a replaced numbered pagination with a search
   box (song/artist/anime title) plus scroll-triggered "load more."
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
-  the same download action available right after a card is added.
+  the same download action available right after a card is added. Feature
+  37a added a "By anime"/"By artist" mode toggle - artist mode searches
+  animethemes.moe for an artist and shows a read-only theme preview grouped
+  by anime; feature 37b turned that preview into per-row "Add", "Add all",
+  and a sequential "Download all" (video only).
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle

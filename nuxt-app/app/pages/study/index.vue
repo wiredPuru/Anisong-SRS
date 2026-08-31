@@ -102,8 +102,26 @@ const randomStart = ref(false);
 const ambientMode = ref(false);
 const showControls = ref(true);
 const immersive = ref(false);
+const autoReveal = ref(false);
+
+const AUTO_REVEAL_SECONDS_DEFAULT = 5;
+const AUTO_REVEAL_SECONDS_MIN = 1;
+const AUTO_REVEAL_SECONDS_MAX = 30;
+
+function clampAutoRevealSeconds(value: number): number {
+  if (!Number.isFinite(value)) return AUTO_REVEAL_SECONDS_DEFAULT;
+  return Math.min(AUTO_REVEAL_SECONDS_MAX, Math.max(AUTO_REVEAL_SECONDS_MIN, Math.round(value)));
+}
+
+const autoRevealSeconds = ref(AUTO_REVEAL_SECONDS_DEFAULT);
+
+function onUpdateAutoRevealSeconds(value: number) {
+  autoRevealSeconds.value = clampAutoRevealSeconds(value);
+}
 
 const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
+const AUTO_REVEAL_STORAGE_KEY = "gaqSrs:autoReveal";
+const AUTO_REVEAL_SECONDS_STORAGE_KEY = "gaqSrs:autoRevealSeconds";
 
 onMounted(() => {
   try {
@@ -112,6 +130,79 @@ onMounted(() => {
   } catch {
     ambientMode.value = window.innerWidth > 820;
   }
+
+  try {
+    autoReveal.value = localStorage.getItem(AUTO_REVEAL_STORAGE_KEY) === "1";
+  } catch {
+    autoReveal.value = false;
+  }
+
+  try {
+    const stored = localStorage.getItem(AUTO_REVEAL_SECONDS_STORAGE_KEY);
+    autoRevealSeconds.value = stored !== null ? clampAutoRevealSeconds(Number(stored)) : AUTO_REVEAL_SECONDS_DEFAULT;
+  } catch {
+    autoRevealSeconds.value = AUTO_REVEAL_SECONDS_DEFAULT;
+  }
+});
+
+watch(autoReveal, (value) => {
+  try {
+    localStorage.setItem(AUTO_REVEAL_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // localStorage unavailable (private browsing, locked-down environment) -
+    // the toggle still works for this session, it just won't persist.
+  }
+});
+
+watch(autoRevealSeconds, (value) => {
+  try {
+    localStorage.setItem(AUTO_REVEAL_SECONDS_STORAGE_KEY, String(value));
+  } catch {
+    // localStorage unavailable (private browsing, locked-down environment) -
+    // the preference still works for this session, it just won't persist.
+  }
+});
+
+const autoRevealedThisCard = ref(false);
+const hasStartedPlaybackThisCard = ref(false);
+let autoRevealTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function onPlaybackStarted() {
+  hasStartedPlaybackThisCard.value = true;
+}
+
+watch(
+  [presentationKey, hideInfo, autoReveal, hasStartedPlaybackThisCard, autoRevealSeconds],
+  (newValues, oldValues) => {
+    const newKey = newValues[0];
+    const oldKey = oldValues?.[0];
+    // A new card hasn't been played yet, regardless of what
+    // hasStartedPlaybackThisCard's own stale value (from the previous card)
+    // still says at this point in the callback. oldValues is undefined on
+    // the immediate first run, which also counts as "new" (nothing played
+    // for the very first card yet either).
+    const isNewCard = oldKey === undefined || newKey !== oldKey;
+    if (isNewCard) hasStartedPlaybackThisCard.value = false;
+
+    if (autoRevealTimeout !== null) {
+      clearTimeout(autoRevealTimeout);
+      autoRevealTimeout = null;
+    }
+    autoRevealedThisCard.value = false;
+
+    const started = !isNewCard && hasStartedPlaybackThisCard.value;
+    if (hideInfo.value && autoReveal.value && started) {
+      autoRevealTimeout = setTimeout(() => {
+        autoRevealedThisCard.value = true;
+        autoRevealTimeout = null;
+      }, autoRevealSeconds.value * 1000);
+    }
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  if (autoRevealTimeout !== null) clearTimeout(autoRevealTimeout);
 });
 
 const { setAmbientGlass } = useAmbientGlass();
@@ -193,26 +284,38 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         :hide-info="hideInfo"
         :random-start="randomStart"
         :ambient-mode="ambientMode"
+        :auto-reveal="autoReveal"
+        :auto-reveal-seconds="autoRevealSeconds"
         @toggle-hide-video="hideVideo = !hideVideo"
         @toggle-hide-info="hideInfo = !hideInfo"
         @toggle-random-start="randomStart = !randomStart"
         @toggle-ambient-mode="ambientMode = !ambientMode"
+        @toggle-auto-reveal="autoReveal = !autoReveal"
+        @update-auto-reveal-seconds="onUpdateAutoRevealSeconds"
       />
       <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
         <StudyMediaPlayer
           :key="presentationKey"
           :card="currentCard"
-          :hide-video="hideVideo"
+          :hide-video="hideVideo && !autoRevealedThisCard"
           :random-start="randomStart"
           :ambient="ambientMode"
           :allow-expand="true"
           :hide-theme-badge="hideInfo"
           v-model:immersive="immersive"
+          @playback-started="onPlaybackStarted"
         >
           <template v-if="immersive" #immersive>
             <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
+              <StudyAutoRevealCountdown
+                v-if="hideInfo && autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+                :key="presentationKey"
+                :seconds="autoRevealSeconds"
+                :ambient="ambientMode"
+                :immersive="true"
+              />
               <StudyInfoPanel
-                :blurred="hideInfo"
+                :blurred="hideInfo && !autoRevealedThisCard"
                 :ambient="ambientMode"
                 :hide-toggles="!showControls"
                 :immersive="true"
@@ -235,22 +338,30 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </template>
         </StudyMediaPlayer>
         <div v-if="!immersive" class="side">
-          <StudyInfoPanel
-            :blurred="hideInfo"
-            :ambient="ambientMode"
-            :hide-toggles="!showControls"
-            :immersive="false"
-            :song-title="currentCard.songTitle"
-            :song-title-native="currentCard.songTitleNative"
-            :artist-name="currentCard.artistName"
-            :anime-title-english="currentCard.animeTitleEnglish"
-            :anime-title-romaji="currentCard.animeTitleRomaji"
-            :anime-title-native="currentCard.animeTitleNative"
-            :box="currentCard.box"
-            :streak="currentCard.streak"
-            :streak-required="studySettings?.boxOneStreakRequired"
-            @streak-required-saved="onSettingsSaved"
-          />
+          <div class="info-panel-wrap">
+            <StudyAutoRevealCountdown
+              v-if="hideInfo && autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+              :key="presentationKey"
+              :seconds="autoRevealSeconds"
+              :ambient="ambientMode"
+            />
+            <StudyInfoPanel
+              :blurred="hideInfo && !autoRevealedThisCard"
+              :ambient="ambientMode"
+              :hide-toggles="!showControls"
+              :immersive="false"
+              :song-title="currentCard.songTitle"
+              :song-title-native="currentCard.songTitleNative"
+              :artist-name="currentCard.artistName"
+              :anime-title-english="currentCard.animeTitleEnglish"
+              :anime-title-romaji="currentCard.animeTitleRomaji"
+              :anime-title-native="currentCard.animeTitleNative"
+              :box="currentCard.box"
+              :streak="currentCard.streak"
+              :streak-required="studySettings?.boxOneStreakRequired"
+              @streak-required-saved="onSettingsSaved"
+            />
+          </div>
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
         </div>
       </div>
@@ -404,6 +515,14 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 26px;
+}
+
+/* Positioned ancestor for StudyAutoRevealCountdown's absolute centering -
+   scoped to just the info panel, not the whole .side column, so the
+   countdown overlays the card itself rather than centering between it and
+   the pass/fail buttons below. */
+.info-panel-wrap {
+  position: relative;
 }
 
 /* Rendered through StudyMediaPlayer.vue's "immersive" slot, so these are
