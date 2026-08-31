@@ -3,6 +3,7 @@ const { data, pending, error, refresh } = await useFetch<{
   libraryPaths: string[];
   defaultDownloadFolder: string | null;
   dailyNewCardLimit: number | null;
+  boxOneStreakRequired: number;
 }>("/api/media-library");
 
 const newPath = ref("");
@@ -52,46 +53,6 @@ async function setDefaultDownloadFolder(path: string) {
   } finally {
     isSettingDefault.value = false;
   }
-}
-
-const DEFAULT_DAILY_NEW_CARD_LIMIT = 20;
-const dailyLimitEnabled = ref(false);
-const dailyLimitValue = ref(DEFAULT_DAILY_NEW_CARD_LIMIT);
-const isSettingDailyLimit = ref(false);
-const dailyLimitError = ref<string | null>(null);
-
-watch(
-  () => data.value?.dailyNewCardLimit,
-  (limit) => {
-    if (limit === undefined) return;
-    dailyLimitEnabled.value = limit !== null;
-    if (limit !== null) dailyLimitValue.value = limit;
-  },
-  { immediate: true },
-);
-
-async function saveDailyNewCardLimit(limit: number | null) {
-  dailyLimitError.value = null;
-  isSettingDailyLimit.value = true;
-  try {
-    await $fetch("/api/media-library/daily-new-card-limit", { method: "POST", body: { limit } });
-    await refresh();
-  } catch (err) {
-    dailyLimitError.value = extractErrorMessage(err, "Failed to update daily new card limit.");
-  } finally {
-    isSettingDailyLimit.value = false;
-  }
-}
-
-function toggleDailyLimit(enabled: boolean) {
-  dailyLimitEnabled.value = enabled;
-  saveDailyNewCardLimit(enabled ? dailyLimitValue.value : null);
-}
-
-function setDailyLimitValue(value: number) {
-  if (!Number.isInteger(value) || value < 0) return;
-  dailyLimitValue.value = value;
-  saveDailyNewCardLimit(value);
 }
 
 const importPath = ref("");
@@ -191,30 +152,10 @@ async function importDeck() {
     <p v-if="importError" class="add-error">{{ importError }}</p>
 
     <h2>Study</h2>
-    <p class="hint">Pace how many never-studied cards get introduced per day.</p>
-    <div class="new-card-limit-picker">
-      <label class="new-card-limit-toggle">
-        <input
-          type="checkbox"
-          :checked="dailyLimitEnabled"
-          :disabled="isSettingDailyLimit"
-          @change="toggleDailyLimit(($event.target as HTMLInputElement).checked)"
-        />
-        Limit new cards per day
-      </label>
-      <div v-if="dailyLimitEnabled" class="new-card-limit-input-row">
-        <input
-          type="number"
-          min="0"
-          step="1"
-          class="new-card-limit-input"
-          :disabled="isSettingDailyLimit"
-          :value="dailyLimitValue"
-          @change="setDailyLimitValue(Number(($event.target as HTMLInputElement).value))"
-        />
-        <span class="new-card-limit-hint">new cards per day</span>
-      </div>
-      <p v-if="dailyLimitError" class="add-error">{{ dailyLimitError }}</p>
+    <p class="hint">Pace how many never-studied cards get introduced per day, and how many correct answers a new card needs before it graduates.</p>
+    <div v-if="data" class="study-settings">
+      <SettingsNewCardLimitControl :limit="data.dailyNewCardLimit" @saved="refresh" />
+      <SettingsBoxOneStreakControl :required="data.boxOneStreakRequired" @saved="refresh" />
     </div>
   </main>
 </template>
@@ -392,50 +333,9 @@ h2 + .hint {
   font-size: 14px;
 }
 
-.new-card-limit-picker {
+.study-settings {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.new-card-limit-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.new-card-limit-input-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.new-card-limit-input {
-  width: 90px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-}
-
-.new-card-limit-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.new-card-limit-hint {
-  color: var(--muted);
-  font-size: 14px;
+  gap: 16px;
 }
 </style>

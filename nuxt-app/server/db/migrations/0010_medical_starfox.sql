@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `box_one_streak_required` integer DEFAULT 3 NOT NULL;

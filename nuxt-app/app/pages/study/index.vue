@@ -25,8 +25,50 @@ const scopeResult = computed<ScopeResult>(() => {
 
 const scope = computed<StudyScope | null>(() => (scopeResult.value.valid ? scopeResult.value.scope : null));
 
-const { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, newCardsToday, submit } =
-  useStudySession(scope);
+const {
+  currentCard,
+  loading,
+  error,
+  sessionComplete,
+  reviewing,
+  reviewedCount,
+  presentationKey,
+  newCardsToday,
+  submit,
+  refresh: refreshStudySession,
+} = useStudySession(scope);
+
+const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
+  dailyNewCardLimit: number | null;
+  boxOneStreakRequired: number;
+}>("/api/media-library");
+
+const showNewCardLimitPopover = ref(false);
+const newCardLimitPopoverRef = ref<HTMLElement | null>(null);
+const learningControlOpen = ref(false);
+
+async function onSettingsSaved() {
+  await Promise.all([refreshStudySettings(), refreshStudySession()]);
+}
+
+function onClickOutsideNewCardLimitPopover(event: MouseEvent) {
+  if (newCardLimitPopoverRef.value && !newCardLimitPopoverRef.value.contains(event.target as Node)) {
+    showNewCardLimitPopover.value = false;
+  }
+}
+
+function onKeydownNewCardLimitPopover(event: KeyboardEvent) {
+  if (event.key === "Escape") showNewCardLimitPopover.value = false;
+}
+
+onMounted(() => {
+  window.addEventListener("mousedown", onClickOutsideNewCardLimitPopover);
+  window.addEventListener("keydown", onKeydownNewCardLimitPopover);
+});
+onUnmounted(() => {
+  window.removeEventListener("mousedown", onClickOutsideNewCardLimitPopover);
+  window.removeEventListener("keydown", onKeydownNewCardLimitPopover);
+});
 
 const deckLabel = ref<string | null>(null);
 
@@ -120,13 +162,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="scope-row">
         <span class="chip">{{ scopeChipLabel }}</span>
         <span class="count">Card {{ reviewedCount + 1 }} this session</span>
-        <span
-          v-if="newCardsToday && newCardsToday.limit !== null"
-          class="chip new-card-chip"
-          :class="{ 'new-card-chip-reached': newCardsToday.introduced >= newCardsToday.limit }"
-        >
-          New cards today: {{ newCardsToday.introduced }}/{{ newCardsToday.limit }}
-        </span>
+        <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
+          <button
+            type="button"
+            class="chip new-card-chip"
+            :class="{ 'new-card-chip-reached': newCardsToday.limit !== null && newCardsToday.introduced >= newCardsToday.limit }"
+            @click="showNewCardLimitPopover = !showNewCardLimitPopover"
+          >
+            New cards today: {{ newCardsToday.introduced }}<template v-if="newCardsToday.limit !== null"
+              >/{{ newCardsToday.limit }}</template
+            ><template v-else> (no limit)</template>
+          </button>
+          <div v-if="showNewCardLimitPopover" class="new-card-limit-popover">
+            <SettingsNewCardLimitControl :limit="studySettings?.dailyNewCardLimit ?? null" @saved="onSettingsSaved" />
+          </div>
+        </div>
         <button
           type="button"
           class="controls-toggle-btn"
@@ -160,7 +210,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           v-model:immersive="immersive"
         >
           <template v-if="immersive" #immersive>
-            <div class="info-slot">
+            <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
               <StudyInfoPanel
                 :blurred="hideInfo"
                 :ambient="ambientMode"
@@ -174,6 +224,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-native="currentCard.animeTitleNative"
                 :box="currentCard.box"
                 :streak="currentCard.streak"
+                :streak-required="studySettings?.boxOneStreakRequired"
+                @streak-required-saved="onSettingsSaved"
+                @streak-control-open-change="learningControlOpen = $event"
               />
             </div>
             <div class="answer-slot">
@@ -195,6 +248,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :anime-title-native="currentCard.animeTitleNative"
             :box="currentCard.box"
             :streak="currentCard.streak"
+            :streak-required="studySettings?.boxOneStreakRequired"
+            @streak-required-saved="onSettingsSaved"
           />
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
         </div>
@@ -261,6 +316,23 @@ h1 {
   background: color-mix(in srgb, var(--fail) 18%, var(--surface));
   border-color: var(--fail);
   color: var(--fail);
+}
+
+.new-card-chip-wrap {
+  position: relative;
+}
+
+.new-card-chip {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.new-card-limit-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 6;
+  width: 240px;
 }
 
 .controls-toggle-btn {
@@ -362,6 +434,19 @@ h1 {
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 10;
+}
+
+/* The Learning chip's tooltip/popover are positioned absolute descendants of
+   .info-slot, but .info-slot and .answer-slot are separate stacking contexts
+   at the same z-index - a child's z-index can never out-rank a sibling
+   stacking context, so nothing inside .info-slot could paint above
+   .answer-slot no matter how high its own z-index was. Bumped only while the
+   Learning tooltip/popover is actually open (StudyInfoPanel.vue's
+   streak-control-open-change), so normal info-card content still loses to
+   .answer-slot by default - the deliberate behavior the max-height comment
+   above already relies on. */
+.info-slot-elevated {
+  z-index: 20;
 }
 
 .answer-slot {

@@ -90,6 +90,28 @@ export function setDailyNewCardLimit(limit: number | null): { error: string } | 
   return { dailyNewCardLimit: limit };
 }
 
+export function getBoxOneStreakRequired(): number {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.boxOneStreakRequired ?? 3;
+}
+
+export function setBoxOneStreakRequired(required: number): { error: string } | { boxOneStreakRequired: number } {
+  if (!Number.isInteger(required) || required < 1) {
+    return { error: "Box one streak requirement must be an integer of at least 1." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, boxOneStreakRequired: required })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { boxOneStreakRequired: required } })
+    .run();
+
+  return { boxOneStreakRequired: required };
+}
+
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
   const normalized = normalizeFolderPath(rawPath);
 

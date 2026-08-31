@@ -96,6 +96,7 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
     .default(sql`'[]'`),
   defaultDownloadFolder: text("default_download_folder"),
   dailyNewCardLimit: integer("daily_new_card_limit"),
+  boxOneStreakRequired: integer("box_one_streak_required").notNull().default(3),
 });
 
 export type Anime = typeof anime.$inferSelect;

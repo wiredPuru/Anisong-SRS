@@ -1,20 +1,54 @@
 <script setup lang="ts">
-const props = defineProps<{
-  songTitle: string;
-  songTitleNative: string;
-  artistName: string;
-  animeTitleEnglish: string;
-  animeTitleRomaji: string;
-  animeTitleNative: string;
-  box?: number;
-  streak?: number;
-  blurred?: boolean;
-  ambient?: boolean;
-  hideToggles?: boolean;
-  immersive?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    songTitle: string;
+    songTitleNative: string;
+    artistName: string;
+    animeTitleEnglish: string;
+    animeTitleRomaji: string;
+    animeTitleNative: string;
+    box?: number;
+    streak?: number;
+    streakRequired?: number;
+    blurred?: boolean;
+    ambient?: boolean;
+    hideToggles?: boolean;
+    immersive?: boolean;
+  }>(),
+  { streakRequired: 3 },
+);
 
-const BOX_1_STREAK_REQUIRED = 3;
+const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-change": [boolean] }>();
+
+const showStreakPopover = ref(false);
+const streakTooltipActive = ref(false);
+const streakPopoverRef = ref<HTMLElement | null>(null);
+
+const streakControlOpen = computed(() => showStreakPopover.value || streakTooltipActive.value);
+watch(streakControlOpen, (open) => emit("streak-control-open-change", open));
+
+function onStreakPopoverSaved() {
+  emit("streak-required-saved");
+}
+
+function onClickOutsideStreakPopover(event: MouseEvent) {
+  if (streakPopoverRef.value && !streakPopoverRef.value.contains(event.target as Node)) {
+    showStreakPopover.value = false;
+  }
+}
+
+function onKeydownStreakPopover(event: KeyboardEvent) {
+  if (event.key === "Escape") showStreakPopover.value = false;
+}
+
+onMounted(() => {
+  window.addEventListener("mousedown", onClickOutsideStreakPopover);
+  window.addEventListener("keydown", onKeydownStreakPopover);
+});
+onUnmounted(() => {
+  window.removeEventListener("mousedown", onClickOutsideStreakPopover);
+  window.removeEventListener("keydown", onKeydownStreakPopover);
+});
 
 const showEn = ref(true);
 const showRomaji = ref(true);
@@ -107,9 +141,26 @@ watch(
         <span class="label">Artist</span>
         <span class="name">{{ artistName }}</span>
       </div>
-      <div v-if="box === 1" class="learning">
-        <span class="label">Learning</span>
-        <span class="name">{{ streak ?? 0 }}/{{ BOX_1_STREAK_REQUIRED }}</span>
+      <div v-if="box === 1" ref="streakPopoverRef" class="learning">
+        <button
+          type="button"
+          class="learning-trigger"
+          @click="showStreakPopover = !showStreakPopover"
+          @mouseenter="streakTooltipActive = true"
+          @mouseleave="streakTooltipActive = false"
+          @focus="streakTooltipActive = true"
+          @blur="streakTooltipActive = false"
+        >
+          <span class="label">Learning</span>
+          <span class="name">{{ streak ?? 0 }}/{{ streakRequired }}</span>
+          <span class="tooltip"
+            >Answer correctly {{ streakRequired }} times in a row to graduate this card out of the learning
+            stage.</span
+          >
+        </button>
+        <div v-if="showStreakPopover" class="learning-popover">
+          <SettingsBoxOneStreakControl :required="streakRequired" @saved="onStreakPopoverSaved" />
+        </div>
       </div>
     </div>
   </div>
@@ -331,15 +382,60 @@ watch(
 }
 
 .meta-row .learning {
+  position: relative;
+}
+
+.learning-trigger {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.meta-row .learning .name {
+.learning-trigger .name {
   font-size: 18px;
   font-weight: 700;
   color: var(--accent-secondary);
+}
+
+.learning-trigger .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.learning-trigger:hover .tooltip,
+.learning-trigger:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.learning-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  width: 240px;
 }
 </style>

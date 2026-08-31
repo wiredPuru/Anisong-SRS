@@ -99,5 +99,16 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
     { immediate: true },
   );
 
-  return { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, newCardsToday, submit };
+  return {
+    currentCard,
+    loading,
+    error,
+    sessionComplete,
+    reviewing,
+    reviewedCount,
+    presentationKey,
+    newCardsToday,
+    submit,
+    refresh: fetchNext,
+  };
 }
