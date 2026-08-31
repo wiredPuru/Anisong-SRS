@@ -151,6 +151,7 @@ async function selectArtist(candidate: ArtistCandidate) {
       body: { artistSlug: candidate.slug },
     });
     selectedArtist.value = res;
+    await preloadAddedCards(res.animeGroups.flatMap((group) => group.themes.map((theme) => theme.songId)));
   } catch (err) {
     artistImportError.value = extractErrorMessage(err, "Import failed.");
   } finally {
@@ -273,6 +274,7 @@ async function selectAnime(result: AniListResult) {
       body: { aniListId: result.aniListId },
     });
     selectedAnime.value = res;
+    await preloadAddedCards(res.themes.map((theme) => theme.songId));
   } catch (err) {
     importError.value = extractErrorMessage(err, "Import failed.");
   } finally {
@@ -297,6 +299,18 @@ async function removeCard(songId: number) {
 function onPreviewCardUpdated(updated: CardWithDetails) {
   addedCards[updated.songId] = updated;
   previewCard.value = updated;
+}
+
+async function preloadAddedCards(songIds: number[]) {
+  if (!songIds.length) return;
+  try {
+    const res = await $fetch<{ cards: CardWithDetails[] }>("/api/cards/by-songs", {
+      query: { songIds: songIds.join(",") },
+    });
+    for (const c of res.cards) addedCards[c.songId] = c;
+  } catch {
+    // Best-effort UX nicety; the server-side duplicate check still applies on Add.
+  }
 }
 
 async function addCard(theme: { songId: number; videoUrl: string | null; audioUrl: string | null }) {

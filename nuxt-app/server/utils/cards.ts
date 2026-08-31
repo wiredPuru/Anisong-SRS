@@ -109,6 +109,11 @@ export function cardExistsForSong(songId: number): boolean {
   return db.select({ id: card.id }).from(card).where(eq(card.songId, songId)).get() !== undefined;
 }
 
+export function getCardsBySongIds(songIds: number[]): CardWithDetails[] {
+  if (!songIds.length) return [];
+  return cardQuery().where(inArray(card.songId, songIds)).all();
+}
+
 export function listCardsByArtist(artistId: number, page: number, query?: string): Paginated<CardWithDetails> {
   const searchCondition = cardSearchCondition(query);
   const scopeCondition = eq(artist.id, artistId);
@@ -260,6 +265,10 @@ export function createCard(input: CreateCardInput): CreateCardResult {
   const songRow = db.select().from(song).where(eq(song.id, input.songId)).get();
   if (!songRow) {
     return { notFound: true };
+  }
+
+  if (cardExistsForSong(input.songId)) {
+    return { error: "A card for this song already exists." };
   }
 
   let localVideoPath: string | null = null;
