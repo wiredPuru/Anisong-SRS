@@ -4,6 +4,7 @@ const { data, pending, error, refresh } = await useFetch<{
   defaultDownloadFolder: string | null;
   dailyNewCardLimit: number | null;
   boxOneStreakRequired: number;
+  streamCacheMaxBytes: number;
 }>("/api/media-library");
 
 const newPath = ref("");
@@ -156,6 +157,12 @@ async function importDeck() {
     <div v-if="data" class="study-settings">
       <SettingsNewCardLimitControl :limit="data.dailyNewCardLimit" @saved="refresh" />
       <SettingsBoxOneStreakControl :required="data.boxOneStreakRequired" @saved="refresh" />
+    </div>
+
+    <h2>Streamed clip cache</h2>
+    <p class="hint">Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't re-fetch from the CDN.</p>
+    <div v-if="data" class="study-settings">
+      <SettingsStreamCacheSizeControl :max-bytes="data.streamCacheMaxBytes" @saved="refresh" />
     </div>
   </main>
 </template>

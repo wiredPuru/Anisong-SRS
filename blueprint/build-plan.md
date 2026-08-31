@@ -267,3 +267,19 @@ cleaned-up checkbox version before generating the project overview.
   usual but automatically reveals it after a short, visibly counting-down
   timer - re-arming on every new card (including after pass/fail), not just
   once per session.
+- [x] 41. **Configurable local cache for streamed clips** - a size-capped
+  local disk cache (default 1GB, adjustable in Settings) for remote
+  animethemes.moe video/audio clips played directly from the CDN, so a clip
+  that's been played before (a failed card in particular keeps resurfacing)
+  serves from local disk instead of re-fetching from the remote CDN every
+  time. Evicts least-recently-used entries once full. Also prefetches in the
+  background: a card's own clip as soon as it's loaded, plus (in Study) the
+  next 2 upcoming due cards in the queue, so clips are typically already
+  cached by the time the user actually reaches them. Local-file cards are
+  unaffected (already local).
+- [ ] 42. **Download fallback when playback fails** - when a card's
+  video/audio clip fails to load during Study or Preview, show a "Download
+  video" / "Download audio" option (for whichever remote source exists and
+  isn't already local) right on the error state, reusing the existing
+  per-card download action (feature 8) instead of leaving a dead-end error
+  message.

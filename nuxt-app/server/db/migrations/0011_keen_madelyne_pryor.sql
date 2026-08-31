@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `stream_cache_max_bytes` integer DEFAULT 1073741824 NOT NULL;

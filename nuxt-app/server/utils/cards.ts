@@ -224,6 +224,14 @@ export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
   return cardQuery().where(dueCardCondition(scope)).orderBy(asc(card.nextReviewAt)).get();
 }
 
+// A best-effort snapshot of the next `limit` due cards after `excludeCardId`,
+// for prefetching - not a guarantee, since the real due order can shift once
+// the excluded card is actually reviewed (see current-feature.md notes).
+export function getUpcomingDueCards(scope: StudyScope, excludeCardId: number | undefined, limit: number): CardWithDetails[] {
+  const condition = excludeCardId !== undefined ? and(dueCardCondition(scope), ne(card.id, excludeCardId)) : dueCardCondition(scope);
+  return cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).limit(limit).all();
+}
+
 export function getDueCardCount(scope: StudyScope): number {
   return db
     .select({ count: count(card.id) })

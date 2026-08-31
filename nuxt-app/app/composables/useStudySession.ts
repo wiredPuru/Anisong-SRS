@@ -56,15 +56,25 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<{ card: CardWithDetails | null; newCardsToday: NewCardsToday; dueCount: number }>(
-        "/api/study/next",
-        { query: scopeQuery(scope.value) },
-      );
+      const result = await $fetch<{
+        card: CardWithDetails | null;
+        newCardsToday: NewCardsToday;
+        dueCount: number;
+        upcoming: CardWithDetails[];
+      }>("/api/study/next", { query: scopeQuery(scope.value) });
       currentCard.value = result.card;
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
       dueCount.value = result.dueCount;
       if (result.card) presentationKey.value += 1;
+
+      // Best-effort: warm the cache for the next couple of due cards before
+      // the queue actually reaches them (current card's own warm-up is
+      // StudyMediaPlayer's job, triggered separately on mount).
+      for (const upcomingCard of result.upcoming) {
+        const url = resolveRemotePrefetchUrl(upcomingCard);
+        if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
+      }
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to load the next card.");
     } finally {

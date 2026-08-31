@@ -112,6 +112,28 @@ export function setBoxOneStreakRequired(required: number): { error: string } | {
   return { boxOneStreakRequired: required };
 }
 
+export function getStreamCacheMaxBytes(): number {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.streamCacheMaxBytes ?? 1_073_741_824;
+}
+
+export function setStreamCacheMaxBytes(maxBytes: number): { error: string } | { streamCacheMaxBytes: number } {
+  if (!Number.isInteger(maxBytes) || maxBytes < 1) {
+    return { error: "Cache size must be a positive integer number of bytes." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, streamCacheMaxBytes: maxBytes })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { streamCacheMaxBytes: maxBytes } })
+    .run();
+
+  return { streamCacheMaxBytes: maxBytes };
+}
+
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
   const normalized = normalizeFolderPath(rawPath);
 

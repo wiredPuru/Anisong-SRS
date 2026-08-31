@@ -3,8 +3,8 @@ import { open } from "node:fs/promises";
 import { join } from "node:path";
 
 // animethemes.moe blocks Node's default fetch User-Agent with a bare 403; matches server/lib/animethemes.ts.
-const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
-const DOWNLOAD_TIMEOUT_MS = 30_000;
+export const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
+export const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 export function sanitizeSegment(value: string): string {
   const cleaned = value.replace(/[\\/:*?"<>|]/g, "").trim();

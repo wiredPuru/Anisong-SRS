@@ -14,7 +14,7 @@ const emit = defineEmits<{ "update:immersive": [boolean]; "playback-started": []
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
-  if (remoteUrl) return remoteUrl;
+  if (remoteUrl) return `/api/media/stream?url=${encodeURIComponent(remoteUrl)}`;
   return null;
 }
 
@@ -35,6 +35,21 @@ const src = computed(() =>
     ? mediaUrl(props.card.localVideoPath, props.card.animethemesVideoUrl)
     : mediaUrl(props.card.localAudioPath, props.card.animethemesAudioUrl),
 );
+
+// Warms the stream cache for this card's remote clip as early as possible -
+// on mount, and again if the card prop changes without a remount - so
+// playback often finds it already cached by the time the user presses play.
+// Client-only: onMounted never runs during SSR, and the watch below has no
+// `immediate` so it only reacts to a genuine later change, not the initial value.
+const prefetchUrl = computed(() => resolveRemotePrefetchUrl(props.card));
+
+function triggerPrefetch(url: string | null) {
+  if (!url) return;
+  $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
+}
+
+onMounted(() => triggerPrefetch(prefetchUrl.value));
+watch(prefetchUrl, (url) => triggerPrefetch(url));
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const audioRef = ref<HTMLAudioElement | null>(null);

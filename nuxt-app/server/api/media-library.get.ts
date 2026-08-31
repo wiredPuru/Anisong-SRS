@@ -3,6 +3,7 @@ import {
   getDailyNewCardLimit,
   getDefaultDownloadFolder,
   getLibraryPaths,
+  getStreamCacheMaxBytes,
 } from "../utils/mediaLibrary.ts";
 
 export default defineEventHandler(() => {
@@ -11,5 +12,6 @@ export default defineEventHandler(() => {
     defaultDownloadFolder: getDefaultDownloadFolder(),
     dailyNewCardLimit: getDailyNewCardLimit(),
     boxOneStreakRequired: getBoxOneStreakRequired(),
+    streamCacheMaxBytes: getStreamCacheMaxBytes(),
   };
 });

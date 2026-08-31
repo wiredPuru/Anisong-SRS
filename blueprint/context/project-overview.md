@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash ec53431067a7e010807fb787ab04ce3ae1fb8d858b49d83bc41953d52c12f2be -->
+<!-- blueprint:source-hash 03af92066981f2272d1cc6eda305cd45e563007b7649a9c9b6d245d1a40fa6b9 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -44,7 +44,9 @@ accurate. Features 18, 25, and 32 were each abandoned outright (see their
 entries below) - all three numbers are retired, not reused: 18 was built,
 then rolled back, then dropped; 25 was dropped before any code was
 written; 32 was spec'd and partially implemented, then dropped before any
-code was committed to master.
+code was committed to master. Features 41 and 42 (a capped local cache for
+streamed clips and a download fallback when playback fails) were added to
+`build-plan.md` on 2026-08-31 as new Post-MVP items and are not yet built.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -433,6 +435,24 @@ code was committed to master.
     while stuck on one card rather than decrementing - a deliberate
     choice, since "how many distinct cards still need a passing review"
     is the useful signal, not a raw review tally.
+41. **Configurable local cache for streamed clips** - not yet built. A
+    size-capped local disk cache for remote animethemes.moe video/audio
+    clips played directly from the CDN (not local-file cards, which are
+    already local). Caps total cache size at a configurable amount
+    (default 1GB, adjustable in Settings), evicting least-recently-used
+    entries once full, so a clip that's been played before - a failed card
+    in particular keeps resurfacing at box 1 - serves from local disk
+    instead of re-fetching from the remote CDN every time. Also prefetches
+    in the background: a card's own clip as soon as it loads (in Study or
+    Preview), plus - in Study only, since Preview has no queue - the next
+    2 upcoming due cards, so clips are typically already cached by the
+    time the queue actually reaches them.
+42. **Download fallback when playback fails** - not yet built. When a
+    card's video/audio clip fails to load during Study or Preview, shows a
+    "Download video" / "Download audio" option (for whichever remote
+    source exists and isn't already local) on the error state itself,
+    reusing the existing per-card download action (feature 8) instead of
+    leaving a dead-end error message.
 
 ## Data model
 
