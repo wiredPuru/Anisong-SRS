@@ -286,6 +286,106 @@ export async function fetchArtistThemesBySlug(slug: string): Promise<ArtistTheme
   return { artistName: artist.name.main, entries };
 }
 
+export interface SongSearchEntry {
+  animethemesThemeId: number;
+  themeSlot: string;
+  songTitle: string | null;
+  songTitleNative: string | null;
+  artistName: string | null;
+  animeAniListId: number;
+  animeAnimethemesId: number;
+  animeTitleRomaji: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+}
+
+interface RawSongSearchSong {
+  title: RawSongTitle;
+  performances: RawPerformance[];
+  animethemes: RawArtistThemesTheme[];
+}
+
+const SONG_SEARCH_QUERY = `
+  query ($search: String!, $first: Int) {
+    search(search: $search, first: $first) {
+      songs {
+        title { romaji native }
+        performances {
+          artist { name { main native } }
+        }
+        animethemes {
+          id
+          slug
+          anime {
+            id
+            title { romaji }
+            resources(site: ANILIST, first: 1) { nodes { externalId } }
+          }
+          animethemeentries(first: 1) {
+            videos(first: 1) {
+              nodes {
+                link
+                audio { link }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function searchSongsOnAnimeThemes(query: string): Promise<SongSearchEntry[]> {
+  const response = await fetch(ANIMETHEMES_ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
+    body: JSON.stringify({
+      query: SONG_SEARCH_QUERY,
+      variables: { search: query, first: 10 },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`animethemes.moe request failed with status ${response.status}`);
+  }
+
+  const body = (await response.json()) as GraphQLResponse<{ search: { songs: RawSongSearchSong[] } }>;
+
+  if (!body.data) {
+    throw new Error("animethemes.moe response missing data");
+  }
+
+  const entries: SongSearchEntry[] = [];
+
+  for (const songResult of body.data.search.songs) {
+    const artistName = songResult.performances[0]?.artist.name.main ?? null;
+
+    for (const theme of songResult.animethemes) {
+      const aniListId = theme.anime.resources.nodes[0]?.externalId;
+      if (aniListId === null || aniListId === undefined) {
+        continue;
+      }
+
+      const video = theme.animethemeentries[0]?.videos.nodes[0] ?? null;
+
+      entries.push({
+        animethemesThemeId: theme.id,
+        themeSlot: theme.slug,
+        songTitle: songResult.title.romaji,
+        songTitleNative: songResult.title.native,
+        artistName,
+        animeAniListId: aniListId,
+        animeAnimethemesId: theme.anime.id,
+        animeTitleRomaji: theme.anime.title.romaji,
+        videoUrl: video?.link ?? null,
+        audioUrl: video?.audio?.link ?? null,
+      });
+    }
+  }
+
+  return entries;
+}
+
 export async function fetchAnimeThemesByAniListId(aniListId: number): Promise<AnimeThemesResult | null> {
   const response = await fetch(ANIMETHEMES_ENDPOINT, {
     method: "POST",

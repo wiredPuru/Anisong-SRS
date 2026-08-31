@@ -55,12 +55,25 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-type SearchMode = "anime" | "artist";
+type SearchMode = "anime" | "artist" | "song";
 
 interface ArtistCandidate {
   id: number;
   name: string;
   slug: string;
+}
+
+interface SongSearchResult {
+  animethemesThemeId: number;
+  themeSlot: string;
+  songTitle: string | null;
+  songTitleNative: string | null;
+  artistName: string | null;
+  animeAniListId: number;
+  animeAnimethemesId: number;
+  animeTitleRomaji: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
 }
 
 const searchMode = ref<SearchMode>("anime");
@@ -70,29 +83,36 @@ const searchResults = ref<AniListResult[] | null>(null);
 const searching = ref(false);
 const searchError = ref<string | null>(null);
 
-const artistSearchQuery = ref("");
 const artistSearchResults = ref<ArtistCandidate[] | null>(null);
 const artistSearching = ref(false);
 const artistSearchError = ref<string | null>(null);
 
+const songSearchResults = ref<SongSearchResult[] | null>(null);
+const songSearching = ref(false);
+const songSearchError = ref<string | null>(null);
+const songAdding = reactive<Record<number, boolean>>({});
+const songAddError = reactive<Record<number, string | null>>({});
+const songResultSongId = reactive<Record<number, number>>({});
+
 function setSearchMode(mode: SearchMode) {
   searchMode.value = mode;
 
-  searchQuery.value = "";
   searchResults.value = null;
   searchError.value = null;
   selectedAnime.value = null;
   importError.value = null;
 
-  artistSearchQuery.value = "";
   artistSearchResults.value = null;
   artistSearchError.value = null;
   selectedArtist.value = null;
   artistImportError.value = null;
+
+  songSearchResults.value = null;
+  songSearchError.value = null;
 }
 
 async function artistSearch() {
-  const q = artistSearchQuery.value.trim();
+  const q = searchQuery.value.trim();
   if (!q) return;
 
   artistSearching.value = true;
@@ -106,6 +126,24 @@ async function artistSearch() {
     artistSearchError.value = extractErrorMessage(err, "Search failed.");
   } finally {
     artistSearching.value = false;
+  }
+}
+
+async function songSearch() {
+  const q = searchQuery.value.trim();
+  if (!q) return;
+
+  songSearching.value = true;
+  songSearchError.value = null;
+  songSearchResults.value = null;
+
+  try {
+    const res = await $fetch<{ results: SongSearchResult[] }>("/api/lookup/song-search", { query: { q } });
+    songSearchResults.value = res.results;
+  } catch (err) {
+    songSearchError.value = extractErrorMessage(err, "Search failed.");
+  } finally {
+    songSearching.value = false;
   }
 }
 
@@ -313,6 +351,51 @@ async function preloadAddedCards(songIds: number[]) {
   }
 }
 
+function resolvedSongId(animethemesThemeId: number): number | undefined {
+  return songResultSongId[animethemesThemeId];
+}
+
+function addedSongCard(animethemesThemeId: number): CardWithDetails | undefined {
+  const songId = songResultSongId[animethemesThemeId];
+  return songId !== undefined ? addedCards[songId] : undefined;
+}
+
+async function addSongResult(result: SongSearchResult) {
+  const key = result.animethemesThemeId;
+  songAddError[key] = null;
+  songAdding[key] = true;
+
+  try {
+    const imported = await $fetch<{
+      songId: number;
+      videoUrl: string | null;
+      audioUrl: string | null;
+      existingCard: CardWithDetails | null;
+    }>("/api/lookup/song-import", { method: "POST", body: result });
+
+    songResultSongId[key] = imported.songId;
+
+    if (imported.existingCard) {
+      addedCards[imported.songId] = imported.existingCard;
+      return;
+    }
+
+    const res = await $fetch<{ card: CardWithDetails }>("/api/cards", {
+      method: "POST",
+      body: {
+        songId: imported.songId,
+        animethemesVideoUrl: imported.videoUrl ?? undefined,
+        animethemesAudioUrl: imported.audioUrl ?? undefined,
+      },
+    });
+    addedCards[imported.songId] = res.card;
+  } catch (err) {
+    songAddError[key] = extractErrorMessage(err, "Failed to add card.");
+  } finally {
+    songAdding[key] = false;
+  }
+}
+
 async function addCard(theme: { songId: number; videoUrl: string | null; audioUrl: string | null }) {
   addError[theme.songId] = null;
   adding[theme.songId] = true;
@@ -381,6 +464,14 @@ onMounted(() => {
       >
         By artist
       </button>
+      <button
+        type="button"
+        class="toggle-btn"
+        :class="{ active: searchMode === 'song' }"
+        @click="setSearchMode('song')"
+      >
+        By song
+      </button>
     </div>
 
     <template v-if="searchMode === 'anime'">
@@ -416,10 +507,10 @@ onMounted(() => {
       <p v-if="importError" class="inline-error">{{ importError }}</p>
     </template>
 
-    <template v-else>
+    <template v-else-if="searchMode === 'artist'">
       <form class="search-form" @submit.prevent="artistSearch">
         <input
-          v-model="artistSearchQuery"
+          v-model="searchQuery"
           type="text"
           placeholder="Search artist name..."
           :disabled="artistSearching"
@@ -441,7 +532,7 @@ onMounted(() => {
             </button>
           </li>
         </ul>
-        <p v-else class="state">No artist found for "{{ artistSearchQuery }}".</p>
+        <p v-else class="state">No artist found for "{{ searchQuery }}".</p>
       </template>
 
       <div v-if="artistImporting" class="state">Loading themes...</div>
@@ -542,6 +633,130 @@ onMounted(() => {
         </template>
         <p v-else class="state">No themes found for {{ selectedArtist.artistName }} on animethemes.moe.</p>
       </div>
+    </template>
+
+    <template v-else-if="searchMode === 'song'">
+      <form class="search-form" @submit.prevent="songSearch">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search song title..."
+          :disabled="songSearching"
+          class="search-input"
+        />
+        <button type="submit" class="search-btn" :disabled="songSearching">Search</button>
+      </form>
+      <p v-if="songSearchError" class="inline-error">{{ songSearchError }}</p>
+
+      <div v-if="songSearching" class="state">Searching...</div>
+      <template v-else-if="songSearchResults">
+        <ul v-if="songSearchResults.length" class="theme-list">
+          <li v-for="result in songSearchResults" :key="result.animethemesThemeId" class="theme-row">
+            <div class="theme-info">
+              <span class="theme-title">{{ result.songTitle ?? result.themeSlot }}</span>
+              <span class="result-meta">
+                {{ result.artistName ?? "Unknown artist" }} - {{ result.animeTitleRomaji }} ({{ result.themeSlot }})
+              </span>
+            </div>
+
+            <template v-if="addedSongCard(result.animethemesThemeId)">
+              <div class="added-info">
+                <div class="added-actions">
+                  <span class="added-badge">Added</span>
+                  <button type="button" class="preview-btn" @click="previewCard = addedSongCard(result.animethemesThemeId)!">
+                    Preview
+                  </button>
+                  <button type="button" class="remove-btn" @click="removeCard(resolvedSongId(result.animethemesThemeId)!)">
+                    Delete
+                  </button>
+                </div>
+                <div
+                  v-if="hasAnyDownloadableSource(addedSongCard(result.animethemesThemeId)!)"
+                  class="download-section"
+                >
+                  <div v-if="hasDefaultDownloadFolder" class="download-actions">
+                    <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'video')">
+                      <div
+                        v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')]"
+                        class="download-progress"
+                      >
+                        <div class="download-progress-bar">
+                          <span
+                            :style="{ width: progressPercent(resolvedSongId(result.animethemesThemeId)!, 'video') + '%' }"
+                          />
+                        </div>
+                        <span class="download-progress-label">{{
+                          formatDownloadProgress(
+                            downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, "video")],
+                          )
+                        }}</span>
+                      </div>
+                      <button
+                        v-else
+                        type="button"
+                        class="download-btn"
+                        @click="downloadMedia(resolvedSongId(result.animethemesThemeId)!, 'video')"
+                      >
+                        Download video
+                      </button>
+                    </template>
+                    <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'audio')">
+                      <div
+                        v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')]"
+                        class="download-progress"
+                      >
+                        <div class="download-progress-bar">
+                          <span
+                            :style="{ width: progressPercent(resolvedSongId(result.animethemesThemeId)!, 'audio') + '%' }"
+                          />
+                        </div>
+                        <span class="download-progress-label">{{
+                          formatDownloadProgress(
+                            downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, "audio")],
+                          )
+                        }}</span>
+                      </div>
+                      <button
+                        v-else
+                        type="button"
+                        class="download-btn"
+                        @click="downloadMedia(resolvedSongId(result.animethemesThemeId)!, 'audio')"
+                      >
+                        Download audio
+                      </button>
+                    </template>
+                  </div>
+                  <p v-else class="download-hint">
+                    Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+                  </p>
+                  <p v-if="downloadError[resolvedSongId(result.animethemesThemeId)!]" class="inline-error">
+                    {{ downloadError[resolvedSongId(result.animethemesThemeId)!] }}
+                  </p>
+                </div>
+                <p v-if="addError[resolvedSongId(result.animethemesThemeId)!]" class="inline-error">
+                  {{ addError[resolvedSongId(result.animethemesThemeId)!] }}
+                </p>
+              </div>
+            </template>
+            <template v-else>
+              <div class="theme-actions">
+                <button
+                  type="button"
+                  class="add-btn"
+                  :disabled="songAdding[result.animethemesThemeId]"
+                  @click="addSongResult(result)"
+                >
+                  {{ songAdding[result.animethemesThemeId] ? "Adding..." : "Add" }}
+                </button>
+              </div>
+              <p v-if="songAddError[result.animethemesThemeId]" class="inline-error">
+                {{ songAddError[result.animethemesThemeId] }}
+              </p>
+            </template>
+          </li>
+        </ul>
+        <p v-else class="state">No songs found for "{{ searchQuery }}".</p>
+      </template>
     </template>
 
     <div v-if="selectedAnime" class="themes-section">
