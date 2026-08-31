@@ -419,7 +419,7 @@ onUnmounted(() => stopDrag?.());
     :style="{ '--nav-height': `${navHeight}px` }"
     @click.self="emit('update:immersive', false)"
   >
-    <div class="player-frame">
+    <div class="player-frame" :class="{ 'ambient-glass': ambient }">
       <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
       <button
         v-if="allowExpand"
@@ -660,6 +660,19 @@ onUnmounted(() => stopDrag?.());
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* The ambient glow canvas lives behind the whole page (Teleport to body,
+   z-index: -1), but this frame's own opaque gradient - solid #120c19 as its
+   last background layer - normally blocks it from showing through anywhere
+   inside the player itself (letterboxing around a non-16:9 video, or the
+   space around the record in audio mode). Dropping it while ambient mode
+   is on lets that glow fill the frame too instead of stopping at its edges;
+   .player-card's own translucent glass background (feature 24) already
+   does the same for the space around the frame. Non-ambient mode is
+   unaffected - the gradient stays exactly as it's always been. */
+.player-frame.ambient-glass {
+  background: transparent;
 }
 
 .media-el {
