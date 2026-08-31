@@ -277,7 +277,7 @@ cleaned-up checkbox version before generating the project overview.
   next 2 upcoming due cards in the queue, so clips are typically already
   cached by the time the user actually reaches them. Local-file cards are
   unaffected (already local).
-- [ ] 42. **Download fallback when playback fails** - when a card's
+- [x] 42. **Download fallback when playback fails** - when a card's
   video/audio clip fails to load during Study or Preview, show a "Download
   video" / "Download audio" option (for whichever remote source exists and
   isn't already local) right on the error state, reusing the existing

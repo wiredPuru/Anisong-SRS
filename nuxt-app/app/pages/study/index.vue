@@ -42,7 +42,18 @@ const {
 const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
   dailyNewCardLimit: number | null;
   boxOneStreakRequired: number;
+  defaultDownloadFolder: string | null;
 }>("/api/media-library");
+
+const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
+
+function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
+  if (!currentCard.value) return;
+  currentCard.value = {
+    ...currentCard.value,
+    ...(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath }),
+  };
+}
 
 const showNewCardLimitPopover = ref(false);
 const newCardLimitPopoverRef = ref<HTMLElement | null>(null);
@@ -304,8 +315,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :ambient="ambientMode"
           :allow-expand="true"
           :hide-theme-badge="hideInfo"
+          :has-default-download-folder="hasDefaultDownloadFolder"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
+          @local-path-updated="onLocalPathUpdated"
         >
           <template v-if="immersive" #immersive>
             <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">

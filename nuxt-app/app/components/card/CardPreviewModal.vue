@@ -24,8 +24,16 @@ interface ManualDeck {
   name: string;
 }
 
-const props = defineProps<{ card: CardWithDetails | null; open: boolean }>();
+const props = defineProps<{ card: CardWithDetails | null; open: boolean; hasDefaultDownloadFolder?: boolean }>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
+
+function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
+  if (!props.card) return;
+  emit("updated", {
+    ...props.card,
+    ...(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath }),
+  });
+}
 
 const { isTypingTarget } = useHotkeyGuard();
 
@@ -219,7 +227,14 @@ watch(
         ✨
       </button>
       <button type="button" class="close-btn" @click="emit('close')">✕</button>
-      <StudyMediaPlayer :card="card" :ambient="ambientMode" :allow-expand="!editing" v-model:immersive="immersive">
+      <StudyMediaPlayer
+        :card="card"
+        :ambient="ambientMode"
+        :allow-expand="!editing"
+        :has-default-download-folder="hasDefaultDownloadFolder"
+        v-model:immersive="immersive"
+        @local-path-updated="onLocalPathUpdated"
+      >
         <template v-if="immersive" #immersive>
           <div class="info-slot">
             <StudyInfoPanel

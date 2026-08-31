@@ -842,6 +842,7 @@ onMounted(() => {
     <CardPreviewModal
       :card="previewCard"
       :open="previewCard !== null"
+      :has-default-download-folder="hasDefaultDownloadFolder"
       @close="previewCard = null"
       @updated="onPreviewCardUpdated"
     />
