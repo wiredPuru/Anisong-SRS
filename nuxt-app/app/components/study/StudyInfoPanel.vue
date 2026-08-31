@@ -405,9 +405,9 @@ watch(
 
 .learning-trigger .tooltip {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   right: 0;
-  width: 220px;
+  width: min(220px, 60vw);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
@@ -433,9 +433,9 @@ watch(
 
 .learning-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 6;
-  width: 240px;
+  width: min(240px, 60vw);
 }
 </style>

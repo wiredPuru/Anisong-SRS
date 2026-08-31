@@ -447,6 +447,7 @@ h1 {
    above already relies on. */
 .info-slot-elevated {
   z-index: 20;
+  overflow: visible;
 }
 
 .answer-slot {
