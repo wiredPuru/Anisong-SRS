@@ -2,6 +2,7 @@
 defineProps<{
   hideVideo: boolean;
   hideInfo: boolean;
+  hideCover: boolean;
   randomStart: boolean;
   ambientMode: boolean;
   autoReveal: boolean;
@@ -10,6 +11,7 @@ defineProps<{
 const emit = defineEmits<{
   "toggle-hide-video": [];
   "toggle-hide-info": [];
+  "toggle-hide-cover": [];
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
   "toggle-auto-reveal": [];
@@ -26,6 +28,10 @@ const emit = defineEmits<{
     <button type="button" class="toggle-btn" :class="{ on: hideInfo }" @click="emit('toggle-hide-info')">
       Hide Info
       <span class="tooltip">Hotkey: I</span>
+    </button>
+    <button type="button" class="toggle-btn" :class="{ on: hideCover }" @click="emit('toggle-hide-cover')">
+      Hide Cover
+      <span class="tooltip">Hotkey: C</span>
     </button>
     <button
       type="button"

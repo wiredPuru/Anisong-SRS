@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash f45c04d726c0f7a8606cf611bf075dff5caea1408a3a6909f285b5dc76a6dca2 -->
+<!-- blueprint:source-hash 1ff108196a148c6af5f350b4811d6bd48a00cac5c0729deb9a25c5e108dc2480 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -51,8 +51,14 @@ streamed clips and a download fallback when playback fails) were added to
 choice with feature 41's cache behavior) was added to `build-plan.md` the
 same day as a deliberate third attempt at the idea behind the abandoned
 features 18 and 32 - resolved once per card load rather than reactively,
-to avoid feature 18's overlapping-audio failure mode - and is not yet
-built.
+to avoid feature 18's overlapping-audio failure mode - and is now built and
+merged. Feature 44 (a cover image, plus ambient sampled from it, for a
+card with no video actually playing this session - naturally audio-only,
+or forced there by feature 43's Audio Only setting - behind a new
+session-only "Hide Cover" toggle) was added to `build-plan.md` the same
+day and is not yet built. The Hide Video toggle (feature 10) is
+deliberately unaffected by feature 44 - it keeps today's plain veil on an
+otherwise video-capable card.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -479,18 +485,34 @@ built.
     here - feature 8's download route refuses to download over an existing
     local path, so that case still needs the existing Clear-then-redownload
     flow (feature 27).
-43. **Playback mode setting (Auto / Audio only)** - not yet built. A
-    persistent Settings-page default, not per-session or per-scope, that
-    governs both what plays and what feature 41's cache fetches/stores.
-    Auto (default) keeps today's behavior (video when available, else
-    audio); Audio only forces every card to audio-only regardless of a
-    local/remote video source, and stops the cache from prefetching or
-    storing video going forward - trading video playback for lower local
-    storage/bandwidth use. A third attempt at an idea tried twice before
-    (see features 18 and 32) - resolves once, before a card's player
-    mounts, and takes effect starting with the next card presented rather
-    than reactively mid-playback, specifically to avoid feature 18's
-    overlapping-audio rollback cause.
+43. **Playback mode setting (Auto / Audio only)** - done. A persistent
+    Settings-page default, not per-session or per-scope, that governs both
+    what plays and what feature 41's cache fetches/stores. Auto (default)
+    keeps today's behavior (video when available, else audio); Audio only
+    forces every card to audio-only regardless of a local/remote video
+    source, and stops the cache from prefetching or storing video going
+    forward - trading video playback for lower local storage/bandwidth use.
+    A third attempt at an idea tried twice before (see features 18 and 32) -
+    resolves once, from an `await`ed fetch completed before a card's player
+    ever mounts (`StudyMediaPlayer`'s `mediaKind`/`quizType`, plus
+    `resolveRemotePrefetchUrl()` for both the current card and feature 41's
+    2-card lookahead), and is editable only on `/settings` - never inline on
+    `/study` - so nothing can change it reactively mid-playback, specifically
+    to avoid feature 18's overlapping-audio rollback cause. Wired into both
+    `/study` and Preview (`CardPreviewModal`, via `/cards`, `/cards/new`,
+    `/decks`).
+44. **Cover image for audio-mode cards, with a Hide Cover toggle** - not
+    yet built. For a card with no video actually playing this session -
+    naturally audio-only, or forced there by feature 43's Audio Only
+    setting - shows the anime's cover image where video normally shows, and
+    has the ambient glow (feature 14) sample its colors from that image
+    instead of turning off. A new session-only "Hide Cover" toggle
+    (alongside Hide Video/Hide Info/Random Start/Ambient mode) can turn
+    this off, defaulting to shown. Falls back to today's plain veil/no
+    ambient when the anime has no cover image. Deliberately does not touch
+    the Hide Video toggle (feature 10) - hiding video on an otherwise
+    video-capable card keeps today's exact plain veil, since real video is
+    still playing underneath for its audio track in that case.
 
 ## Data model
 
@@ -603,6 +625,9 @@ Singleton row (`id` always `1`).
   added in feature 41. Caps the local disk cache
   (`nuxt-app/.data/stream-cache/`) of remote animethemes.moe clips; lowering
   it re-runs eviction immediately.
+- `playbackMode` (text, not null, default `"auto"`, values `"auto" |
+  "audioOnly"`) - added in feature 43. Editable only on `/settings`; see
+  feature 43's entry above for why.
 
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
 > through `Song` by `artistId` or `animeId`, not a stored entity. Manual
@@ -713,7 +738,9 @@ Routes:
   or per-entry errors) - this is where feature 9 resolved its own
   then-undecided placement question. Feature 41 added a stream-cache size
   control (MB input, default 1024) for the local disk cache of remote
-  animethemes.moe clips.
+  animethemes.moe clips. Feature 43 added a Playback mode control (Auto /
+  Audio only) - the only place this setting can be changed, deliberately
+  not exposed on `/study` itself.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal

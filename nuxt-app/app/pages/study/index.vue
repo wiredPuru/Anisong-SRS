@@ -116,6 +116,7 @@ const scopeChipLabel = computed(() => {
 
 const hideVideo = ref(false);
 const hideInfo = ref(false);
+const hideCover = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
 const showControls = ref(true);
@@ -244,6 +245,8 @@ function onKeydown(event: KeyboardEvent) {
     hideInfo.value = !hideInfo.value;
   } else if (key === "v") {
     hideVideo.value = !hideVideo.value;
+  } else if (key === "c") {
+    hideCover.value = !hideCover.value;
   } else if (key === "a") {
     ambientMode.value = !ambientMode.value;
   } else if (key === "h") {
@@ -301,12 +304,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         v-if="showControls"
         :hide-video="hideVideo"
         :hide-info="hideInfo"
+        :hide-cover="hideCover"
         :random-start="randomStart"
         :ambient-mode="ambientMode"
         :auto-reveal="autoReveal"
         :auto-reveal-seconds="autoRevealSeconds"
         @toggle-hide-video="hideVideo = !hideVideo"
         @toggle-hide-info="hideInfo = !hideInfo"
+        @toggle-hide-cover="hideCover = !hideCover"
         @toggle-random-start="randomStart = !randomStart"
         @toggle-ambient-mode="ambientMode = !ambientMode"
         @toggle-auto-reveal="autoReveal = !autoReveal"
@@ -323,6 +328,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :hide-theme-badge="hideInfo"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="audioOnly"
+          :hide-cover="hideCover"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
           @local-path-updated="onLocalPathUpdated"

@@ -23,6 +23,7 @@ export interface CardWithDetails {
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {

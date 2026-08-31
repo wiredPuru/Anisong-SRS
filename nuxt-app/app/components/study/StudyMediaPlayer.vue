@@ -4,7 +4,13 @@ import type { CardWithDetails } from "~/composables/useStudySession";
 const props = defineProps<{
   card: Pick<
     CardWithDetails,
-    "id" | "localVideoPath" | "localAudioPath" | "animethemesVideoUrl" | "animethemesAudioUrl" | "themeSlot"
+    | "id"
+    | "localVideoPath"
+    | "localAudioPath"
+    | "animethemesVideoUrl"
+    | "animethemesAudioUrl"
+    | "themeSlot"
+    | "animeCoverImageUrl"
   >;
   hideVideo?: boolean;
   randomStart?: boolean;
@@ -14,6 +20,7 @@ const props = defineProps<{
   hideThemeBadge?: boolean;
   hasDefaultDownloadFolder?: boolean;
   audioOnly?: boolean;
+  hideCover?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -49,6 +56,29 @@ const mediaKind = computed<"video" | "audio">(() => {
 // playing underneath for its own audio track (no separate audio source
 // needed for this to work).
 const quizType = computed<"video" | "audio">(() => (props.hideVideo || props.audioOnly ? "audio" : mediaKind.value));
+
+// Shows the anime's cover image (and, in Step 2, sources the ambient glow
+// from it) whenever no real <video> is mounted this session at all - a
+// naturally audio-only card, or one the Audio Only setting forced there.
+// Checks mediaKind, not quizType/hideVideo: mediaKind is deliberately
+// unaffected by hideVideo, so a naturally audio-only card still gets its
+// cover art even if hideVideo also happens to be on (nothing to hide there
+// anyway) - while a genuinely video-capable card with Hide Video on keeps
+// today's plain veil untouched, since mediaKind stays "video" for it.
+const coverImageFailed = ref(false);
+watch(
+  () => props.card.animeCoverImageUrl,
+  () => {
+    coverImageFailed.value = false;
+  },
+);
+const showCoverArt = computed(
+  () =>
+    mediaKind.value === "audio" &&
+    !props.hideCover &&
+    Boolean(props.card.animeCoverImageUrl) &&
+    !coverImageFailed.value,
+);
 
 const src = computed(() =>
   mediaKind.value === "video"
@@ -216,18 +246,32 @@ function togglePlay() {
 
 // Ambient glow: samples the *same* <video> already decoding for playback via
 // canvas, rather than a second <video> playing a duplicate stream - avoids
-// doubling network/decode cost for remote animethemes.moe clips.
+// doubling network/decode cost for remote animethemes.moe clips. When
+// showCoverArt is active instead, samples the cover <img> already rendered
+// in the frame the same way - one shared canvas, whichever source is on
+// screen.
 const ambientCanvasRef = ref<HTMLCanvasElement | null>(null);
+const coverImageRef = ref<HTMLImageElement | null>(null);
 let ambientInterval: ReturnType<typeof setInterval> | null = null;
 
-const ambientActive = computed(() => Boolean(props.ambient) && quizType.value === "video");
+const ambientActive = computed(
+  () => Boolean(props.ambient) && (quizType.value === "video" || showCoverArt.value),
+);
 
 function drawAmbientFrame() {
   const canvas = ambientCanvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) return;
+
+  if (showCoverArt.value) {
+    const img = coverImageRef.value;
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return;
+  }
+
   const video = videoRef.value;
-  if (!canvas || !video || video.readyState < 2) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!video || video.readyState < 2) return;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 }
 
@@ -298,7 +342,19 @@ function retryAmbientPreload(retriesLeft: number) {
   const canvas = ambientCanvasRef.value;
   const ctx = canvas?.getContext("2d");
   if (!canvas || !ctx) return;
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  // In CardPreviewModal, this canvas persists across a card change (no
+  // remount there, unlike /study). If an earlier card drew the cross-origin
+  // cover image onto it (showCoverArt), the canvas is now "tainted" and any
+  // getImageData call throws a SecurityError - for the canvas's whole
+  // lifetime, not just that one draw. Harmless to just stop retrying here
+  // (same as any other reason this optimization can't run): onPlay's own
+  // draw still takes over once real playback starts.
+  let data: Uint8ClampedArray;
+  try {
+    data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  } catch {
+    return;
+  }
   for (let i = 3; i < data.length; i += 4) {
     if (data[i] !== 0) return;
   }
@@ -406,6 +462,19 @@ onUnmounted(() => stopDrag?.());
         @error="onError"
       />
 
+      <div v-if="showCoverArt" class="record">
+        <div class="record-disk" :class="{ spinning: isPlaying }">
+          <img
+            ref="coverImageRef"
+            :src="card.animeCoverImageUrl!"
+            alt=""
+            class="record-label"
+            @error="coverImageFailed = true"
+          />
+          <span class="record-hole" />
+        </div>
+      </div>
+
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
         <div v-if="hasAnyDownloadableSource(card)" class="download-section">
@@ -442,16 +511,16 @@ onUnmounted(() => stopDrag?.());
       <div
         v-else-if="showVeil"
         class="veil"
-        :class="quizType === 'audio' ? 'audio-veil' : 'paused-veil'"
+        :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
         @click="togglePlay"
       >
-        <div v-if="quizType === 'audio' && isPlaying" class="listening-icon">
+        <div v-if="quizType === 'audio' && isPlaying && !showCoverArt" class="listening-icon">
           <span class="eq-bar" />
           <span class="eq-bar" />
           <span class="eq-bar" />
           <span class="eq-bar" />
         </div>
-        <p>{{ isPlaying ? "Listening..." : "Paused" }}</p>
+        <p v-if="!showCoverArt">{{ isPlaying ? "Listening..." : "Paused" }}</p>
       </div>
 
       <div class="player-controls">
@@ -604,6 +673,60 @@ onUnmounted(() => stopDrag?.());
   display: none;
 }
 
+.record {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-disk {
+  position: relative;
+  width: 45%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 1px, transparent 1px, transparent 6px),
+    #0c0a10;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+  animation: record-spin 3.6s linear infinite;
+  animation-play-state: paused;
+}
+
+.record-disk.spinning {
+  animation-play-state: running;
+}
+
+.record-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 64%;
+  height: 64%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.record-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8%;
+  height: 8%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #120c19;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+
+@keyframes record-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .theme-badge {
   position: absolute;
   top: 16px;
@@ -650,6 +773,17 @@ onUnmounted(() => stopDrag?.());
     radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),
     #120c19;
   cursor: pointer;
+}
+
+/* The record sits behind this veil (see the template's DOM order), and the
+   veil's own gradient background is fully opaque (its last background
+   layer is a solid color) - without this override the record would be
+   completely hidden behind it, not just lacking contrast. Transparent
+   here reveals .player-frame's own background gradient instead - the same
+   look today's cover-less audio veil already uses, just with the record
+   and text floating on top of it. */
+.audio-veil.has-cover {
+  background: transparent;
 }
 
 .error-veil {

@@ -293,3 +293,10 @@ cleaned-up checkbox version before generating the project overview.
   next card presented, never mid-playback of the current one - the exact
   reactive-swap mechanism that caused feature 18's double-audio bug and its
   rollback.
+- [x] 44. **Cover image for audio-mode cards, with a Hide Cover toggle** -
+  when a card has no video playing this session (naturally audio-only, or
+  the Audio Only setting), show the anime's cover image where video
+  normally shows, with the ambient glow sampling its colors instead of
+  turning off. A new session-only "Hide Cover" toggle (like Hide Info) can
+  turn it off, defaulting to shown. The Hide Video toggle on an otherwise
+  video-capable card is unaffected - it keeps today's plain veil.
