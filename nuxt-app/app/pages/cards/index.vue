@@ -328,7 +328,7 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
             </div>
 
             <DeckMembershipPanel
-              v-if="openDecksPanelId === c.id"
+              v-if="openDecksPanelId === c.id && editingId !== c.id"
               :card-id="c.id"
               :decks="manualDecks"
               :memberships="membershipsData?.memberships ?? {}"
