@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `playback_mode` text DEFAULT 'auto' NOT NULL;

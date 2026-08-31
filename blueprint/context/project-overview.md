@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 03af92066981f2272d1cc6eda305cd45e563007b7649a9c9b6d245d1a40fa6b9 -->
+<!-- blueprint:source-hash f45c04d726c0f7a8606cf611bf075dff5caea1408a3a6909f285b5dc76a6dca2 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -46,7 +46,13 @@ then rolled back, then dropped; 25 was dropped before any code was
 written; 32 was spec'd and partially implemented, then dropped before any
 code was committed to master. Features 41 and 42 (a capped local cache for
 streamed clips and a download fallback when playback fails) were added to
-`build-plan.md` on 2026-08-31 as new Post-MVP items and are not yet built.
+`build-plan.md` on 2026-08-31 and are now both built and merged. Feature 43
+(a persistent Auto/Audio-only playback mode setting, unifying playback
+choice with feature 41's cache behavior) was added to `build-plan.md` the
+same day as a deliberate third attempt at the idea behind the abandoned
+features 18 and 32 - resolved once per card load rather than reactively,
+to avoid feature 18's overlapping-audio failure mode - and is not yet
+built.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -435,24 +441,56 @@ streamed clips and a download fallback when playback fails) were added to
     while stuck on one card rather than decrementing - a deliberate
     choice, since "how many distinct cards still need a passing review"
     is the useful signal, not a raw review tally.
-41. **Configurable local cache for streamed clips** - not yet built. A
-    size-capped local disk cache for remote animethemes.moe video/audio
+41. **Configurable local cache for streamed clips** - done. A size-capped
+    local disk cache (`nuxt-app/.data/stream-cache/`, gitignored, keyed by a
+    sha256 hash of the remote URL) for remote animethemes.moe video/audio
     clips played directly from the CDN (not local-file cards, which are
-    already local). Caps total cache size at a configurable amount
-    (default 1GB, adjustable in Settings), evicting least-recently-used
-    entries once full, so a clip that's been played before - a failed card
-    in particular keeps resurfacing at box 1 - serves from local disk
-    instead of re-fetching from the remote CDN every time. Also prefetches
-    in the background: a card's own clip as soon as it loads (in Study or
-    Preview), plus - in Study only, since Preview has no queue - the next
-    2 upcoming due cards, so clips are typically already cached by the
-    time the queue actually reaches them.
-42. **Download fallback when playback fails** - not yet built. When a
-    card's video/audio clip fails to load during Study or Preview, shows a
-    "Download video" / "Download audio" option (for whichever remote
-    source exists and isn't already local) on the error state itself,
-    reusing the existing per-card download action (feature 8) instead of
-    leaving a dead-end error message.
+    already local). `GET /api/media/stream` proxies a remote URL through
+    the cache with full byte-range support (scrubbing works exactly as for
+    local files), fetching and saving on a miss and serving the cached copy
+    on a hit; concurrent requests for the same uncached URL (a prefetch
+    racing a real play) dedupe to one fetch. Caps total cache size at a
+    configurable amount (`streamCacheMaxBytes` on `MediaLibrarySettings`,
+    default 1GB, adjustable in Settings), evicting oldest-accessed-first
+    (filesystem `atime`) once over budget - lowering the cap re-runs
+    eviction immediately rather than waiting for the next write. Both the
+    stream route and the prefetch route below host-allowlist their `url`
+    param to `animethemes.moe` and its subdomains, so neither can be used
+    as an open URL proxy. Also prefetches in the background via `POST
+    /api/media/prefetch`: a card's own clip as soon as it loads (in Study
+    or Preview), plus - in Study only, since Preview has no queue - the
+    next 2 upcoming due cards, so clips are typically already cached by the
+    time the queue actually reaches them. The lookahead is a best-effort
+    snapshot, not a live prediction - a wrongly-guessed prefetch is
+    harmless, just an occupied cache slot.
+42. **Download fallback when playback fails** - done. When a card's
+    video/audio clip fails to load during Study or Preview, `StudyMediaPlayer`'s
+    error state shows a "Download video" / "Download audio" option (for
+    whichever remote source exists and isn't already local), reusing the
+    existing per-card download action (feature 8) instead of leaving a
+    dead-end error message. A successful download's new local path flows
+    back up through a `local-path-updated` event (translated, for Preview,
+    into `CardPreviewModal`'s existing `updated` event) so the calling page
+    patches its own card state - `/study`'s in-memory current card, or the
+    same `updated` handler `/cards`, `/cards/new`, and `/decks` already had
+    for edits - and the error clears the instant the media source actually
+    changes, no reload needed. A card whose failure is a broken *local*
+    file (a path already set, but 404s or won't decode) is out of scope
+    here - feature 8's download route refuses to download over an existing
+    local path, so that case still needs the existing Clear-then-redownload
+    flow (feature 27).
+43. **Playback mode setting (Auto / Audio only)** - not yet built. A
+    persistent Settings-page default, not per-session or per-scope, that
+    governs both what plays and what feature 41's cache fetches/stores.
+    Auto (default) keeps today's behavior (video when available, else
+    audio); Audio only forces every card to audio-only regardless of a
+    local/remote video source, and stops the cache from prefetching or
+    storing video going forward - trading video playback for lower local
+    storage/bandwidth use. A third attempt at an idea tried twice before
+    (see features 18 and 32) - resolves once, before a card's player
+    mounts, and takes effect starting with the next card presented rather
+    than reactively mid-playback, specifically to avoid feature 18's
+    overlapping-audio rollback cause.
 
 ## Data model
 
@@ -561,6 +599,10 @@ Singleton row (`id` always `1`).
 - `defaultDownloadFolder` (string, nullable) - added in feature 8; must be
   one of `libraryPaths`. Where a downloaded card source is saved. Cleared
   automatically if its folder is removed from `libraryPaths`.
+- `streamCacheMaxBytes` (integer, not null, default `1073741824` = 1GB) -
+  added in feature 41. Caps the local disk cache
+  (`nuxt-app/.data/stream-cache/`) of remote animethemes.moe clips; lowering
+  it re-runs eviction immediately.
 
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
 > through `Song` by `artistId` or `animeId`, not a stored entity. Manual
@@ -669,7 +711,9 @@ Routes:
   default download folder picker shown once 2+ folders are configured, plus
   (feature 9) an "Import deck" form (source path -> created/skipped summary
   or per-entry errors) - this is where feature 9 resolved its own
-  then-undecided placement question.
+  then-undecided placement question. Feature 41 added a stream-cache size
+  control (MB input, default 1024) for the local disk cache of remote
+  animethemes.moe clips.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal
@@ -729,7 +773,11 @@ Routes:
   the viewport - independent of Preview's own expand from feature 20.
   Feature 38 added the persisted Auto Reveal timer for Hide Info. Feature
   40 added a live "N cards left" counter for the active study scope next
-  to the existing "Card N this session" counter.
+  to the existing "Card N this session" counter. Feature 42 added a
+  "Download video"/"Download audio" fallback action directly on the error
+  state shown when a clip fails to load, reusing feature 8's per-card
+  download action; `CardPreviewModal` (which reuses the same
+  `StudyMediaPlayer`) gets this too.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes

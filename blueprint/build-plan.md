@@ -283,3 +283,13 @@ cleaned-up checkbox version before generating the project overview.
   isn't already local) right on the error state, reusing the existing
   per-card download action (feature 8) instead of leaving a dead-end error
   message.
+- [x] 43. **Playback mode setting (Auto / Audio only)** - a persistent
+  Settings option that governs both what plays and what the local stream
+  cache fetches. Auto (default) keeps today's behavior (video when
+  available, else audio). Audio only forces every card to play audio-only
+  regardless of a local/remote video source, and stops feature 41's cache
+  from prefetching or storing video going forward - trading video playback
+  for meaningfully lower local storage/bandwidth use. Takes effect from the
+  next card presented, never mid-playback of the current one - the exact
+  reactive-swap mechanism that caused feature 18's double-audio bug and its
+  rollback.

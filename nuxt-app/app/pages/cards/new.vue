@@ -250,10 +250,13 @@ const addError = reactive<Record<number, string | null>>({});
 const localPathInput = reactive<Record<number, string>>({});
 const previewCard = ref<CardWithDetails | null>(null);
 
-const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
-  "/api/media-library",
-);
+const { data: mediaLibraryData } = await useFetch<{
+  libraryPaths: string[];
+  defaultDownloadFolder: string | null;
+  playbackMode: "auto" | "audioOnly";
+}>("/api/media-library");
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audioOnly");
 
 const {
   downloading,
@@ -843,6 +846,7 @@ onMounted(() => {
       :card="previewCard"
       :open="previewCard !== null"
       :has-default-download-folder="hasDefaultDownloadFolder"
+      :audio-only="audioOnly"
       @close="previewCard = null"
       @updated="onPreviewCardUpdated"
     />

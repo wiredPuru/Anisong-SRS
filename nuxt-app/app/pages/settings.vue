@@ -5,6 +5,7 @@ const { data, pending, error, refresh } = await useFetch<{
   dailyNewCardLimit: number | null;
   boxOneStreakRequired: number;
   streamCacheMaxBytes: number;
+  playbackMode: "auto" | "audioOnly";
 }>("/api/media-library");
 
 const newPath = ref("");
@@ -163,6 +164,12 @@ async function importDeck() {
     <p class="hint">Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't re-fetch from the CDN.</p>
     <div v-if="data" class="study-settings">
       <SettingsStreamCacheSizeControl :max-bytes="data.streamCacheMaxBytes" @saved="refresh" />
+    </div>
+
+    <h2>Playback</h2>
+    <p class="hint">Audio only plays every card from its audio source when one exists, and stops the streamed-clip cache above from fetching or storing video - useful to save local storage. Takes effect starting with the next card; changing it here never affects a card already playing.</p>
+    <div v-if="data" class="study-settings">
+      <SettingsPlaybackModeControl :mode="data.playbackMode" @saved="refresh" />
     </div>
   </main>
 </template>

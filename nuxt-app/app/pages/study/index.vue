@@ -25,6 +25,20 @@ const scopeResult = computed<ScopeResult>(() => {
 
 const scope = computed<StudyScope | null>(() => (scopeResult.value.valid ? scopeResult.value.scope : null));
 
+// Fetched and resolved before useStudySession is called below, since its
+// internal immediate watch fires the first fetchNext() (and thus the first
+// lookahead prefetch) synchronously during setup - audioOnly must already
+// hold its real value by then, not resolve asynchronously afterward.
+const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
+  dailyNewCardLimit: number | null;
+  boxOneStreakRequired: number;
+  defaultDownloadFolder: string | null;
+  playbackMode: "auto" | "audioOnly";
+}>("/api/media-library");
+
+const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
+const audioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
+
 const {
   currentCard,
   loading,
@@ -37,15 +51,7 @@ const {
   dueCount,
   submit,
   refresh: refreshStudySession,
-} = useStudySession(scope);
-
-const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
-  dailyNewCardLimit: number | null;
-  boxOneStreakRequired: number;
-  defaultDownloadFolder: string | null;
-}>("/api/media-library");
-
-const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
+} = useStudySession(scope, audioOnly);
 
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
   if (!currentCard.value) return;
@@ -316,6 +322,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :allow-expand="true"
           :hide-theme-badge="hideInfo"
           :has-default-download-folder="hasDefaultDownloadFolder"
+          :audio-only="audioOnly"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
           @local-path-updated="onLocalPathUpdated"

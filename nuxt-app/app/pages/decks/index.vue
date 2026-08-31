@@ -298,10 +298,13 @@ onUnmounted(() => {
   cardsObserver?.disconnect();
 });
 
-const { data: mediaLibraryData } = await useFetch<{ libraryPaths: string[]; defaultDownloadFolder: string | null }>(
-  "/api/media-library",
-);
+const { data: mediaLibraryData } = await useFetch<{
+  libraryPaths: string[];
+  defaultDownloadFolder: string | null;
+  playbackMode: "auto" | "audioOnly";
+}>("/api/media-library");
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audioOnly");
 
 const {
   downloading,
@@ -879,6 +882,7 @@ function backToDecks() {
       :card="previewCard"
       :open="previewCard !== null"
       :has-default-download-folder="hasDefaultDownloadFolder"
+      :audio-only="audioOnly"
       @close="previewCard = null"
       @updated="onPreviewCardUpdated"
     />

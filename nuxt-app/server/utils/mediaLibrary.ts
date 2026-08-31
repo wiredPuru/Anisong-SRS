@@ -134,6 +134,28 @@ export function setStreamCacheMaxBytes(maxBytes: number): { error: string } | { 
   return { streamCacheMaxBytes: maxBytes };
 }
 
+export function getPlaybackMode(): "auto" | "audioOnly" {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.playbackMode ?? "auto";
+}
+
+export function setPlaybackMode(mode: string): { error: string } | { playbackMode: "auto" | "audioOnly" } {
+  if (mode !== "auto" && mode !== "audioOnly") {
+    return { error: "Playback mode must be 'auto' or 'audioOnly'." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, playbackMode: mode })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { playbackMode: mode } })
+    .run();
+
+  return { playbackMode: mode };
+}
+
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
   const normalized = normalizeFolderPath(rawPath);
 

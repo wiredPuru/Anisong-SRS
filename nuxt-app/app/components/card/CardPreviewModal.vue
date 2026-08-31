@@ -24,7 +24,12 @@ interface ManualDeck {
   name: string;
 }
 
-const props = defineProps<{ card: CardWithDetails | null; open: boolean; hasDefaultDownloadFolder?: boolean }>();
+const props = defineProps<{
+  card: CardWithDetails | null;
+  open: boolean;
+  hasDefaultDownloadFolder?: boolean;
+  audioOnly?: boolean;
+}>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
@@ -232,6 +237,7 @@ watch(
         :ambient="ambientMode"
         :allow-expand="!editing"
         :has-default-download-folder="hasDefaultDownloadFolder"
+        :audio-only="audioOnly"
         v-model:immersive="immersive"
         @local-path-updated="onLocalPathUpdated"
       >

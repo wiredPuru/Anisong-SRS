@@ -13,6 +13,7 @@ const props = defineProps<{
   immersive?: boolean;
   hideThemeBadge?: boolean;
   hasDefaultDownloadFolder?: boolean;
+  audioOnly?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -27,16 +28,27 @@ function mediaUrl(localPath: string | null, remoteUrl: string | null): string | 
 }
 
 const hasVideoSource = computed(() => Boolean(props.card.localVideoPath || props.card.animethemesVideoUrl));
+const hasAudioSource = computed(() => Boolean(props.card.localAudioPath || props.card.animethemesAudioUrl));
 
 // Which element/src actually mounts - deliberately independent of hideVideo,
 // so toggling it never swaps the underlying element mid-playback (that
-// remount was resetting playback to paused, which felt like a bug).
-const mediaKind = computed<"video" | "audio">(() => (hasVideoSource.value ? "video" : "audio"));
+// remount was resetting playback to paused, which felt like a bug). audioOnly
+// is safe to read here too: callers resolve it once per page load, before
+// this component ever mounts, and never change it reactively afterward - an
+// earlier per-scope forced-mode feature swapped this mid-playback and caused
+// overlapping audio, which is exactly what that constraint avoids. A card
+// with no audio source at all still falls back to video even when audioOnly
+// is on.
+const mediaKind = computed<"video" | "audio">(() => {
+  if (props.audioOnly && hasAudioSource.value) return "audio";
+  return hasVideoSource.value ? "video" : "audio";
+});
 
-// Whether the video frame is actually shown. Hiding video always forces the
-// audio-style veil, even when the video element keeps playing underneath for
-// its own audio track (no separate audio source needed for this to work).
-const quizType = computed<"video" | "audio">(() => (props.hideVideo ? "audio" : mediaKind.value));
+// Whether the video frame is actually shown. Hiding video (or audioOnly)
+// always forces the audio-style veil, even when the video element keeps
+// playing underneath for its own audio track (no separate audio source
+// needed for this to work).
+const quizType = computed<"video" | "audio">(() => (props.hideVideo || props.audioOnly ? "audio" : mediaKind.value));
 
 const src = computed(() =>
   mediaKind.value === "video"
@@ -49,7 +61,7 @@ const src = computed(() =>
 // playback often finds it already cached by the time the user presses play.
 // Client-only: onMounted never runs during SSR, and the watch below has no
 // `immediate` so it only reacts to a genuine later change, not the initial value.
-const prefetchUrl = computed(() => resolveRemotePrefetchUrl(props.card));
+const prefetchUrl = computed(() => resolveRemotePrefetchUrl(props.card, props.audioOnly));
 
 function triggerPrefetch(url: string | null) {
   if (!url) return;
