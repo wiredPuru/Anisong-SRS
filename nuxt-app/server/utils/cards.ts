@@ -1,9 +1,9 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, like, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { anime, artist, card, deckCard, song } from "../db/schema.ts";
-import { isPathWithinLibrary } from "./mediaLibrary.ts";
+import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
+import { getDailyNewCardLimit, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 
@@ -185,15 +185,34 @@ export function listCardsByManualDeck(deckId: number, page: number, query?: stri
 
 export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
 
+function countCardsIntroducedToday(): number {
+  const startOfTodaySeconds = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000);
+  return db
+    .select({ cardId: reviewLog.cardId })
+    .from(reviewLog)
+    .groupBy(reviewLog.cardId)
+    .having(sql`min(${reviewLog.reviewedAt}) >= ${startOfTodaySeconds}`)
+    .all().length;
+}
+
+export function getNewCardsTodayInfo(): { introduced: number; limit: number | null } {
+  return { introduced: countCardsIntroducedToday(), limit: getDailyNewCardLimit() };
+}
+
 export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
   const dueCondition = lte(card.nextReviewAt, new Date());
   const scopeCondition =
     scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
 
-  return cardQuery()
-    .where(scopeCondition ? and(dueCondition, scopeCondition) : dueCondition)
-    .orderBy(asc(card.nextReviewAt))
-    .get();
+  let condition = scopeCondition ? and(dueCondition, scopeCondition) : dueCondition;
+
+  const { introduced, limit } = getNewCardsTodayInfo();
+  if (limit !== null && introduced >= limit) {
+    const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+    condition = and(condition, inArray(card.id, reviewedCardIds));
+  }
+
+  return cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).get();
 }
 
 function validateLocalPath(rawPath: string): { error: string } | { path: string } {

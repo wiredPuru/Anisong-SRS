@@ -25,7 +25,7 @@ const scopeResult = computed<ScopeResult>(() => {
 
 const scope = computed<StudyScope | null>(() => (scopeResult.value.valid ? scopeResult.value.scope : null));
 
-const { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, submit } =
+const { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, newCardsToday, submit } =
   useStudySession(scope);
 
 const deckLabel = ref<string | null>(null);
@@ -120,6 +120,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="scope-row">
         <span class="chip">{{ scopeChipLabel }}</span>
         <span class="count">Card {{ reviewedCount + 1 }} this session</span>
+        <span
+          v-if="newCardsToday && newCardsToday.limit !== null"
+          class="chip new-card-chip"
+          :class="{ 'new-card-chip-reached': newCardsToday.introduced >= newCardsToday.limit }"
+        >
+          New cards today: {{ newCardsToday.introduced }}/{{ newCardsToday.limit }}
+        </span>
         <button
           type="button"
           class="controls-toggle-btn"
@@ -248,6 +255,12 @@ h1 {
 .count {
   color: var(--muted);
   font-size: 14px;
+}
+
+.new-card-chip-reached {
+  background: color-mix(in srgb, var(--fail) 18%, var(--surface));
+  border-color: var(--fail);
+  color: var(--fail);
 }
 
 .controls-toggle-btn {

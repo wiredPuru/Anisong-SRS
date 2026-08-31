@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `daily_new_card_limit` integer;

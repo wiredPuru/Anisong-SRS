@@ -1,5 +1,9 @@
-import { getDefaultDownloadFolder, getLibraryPaths } from "../utils/mediaLibrary.ts";
+import { getDailyNewCardLimit, getDefaultDownloadFolder, getLibraryPaths } from "../utils/mediaLibrary.ts";
 
 export default defineEventHandler(() => {
-  return { libraryPaths: getLibraryPaths(), defaultDownloadFolder: getDefaultDownloadFolder() };
+  return {
+    libraryPaths: getLibraryPaths(),
+    defaultDownloadFolder: getDefaultDownloadFolder(),
+    dailyNewCardLimit: getDailyNewCardLimit(),
+  };
 });

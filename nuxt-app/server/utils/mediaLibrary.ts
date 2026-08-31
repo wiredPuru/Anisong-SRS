@@ -68,6 +68,28 @@ export function setDefaultDownloadFolder(rawPath: string): { error: string } | {
   return { defaultDownloadFolder: normalized };
 }
 
+export function getDailyNewCardLimit(): number | null {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.dailyNewCardLimit ?? null;
+}
+
+export function setDailyNewCardLimit(limit: number | null): { error: string } | { dailyNewCardLimit: number | null } {
+  if (limit !== null && (!Number.isInteger(limit) || limit < 0)) {
+    return { error: "Daily new card limit must be a non-negative integer or null." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, dailyNewCardLimit: limit })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { dailyNewCardLimit: limit } })
+    .run();
+
+  return { dailyNewCardLimit: limit };
+}
+
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
   const normalized = normalizeFolderPath(rawPath);
 

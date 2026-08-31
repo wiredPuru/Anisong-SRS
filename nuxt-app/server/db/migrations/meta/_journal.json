@@ -64,6 +64,13 @@
       "when": 1788186429363,
       "tag": "0008_puzzling_weapon_omega",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788189558312,
+      "tag": "0009_serious_thing",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,10 @@
 export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
 
+export interface NewCardsToday {
+  introduced: number;
+  limit: number | null;
+}
+
 export interface CardWithDetails {
   id: number;
   songId: number;
@@ -43,17 +48,19 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
   // card coming right back up) - lets the player key off "this presentation"
   // rather than "this card id" so it always gets a fresh mount.
   const presentationKey = ref(0);
+  const newCardsToday = ref<NewCardsToday | null>(null);
 
   async function fetchNext() {
     if (!scope.value) return;
     loading.value = true;
     error.value = null;
     try {
-      const result = await $fetch<{ card: CardWithDetails | null }>("/api/study/next", {
+      const result = await $fetch<{ card: CardWithDetails | null; newCardsToday: NewCardsToday }>("/api/study/next", {
         query: scopeQuery(scope.value),
       });
       currentCard.value = result.card;
       sessionComplete.value = result.card === null;
+      newCardsToday.value = result.newCardsToday;
       if (result.card) presentationKey.value += 1;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to load the next card.");
@@ -92,5 +99,5 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>) {
     { immediate: true },
   );
 
-  return { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, submit };
+  return { currentCard, loading, error, sessionComplete, reviewing, reviewedCount, presentationKey, newCardsToday, submit };
 }
