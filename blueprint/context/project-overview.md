@@ -28,20 +28,23 @@ Build-plan order. Features 1-17 and 19-24 (the full MVP, manual decks, the
 study-screen ambient glow, the home page/nav bar, Preview editing, delete
 cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
-ambient-driven glass surface) are built and merged, as are 26-31 and 33-37
+ambient-driven glass surface) are built and merged, as are 26-31 and 33-38
 (global search find+add, clear-local-file, add-existing-cards-to-deck,
 stats refresh+clear, native Japanese titles + split furigana toggle, the
 immersive study mode, add-new-anime-from-a-deck, deck assignment from card
 edit, library search + infinite scroll in all three sub-features, unifying
-Preview's expand mode with Study's immersive overlay, and bulk artist
-import in its two sub-features - 37a artist search + theme resolution, 37b
-bulk card creation + download). Feature 38 (auto-reveal timer for Hide
-Info) is queued, not started. Features 18, 25, and 32 were each abandoned
-outright (see their entries
-below) - all three numbers are retired, not reused: 18 was built, then
-rolled back, then dropped; 25 was dropped before any code was written; 32
-was spec'd and partially implemented, then dropped before any code was
-committed to master.
+Preview's expand mode with Study's immersive overlay, bulk artist import
+in its two sub-features - 37a artist search + theme resolution, 37b bulk
+card creation + download - and the auto-reveal timer for Hide Info).
+Features 39 and 40 (search-by-song mode and a study "cards left" counter)
+were built ad hoc directly in chat rather than through the `/feature`
+workflow, so they were never written to `build-plan.md` as planned items;
+this overview was updated after the fact (2026-08-31) to keep the record
+accurate. Features 18, 25, and 32 were each abandoned outright (see their
+entries below) - all three numbers are retired, not reused: 18 was built,
+then rolled back, then dropped; 25 was dropped before any code was
+written; 32 was spec'd and partially implemented, then dropped before any
+code was committed to master.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -52,7 +55,12 @@ committed to master.
    artist, OP/ED themes) into the local DB.
 4. **Flashcard CRUD** - done. `/cards`, `/cards/new` - create/edit/delete
    cards from looked-up song data; attach a local file and/or an
-   animethemes.moe reference.
+   animethemes.moe reference. A same-day fix (2026-08-31) closed a
+   duplicate-card gap: `POST /api/cards` (`createCard`) now rejects a
+   second card for a song that already has one, and `/cards/new` pre-marks
+   an already-added song as "Added" (via `GET /api/cards/by-songs`) as
+   soon as its anime/artist/song search result loads, instead of showing
+   an addable button that would just error on click.
 5. **Decks by Artist/Title** - done. `/decks` - automatic, query-time
    grouping of cards by artist or by anime title (no separate deck table).
 6. **Study session** - the headline feature, split into three sub-features:
@@ -110,7 +118,12 @@ committed to master.
       in one query. `/cards` has a per-row "Decks" checkbox panel; `/decks`
       shows real card counts and a real card list per manual deck with a
       "Remove" action. Not on `/cards/new` (same deferral feature 11 made
-      for its own Preview button on that page).
+      for its own Preview button on that page). A same-day fix
+      (2026-08-31) stopped that checkbox panel from rendering twice on
+      `/cards` when a card's "Decks" panel was left open and then its
+      "Edit" form was also opened - the edit form has its own copy of the
+      panel, so the standalone one now hides whenever that card is being
+      edited.
 14. **Ambient video glow on Study** - done. A soft, blurred, color-sampled
     glow behind the video player on `/study`, active only while a real video
     frame is showing (not audio-only, not Hide Video); covers the whole
@@ -374,13 +387,52 @@ committed to master.
       audio download stays available individually. An artist-added card is
       otherwise identical everywhere else in the app (Preview, Delete,
       download) to one added via the anime-search flow.
-38. **Auto-reveal timer for Hide Info** - not started. On `/study`, when
+38. **Auto-reveal timer for Hide Info** - done. On `/study`, when
     Hide Info (feature 10) is active, an optional persisted "Auto Reveal"
     toggle blurs each new card's info as usual but automatically reveals it
     after a short, visibly counting-down timer - re-arming on every new
     card (including after a pass/fail advances the queue), not a one-time
     reveal for the session. `/study`-only; not extended to
-    `CardPreviewModal`, which has no Hide Info toggle to begin with.
+    `CardPreviewModal`, which has no Hide Info toggle to begin with. A
+    same-day fix (2026-08-31) synced the countdown to actual playback: it
+    previously started on the media element's `play` event, which fires as
+    soon as playback is requested even while a remote (not-yet-downloaded)
+    clip is still buffering, so the timer could burn through dead air
+    before anything was audible/visible. It now starts on the `playing`
+    event instead, which only fires once the browser is actually
+    rendering frames/audio, on both `StudyMediaPlayer`'s `<video>` and
+    `<audio>` elements.
+39. **Search-by-song mode on Add card** - done, built ad hoc in chat
+    (2026-08-31), not spec'd through `/feature`. A third "By song" toggle
+    on `/cards/new`, alongside the existing "By anime" (feature 3/4) and
+    "By artist" (feature 37) modes, letting a card be found directly by
+    song/theme title instead of going through an anime or artist first.
+    `searchSongsOnAnimeThemes()` (`server/lib/animethemes.ts`) uses
+    animethemes.moe's global `search { songs { ... } }` query;
+    `GET /api/lookup/song-search` wraps it read-only, and
+    `POST /api/lookup/song-import` lazily resolves one chosen result into
+    real `Anime`/`Artist`/`Song` rows (reusing the same
+    `upsertAnime`/`getOrCreateArtist`/`upsertSong` pipeline features 3/37a
+    already use) only when the user clicks it, reporting back an existing
+    card via feature 4's duplicate-prevention check instead of erroring.
+    All three search modes were also unified onto one shared query field
+    (previously each had its own, so switching tabs looked like it wiped
+    what you'd typed even though each tab's own text was in fact
+    preserved) - now the same typed text carries across all three tabs.
+40. **"Cards left" counter on Study** - done, built ad hoc in chat
+    (2026-08-31), not spec'd through `/feature`. `/study` shows a live
+    count of due cards remaining in the active `StudyScope` (all / by
+    artist / by anime) next to the existing "Card N this session"
+    counter. `getDueCardCount()` (`server/utils/cards.ts`) shares its
+    due/scope/daily-new-card-limit condition logic with the existing
+    `getNextDueCard()` (factored into one `dueCardCondition()` helper so
+    the two can't drift); `GET /api/study/next` now returns `dueCount`
+    alongside the next card, so the count updates after every pass/fail
+    with no extra requests. A failed card returns to box 1 with its
+    0-day interval and stays immediately due, so the count holds steady
+    while stuck on one card rather than decrementing - a deliberate
+    choice, since "how many distinct cards still need a passing review"
+    is the useful signal, not a raw review tally.
 
 ## Data model
 
@@ -615,7 +667,10 @@ Routes:
   37a added a "By anime"/"By artist" mode toggle - artist mode searches
   animethemes.moe for an artist and shows a read-only theme preview grouped
   by anime; feature 37b turned that preview into per-row "Add", "Add all",
-  and a sequential "Download all" (video only).
+  and a sequential "Download all" (video only). Feature 39 added a third
+  "By song" mode searching animethemes.moe by song/theme title directly;
+  all three modes share one search query field so switching tabs no
+  longer loses what was typed.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle
@@ -652,6 +707,9 @@ Routes:
   Feature 23 added a separate, `/study`-only expand toggle (`allowExpand`
   prop, not passed from `CardPreviewModal`) that grows the player to fill
   the viewport - independent of Preview's own expand from feature 20.
+  Feature 38 added the persisted Auto Reveal timer for Hide Info. Feature
+  40 added a live "N cards left" counter for the active study scope next
+  to the existing "Card N this session" counter.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes
