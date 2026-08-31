@@ -199,6 +199,11 @@ onUnmounted(stopAmbientInterval);
 function onPlay() {
   isPlaying.value = true;
   if (ambientActive.value) startAmbientLoop();
+}
+
+// "play" fires as soon as playback is requested, even while a remote clip is
+// still buffering; "playing" fires once frames/audio are actually rendering.
+function onPlaying() {
   emit("playback-started");
 }
 
@@ -315,6 +320,7 @@ onUnmounted(() => stopDrag?.());
         :src="src"
         :volume="volume"
         @play="onPlay"
+        @playing="onPlaying"
         @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
@@ -330,6 +336,7 @@ onUnmounted(() => stopDrag?.());
         :src="src"
         :volume="volume"
         @play="onPlay"
+        @playing="onPlaying"
         @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
