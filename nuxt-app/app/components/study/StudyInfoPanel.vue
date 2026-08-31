@@ -136,6 +136,11 @@ watch(
   border: none;
   box-shadow: none;
   backdrop-filter: none;
+  /* Overrides the base rule's default stretch so short chips (a one-word
+     song title, a short artist name) hug their text instead of stretching
+     to the widest sibling's width. The title block's own children keep the
+     default stretch (unset here) so EN/Romaji/JP still share one chip. */
+  align-items: flex-start;
   /* The base .info-card rule sets filter: blur(0) for the non-immersive
      Hide Info blur toggle - even a no-op blur(0) makes this element a new
      backdrop-filter sampling root for its descendants (CSS spec behavior),
