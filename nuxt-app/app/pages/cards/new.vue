@@ -158,6 +158,53 @@ async function selectArtist(candidate: ArtistCandidate) {
   }
 }
 
+const addingAllForArtist = ref(false);
+
+async function addAllArtistThemes() {
+  if (!selectedArtist.value) return;
+
+  addingAllForArtist.value = true;
+  try {
+    for (const group of selectedArtist.value.animeGroups) {
+      for (const theme of group.themes) {
+        if (addedCards[theme.songId]) continue;
+        await addCard(theme);
+      }
+    }
+  } finally {
+    addingAllForArtist.value = false;
+  }
+}
+
+const downloadingAllForArtist = ref(false);
+
+function hasDownloadableAddedVideos(): boolean {
+  if (!selectedArtist.value) return false;
+  return selectedArtist.value.animeGroups.some((group) =>
+    group.themes.some((theme) => {
+      const card = addedCards[theme.songId];
+      return card ? canDownload(card, "video") : false;
+    }),
+  );
+}
+
+async function downloadAllArtistVideos() {
+  if (!selectedArtist.value) return;
+
+  downloadingAllForArtist.value = true;
+  try {
+    for (const group of selectedArtist.value.animeGroups) {
+      for (const theme of group.themes) {
+        const card = addedCards[theme.songId];
+        if (!card || !canDownload(card, "video")) continue;
+        await downloadMedia(theme.songId, "video");
+      }
+    }
+  } finally {
+    downloadingAllForArtist.value = false;
+  }
+}
+
 const addedCards = reactive<Record<number, CardWithDetails>>({});
 const adding = reactive<Record<number, boolean>>({});
 const addError = reactive<Record<number, string | null>>({});
@@ -252,7 +299,7 @@ function onPreviewCardUpdated(updated: CardWithDetails) {
   previewCard.value = updated;
 }
 
-async function addCard(theme: ThemeResult) {
+async function addCard(theme: { songId: number; videoUrl: string | null; audioUrl: string | null }) {
   addError[theme.songId] = null;
   adding[theme.songId] = true;
 
@@ -388,6 +435,20 @@ onMounted(() => {
 
       <div v-if="selectedArtist" class="themes-section">
         <template v-if="selectedArtist.animeGroups.length">
+          <div class="bulk-actions">
+            <button type="button" class="add-btn" :disabled="addingAllForArtist" @click="addAllArtistThemes">
+              {{ addingAllForArtist ? "Adding..." : "Add all" }}
+            </button>
+            <button
+              v-if="hasDefaultDownloadFolder && hasDownloadableAddedVideos()"
+              type="button"
+              class="add-btn"
+              :disabled="downloadingAllForArtist"
+              @click="downloadAllArtistVideos"
+            >
+              {{ downloadingAllForArtist ? "Downloading..." : "Download all" }}
+            </button>
+          </div>
           <div v-for="group in selectedArtist.animeGroups" :key="group.anime.id">
             <h2>{{ group.anime.titleEnglish }}</h2>
             <ul class="theme-list">
@@ -396,6 +457,71 @@ onMounted(() => {
                   <span class="theme-title">{{ theme.songTitle }}</span>
                   <span class="result-meta">{{ selectedArtist.artistName }} - {{ theme.themeSlot }}</span>
                 </div>
+
+                <template v-if="addedCards[theme.songId]">
+                  <div class="added-info">
+                    <div class="added-actions">
+                      <span class="added-badge">Added</span>
+                      <button type="button" class="preview-btn" @click="previewCard = addedCards[theme.songId]">
+                        Preview
+                      </button>
+                      <button type="button" class="remove-btn" @click="removeCard(theme.songId)">Delete</button>
+                    </div>
+                    <div v-if="hasAnyDownloadableSource(addedCards[theme.songId])" class="download-section">
+                      <div v-if="hasDefaultDownloadFolder" class="download-actions">
+                        <template v-if="canDownload(addedCards[theme.songId], 'video')">
+                          <div v-if="downloading[downloadKey(theme.songId, 'video')]" class="download-progress">
+                            <div class="download-progress-bar">
+                              <span :style="{ width: progressPercent(theme.songId, 'video') + '%' }" />
+                            </div>
+                            <span class="download-progress-label">{{
+                              formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "video")])
+                            }}</span>
+                          </div>
+                          <button
+                            v-else
+                            type="button"
+                            class="download-btn"
+                            @click="downloadMedia(theme.songId, 'video')"
+                          >
+                            Download video
+                          </button>
+                        </template>
+                        <template v-if="canDownload(addedCards[theme.songId], 'audio')">
+                          <div v-if="downloading[downloadKey(theme.songId, 'audio')]" class="download-progress">
+                            <div class="download-progress-bar">
+                              <span :style="{ width: progressPercent(theme.songId, 'audio') + '%' }" />
+                            </div>
+                            <span class="download-progress-label">{{
+                              formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "audio")])
+                            }}</span>
+                          </div>
+                          <button
+                            v-else
+                            type="button"
+                            class="download-btn"
+                            @click="downloadMedia(theme.songId, 'audio')"
+                          >
+                            Download audio
+                          </button>
+                        </template>
+                      </div>
+                      <p v-else class="download-hint">
+                        Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+                      </p>
+                      <p v-if="downloadError[theme.songId]" class="inline-error">{{ downloadError[theme.songId] }}</p>
+                    </div>
+                    <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="theme-actions">
+                    <button type="button" class="add-btn" :disabled="adding[theme.songId]" @click="addCard(theme)">
+                      Add
+                    </button>
+                  </div>
+                  <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
+                </template>
               </li>
             </ul>
           </div>
@@ -673,6 +799,12 @@ h2 {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 20px;
 }
 
 .path-input {
