@@ -569,11 +569,18 @@ h1 {
   overflow: visible;
 }
 
+/* bottom uses max(), not a plain %, so this never shrinks below
+   .player-controls' own clamped floor height (StudyMediaPlayer.vue) on a
+   very small frame - a plain percentage clearance can shrink faster than
+   that floor stops shrinking, letting the two overlap again right where the
+   proportional scaling above bottoms out. 60px clears the controls bar's
+   worst-case floor height (~49px: two 9px vertical paddings plus a 31px
+   play button) with a small buffer. */
 .answer-slot {
   position: absolute;
   left: 1.1%;
   right: 1.1%;
-  bottom: 11.03%;
+  bottom: max(11.03%, 60px);
   z-index: 10;
 }
 

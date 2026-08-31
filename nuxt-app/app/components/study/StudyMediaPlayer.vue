@@ -449,6 +449,30 @@ onUnmounted(() => stopDrag?.());
   visibility: visible;
 }
 
+/* Expanded-only: the base rules above stay fixed-px for the normal card
+   (Preview, non-immersive /study), where the frame's size doesn't vary
+   enough to need it. In expanded mode the frame can range from a small
+   phone width to a wide desktop, so these scale in cqw against
+   .player-frame's own rendered width instead, matching the rest of the
+   immersive overlay (StudyInfoPanel's .info-card.overlay, study/index.vue's
+   .answer-slot) - otherwise a fixed-size badge/button can visually overlap
+   the proportionally-scaled info card beneath them on a narrow frame.
+   Multipliers are calibrated against the same ~1450px reference frame those
+   rules use, so today's default look is unchanged. */
+.player-card.expanded .expand-btn {
+  top: clamp(10px, 1.1cqw, 26px);
+  right: clamp(10px, 1.1cqw, 26px);
+  width: clamp(23px, 2.48cqw, 58px);
+  height: clamp(23px, 2.48cqw, 58px);
+  font-size: clamp(10px, 1.1cqw, 26px);
+}
+
+.player-card.expanded .expand-btn .tooltip {
+  top: calc(100% + clamp(5px, 0.55cqw, 13px));
+  padding: clamp(3px, 0.28cqw, 6px) clamp(6px, 0.69cqw, 16px);
+  font-size: clamp(8px, 0.83cqw, 19px);
+}
+
 .player-frame {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -493,6 +517,15 @@ onUnmounted(() => stopDrag?.());
   letter-spacing: 0.4px;
   color: var(--accent-secondary);
   z-index: 2;
+}
+
+/* Expanded-only proportional override - see the comment on
+   .player-card.expanded .expand-btn above for why. */
+.player-card.expanded .theme-badge {
+  top: clamp(10px, 1.1cqw, 26px);
+  left: clamp(10px, 1.1cqw, 26px);
+  padding: clamp(4px, 0.41cqw, 10px) clamp(9px, 0.97cqw, 23px);
+  font-size: clamp(8px, 0.9cqw, 21px);
 }
 
 .veil {
@@ -599,6 +632,18 @@ onUnmounted(() => stopDrag?.());
   background: linear-gradient(to top, rgba(10, 6, 14, 0.85), transparent);
 }
 
+/* Expanded-only proportional override - same rationale as the badge/expand
+   button above (see that comment): .player-controls stays fixed-px height
+   at every frame size, but study/index.vue's .answer-slot (Pass/Fail bar)
+   sits above it at a proportional bottom offset, so a fixed controls bar
+   can grow taller than that offset's shrinking clearance on a small frame
+   and visually overlap it. Scales the whole bar (and its children below)
+   in lockstep with the rest of the immersive overlay instead. */
+.player-card.expanded .player-controls {
+  gap: clamp(9px, 0.97cqw, 22px);
+  padding: clamp(9px, 0.97cqw, 22px) clamp(10px, 1.1cqw, 26px);
+}
+
 .play-btn {
   position: relative;
   width: 48px;
@@ -618,6 +663,18 @@ onUnmounted(() => stopDrag?.());
 .play-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.player-card.expanded .play-btn {
+  width: clamp(31px, 3.31cqw, 77px);
+  height: clamp(31px, 3.31cqw, 77px);
+  font-size: clamp(11px, 1.24cqw, 29px);
+}
+
+.player-card.expanded .play-btn .tooltip {
+  bottom: calc(100% + clamp(5px, 0.55cqw, 13px));
+  padding: clamp(3px, 0.28cqw, 6px) clamp(6px, 0.69cqw, 16px);
+  font-size: clamp(8px, 0.83cqw, 19px);
 }
 
 .tooltip {
@@ -662,6 +719,15 @@ onUnmounted(() => stopDrag?.());
   height: 12px;
 }
 
+.player-card.expanded .scrub {
+  height: clamp(5px, 0.48cqw, 11px);
+}
+
+.player-card.expanded .scrub:hover,
+.player-card.expanded .scrub.dragging {
+  height: clamp(8px, 0.83cqw, 19px);
+}
+
 .scrub > span {
   display: block;
   height: 100%;
@@ -676,6 +742,11 @@ onUnmounted(() => stopDrag?.());
   text-align: right;
 }
 
+.player-card.expanded .time {
+  font-size: clamp(9px, 0.97cqw, 22px);
+  min-width: clamp(49px, 5.24cqw, 122px);
+}
+
 .volume-control {
   display: flex;
   align-items: center;
@@ -687,9 +758,17 @@ onUnmounted(() => stopDrag?.());
   font-size: 14px;
 }
 
+.player-card.expanded .volume-icon {
+  font-size: clamp(9px, 0.97cqw, 22px);
+}
+
 .volume-slider {
   width: 90px;
   accent-color: var(--accent-secondary);
   cursor: pointer;
+}
+
+.player-card.expanded .volume-slider {
+  width: clamp(58px, 6.21cqw, 144px);
 }
 </style>
