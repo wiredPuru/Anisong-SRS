@@ -55,14 +55,108 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+type SearchMode = "anime" | "artist";
+
+interface ArtistCandidate {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+const searchMode = ref<SearchMode>("anime");
+
 const searchQuery = ref("");
 const searchResults = ref<AniListResult[] | null>(null);
 const searching = ref(false);
 const searchError = ref<string | null>(null);
 
+const artistSearchQuery = ref("");
+const artistSearchResults = ref<ArtistCandidate[] | null>(null);
+const artistSearching = ref(false);
+const artistSearchError = ref<string | null>(null);
+
+function setSearchMode(mode: SearchMode) {
+  searchMode.value = mode;
+
+  searchQuery.value = "";
+  searchResults.value = null;
+  searchError.value = null;
+  selectedAnime.value = null;
+  importError.value = null;
+
+  artistSearchQuery.value = "";
+  artistSearchResults.value = null;
+  artistSearchError.value = null;
+  selectedArtist.value = null;
+  artistImportError.value = null;
+}
+
+async function artistSearch() {
+  const q = artistSearchQuery.value.trim();
+  if (!q) return;
+
+  artistSearching.value = true;
+  artistSearchError.value = null;
+  artistSearchResults.value = null;
+
+  try {
+    const res = await $fetch<{ results: ArtistCandidate[] }>("/api/lookup/artist-search", { query: { q } });
+    artistSearchResults.value = res.results;
+  } catch (err) {
+    artistSearchError.value = extractErrorMessage(err, "Search failed.");
+  } finally {
+    artistSearching.value = false;
+  }
+}
+
 const selectedAnime = ref<ImportResult | null>(null);
 const importing = ref(false);
 const importError = ref<string | null>(null);
+
+interface ArtistThemeResult {
+  songId: number;
+  themeSlot: string;
+  songTitle: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+}
+
+interface ArtistImportResult {
+  artistName: string;
+  animeGroups: {
+    anime: {
+      id: number;
+      aniListId: number;
+      animethemesId: number | null;
+      titleEnglish: string;
+      titleRomaji: string;
+      titleNative: string;
+    };
+    themes: ArtistThemeResult[];
+  }[];
+}
+
+const selectedArtist = ref<ArtistImportResult | null>(null);
+const artistImporting = ref(false);
+const artistImportError = ref<string | null>(null);
+
+async function selectArtist(candidate: ArtistCandidate) {
+  artistImporting.value = true;
+  artistImportError.value = null;
+  selectedArtist.value = null;
+
+  try {
+    const res = await $fetch<ArtistImportResult>("/api/lookup/artist-import", {
+      method: "POST",
+      body: { artistSlug: candidate.slug },
+    });
+    selectedArtist.value = res;
+  } catch (err) {
+    artistImportError.value = extractErrorMessage(err, "Import failed.");
+  } finally {
+    artistImporting.value = false;
+  }
+}
 
 const addedCards = reactive<Record<number, CardWithDetails>>({});
 const adding = reactive<Record<number, boolean>>({});
@@ -209,36 +303,106 @@ onMounted(() => {
     </div>
     <p class="hint">Search AniList, pick an anime, then add a card per theme.</p>
 
-    <form class="search-form" @submit.prevent="search">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search anime title..."
-        :disabled="searching"
-        class="search-input"
-      />
-      <button type="submit" class="search-btn" :disabled="searching">Search</button>
-    </form>
-    <p v-if="searchError" class="inline-error">{{ searchError }}</p>
+    <div class="toggle">
+      <button
+        type="button"
+        class="toggle-btn"
+        :class="{ active: searchMode === 'anime' }"
+        @click="setSearchMode('anime')"
+      >
+        By anime
+      </button>
+      <button
+        type="button"
+        class="toggle-btn"
+        :class="{ active: searchMode === 'artist' }"
+        @click="setSearchMode('artist')"
+      >
+        By artist
+      </button>
+    </div>
 
-    <div v-if="searching" class="state">Searching...</div>
-    <template v-else-if="searchResults">
-      <ul v-if="searchResults.length" class="result-list">
-        <li v-for="result in searchResults" :key="result.aniListId" class="result-row">
-          <div class="result-info">
-            <span class="result-title">{{ result.titleRomaji }}</span>
-            <span v-if="result.titleEnglish" class="result-meta">{{ result.titleEnglish }}</span>
-          </div>
-          <button type="button" class="select-btn" :disabled="importing" @click="selectAnime(result)">
-            Select
-          </button>
-        </li>
-      </ul>
-      <p v-else class="state">No anime found for "{{ searchQuery }}".</p>
+    <template v-if="searchMode === 'anime'">
+      <form class="search-form" @submit.prevent="search">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search anime title..."
+          :disabled="searching"
+          class="search-input"
+        />
+        <button type="submit" class="search-btn" :disabled="searching">Search</button>
+      </form>
+      <p v-if="searchError" class="inline-error">{{ searchError }}</p>
+
+      <div v-if="searching" class="state">Searching...</div>
+      <template v-else-if="searchResults">
+        <ul v-if="searchResults.length" class="result-list">
+          <li v-for="result in searchResults" :key="result.aniListId" class="result-row">
+            <div class="result-info">
+              <span class="result-title">{{ result.titleRomaji }}</span>
+              <span v-if="result.titleEnglish" class="result-meta">{{ result.titleEnglish }}</span>
+            </div>
+            <button type="button" class="select-btn" :disabled="importing" @click="selectAnime(result)">
+              Select
+            </button>
+          </li>
+        </ul>
+        <p v-else class="state">No anime found for "{{ searchQuery }}".</p>
+      </template>
+
+      <div v-if="importing" class="state">Loading themes...</div>
+      <p v-if="importError" class="inline-error">{{ importError }}</p>
     </template>
 
-    <div v-if="importing" class="state">Loading themes...</div>
-    <p v-if="importError" class="inline-error">{{ importError }}</p>
+    <template v-else>
+      <form class="search-form" @submit.prevent="artistSearch">
+        <input
+          v-model="artistSearchQuery"
+          type="text"
+          placeholder="Search artist name..."
+          :disabled="artistSearching"
+          class="search-input"
+        />
+        <button type="submit" class="search-btn" :disabled="artistSearching">Search</button>
+      </form>
+      <p v-if="artistSearchError" class="inline-error">{{ artistSearchError }}</p>
+
+      <div v-if="artistSearching" class="state">Searching...</div>
+      <template v-else-if="artistSearchResults">
+        <ul v-if="artistSearchResults.length" class="result-list">
+          <li v-for="result in artistSearchResults" :key="result.id" class="result-row">
+            <div class="result-info">
+              <span class="result-title">{{ result.name }}</span>
+            </div>
+            <button type="button" class="select-btn" :disabled="artistImporting" @click="selectArtist(result)">
+              Select
+            </button>
+          </li>
+        </ul>
+        <p v-else class="state">No artist found for "{{ artistSearchQuery }}".</p>
+      </template>
+
+      <div v-if="artistImporting" class="state">Loading themes...</div>
+      <p v-if="artistImportError" class="inline-error">{{ artistImportError }}</p>
+
+      <div v-if="selectedArtist" class="themes-section">
+        <template v-if="selectedArtist.animeGroups.length">
+          <div v-for="group in selectedArtist.animeGroups" :key="group.anime.id">
+            <h2>{{ group.anime.titleEnglish }}</h2>
+            <ul class="theme-list">
+              <li v-for="theme in group.themes" :key="theme.songId" class="theme-row">
+                <div class="theme-info">
+                  <span class="theme-title">{{ theme.songTitle }}</span>
+                  <span class="result-meta">{{ selectedArtist.artistName }} - {{ theme.themeSlot }}</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </template>
+        <p v-else class="state">No themes found for {{ selectedArtist.artistName }} on animethemes.moe.</p>
+      </div>
+    </template>
 
     <div v-if="selectedAnime" class="themes-section">
       <h2>{{ selectedAnime.anime.titleEnglish }}</h2>
@@ -365,6 +529,29 @@ h2 {
 .hint {
   margin: 0 0 24px;
   color: var(--muted);
+}
+
+.toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.toggle-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle-btn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .search-form {

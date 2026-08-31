@@ -249,3 +249,16 @@ cleaned-up checkbox version before generating the project overview.
   `/study` share one expand implementation instead of two
   independently-evolved ones. No Pass/Fail overlay in Preview (no
   quiz/review state there).
+- [ ] 37. **Bulk artist import** - a "search by artist" mode on `/cards/new`
+  (alongside the existing anime search) that pulls in an artist's entire
+  animethemes.moe catalog across every anime they have themes in, instead of
+  one anime at a time.
+  - [x] 37a. **Artist search + theme resolution** - find an artist on
+    animethemes.moe by name, resolve every anime they have themes in via
+    AniList (reusing the existing per-anime `upsertAnime`/`upsertSong`
+    pipeline, looped across all of that artist's anime), and show a preview
+    list of every song/theme found. No cards created yet.
+  - [ ] 37b. **Bulk card creation + download** - "Add all" (and per-row
+    "Add") on that preview list creates a `Card` per selected theme, plus a
+    bulk "download all" option reusing feature 8's existing download
+    machinery.

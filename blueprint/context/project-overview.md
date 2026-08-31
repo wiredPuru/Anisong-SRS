@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 7f69f62733d622e372f2e161104904d0f5692871238f3105b4f86a1e760b2034 -->
+<!-- blueprint:source-hash bfb28c7a9b3cee27da2a5aeaf38a4bf39bc833de3d119e0353e26d68184b5a99 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -28,16 +28,19 @@ Build-plan order. Features 1-17 and 19-24 (the full MVP, manual decks, the
 study-screen ambient glow, the home page/nav bar, Preview editing, delete
 cleanup, pagination/search, Preview expand + ambient mode, the volume
 slider, deck-detail Preview, Study's own expand toggle, and the
-ambient-driven glass surface) are built and merged, as are 26-31 and 33-34
+ambient-driven glass surface) are built and merged, as are 26-31 and 33-36
 (global search find+add, clear-local-file, add-existing-cards-to-deck,
 stats refresh+clear, native Japanese titles + split furigana toggle, the
-immersive study mode, add-new-anime-from-a-deck, and deck assignment from
-card edit). 35a is also built and merged (cards library search + infinite
-scroll); 35b, 35c, and 36 are queued, not started. Features 18, 25, and 32
-were each abandoned outright (see their entries below) - all three numbers
-are retired, not reused: 18 was built, then rolled back, then dropped; 25
-was dropped before any code was written; 32 was spec'd and partially
-implemented, then dropped before any code was committed to master.
+immersive study mode, add-new-anime-from-a-deck, deck assignment from card
+edit, library search + infinite scroll in all three sub-features, and
+unifying Preview's expand mode with Study's immersive overlay). Feature 37
+(bulk artist import) is queued, not started, split into two sub-features
+(37a artist search + theme resolution, 37b bulk card creation + download).
+Features 18, 25, and 32 were each abandoned outright (see their entries
+below) - all three numbers are retired, not reused: 18 was built, then
+rolled back, then dropped; 25 was dropped before any code was written; 32
+was spec'd and partially implemented, then dropped before any code was
+committed to master.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -144,8 +147,10 @@ implemented, then dropped before any code was committed to master.
     - **19a. Pagination** - done. Numbered pages, ~25/page
       (`PAGE_SIZE` in `server/utils/pagination.ts`), on the top-level
       `/cards` list, top-level `/decks` list, and the card list inside a
-      deck's detail view, via a shared `<Pager>` component and a
-      `Paginated<T>` return shape.
+      deck's detail view, via a `Paginated<T>` server-side return shape
+      (still current) and a shared `<Pager>` UI component - later fully
+      superseded by feature 35's infinite scroll on all three surfaces;
+      `Pager.vue` itself was deleted in 35c once nothing called it anymore.
     - **19b. Global search** - done. An autocomplete dropdown in the
       persistent nav bar (`/api/search`), searching `Card`s only - a result
       hands off to `/cards` via a shared `pendingCardPreview` `useState`,
@@ -234,10 +239,14 @@ implemented, then dropped before any code was committed to master.
     same `POST /api/decks/cards` feature 13b's `/cards`-side checkbox
     panel already uses - initiated from the other direction, no server
     changes needed.
-29. **Stats refresh + clear** - not started. A manual refresh action on
-    `/stats`, plus a destructive "clear" action that deletes `ReviewLog`
-    history only (stats reset to zero; card box levels and due dates are
-    untouched).
+29. **Stats refresh + clear** - done. A "Refresh" button on `/stats` re-runs
+    both existing stats fetches (overall summary + the active By Artist/By
+    Title list) without a full page reload. A new `POST /api/stats/clear`
+    route deletes every `ReviewLog` row (stats reset to zero; `Card.box`/
+    `Card.nextReviewAt` are untouched, since those live on `Card`, not
+    `ReviewLog`), gated behind an inline two-step confirm (this app's first
+    confirm pattern - card/deck delete are both one-click) and disabled when
+    there's nothing to clear.
 30. **Native Japanese song titles + split Furigana toggle** - done. Adds a
     native-Japanese `titleNative` column to `Song` (alongside the anime
     title fields that already exist on `Anime`), populated from
@@ -291,27 +300,64 @@ implemented, then dropped before any code was committed to master.
     state, no new fetches. `/cards`' original standalone "Decks"
     button/panel is untouched and still works exactly as before; this adds
     a second, complementary entry point rather than replacing it.
-35. **Library search + infinite scroll** - three sub-features (per-page
-    search/filter plus scroll-triggered loading, replacing feature 19a's
-    numbered pagination one list surface at a time); 35a done, 35b/35c not
-    started:
+35. **Library search + infinite scroll** - done, three sub-features
+    (per-page search/filter plus scroll-triggered loading, replacing feature
+    19a's numbered pagination one list surface at a time):
     - **35a. Cards library search + infinite scroll** - done. A search box
       on `/cards` narrows the list by song/artist/anime title; its
       numbered `Pager` is replaced by "load more as you scroll."
-    - **35b. Decks library search + infinite scroll** - not started. The
-      same two changes applied to `/decks`' top-level list (Artist/Anime/
-      Created).
-    - **35c. Deck detail search + infinite scroll** - not started. The
-      same two changes applied to the card list inside a selected
-      manual/artist/anime deck's detail view.
-36. **Unify Preview's expand mode with Study's immersive overlay** - not
-    started. `CardPreviewModal`'s own separate expand mechanism (feature
-    20 - grows the whole modal panel, video and info stacked, scrollable)
-    is replaced by reusing `StudyMediaPlayer`'s existing immersive/overlay
-    mechanism (feature 31 - info card over the video, `E` hotkey), so
-    Preview and `/study` share one expand implementation instead of two
-    independently-evolved ones. No Pass/Fail overlay in Preview (no
-    quiz/review state there).
+    - **35b. Decks library search + infinite scroll** - done. The same two
+      changes applied to `/decks`' top-level list, per active tab (Artist:
+      artist name; Anime: EN/Romaji/Native title; Created: deck name).
+      Switching tabs clears the search box and reloads that tab fresh.
+    - **35c. Deck detail search + infinite scroll** - done. The same two
+      changes applied to the card list inside a selected manual/artist/anime
+      deck's detail view (matches song title, artist name, or anime title
+      across all three deck types via the same `cardSearchCondition`
+      `/api/cards` already used). The five existing card-list mutations on
+      that view (remove/edit/download/add-existing/add-new-anime) were
+      updated to mutate the loaded list in place or reload fresh instead of
+      refetching, so an infinite-scrolled position survives them. `Pager.vue`
+      was deleted once this landed - it had no remaining callers. A same-build
+      fix also corrected a pre-existing crash on the By Title/Created tabs
+      (`deckItems` referenced an undefined `data` ref instead of `rawDecks`)
+      and a mobile-only bug where the new search input lost focus/closed the
+      on-screen keyboard on every keystroke (it was inside the same
+      pending-gated block its own results list was, so a debounced refetch
+      unmounted it mid-type - fixed by hoisting the input above that gate,
+      matching how 35a/35b's own search inputs are already positioned).
+36. **Unify Preview's expand mode with Study's immersive overlay** - done.
+    `CardPreviewModal`'s own separate expand mechanism (feature 20 - grew
+    the whole modal panel, video and info stacked, scrollable) is replaced
+    by passing `:allow-expand`/`v-model:immersive` into its existing
+    `<StudyMediaPlayer>`, reusing feature 31's immersive/overlay mechanism
+    (info card over the video, `E` hotkey) unchanged - no changes needed to
+    `StudyMediaPlayer.vue` or `StudyInfoPanel.vue` themselves. No Pass/Fail
+    overlay in Preview (no quiz/review state there); immersive is
+    unavailable while editing a card (expand button hides, `E` no-ops).
+    Escape's existing two-step behavior (collapse immersive, then close)
+    carries over, with `CardPreviewModal`'s own Escape-to-close handler
+    gated on `!immersive` so the two `window`-level handlers don't both
+    fire the same keypress.
+37. **Bulk artist import** - not started, two sub-features. A "search by
+    artist" mode on `/cards/new` (alongside the existing anime search) that
+    pulls in an artist's entire animethemes.moe catalog across every anime
+    they have themes in, instead of one anime at a time - resolves the
+    open question below.
+    - **37a. Artist search + theme resolution** - not started. Finds an
+      artist on animethemes.moe by name (`artistPagination(search: ...)`)
+      and walks `performances -> song -> animethemes -> anime ->
+      resources(site: ANILIST)` to collect every anime that artist has
+      themes in, resolving each via the existing `fetchAnimeFromAniList` +
+      `upsertAnime`/`getOrCreateArtist`/`upsertSong` pipeline
+      `/api/lookup/import` already uses for a single anime - just looped
+      across all of that artist's anime instead of one picked by the user.
+      Shows a preview list of every song/theme found; no `Card` rows
+      created yet.
+    - **37b. Bulk card creation + download** - not started. "Add all" (and
+      per-row "Add") on that preview list creates a `Card` per selected
+      theme via the existing `POST /api/cards`, plus a bulk "download all"
+      option reusing feature 8's existing per-card download machinery.
 
 ## Data model
 
@@ -539,7 +585,8 @@ Routes:
   panel (checkbox per manual deck, toggling calls the assignment API
   immediately - no save step). Feature 17 made the existing Delete button
   also remove the card's now-unreferenced local file(s), with no added
-  confirmation step.
+  confirmation step. Feature 35a replaced numbered pagination with a search
+  box (song/artist/anime title) plus scroll-triggered "load more."
 - `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
   the same download action available right after a card is added.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
@@ -549,9 +596,14 @@ Routes:
   list once 13b landed, with a per-card "Remove" action found only in the
   manual-deck detail view. Neither "Study this deck" nor the export block
   appears there. Feature 22 added a per-row "Preview" button to the detail
-  card list (all three deck types), reusing `CardPreviewModal` unchanged
-  and refetching via the page's existing `fetchDeckDetail()` when an
-  in-modal edit is saved.
+  card list (all three deck types), reusing `CardPreviewModal` unchanged.
+  Feature 35b replaced the top-level list's numbered pagination with a
+  per-tab search box plus scroll-triggered "load more"; feature 35c did the
+  same for the detail card list inside a selected deck, and switched its
+  five existing mutations (remove/edit/download/add-existing/add-new-anime)
+  from refetching the current page to updating the loaded list in place (or
+  reloading fresh for the two "add a card" flows), since infinite scroll has
+  no single "current page" to refetch.
 - `/study` - done. Video centered, title/artist info panel on the right,
   pass/fail (or left/right arrow) controls, EN/Romaji/JP+Furigana display
   toggles. `prototypes/study.html` was its original design reference
@@ -574,7 +626,9 @@ Routes:
   prop, not passed from `CardPreviewModal`) that grows the player to fill
   the viewport - independent of Preview's own expand from feature 20.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
-  each row's guess rate.
+  each row's guess rate. Feature 29 added a manual "Refresh" button and a
+  destructive "Clear history" action (two-step inline confirm) that wipes
+  `ReviewLog` only - `Card.box`/`Card.nextReviewAt` are untouched.
 
 ## Deployment
 
@@ -592,16 +646,6 @@ Localhost-only - no remote hosting, no accounts, no multi-device sync.
 - **Packaged build**: not planned. Run via the developer workflow
   (`bun run dev`/`bun run preview`) only.
 - **Health check / domain**: not applicable (local-only)
-
-## Open questions
-
-`project-plan.md`'s Flashcard CRUD section still has an uncommitted note
-about auto-importing an artist's **entire catalog** in one action. Feature 8
-deliberately covered only the narrower half of that note (a per-card
-download option) and explicitly left bulk artist import out of scope. The
-bulk-import idea remains unresolved and unbuilt - fold it into a future
-build-plan item (its own feature, not an amendment to 8) before building
-anything against it.
 
 ## Notes
 
