@@ -33,15 +33,9 @@ const emit = defineEmits<{
       Hide Cover
       <span class="tooltip">Hotkey: C</span>
     </button>
-    <button
-      type="button"
-      class="toggle-btn"
-      :class="{ on: autoReveal }"
-      :disabled="!hideInfo"
-      @click="emit('toggle-auto-reveal')"
-    >
+    <button type="button" class="toggle-btn" :class="{ on: autoReveal }" @click="emit('toggle-auto-reveal')">
       Auto Reveal
-      <span class="tooltip">Reveals Hide Info automatically after a short timer</span>
+      <span class="tooltip">Hides video/cover (and Hide Info's text, if that's on too) until a short timer reveals them</span>
     </button>
     <label v-if="autoReveal" class="toggle-btn auto-reveal-seconds">
       <input
@@ -51,7 +45,6 @@ const emit = defineEmits<{
         step="1"
         class="auto-reveal-seconds-input"
         :value="autoRevealSeconds"
-        :disabled="!hideInfo"
         @change="emit('update-auto-reveal-seconds', Number(($event.target as HTMLInputElement).value))"
       />
       sec

@@ -25,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:immersive": [boolean];
   "playback-started": [];
+  "playback-paused": [];
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
 }>();
 
@@ -522,6 +523,9 @@ function onPlay() {
 
 // "play" fires as soon as playback is requested, even while a remote clip is
 // still buffering; "playing" fires once frames/audio are actually rendering.
+// Unlike its name suggests, "playing" fires on every resume from a pause too
+// (not just a card's first start), which is exactly what the auto-reveal
+// timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
   emit("playback-started");
 }
@@ -530,6 +534,7 @@ function onPause() {
   isPlaying.value = false;
   stopAmbientLoop();
   stopVisualizerLoop();
+  emit("playback-paused");
 }
 
 function onSeeked() {

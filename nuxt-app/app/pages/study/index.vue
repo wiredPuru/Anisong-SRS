@@ -184,14 +184,67 @@ watch(autoRevealSeconds, (value) => {
 
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
+// Mirrors the media player's actual play/pause state (see onPlaybackStarted/
+// onPlaybackPaused below) - distinct from hasStartedPlaybackThisCard, which
+// is a one-way "has this card ever played" latch that a later pause doesn't
+// clear.
+const isPlaybackActive = ref(false);
 let autoRevealTimeout: ReturnType<typeof setTimeout> | null = null;
+let autoRevealArmedAt = 0;
+let autoRevealArmedDurationMs = 0;
+// Set when a running countdown is paused (see onPlaybackPaused); consumed by
+// the next resume so it continues from where it left off instead of
+// restarting the full duration. Null means "not paused mid-countdown."
+let autoRevealRemainingMs: number | null = null;
+
+function stopAutoRevealTimeout() {
+  if (autoRevealTimeout !== null) {
+    clearTimeout(autoRevealTimeout);
+    autoRevealTimeout = null;
+  }
+}
+
+function startAutoRevealTimeout(durationMs: number) {
+  stopAutoRevealTimeout();
+  autoRevealArmedAt = Date.now();
+  autoRevealArmedDurationMs = durationMs;
+  autoRevealTimeout = setTimeout(() => {
+    autoRevealedThisCard.value = true;
+    autoRevealTimeout = null;
+    autoRevealRemainingMs = null;
+  }, durationMs);
+}
+
+// Arms (or resumes, with whatever time was left at the last pause) the
+// countdown. Called both from the reactive reset below and from every
+// playback resume. No-ops harmlessly when Auto Reveal is off, nothing has
+// played yet, or this card already revealed.
+function maybeStartOrResumeAutoReveal() {
+  if (!autoReveal.value || autoRevealedThisCard.value || !hasStartedPlaybackThisCard.value) return;
+  startAutoRevealTimeout(autoRevealRemainingMs ?? autoRevealSeconds.value * 1000);
+}
 
 function onPlaybackStarted() {
   hasStartedPlaybackThisCard.value = true;
+  isPlaybackActive.value = true;
+  maybeStartOrResumeAutoReveal();
+}
+
+// Pausing playback pauses the countdown too, rather than letting it keep
+// ticking toward a reveal while nothing is actually playing to guess from.
+// Records the remaining time so the next resume (onPlaybackStarted, which
+// fires on every resume via the "playing" event, not just a card's first
+// start) can pick up where this left off.
+function onPlaybackPaused() {
+  isPlaybackActive.value = false;
+  if (autoRevealTimeout === null) return;
+  const elapsed = Date.now() - autoRevealArmedAt;
+  autoRevealRemainingMs = Math.max(0, autoRevealArmedDurationMs - elapsed);
+  stopAutoRevealTimeout();
 }
 
 watch(
-  [presentationKey, hideInfo, autoReveal, hasStartedPlaybackThisCard, autoRevealSeconds],
+  [presentationKey, autoReveal, autoRevealSeconds],
   (newValues, oldValues) => {
     const newKey = newValues[0];
     const oldKey = oldValues?.[0];
@@ -201,28 +254,26 @@ watch(
     // the immediate first run, which also counts as "new" (nothing played
     // for the very first card yet either).
     const isNewCard = oldKey === undefined || newKey !== oldKey;
-    if (isNewCard) hasStartedPlaybackThisCard.value = false;
-
-    if (autoRevealTimeout !== null) {
-      clearTimeout(autoRevealTimeout);
-      autoRevealTimeout = null;
+    if (isNewCard) {
+      hasStartedPlaybackThisCard.value = false;
+      isPlaybackActive.value = false;
     }
+
+    stopAutoRevealTimeout();
+    autoRevealRemainingMs = null;
     autoRevealedThisCard.value = false;
 
-    const started = !isNewCard && hasStartedPlaybackThisCard.value;
-    if (hideInfo.value && autoReveal.value && started) {
-      autoRevealTimeout = setTimeout(() => {
-        autoRevealedThisCard.value = true;
-        autoRevealTimeout = null;
-      }, autoRevealSeconds.value * 1000);
+    // Toggling Auto Reveal on, or changing the seconds value, while a card
+    // is actively playing starts counting immediately with the fresh
+    // duration above; otherwise this waits for the next real resume.
+    if (!isNewCard && isPlaybackActive.value) {
+      maybeStartOrResumeAutoReveal();
     }
   },
   { immediate: true },
 );
 
-onUnmounted(() => {
-  if (autoRevealTimeout !== null) clearTimeout(autoRevealTimeout);
-});
+onUnmounted(stopAutoRevealTimeout);
 
 const { setAmbientGlass } = useAmbientGlass();
 watch(ambientMode, (value) => {
@@ -321,22 +372,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <StudyMediaPlayer
           :key="presentationKey"
           :card="currentCard"
-          :hide-video="hideVideo && !autoRevealedThisCard"
+          :hide-video="(hideVideo || autoReveal) && !autoRevealedThisCard"
           :random-start="randomStart"
           :ambient="ambientMode"
           :allow-expand="true"
           :hide-theme-badge="hideInfo"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="audioOnly"
-          :hide-cover="hideCover"
+          :hide-cover="(hideCover || autoReveal) && !autoRevealedThisCard"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
+          @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
         >
           <template v-if="immersive" #immersive>
             <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
               <StudyAutoRevealCountdown
-                v-if="hideInfo && autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+                v-if="autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
                 :key="presentationKey"
                 :seconds="autoRevealSeconds"
                 :ambient="ambientMode"
@@ -369,7 +421,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="!immersive" class="side">
           <div class="info-panel-wrap">
             <StudyAutoRevealCountdown
-              v-if="hideInfo && autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+              v-if="autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
               :key="presentationKey"
               :seconds="autoRevealSeconds"
               :ambient="ambientMode"
