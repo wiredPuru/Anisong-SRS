@@ -305,3 +305,11 @@ cleaned-up checkbox version before generating the project overview.
   frequency visualizer around the spinning record, reactive to actual audio
   playback via the Web Audio API - replacing the "Listening.../Paused"
   feedback that already disappears in cover-art mode.
+- [x] 46. **Auto Reveal modes + settings popup** - replace the single Auto
+  Reveal on/off toggle with a Video / Info / Both mode choice, moved into a
+  small settings popup (alongside its interval) instead of extra buttons in
+  the display-toggles row. Turning on a mode forces its target Hide
+  toggle(s) on immediately and again at the start of every new card,
+  overriding any manual Hide Video/Hide Info/Hide Cover change made
+  mid-card; switching mode or turning Auto Reveal off reverts whichever
+  toggle(s) it had forced back off.

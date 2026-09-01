@@ -1,11 +1,13 @@
 <script setup lang="ts">
+type AutoRevealMode = "off" | "video" | "info" | "both";
+
 defineProps<{
   hideVideo: boolean;
   hideInfo: boolean;
   hideCover: boolean;
   randomStart: boolean;
   ambientMode: boolean;
-  autoReveal: boolean;
+  autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
 }>();
 const emit = defineEmits<{
@@ -14,9 +16,11 @@ const emit = defineEmits<{
   "toggle-hide-cover": [];
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
-  "toggle-auto-reveal": [];
-  "update-auto-reveal-seconds": [number];
+  "update:auto-reveal-mode": [AutoRevealMode];
+  "update:auto-reveal-seconds": [number];
 }>();
+
+const showAutoRevealSettings = ref(false);
 </script>
 
 <template>
@@ -33,22 +37,15 @@ const emit = defineEmits<{
       Hide Cover
       <span class="tooltip">Hotkey: C</span>
     </button>
-    <button type="button" class="toggle-btn" :class="{ on: autoReveal }" @click="emit('toggle-auto-reveal')">
+    <button
+      type="button"
+      class="toggle-btn"
+      :class="{ on: autoRevealMode !== 'off' }"
+      @click="showAutoRevealSettings = true"
+    >
       Auto Reveal
-      <span class="tooltip">Hides video/cover (and Hide Info's text, if that's on too) until a short timer reveals them</span>
+      <span class="tooltip">Choose what it hides (video/cover, info, or both) and its timer</span>
     </button>
-    <label v-if="autoReveal" class="toggle-btn auto-reveal-seconds">
-      <input
-        type="number"
-        min="1"
-        max="30"
-        step="1"
-        class="auto-reveal-seconds-input"
-        :value="autoRevealSeconds"
-        @change="emit('update-auto-reveal-seconds', Number(($event.target as HTMLInputElement).value))"
-      />
-      sec
-    </label>
     <button type="button" class="toggle-btn" :class="{ on: randomStart }" @click="emit('toggle-random-start')">
       Start at random times
     </button>
@@ -56,6 +53,14 @@ const emit = defineEmits<{
       Ambient mode
       <span class="tooltip">Hotkey: A</span>
     </button>
+    <StudyAutoRevealSettingsModal
+      v-if="showAutoRevealSettings"
+      :mode="autoRevealMode"
+      :seconds="autoRevealSeconds"
+      @update:mode="emit('update:auto-reveal-mode', $event)"
+      @update:seconds="emit('update:auto-reveal-seconds', $event)"
+      @close="showAutoRevealSettings = false"
+    />
   </div>
 </template>
 
@@ -89,36 +94,6 @@ const emit = defineEmits<{
 
 .toggle-btn:disabled {
   opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Reuses .toggle-btn's own pill (padding/border/background/color/font) so
-   this sits and blends exactly like its sibling toggle buttons - including
-   the shared [data-ambient-glass="true"] .display-toggles .toggle-btn rule
-   in main.css, which this needs too since it lives in the same row. */
-.auto-reveal-seconds {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: default;
-}
-
-.auto-reveal-seconds-input {
-  width: 32px;
-  padding: 2px 4px;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.auto-reveal-seconds-input:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
 }
 

@@ -121,7 +121,19 @@ const randomStart = ref(false);
 const ambientMode = ref(false);
 const showControls = ref(true);
 const immersive = ref(false);
-const autoReveal = ref(false);
+type AutoRevealMode = "off" | "video" | "info" | "both";
+const AUTO_REVEAL_MODES: readonly AutoRevealMode[] = ["off", "video", "info", "both"];
+function isAutoRevealMode(value: string | null): value is AutoRevealMode {
+  return value !== null && (AUTO_REVEAL_MODES as readonly string[]).includes(value);
+}
+
+const autoRevealMode = ref<AutoRevealMode>("off");
+// "Visual" covers both Hide Video and Hide Cover - feature 44/45 already
+// treats them as the same slot (whichever applies to the current card's
+// type), so "Auto Reveal Video" targets whichever one is actually relevant
+// rather than being restricted to literally video-capable cards.
+const autoRevealTargetsVisual = computed(() => autoRevealMode.value === "video" || autoRevealMode.value === "both");
+const autoRevealTargetsInfo = computed(() => autoRevealMode.value === "info" || autoRevealMode.value === "both");
 
 const AUTO_REVEAL_SECONDS_DEFAULT = 5;
 const AUTO_REVEAL_SECONDS_MIN = 1;
@@ -139,7 +151,10 @@ function onUpdateAutoRevealSeconds(value: number) {
 }
 
 const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
-const AUTO_REVEAL_STORAGE_KEY = "gaqSrs:autoReveal";
+// Replaces the old boolean gaqSrs:autoReveal key - abandoned outright, no
+// migration, matching this app's existing no-migration convention for
+// session/preference keys.
+const AUTO_REVEAL_MODE_STORAGE_KEY = "gaqSrs:autoRevealMode";
 const AUTO_REVEAL_SECONDS_STORAGE_KEY = "gaqSrs:autoRevealSeconds";
 
 onMounted(() => {
@@ -151,9 +166,10 @@ onMounted(() => {
   }
 
   try {
-    autoReveal.value = localStorage.getItem(AUTO_REVEAL_STORAGE_KEY) === "1";
+    const stored = localStorage.getItem(AUTO_REVEAL_MODE_STORAGE_KEY);
+    autoRevealMode.value = isAutoRevealMode(stored) ? stored : "off";
   } catch {
-    autoReveal.value = false;
+    autoRevealMode.value = "off";
   }
 
   try {
@@ -164,12 +180,12 @@ onMounted(() => {
   }
 });
 
-watch(autoReveal, (value) => {
+watch(autoRevealMode, (value) => {
   try {
-    localStorage.setItem(AUTO_REVEAL_STORAGE_KEY, value ? "1" : "0");
+    localStorage.setItem(AUTO_REVEAL_MODE_STORAGE_KEY, value);
   } catch {
     // localStorage unavailable (private browsing, locked-down environment) -
-    // the toggle still works for this session, it just won't persist.
+    // the mode still works for this session, it just won't persist.
   }
 });
 
@@ -220,7 +236,7 @@ function startAutoRevealTimeout(durationMs: number) {
 // playback resume. No-ops harmlessly when Auto Reveal is off, nothing has
 // played yet, or this card already revealed.
 function maybeStartOrResumeAutoReveal() {
-  if (!autoReveal.value || autoRevealedThisCard.value || !hasStartedPlaybackThisCard.value) return;
+  if (autoRevealMode.value === "off" || autoRevealedThisCard.value || !hasStartedPlaybackThisCard.value) return;
   startAutoRevealTimeout(autoRevealRemainingMs ?? autoRevealSeconds.value * 1000);
 }
 
@@ -243,8 +259,61 @@ function onPlaybackPaused() {
   stopAutoRevealTimeout();
 }
 
+// Forces the newly-targeted Hide toggle(s) on, and reverts whichever
+// toggle(s) the *previous* mode had targeted but the new one doesn't -
+// covers both "turn Auto Reveal off" and "switch mode" (e.g. Video ->
+// Info) in one rule. A toggle untouched by both the old and new mode is
+// left completely alone - the user's own manual state for it persists.
+const AUTO_REVEAL_MODE_TARGETS: Record<AutoRevealMode, { visual: boolean; info: boolean }> = {
+  off: { visual: false, info: false },
+  video: { visual: true, info: false },
+  info: { visual: false, info: true },
+  both: { visual: true, info: true },
+};
+
 watch(
-  [presentationKey, autoReveal, autoRevealSeconds],
+  autoRevealMode,
+  (mode, previousMode) => {
+    const targets = AUTO_REVEAL_MODE_TARGETS[mode];
+    const previousTargets = previousMode ? AUTO_REVEAL_MODE_TARGETS[previousMode] : { visual: false, info: false };
+    if (targets.visual) {
+      hideVideo.value = true;
+      hideCover.value = true;
+    } else if (previousTargets.visual) {
+      hideVideo.value = false;
+      hideCover.value = false;
+    }
+    if (targets.info) {
+      hideInfo.value = true;
+    } else if (previousTargets.info) {
+      hideInfo.value = false;
+    }
+  },
+  { immediate: true },
+);
+
+// A manual reveal (button or hotkey) of a still-targeted, still-hidden
+// toggle means the answer is already showing - finalize the reveal for
+// this card immediately instead of leaving the timer/countdown ticking
+// toward a state that's already true. Checking isTargeted at the moment of
+// the transition (rather than unconditionally) is what keeps this from
+// misfiring when the mode-change watcher above sets a *no-longer-targeted*
+// toggle to false (e.g. Video -> Info): by the time that assignment lands,
+// the target computeds already reflect the new mode, so isTargeted is
+// already false there and this no-ops correctly.
+function onHideToggleChanged(isTargeted: boolean, isNowHidden: boolean) {
+  if (isNowHidden || !isTargeted || autoRevealedThisCard.value) return;
+  autoRevealedThisCard.value = true;
+  stopAutoRevealTimeout();
+  autoRevealRemainingMs = null;
+}
+
+watch(hideVideo, (isHidden) => onHideToggleChanged(autoRevealTargetsVisual.value, isHidden));
+watch(hideCover, (isHidden) => onHideToggleChanged(autoRevealTargetsVisual.value, isHidden));
+watch(hideInfo, (isHidden) => onHideToggleChanged(autoRevealTargetsInfo.value, isHidden));
+
+watch(
+  [presentationKey, autoRevealMode, autoRevealSeconds],
   (newValues, oldValues) => {
     const newKey = newValues[0];
     const oldKey = oldValues?.[0];
@@ -254,18 +323,36 @@ watch(
     // the immediate first run, which also counts as "new" (nothing played
     // for the very first card yet either).
     const isNewCard = oldKey === undefined || newKey !== oldKey;
+
+    // A mode/seconds change after this card already revealed (naturally, or
+    // via an early manual reveal - see the hide-toggle watchers above) takes
+    // effect starting the next card only; it must never re-hide or restart a
+    // countdown on an already-answered card.
+    if (!isNewCard && autoRevealedThisCard.value) return;
+
     if (isNewCard) {
       hasStartedPlaybackThisCard.value = false;
       isPlaybackActive.value = false;
+      // Re-forces whichever toggle(s) the active mode targets, overriding
+      // any manual Hide Video/Hide Info/Hide Cover change made mid-card on
+      // the previous card. Only ever forces on, never off - reverting an
+      // untargeted toggle is the mode-change watcher's job above, not this.
+      if (autoRevealTargetsVisual.value) {
+        hideVideo.value = true;
+        hideCover.value = true;
+      }
+      if (autoRevealTargetsInfo.value) {
+        hideInfo.value = true;
+      }
     }
 
     stopAutoRevealTimeout();
     autoRevealRemainingMs = null;
     autoRevealedThisCard.value = false;
 
-    // Toggling Auto Reveal on, or changing the seconds value, while a card
-    // is actively playing starts counting immediately with the fresh
-    // duration above; otherwise this waits for the next real resume.
+    // Turning Auto Reveal on, switching mode, or changing the seconds value
+    // while a card is actively playing starts counting immediately with the
+    // fresh duration above; otherwise this waits for the next real resume.
     if (!isNewCard && isPlaybackActive.value) {
       maybeStartOrResumeAutoReveal();
     }
@@ -358,28 +445,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         :hide-cover="hideCover"
         :random-start="randomStart"
         :ambient-mode="ambientMode"
-        :auto-reveal="autoReveal"
+        v-model:auto-reveal-mode="autoRevealMode"
         :auto-reveal-seconds="autoRevealSeconds"
         @toggle-hide-video="hideVideo = !hideVideo"
         @toggle-hide-info="hideInfo = !hideInfo"
         @toggle-hide-cover="hideCover = !hideCover"
         @toggle-random-start="randomStart = !randomStart"
         @toggle-ambient-mode="ambientMode = !ambientMode"
-        @toggle-auto-reveal="autoReveal = !autoReveal"
-        @update-auto-reveal-seconds="onUpdateAutoRevealSeconds"
+        @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
       />
       <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
         <StudyMediaPlayer
           :key="presentationKey"
           :card="currentCard"
-          :hide-video="(hideVideo || autoReveal) && !autoRevealedThisCard"
+          :hide-video="(hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
           :random-start="randomStart"
           :ambient="ambientMode"
           :allow-expand="true"
           :hide-theme-badge="hideInfo"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="audioOnly"
-          :hide-cover="(hideCover || autoReveal) && !autoRevealedThisCard"
+          :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
@@ -388,7 +474,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <template v-if="immersive" #immersive>
             <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
               <StudyAutoRevealCountdown
-                v-if="autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+                v-if="autoRevealMode !== 'off' && hasStartedPlaybackThisCard && !autoRevealedThisCard"
                 :key="presentationKey"
                 :seconds="autoRevealSeconds"
                 :ambient="ambientMode"
@@ -421,7 +507,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="!immersive" class="side">
           <div class="info-panel-wrap">
             <StudyAutoRevealCountdown
-              v-if="autoReveal && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+              v-if="autoRevealMode !== 'off' && hasStartedPlaybackThisCard && !autoRevealedThisCard"
               :key="presentationKey"
               :seconds="autoRevealSeconds"
               :ambient="ambientMode"
