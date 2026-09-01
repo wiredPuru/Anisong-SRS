@@ -86,6 +86,45 @@ const src = computed(() =>
     : mediaUrl(props.card.localAudioPath, props.card.animethemesAudioUrl),
 );
 
+// 3D parallax: the record tilts toward the cursor like a physical disk
+// viewed from a shifting angle, and the visualizer ring (sitting "behind"
+// the disk conceptually) drifts a little the opposite way at a smaller
+// distance - two depth layers moving at different rates is what reads as
+// parallax rather than just a single tilted plane. Record-only: there's no
+// physical disk to tilt in video mode, so this no-ops there via the
+// showCoverArt guard.
+const RECORD_TILT_DEGREES = 10;
+const VISUALIZER_PARALLAX_PX = 6;
+const recordTiltX = ref(0);
+const recordTiltY = ref(0);
+const visualizerParallaxX = ref(0);
+const visualizerParallaxY = ref(0);
+
+function onPlayerPointerMove(event: MouseEvent) {
+  if (!showCoverArt.value) return;
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const nx = (event.clientX - rect.left) / rect.width - 0.5;
+  const ny = (event.clientY - rect.top) / rect.height - 0.5;
+  recordTiltX.value = nx * RECORD_TILT_DEGREES;
+  recordTiltY.value = -ny * RECORD_TILT_DEGREES;
+  visualizerParallaxX.value = -nx * VISUALIZER_PARALLAX_PX;
+  visualizerParallaxY.value = -ny * VISUALIZER_PARALLAX_PX;
+}
+
+function resetPlayerParallax() {
+  recordTiltX.value = 0;
+  recordTiltY.value = 0;
+  visualizerParallaxX.value = 0;
+  visualizerParallaxY.value = 0;
+}
+
+// Avoids the record reappearing at a stale tilt (from before it was last
+// hidden) if the mouse hasn't moved since it came back - e.g. the card
+// flips to video and back to audio-only without a mousemove in between.
+watch(showCoverArt, (active) => {
+  if (!active) resetPlayerParallax();
+});
+
 // Warms the stream cache for this card's remote clip as early as possible -
 // on mount, and again if the card prop changes without a remount - so
 // playback often finds it already cached by the time the user presses play.
@@ -236,6 +275,9 @@ function togglePlay() {
   const el = activeEl.value;
   if (!el) return;
   if (el.paused) {
+    // AudioContext starts suspended under autoplay policy; resuming here,
+    // inside a real click/keypress handler, is what actually unlocks it.
+    audioContext?.resume();
     el.play().catch(() => {
       errorMessage.value = "Couldn't play this clip.";
     });
@@ -303,9 +345,179 @@ watch(ambientActive, (active) => {
 
 onUnmounted(stopAmbientInterval);
 
+// Audio visualizer: an AnalyserNode tapped off the same <audio> element
+// already playing, drawn as bars reacting to the real audio - the record's
+// (feature 44) play-state feedback, since the plain eq-bars icon is hidden
+// whenever the record shows. The source node is created once per underlying
+// <audio> element instance, not per card: CardPreviewModal doesn't remount
+// this component, so the same element can persist across several
+// audio-only cards in a row, and createMediaElementSource throws if called
+// twice on the same element. Watching audioRef itself (rather than the
+// card prop) means this only re-fires when the element is actually
+// created/destroyed (a mediaKind flip), never on a same-element src change.
+let audioContext: AudioContext | null = null;
+let analyserNode: AnalyserNode | null = null;
+let sourceNode: MediaElementAudioSourceNode | null = null;
+
+function teardownAudioGraph() {
+  sourceNode?.disconnect();
+  analyserNode?.disconnect();
+  if (audioContext && audioContext.state !== "closed") {
+    audioContext.close().catch(() => {});
+  }
+  audioContext = null;
+  analyserNode = null;
+  sourceNode = null;
+}
+
+function setupAudioGraph(el: HTMLAudioElement) {
+  audioContext = new AudioContext();
+  analyserNode = audioContext.createAnalyser();
+  analyserNode.fftSize = 128;
+  // createMediaElementSource takes over the element's audio output routing,
+  // so it must be reconnected to destination or playback goes silent.
+  sourceNode = audioContext.createMediaElementSource(el);
+  sourceNode.connect(analyserNode);
+  analyserNode.connect(audioContext.destination);
+}
+
+watch(audioRef, (newEl) => {
+  teardownAudioGraph();
+  if (newEl) setupAudioGraph(newEl);
+});
+
+const visualizerCanvasRef = ref<HTMLCanvasElement | null>(null);
+const visualizerActive = computed(() => showCoverArt.value && isPlaying.value);
+let visualizerRafId: number | null = null;
+let visualizerFrequencyData: Uint8Array | null = null;
+
+// A single smooth closed loop around .record-disk's edge, not discrete bars -
+// the record is centered in the frame (flexbox) and the canvas matches the
+// frame's exact 16:9 aspect ratio (320x180), so canvas-space center (160, 90)
+// lines up with the disk's own center with no extra measurement needed. The
+// disk is 45% of frame width, so its radius in canvas units is
+// 0.225 * 320 = 72; the loop's resting radius sits a few px outside that.
+const VISUALIZER_BASE_RADIUS = 78;
+const VISUALIZER_MAX_DEFORM = 10;
+const VISUALIZER_LINE_WIDTH = 3;
+// Averaging each sample with its circular neighbors keeps the loop reading
+// as one continuous, evenly-moving circle with a few soft bulges - real
+// audio energy concentrates in a handful of frequency bins, and without
+// this a bar-by-bar reading of raw data looked like a spiky, uneven ring
+// (or, worse, most of it flat since the loud bins cluster together).
+const VISUALIZER_SMOOTHING_WINDOW = 4;
+
+// Circular moving average (wraps around, since this is a closed loop, not a
+// linear row) - smooths raw per-bin amplitude into a gentler shape.
+function smoothedAmplitudes(data: Uint8Array): number[] {
+  const n = data.length;
+  const result = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let o = -VISUALIZER_SMOOTHING_WINDOW; o <= VISUALIZER_SMOOTHING_WINDOW; o++) {
+      sum += data[(i + o + n) % n];
+    }
+    result[i] = sum / (VISUALIZER_SMOOTHING_WINDOW * 2 + 1) / 255;
+  }
+  return result;
+}
+
+function drawVisualizerFrame() {
+  const canvas = visualizerCanvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx || !analyserNode) return;
+  if (!visualizerFrequencyData || visualizerFrequencyData.length !== analyserNode.frequencyBinCount) {
+    visualizerFrequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+  }
+  analyserNode.getByteFrequencyData(visualizerFrequencyData);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  const amplitudes = smoothedAmplitudes(visualizerFrequencyData);
+  const n = amplitudes.length;
+  const points: [number, number][] = amplitudes.map((amplitude, i) => {
+    const angle = -Math.PI / 2 + (i / n) * Math.PI * 2;
+    const radius = VISUALIZER_BASE_RADIUS + amplitude * VISUALIZER_MAX_DEFORM;
+    return [centerX + radius * Math.cos(angle), centerY + radius * Math.sin(angle)];
+  });
+
+  // Smooth closed loop through every point: start at the midpoint before the
+  // first point, then quadratic-curve through each point toward the next
+  // midpoint. This keeps the ring continuous and rounded (not a jagged
+  // polygon) without needing a full spline library for what's ultimately a
+  // ~64-point circle.
+  ctx.beginPath();
+  const last = points[n - 1];
+  const first = points[0];
+  ctx.moveTo((last[0] + first[0]) / 2, (last[1] + first[1]) / 2);
+  for (let i = 0; i < n; i++) {
+    const current = points[i];
+    const next = points[(i + 1) % n];
+    ctx.quadraticCurveTo(current[0], current[1], (current[0] + next[0]) / 2, (current[1] + next[1]) / 2);
+  }
+  ctx.closePath();
+
+  // Stroke the loop as an opaque mask, then stamp the cover image into it
+  // via "source-in" - the actual cover's color ends up in the ring instead
+  // of a derived/fallback color. Drawing/compositing onto a canvas is
+  // always allowed regardless of CORS (only *reading* pixels back out via
+  // getImageData is restricted), so this never needs the visible
+  // record-label <img> to grant anything - it works or falls back to this
+  // solid mask color exactly the same way either way. The heavy CSS blur on
+  // .visualizer-canvas is what keeps this from reading as a tiny window
+  // into the art - the point is a wash of the cover's color, not the image.
+  ctx.strokeStyle = "rgba(200, 170, 255, 0.9)";
+  ctx.lineWidth = VISUALIZER_LINE_WIDTH;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  const cover = coverImageRef.value;
+  if (cover && cover.complete && cover.naturalWidth > 0) {
+    ctx.globalCompositeOperation = "source-in";
+    ctx.drawImage(cover, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-over";
+  }
+}
+
+function visualizerTick() {
+  drawVisualizerFrame();
+  visualizerRafId = requestAnimationFrame(visualizerTick);
+}
+
+function startVisualizerLoop() {
+  stopVisualizerLoop();
+  visualizerTick();
+}
+
+function stopVisualizerLoop() {
+  if (visualizerRafId !== null) {
+    cancelAnimationFrame(visualizerRafId);
+    visualizerRafId = null;
+  }
+  const canvas = visualizerCanvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// Placeholder styling - Step 2 replaces the bar row with a ring around the
+// record disk. The active/inactive lifecycle (this watcher plus the
+// onPlay/onPause hooks below) is already final.
+watch(visualizerActive, (active) => {
+  if (active) startVisualizerLoop();
+  else stopVisualizerLoop();
+});
+
+onUnmounted(() => {
+  stopVisualizerLoop();
+  teardownAudioGraph();
+});
+
 function onPlay() {
   isPlaying.value = true;
   if (ambientActive.value) startAmbientLoop();
+  if (visualizerActive.value) startVisualizerLoop();
 }
 
 // "play" fires as soon as playback is requested, even while a remote clip is
@@ -317,6 +529,7 @@ function onPlaying() {
 function onPause() {
   isPlaying.value = false;
   stopAmbientLoop();
+  stopVisualizerLoop();
 }
 
 function onSeeked() {
@@ -419,7 +632,12 @@ onUnmounted(() => stopDrag?.());
     :style="{ '--nav-height': `${navHeight}px` }"
     @click.self="emit('update:immersive', false)"
   >
-    <div class="player-frame" :class="{ 'ambient-glass': ambient }">
+    <div
+      class="player-frame"
+      :class="{ 'ambient-glass': ambient }"
+      @mousemove="onPlayerPointerMove"
+      @mouseleave="resetPlayerParallax"
+    >
       <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
       <button
         v-if="allowExpand"
@@ -462,7 +680,11 @@ onUnmounted(() => stopDrag?.());
         @error="onError"
       />
 
-      <div v-if="showCoverArt" class="record">
+      <div
+        v-if="showCoverArt"
+        class="record"
+        :style="{ transform: `perspective(700px) rotateX(${recordTiltY}deg) rotateY(${recordTiltX}deg)` }"
+      >
         <div class="record-disk" :class="{ spinning: isPlaying }">
           <img
             ref="coverImageRef"
@@ -474,6 +696,15 @@ onUnmounted(() => stopDrag?.());
           <span class="record-hole" />
         </div>
       </div>
+      <canvas
+        v-if="showCoverArt"
+        ref="visualizerCanvasRef"
+        width="320"
+        height="180"
+        class="visualizer-canvas"
+        aria-hidden="true"
+        :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
+      />
 
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
@@ -692,6 +923,7 @@ onUnmounted(() => stopDrag?.());
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.2s ease-out;
 }
 
 .record-disk {
@@ -738,6 +970,23 @@ onUnmounted(() => stopDrag?.());
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Sits above .record in paint order (later in the template) but never
+   intercepts clicks meant for the veil beneath it. The blur here is doing
+   real work, not just softening edges: drawVisualizerFrame() stamps the
+   actual cover image into the loop (see its "source-in" comment), and a
+   heavy blur is what turns that into an unrecognizable wash of the cover's
+   color instead of a thin window showing real image detail. cqw-relative
+   like the rest of .player-frame's proportional overrides. */
+.visualizer-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: blur(clamp(8px, 1.4cqw, 26px));
+  transition: transform 0.2s ease-out;
 }
 
 .theme-badge {

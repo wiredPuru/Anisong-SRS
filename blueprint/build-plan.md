@@ -300,3 +300,8 @@ cleaned-up checkbox version before generating the project overview.
   turning off. A new session-only "Hide Cover" toggle (like Hide Info) can
   turn it off, defaulting to shown. The Hide Video toggle on an otherwise
   video-capable card is unaffected - it keeps today's plain veil.
+- [x] 45. **Audio visualizer overlay on the spinning record** - when a card
+  shows its cover art (feature 44), overlay a transparent, real-time
+  frequency visualizer around the spinning record, reactive to actual audio
+  playback via the Web Audio API - replacing the "Listening.../Paused"
+  feedback that already disappears in cover-art mode.
