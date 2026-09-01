@@ -15,13 +15,13 @@
 **Suggested fix:** Extract to a small composable (e.g. `useApiError.ts` or add it to an existing shared composable) exporting `extractErrorMessage`, and have all five call sites import it instead of redefining it.
 **Resolution:** Fixed 2026-09-01 via `/fix F-04` on `fix/extract-api-error-composable`. By the time this was repaired the duplication had grown to 12 files (not 5). Added `nuxt-app/app/composables/useApiError.ts` exporting `extractErrorMessage` unchanged, and deleted the local definition from all 12 call sites, relying on Nuxt's existing auto-import convention - no call-site changes needed. `bun run build` passes clean. Awaiting `/audit` re-review to close.
 
-### F-05 [P2] open - Two delete actions have no error handling, unlike every other mutation in the app
+### F-05 [P2] fixed - Two delete actions have no error handling, unlike every other mutation in the app
 
 **File:** nuxt-app/app/pages/settings.vue:38-41 (`removeFolder`), nuxt-app/app/pages/cards/index.vue:157-160 (`removeCard`)
 **Found:** 2026-08-29 by /audit (scope: full; lens: quality)
 **Why it matters:** Both functions are a bare `await $fetch(...)` followed by `await refresh()`, with no `try`/`catch` and no inline error display - unlike every other mutation in the app (`addFolder`, `setDefaultDownloadFolder`, `importDeck`, `saveEdit`, `downloadMedia`, and `deleteDeck`/`createDeck`/`renameDeck` on `decks/index.vue`, all of which wrap the call and surface a `*Error` ref on failure). If either `DELETE` call fails - a network hiccup, or the row already being gone - the user gets an unhandled promise rejection and no feedback, breaking the established pattern this app otherwise applies consistently.
 **Suggested fix:** Wrap both in the same `try { ... } catch (err) { ...Error.value = extractErrorMessage(err, "Failed to remove ..."); }` shape already used by every sibling mutation on each of these pages, with a matching inline error element in the template.
-**Resolution:**
+**Resolution:** Fixed 2026-09-01 via `/fix F-05` on `fix/delete-action-error-handling`. `removeFolder` now uses a shared `removeFolderError` ref (matching `addError`/`defaultFolderError`, already single-shared refs on that same page). `removeCard` now uses a per-card `removeCardError` reactive record (matching `downloadError`'s existing per-card keying on that same page, since deletes can fire concurrently from different rows). Both wrap their `$fetch` call in `try`/`catch` and render an inline error reusing existing `.add-error`/`.edit-error` styling; `.card-actions` gained `flex-wrap` plus a `flex-basis: 100%` error line so it only affects layout when an error is actually present. `bun run build` passes clean. Awaiting `/audit` re-review to close.
 
 ### F-07 [P3] unverified - Furigana HTML rendered via `v-html` from AniList-sourced title text, escaping behavior unverified
 

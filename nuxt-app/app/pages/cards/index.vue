@@ -146,6 +146,7 @@ const editAudioPath = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
 const clearingField = reactive<Record<string, boolean>>({});
+const removeCardError = reactive<Record<number, string | null>>({});
 
 const previewCard = ref<CardWithDetails | null>(null);
 
@@ -248,8 +249,13 @@ async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
 }
 
 async function removeCard(id: number) {
-  await $fetch("/api/cards", { method: "DELETE", body: { id } });
-  cards.value = cards.value.filter((c) => c.id !== id);
+  removeCardError[id] = null;
+  try {
+    await $fetch("/api/cards", { method: "DELETE", body: { id } });
+    cards.value = cards.value.filter((c) => c.id !== id);
+  } catch (err) {
+    removeCardError[id] = extractErrorMessage(err, "Failed to delete card.");
+  }
 }
 
 async function onPreviewCardUpdated(updated: CardWithDetails) {
@@ -402,6 +408,7 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
             </button>
             <button type="button" class="edit-btn" @click="startEdit(c)">Edit</button>
             <button type="button" class="remove-btn" @click="removeCard(c.id)">Delete</button>
+            <p v-if="removeCardError[c.id]" class="edit-error card-actions-error">{{ removeCardError[c.id] }}</p>
           </div>
         </li>
       </ul>
@@ -578,7 +585,12 @@ h1 {
 .card-actions {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.card-actions-error {
+  flex-basis: 100%;
 }
 
 .preview-btn,

@@ -13,6 +13,7 @@ const addError = ref<string | null>(null);
 const isAdding = ref(false);
 const isSettingDefault = ref(false);
 const defaultFolderError = ref<string | null>(null);
+const removeFolderError = ref<string | null>(null);
 
 async function addFolder() {
   const path = newPath.value.trim();
@@ -32,8 +33,13 @@ async function addFolder() {
 }
 
 async function removeFolder(path: string) {
-  await $fetch("/api/media-library/folders", { method: "DELETE", body: { path } });
-  await refresh();
+  removeFolderError.value = null;
+  try {
+    await $fetch("/api/media-library/folders", { method: "DELETE", body: { path } });
+    await refresh();
+  } catch (err) {
+    removeFolderError.value = extractErrorMessage(err, "Failed to remove folder.");
+  }
 }
 
 async function setDefaultDownloadFolder(path: string) {
@@ -93,6 +99,7 @@ async function importDeck() {
         </li>
       </ul>
       <p v-else class="state">No folders configured yet.</p>
+      <p v-if="removeFolderError" class="add-error">{{ removeFolderError }}</p>
 
       <div v-if="data?.libraryPaths.length === 1" class="state download-folder-note">
         Downloads will go to <span class="path">{{ data.libraryPaths[0] }}</span>.
