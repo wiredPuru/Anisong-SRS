@@ -188,14 +188,6 @@ function progressPercent(cardId: number, kind: "video" | "audio"): number {
   return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
 }
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { statusMessage?: string } }).data;
-    if (data?.statusMessage) return data.statusMessage;
-  }
-  return fallback;
-}
-
 function sourceBadges(c: CardWithDetails): string[] {
   const badges: string[] = [];
   if (c.localVideoPath) badges.push("Local video");

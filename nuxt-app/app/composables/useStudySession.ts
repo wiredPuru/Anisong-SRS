@@ -26,14 +26,6 @@ export interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { statusMessage?: string } }).data;
-    if (data?.statusMessage) return data.statusMessage;
-  }
-  return fallback;
-}
-
 function scopeQuery(scope: StudyScope): Record<string, string | number> {
   return scope.type === "all" ? { type: "all" } : { type: scope.type, id: scope.id };
 }

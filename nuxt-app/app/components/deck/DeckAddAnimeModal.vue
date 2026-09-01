@@ -47,14 +47,6 @@ interface CardWithDetails {
 const props = defineProps<{ open: boolean; target: AniListResult | null; deckId: number | null }>();
 const emit = defineEmits<{ close: [] }>();
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { statusMessage?: string } }).data;
-    if (data?.statusMessage) return data.statusMessage;
-  }
-  return fallback;
-}
-
 const importResult = ref<ImportResult | null>(null);
 const importing = ref(false);
 const importError = ref<string | null>(null);

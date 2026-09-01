@@ -5,14 +5,6 @@ const emit = defineEmits<{ saved: [] }>();
 const isSaving = ref(false);
 const error = ref<string | null>(null);
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { statusMessage?: string } }).data;
-    if (data?.statusMessage) return data.statusMessage;
-  }
-  return fallback;
-}
-
 async function setMode(next: string) {
   if (next !== "auto" && next !== "audioOnly") return;
   error.value = null;

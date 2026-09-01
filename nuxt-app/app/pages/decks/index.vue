@@ -329,14 +329,6 @@ async function downloadMedia(c: DeckCard, kind: "video" | "audio") {
   }
 }
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { statusMessage?: string } }).data;
-    if (data?.statusMessage) return data.statusMessage;
-  }
-  return fallback;
-}
-
 const newDeckName = ref("");
 const isCreatingDeck = ref(false);
 const createDeckError = ref<string | null>(null);
