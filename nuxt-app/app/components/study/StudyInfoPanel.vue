@@ -80,6 +80,8 @@ const showFurigana = ref(true);
 
 const animeJpHtml = ref(props.animeTitleNative);
 const songJpHtml = ref(props.songTitleNative);
+const animeJpIsHtml = ref(false);
+const songJpIsHtml = ref(false);
 let lastFetchedKey: string | null = null;
 
 async function resolveJapaneseText() {
@@ -91,12 +93,16 @@ async function resolveJapaneseText() {
   if (!showFurigana.value) {
     animeJpHtml.value = animeText;
     songJpHtml.value = songText;
+    animeJpIsHtml.value = false;
+    songJpIsHtml.value = false;
     lastFetchedKey = key;
     return;
   }
 
   animeJpHtml.value = animeText;
   songJpHtml.value = songText;
+  animeJpIsHtml.value = false;
+  songJpIsHtml.value = false;
   try {
     const [animeResult, songResult] = await Promise.all([
       $fetch<{ html: string }>("/api/furigana", { query: { text: animeText } }),
@@ -105,11 +111,15 @@ async function resolveJapaneseText() {
     if (props.animeTitleNative === animeText && props.songTitleNative === songText) {
       animeJpHtml.value = animeResult.html;
       songJpHtml.value = songResult.html;
+      animeJpIsHtml.value = true;
+      songJpIsHtml.value = true;
       lastFetchedKey = key;
     }
   } catch {
     animeJpHtml.value = animeText;
     songJpHtml.value = songText;
+    animeJpIsHtml.value = false;
+    songJpIsHtml.value = false;
   }
 }
 
@@ -155,13 +165,15 @@ watch(
     <div class="title-block">
       <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
       <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
-      <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp" v-html="animeJpHtml" />
+      <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji && animeJpIsHtml" class="jp" v-html="animeJpHtml" />
+      <span v-else-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp">{{ animeJpHtml }}</span>
     </div>
 
     <div class="song-block">
       <span class="label">Song</span>
       <span class="song-title">{{ songTitle }}</span>
-      <span v-if="showJapanese && songTitleNative !== songTitle" class="jp" v-html="songJpHtml" />
+      <span v-if="showJapanese && songTitleNative !== songTitle && songJpIsHtml" class="jp" v-html="songJpHtml" />
+      <span v-else-if="showJapanese && songTitleNative !== songTitle" class="jp">{{ songJpHtml }}</span>
     </div>
 
     <div class="meta-row">

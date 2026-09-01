@@ -20,7 +20,16 @@ function getKuroshiro(): Promise<Kuroshiro> {
   return initPromise;
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function toFuriganaHtml(text: string): Promise<string> {
   const kuroshiro = await getKuroshiro();
-  return kuroshiro.convert(text, { mode: "furigana", to: "hiragana" });
+  return kuroshiro.convert(escapeHtml(text), { mode: "furigana", to: "hiragana" });
 }
