@@ -417,28 +417,36 @@ async function addCard(theme: { songId: number; videoUrl: string | null; audioUr
 const route = useRoute();
 
 onMounted(() => {
-  const rawAniListId = route.query.aniListId;
-  const aniListIdValue = Array.isArray(rawAniListId) ? rawAniListId[0] : rawAniListId;
-  const aniListId = typeof aniListIdValue === "string" ? Number(aniListIdValue) : NaN;
-  if (Number.isInteger(aniListId) && aniListId > 0) {
-    selectAnime({ aniListId, titleRomaji: "", titleEnglish: null, titleNative: null });
-    return;
-  }
+  watch(
+    [() => route.query.aniListId, () => route.query.artistSlug, () => route.query.q],
+    () => {
+      const rawAniListId = route.query.aniListId;
+      const aniListIdValue = Array.isArray(rawAniListId) ? rawAniListId[0] : rawAniListId;
+      const aniListId = typeof aniListIdValue === "string" ? Number(aniListIdValue) : NaN;
+      if (Number.isInteger(aniListId) && aniListId > 0) {
+        setSearchMode("anime");
+        selectAnime({ aniListId, titleRomaji: "", titleEnglish: null, titleNative: null });
+        return;
+      }
 
-  const rawArtistSlug = route.query.artistSlug;
-  const artistSlugValue = Array.isArray(rawArtistSlug) ? rawArtistSlug[0] : rawArtistSlug;
-  if (typeof artistSlugValue === "string" && artistSlugValue.trim()) {
-    searchMode.value = "artist";
-    selectArtist({ id: 0, name: "", slug: artistSlugValue });
-    return;
-  }
+      const rawArtistSlug = route.query.artistSlug;
+      const artistSlugValue = Array.isArray(rawArtistSlug) ? rawArtistSlug[0] : rawArtistSlug;
+      if (typeof artistSlugValue === "string" && artistSlugValue.trim()) {
+        setSearchMode("artist");
+        selectArtist({ id: 0, name: "", slug: artistSlugValue });
+        return;
+      }
 
-  const rawQuery = route.query.q;
-  const queryValue = Array.isArray(rawQuery) ? rawQuery[0] : rawQuery;
-  if (typeof queryValue === "string" && queryValue.trim()) {
-    searchQuery.value = queryValue;
-    search();
-  }
+      const rawQuery = route.query.q;
+      const queryValue = Array.isArray(rawQuery) ? rawQuery[0] : rawQuery;
+      if (typeof queryValue === "string" && queryValue.trim()) {
+        setSearchMode("anime");
+        searchQuery.value = queryValue;
+        search();
+      }
+    },
+    { immediate: true },
+  );
 });
 </script>
 
