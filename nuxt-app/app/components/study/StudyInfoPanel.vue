@@ -124,13 +124,13 @@ watch(
 
 <template>
   <div
-    v-if="!(immersive && blurred)"
     class="info-card"
     :class="{
       blurred: blurred && !immersive,
       'ambient-glass': ambient,
       overlay: immersive,
       'skip-blur-transition': skipBlurTransition,
+      'info-hidden': immersive && blurred,
     }"
   >
     <div v-if="!hideToggles" class="lang-toggles">
@@ -210,6 +210,14 @@ watch(
 
 .info-card.blurred {
   filter: blur(14px);
+}
+
+/* Immersive Hide Info uses a plain visibility toggle, not the blur filter
+   above - and unlike v-if removal, this keeps the card's layout box intact
+   so its positioned ancestor (study/index.vue's .info-slot) doesn't collapse
+   and clip the Auto Reveal countdown that's centered on it. */
+.info-card.info-hidden {
+  visibility: hidden;
 }
 
 /* Card-change only - see the watch() on presentationKey in <script setup>.
