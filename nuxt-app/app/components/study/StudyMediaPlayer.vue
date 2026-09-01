@@ -21,6 +21,7 @@ const props = defineProps<{
   hasDefaultDownloadFolder?: boolean;
   audioOnly?: boolean;
   hideCover?: boolean;
+  hideListeningLabel?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -750,13 +751,13 @@ onUnmounted(() => stopDrag?.());
         :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
         @click="togglePlay"
       >
-        <div v-if="quizType === 'audio' && isPlaying && !showCoverArt" class="listening-icon">
+        <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
           <span class="eq-bar" />
           <span class="eq-bar" />
           <span class="eq-bar" />
           <span class="eq-bar" />
         </div>
-        <p v-if="!showCoverArt">{{ isPlaying ? "Listening..." : "Paused" }}</p>
+        <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
       </div>
 
       <div class="player-controls">

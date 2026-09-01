@@ -28,10 +28,11 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Always overlaid centered on its parent's box - the parent (StudyInfoPanel's
-   wrapper, non-immersive; .info-slot, immersive) is the positioned ancestor
-   this centers within, so this component only ever needs a position:relative
-   host around StudyInfoPanel, never new props on StudyInfoPanel itself. */
+/* Non-immersive: overlaid centered on its parent's box - study/index.vue's
+   .info-panel-wrap is the positioned ancestor this centers within, so this
+   component only ever needs a position:relative host around StudyInfoPanel,
+   never new props on StudyInfoPanel itself. Immersive uses a different
+   anchor entirely - see .immersive-glass below. */
 .auto-reveal-countdown {
   position: absolute;
   top: 50%;
@@ -59,6 +60,36 @@ onUnmounted(() => {
   background: none;
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(10px) saturate(1.3);
+  /* study/index.vue renders the immersive instance as a direct sibling of
+     .info-slot/.answer-slot (not nested inside .info-slot like an earlier
+     version), so its positioned ancestor here is .player-frame itself - and
+     StudyMediaPlayer.vue's own veil suppresses its "Listening..."/"Paused"
+     icon+text (hide-listening-label, driven by the same
+     autoRevealCountdownActive condition) whenever this is showing in
+     immersive mode, so this pill directly replaces that indicator rather
+     than sitting alongside or near it. No position override needed here -
+     the base rule's dead-center top/left/transform already puts it exactly
+     where that indicator was. */
+  z-index: 10;
+  /* Proportional to .player-frame's rendered width (StudyMediaPlayer.vue's
+     container-type: inline-size), like every other immersive-overlay piece
+     (StudyInfoPanel.vue's .info-card.overlay chips, study/index.vue's
+     .answer-slot buttons). Unlike those smaller meta-text chips, this is the
+     one overlay element the whole immersive view is waiting on - it needs to
+     read as a prominent callout against the video, not a corner badge - so
+     the floor here is deliberately well above the non-immersive size (never
+     smaller than before) rather than matching it, and only grows further as
+     the frame widens past a normal desktop window. */
+  padding: clamp(16px, 1.5cqw, 36px) clamp(28px, 2.5cqw, 56px);
+  gap: clamp(10px, 1cqw, 22px);
+}
+
+.auto-reveal-countdown.immersive-glass .label {
+  font-size: clamp(18px, 1.65cqw, 40px);
+}
+
+.auto-reveal-countdown.immersive-glass .count {
+  font-size: clamp(40px, 3.85cqw, 80px);
 }
 
 .auto-reveal-countdown.immersive-glass .label,

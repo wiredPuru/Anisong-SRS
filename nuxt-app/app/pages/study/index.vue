@@ -200,6 +200,11 @@ watch(autoRevealSeconds, (value) => {
 
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
+// Shared by both StudyAutoRevealCountdown instances (immersive and
+// non-immersive) so their v-if conditions can't drift apart.
+const autoRevealCountdownActive = computed(
+  () => autoRevealMode.value !== "off" && hasStartedPlaybackThisCard.value && !autoRevealedThisCard.value,
+);
 // Mirrors the media player's actual play/pause state (see onPlaybackStarted/
 // onPlaybackPaused below) - distinct from hasStartedPlaybackThisCard, which
 // is a one-way "has this card ever played" latch that a later pause doesn't
@@ -466,20 +471,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="audioOnly"
           :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
+          :hide-listening-label="immersive && autoRevealCountdownActive"
           v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
         >
           <template v-if="immersive" #immersive>
+            <StudyAutoRevealCountdown
+              v-if="autoRevealCountdownActive"
+              :key="presentationKey"
+              :seconds="autoRevealSeconds"
+              :ambient="ambientMode"
+              :immersive="true"
+            />
             <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
-              <StudyAutoRevealCountdown
-                v-if="autoRevealMode !== 'off' && hasStartedPlaybackThisCard && !autoRevealedThisCard"
-                :key="presentationKey"
-                :seconds="autoRevealSeconds"
-                :ambient="ambientMode"
-                :immersive="true"
-              />
               <StudyInfoPanel
                 :blurred="hideInfo && !autoRevealedThisCard"
                 :presentation-key="presentationKey"
@@ -507,7 +513,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="!immersive" class="side">
           <div class="info-panel-wrap">
             <StudyAutoRevealCountdown
-              v-if="autoRevealMode !== 'off' && hasStartedPlaybackThisCard && !autoRevealedThisCard"
+              v-if="autoRevealCountdownActive"
               :key="presentationKey"
               :seconds="autoRevealSeconds"
               :ambient="ambientMode"
