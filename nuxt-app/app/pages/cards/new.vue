@@ -425,6 +425,14 @@ onMounted(() => {
     return;
   }
 
+  const rawArtistSlug = route.query.artistSlug;
+  const artistSlugValue = Array.isArray(rawArtistSlug) ? rawArtistSlug[0] : rawArtistSlug;
+  if (typeof artistSlugValue === "string" && artistSlugValue.trim()) {
+    searchMode.value = "artist";
+    selectArtist({ id: 0, name: "", slug: artistSlugValue });
+    return;
+  }
+
   const rawQuery = route.query.q;
   const queryValue = Array.isArray(rawQuery) ? rawQuery[0] : rawQuery;
   if (typeof queryValue === "string" && queryValue.trim()) {

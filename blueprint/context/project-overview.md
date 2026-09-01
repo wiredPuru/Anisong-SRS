@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash e912561ac159f42671a2ce5198ef9d2308c4e16b8e208d3b76f75fe1d2b3e5d8 -->
+<!-- blueprint:source-hash bff16ff1fab3d533fd619d29555ad293cd796d01b340150a5a4812a78fef503e -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -52,13 +52,18 @@ choice with feature 41's cache behavior) was added to `build-plan.md` the
 same day as a deliberate third attempt at the idea behind the abandoned
 features 18 and 32 - resolved once per card load rather than reactively,
 to avoid feature 18's overlapping-audio failure mode - and is now built and
-merged. Feature 44 (a cover image, plus ambient sampled from it, for a
-card with no video actually playing this session - naturally audio-only,
-or forced there by feature 43's Audio Only setting - behind a new
-session-only "Hide Cover" toggle) was added to `build-plan.md` the same
-day and is not yet built. The Hide Video toggle (feature 10) is
+merged. Features 44-46 (a cover image with a Hide Cover toggle, an audio
+visualizer ring on the resulting spinning record, and an Auto Reveal
+mode/settings-popup redesign) were added to `build-plan.md` on 2026-08-31
+and 2026-09-01 and are now all built and merged, along with several
+same-day fixes layered on top of 46 (Auto Reveal decoupled from Hide Info,
+made pausable with playback, stopped from re-hiding an already-revealed
+card, and given a working, properly-scaled countdown in immersive mode -
+see feature 46's entry below). The Hide Video toggle (feature 10) is
 deliberately unaffected by feature 44 - it keeps today's plain veil on an
-otherwise video-capable card.
+otherwise video-capable card. Feature 47 (two new live-search categories -
+Artists and Anime - in the nav bar's global search dropdown) was added to
+`build-plan.md` on 2026-09-01 and is not yet built.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -141,7 +146,10 @@ otherwise video-capable card.
 14. **Ambient video glow on Study** - done. A soft, blurred, color-sampled
     glow behind the video player on `/study`, active only while a real video
     frame is showing (not audio-only, not Hide Video); covers the whole
-    background and is toggleable.
+    background and is toggleable. Feature 44 later extended the "not
+    audio-only" condition: an audio-only/cover-art card now also drives the
+    glow, sampled from the anime's cover image instead of turning off - see
+    feature 44's entry.
 15. **Home page + navigation bar** - done. `/` - a launcher hub (links to
     Study, Cards, Decks, Stats, Settings - no live data) plus a persistent
     top nav bar, via a shared Nuxt layout, present on every page.
@@ -501,18 +509,97 @@ otherwise video-capable card.
     to avoid feature 18's overlapping-audio rollback cause. Wired into both
     `/study` and Preview (`CardPreviewModal`, via `/cards`, `/cards/new`,
     `/decks`).
-44. **Cover image for audio-mode cards, with a Hide Cover toggle** - not
-    yet built. For a card with no video actually playing this session -
-    naturally audio-only, or forced there by feature 43's Audio Only
-    setting - shows the anime's cover image where video normally shows, and
-    has the ambient glow (feature 14) sample its colors from that image
-    instead of turning off. A new session-only "Hide Cover" toggle
-    (alongside Hide Video/Hide Info/Random Start/Ambient mode) can turn
-    this off, defaulting to shown. Falls back to today's plain veil/no
-    ambient when the anime has no cover image. Deliberately does not touch
-    the Hide Video toggle (feature 10) - hiding video on an otherwise
+44. **Cover image for audio-mode cards, with a Hide Cover toggle** - done.
+    For a card with no video actually playing this session - naturally
+    audio-only, or forced there by feature 43's Audio Only setting -
+    `StudyMediaPlayer` shows the anime's cover image (`animeCoverImageUrl`,
+    already returned by `/api/study/next` but newly typed client-side) as a
+    small spinning vinyl-record disk (dark disk with a groove texture and
+    center spindle hole, the cover art as a circular "label" inset in it,
+    rotating while playing and holding its angle when paused) rather than
+    filling the whole frame, which an earlier iteration of the same step
+    tried and revised away from as "stretched to fill everything." The
+    ambient glow (feature 14) samples colors from that same image instead
+    of turning off. A new session-only "Hide Cover" toggle (`c`, alongside
+    Hide Video/Hide Info/Random Start/Ambient mode) can turn it off,
+    defaulting to shown; a card whose anime has no cover image, or whose
+    cover URL fails to load, always falls back to today's plain veil
+    regardless of the toggle. `showCoverArt` gates on `mediaKind`
+    (unaffected by Hide Video by design), not `quizType` - checking
+    `quizType` would have wrongly let Hide Video suppress cover art on a
+    card that never had video to hide. Deliberately does not touch the
+    Hide Video toggle (feature 10) - hiding video on an otherwise
     video-capable card keeps today's exact plain veil, since real video is
-    still playing underneath for its audio track in that case.
+    still playing underneath for its audio track in that case. Applies to
+    `/study` (with the toggle) and `CardPreviewModal` (automatically,
+    no toggle - Preview has no display-toggles row).
+45. **Audio visualizer overlay on the spinning record** - done. A soft,
+    glowing ring just outside the record disk's edge, driven by a Web Audio
+    API `AnalyserNode` wired to the existing `<audio>` element
+    (`getByteFrequencyData()` read every animation frame, smoothed with a
+    circular moving average so real audio energy - concentrated in a few
+    low bins - reads as one continuous deforming loop rather than a mostly-
+    empty bar chart). The ring is filled by stamping the actual cover-art
+    image into its stroked shape (`globalCompositeOperation: "source-in"`,
+    revised away from an earlier flat-accent-color and a color-sampling
+    design - sampling needs a second CORS-mode image load animethemes/
+    AniList don't reliably grant) and then heavily CSS-blurred, so it reads
+    as "glowing with the cover's color" without showing recognizable image
+    detail. Shown exactly when `showCoverArt && isPlaying`; stays fully
+    inside the player frame at every size, including expanded/immersive
+    mode. Also added, as a same-build follow-on once the ring itself was
+    approved: a mouse-driven 3D parallax tilt on the record (up to ±10°
+    toward the cursor) with the visualizer ring counter-shifting a smaller
+    amount the other way, both easing back to neutral on mouse-leave -
+    gated on `showCoverArt`, no effect on video-mode cards. No dedicated
+    toggle - tied to `showCoverArt`/Hide Cover exactly like the record
+    itself. Applies wherever feature 44's cover art applies (`/study` and
+    `CardPreviewModal`), automatically.
+46. **Auto Reveal modes + settings popup** - done. Replaces the single
+    Auto Reveal on/off toggle (feature 38) with a mode choice - Video,
+    Info, or Both - moved into a small settings popup (`StudyAutoRevealSettingsModal.vue`,
+    opened from a single "Auto Reveal" button) alongside the countdown
+    interval, instead of extra buttons crowding the display-toggles row.
+    "Video" targets whichever visual actually applies to the current card -
+    Hide Video on a video-capable card, or Hide Cover (feature 44) on an
+    audio-only/cover-art one - since those two already share one slot as
+    far as auto-reveal is concerned. Turning on a mode (or switching modes)
+    forces its target Hide toggle(s) on immediately, and again at the start
+    of every new card, overriding any manual Hide Video/Hide Info/Hide
+    Cover change made mid-card; switching mode or turning Auto Reveal off
+    reverts whichever toggle(s) it had forced back off, without touching a
+    toggle neither the old nor new mode ever targeted. Several same-day
+    fixes on top of the initial redesign: Auto Reveal no longer requires
+    Hide Info to be on at all (previously gated behind it, so turning on
+    Auto Reveal alone did nothing without also manually enabling Hide
+    Info/Video/Cover); the countdown now pauses and resumes with actual
+    playback instead of a fire-and-forget wall-clock timer that could
+    reveal the answer while paused; manually revealing a still-targeted
+    toggle early now stops the pending timer instead of leaving it ticking
+    uselessly; changing the mode or interval after a card has already
+    revealed no longer re-hides that same card (the new setting applies
+    starting cleanly on the next one); and the countdown pill, which
+    previously never appeared at all in immersive mode (an unrelated
+    `v-if`-vs-`visibility` DOM bug collapsed its container to 0x0), now
+    shows dead-centered over the player, replacing the "Listening.../
+    Paused" text entirely while it counts down, and scales up proportionally
+    with the expanded frame instead of staying pinned at its small
+    non-immersive size.
+47. **Artist search + categorized results in global search** - not yet
+    built. Adds two new live-search categories to the nav bar's search
+    dropdown (`NavBar.vue`) alongside today's local `Cards` group (feature
+    19b/26, untouched): an `Artists` group backed by the existing `GET
+    /api/lookup/artist-search` (animethemes.moe - the same endpoint
+    `/cards/new`'s "By artist" tab already uses) and an `Anime` group,
+    which is today's "Add a show" AniList fallback (feature 26) relabeled
+    and always shown rather than gated behind the `Cards` group being
+    empty. Clicking an Artist result navigates to `/cards/new` with that
+    artist's full catalog already resolved via a new `?artistSlug=<slug>`
+    deep link, mirroring the existing `?aniListId=` one exactly - it
+    switches to the "By artist" tab and calls the page's existing
+    `selectArtist` on mount instead of requiring a second "Select" click
+    there. Clicking an Anime result behaves exactly as today's "Add a
+    show" (`/cards/new?aniListId=<id>`).
 
 ## Data model
 
@@ -804,7 +891,20 @@ Routes:
   "Download video"/"Download audio" fallback action directly on the error
   state shown when a clip fails to load, reusing feature 8's per-card
   download action; `CardPreviewModal` (which reuses the same
-  `StudyMediaPlayer`) gets this too.
+  `StudyMediaPlayer`) gets this too. Feature 44 added the cover-image
+  spinning record (plus its `c`/"Hide Cover" toggle) for any card with no
+  video actually playing, and a same-build fix made `.player-frame` itself
+  transparent under ambient mode so the glow shows through the space
+  around the record (or a video's letterbox bars), not just outside the
+  frame. Feature 45 added the glowing, cover-colored audio visualizer ring
+  around that record plus a mouse-driven parallax tilt, both automatic
+  whenever the record shows. Feature 46 replaced Auto Reveal's on/off
+  toggle with a Video/Info/Both mode choice in its own settings popup,
+  with several same-build fixes (decoupled from Hide Info, pausable with
+  playback, stops on an early manual reveal, doesn't re-hide an
+  already-revealed card, and - fixed after initial release - the countdown
+  now actually renders in immersive mode, dead-centered and scaled to the
+  frame, instead of never appearing there at all).
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes

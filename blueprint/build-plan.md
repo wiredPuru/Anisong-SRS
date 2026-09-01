@@ -313,3 +313,9 @@ cleaned-up checkbox version before generating the project overview.
   overriding any manual Hide Video/Hide Info/Hide Cover change made
   mid-card; switching mode or turning Auto Reveal off reverts whichever
   toggle(s) it had forced back off.
+- [x] 47. **Artist search + categorized results in global search** - the
+  nav search bar adds two live-search categories alongside today's local
+  "Cards" matches: "Artists" (animethemes.moe artist search, jumps to that
+  artist's resolved catalog on `/cards/new`) and "Anime" (today's "Add a
+  show" AniList lookup, relabeled and always shown rather than gated
+  behind Cards being empty). Local Cards matching is untouched.
