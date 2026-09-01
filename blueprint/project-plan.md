@@ -36,15 +36,6 @@ instance against their own local media and database.
   user-created manual decks: named, flat (no nesting), and a card can belong
   to any number of manual decks at once. A library view browses/groups decks
   by Created (manual), Artist, or Anime.
-- **Study playback-mode option** - a session-only choice (set fresh each
-  study session, not persisted per scope) of Audio-only / Video-only / Any
-  (locals preferred), controlling which source type that session prefers.
-  Preferring a type still uses local media first and falls back to the
-  remote animethemes.moe URL, same as today; if the preferred type isn't
-  available at all, the card falls back to whatever source it actually has.
-  An earlier per-scope, persisted version of this was built and rolled back
-  (changing source mid-playback caused overlapping audio) - this
-  session-only version must not repeat that mistake.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
@@ -75,9 +66,6 @@ instance against their own local media and database.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks).
-- Study playback-mode preference: a session-only in-memory choice, not
-  stored in the database (an earlier persisted, per-scope version was built
-  and rolled back).
 - Song metadata gains a native-Japanese title field, alongside its existing
   title.
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
