@@ -50,7 +50,13 @@ export function getDefaultDownloadFolder(): string | null {
     .from(mediaLibrarySettings)
     .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
     .get();
-  return row?.defaultDownloadFolder ?? null;
+  if (row?.defaultDownloadFolder) return row.defaultDownloadFolder;
+  // settings.vue shows "Downloads will go to <path>" as soon as there's
+  // exactly one library folder, without an explicit pick step - honor that
+  // implied default here instead of leaving it unset until a second folder
+  // forces the picker to appear.
+  const libraryPaths = row?.libraryPaths ?? [];
+  return libraryPaths.length === 1 ? (libraryPaths[0] ?? null) : null;
 }
 
 export function setDefaultDownloadFolder(rawPath: string): { error: string } | { defaultDownloadFolder: string } {
