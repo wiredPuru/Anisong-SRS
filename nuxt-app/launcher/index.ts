@@ -32,6 +32,23 @@ process.env.GAQ_SRS_MIGRATIONS_DIR ??= existsSync(devMigrationsDir)
   ? devMigrationsDir
   : join(realDir, "migrations");
 
+// Same packaged-vs-dev split as migrations above, but kuromoji needs two
+// pieces: the real dict/ folder always (Nitro's build prunes it from
+// .output/server/node_modules since it's only read via runtime fs, never
+// require()'d), plus a pre-bundled, dependency-flattened kuromoji module
+// only when compiled - kuromoji's own require("async")/require("doublearray")
+// chain can't resolve from inside a compiled binary (see scripts/package.ts
+// for why). Uncompiled (bun run launch), the real kuromoji module still
+// require()s fine on its own; only the dict path needs the override.
+const devKuromojiDictDir = join(realDir, "..", "node_modules", "kuromoji", "dict");
+const packagedKuromojiDir = join(realDir, "kuromoji");
+if (isCompiled) {
+  process.env.GAQ_SRS_KUROMOJI_DICT_DIR ??= join(packagedKuromojiDir, "dict");
+  process.env.GAQ_SRS_KUROMOJI_BUNDLE ??= join(packagedKuromojiDir, "kuromoji-bundled.cjs");
+} else if (existsSync(devKuromojiDictDir)) {
+  process.env.GAQ_SRS_KUROMOJI_DICT_DIR ??= devKuromojiDictDir;
+}
+
 process.env.PORT ??= "3000";
 const url = `http://localhost:${process.env.PORT}/`;
 

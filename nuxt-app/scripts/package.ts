@@ -19,6 +19,8 @@ const LAUNCHER_ENTRY = "launcher/index.ts";
 const MIGRATIONS_DIR = "server/db/migrations";
 const PUBLIC_DIR = ".output/public";
 const RELEASE_ROOT = "release";
+const KUROMOJI_ENTRY = "node_modules/kuromoji/src/kuromoji.js";
+const KUROMOJI_DICT_DIR = "node_modules/kuromoji/dict";
 
 if (!existsSync(SERVER_ENTRY)) {
   console.error(`${SERVER_ENTRY} not found. Run "bun run build" first.`);
@@ -65,6 +67,36 @@ for (const target of TARGETS) {
 
   cpSync(MIGRATIONS_DIR, join(releaseDir, "migrations"), { recursive: true });
   cpSync(PUBLIC_DIR, join(releaseDir, "public"), { recursive: true });
+
+  // kuromoji breaks under bun build --compile: its own require("async")/
+  // require("doublearray")/etc. can't resolve via real node_modules
+  // directory-walking from inside a compiled binary (verified directly -
+  // works fine under plain `bun run`, fails only compiled). Pre-bundling it
+  // into one self-contained file flattens that whole dependency tree away,
+  // so nothing is left to resolve at runtime. Shipped as a sibling asset
+  // (bundle + the real, Nitro-unpruned dict/ folder) exactly like
+  // migrations/ and public/ above; furigana.ts loads it via a genuinely
+  // dynamic import() of this real disk path.
+  const kuromojiDir = join(releaseDir, "kuromoji");
+  mkdirSync(kuromojiDir, { recursive: true });
+  const kuromojiBuild = Bun.spawnSync(
+    [
+      "bun",
+      "build",
+      KUROMOJI_ENTRY,
+      "--target=node",
+      "--format=cjs",
+      `--outfile=${join(kuromojiDir, "kuromoji-bundled.cjs")}`,
+    ],
+    { stdout: "inherit", stderr: "inherit" },
+  );
+  if (kuromojiBuild.exitCode !== 0) {
+    console.error(`Failed to bundle kuromoji for ${target.label}.`);
+    results.push({ label: target.label, ok: false });
+    continue;
+  }
+  cpSync(KUROMOJI_DICT_DIR, join(kuromojiDir, "dict"), { recursive: true });
+
   results.push({ label: target.label, ok: true });
 }
 
