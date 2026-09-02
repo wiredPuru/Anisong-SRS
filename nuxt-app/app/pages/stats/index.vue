@@ -201,7 +201,7 @@ function setType(type: StatsType) {
           </div>
         </li>
       </ul>
-      <p v-else class="state">No decks yet. <NuxtLink to="/cards/new">Add a card</NuxtLink> to start one.</p>
+      <p v-else class="state">No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</p>
     </template>
   </main>
 </template>

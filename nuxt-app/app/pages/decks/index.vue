@@ -687,7 +687,7 @@ function backToDecks() {
         <p v-else-if="activeType === 'created'" class="state">
           No manual decks yet. Create one above.
         </p>
-        <p v-else class="state">No decks yet. <NuxtLink to="/cards/new">Add a card</NuxtLink> to start one.</p>
+        <p v-else class="state">No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
         <div v-if="deckItems.length" ref="sentinelRef" class="scroll-sentinel">

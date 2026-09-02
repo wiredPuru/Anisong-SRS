@@ -177,7 +177,7 @@ function onSearchEnter() {
   const q = searchQuery.value.trim();
   if (q.length < 2) return;
   resetSearch();
-  navigateTo(`/cards/new?q=${encodeURIComponent(q)}`);
+  navigateTo(`/cards?q=${encodeURIComponent(q)}`);
 }
 
 function closeDropdown() {
@@ -204,12 +204,12 @@ function selectCard(card: CardWithDetails) {
 
 function addShow(result: AniListResult) {
   resetSearch();
-  navigateTo(`/cards/new?aniListId=${result.aniListId}`);
+  navigateTo(`/cards?q=${encodeURIComponent(result.titleRomaji)}`);
 }
 
 function selectArtistResult(candidate: ArtistCandidate) {
   resetSearch();
-  navigateTo(`/cards/new?artistSlug=${encodeURIComponent(candidate.slug)}`);
+  navigateTo(`/cards?q=${encodeURIComponent(candidate.name)}`);
 }
 
 function onClickOutside(event: MouseEvent) {

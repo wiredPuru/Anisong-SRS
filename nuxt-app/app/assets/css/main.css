@@ -68,7 +68,7 @@
    .toggle-btn and .search-input are scoped through a unique parent
    container (.display-toggles / .nav-search) because those bare class
    names are also used, unrelated to ambient mode, on /decks, /stats,
-   and /cards/new. */
+   and /cards. */
 [data-ambient-glass="true"] .app-nav,
 [data-ambient-glass="true"] .nav-link:not(.active),
 [data-ambient-glass="true"] .nav-search .search-input,

@@ -36,6 +36,29 @@ function onSearchInput() {
   }, 250);
 }
 
+const searchInputRef = ref<HTMLInputElement | null>(null);
+
+function focusSearch() {
+  searchInputRef.value?.focus();
+}
+
+const route = useRoute();
+
+function applyQueryParam(raw: unknown) {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const next = typeof value === "string" ? value : "";
+  searchInput.value = next;
+  searchQuery.value = next.trim();
+}
+
+// Seeded synchronously here, above the searchQuery watcher, so arriving at
+// /cards?q=x loads once from onMounted rather than racing a second fetch.
+// The watcher below covers navigating to /cards?q=x while already on /cards
+// (the nav bar is on every page), which never remounts this component.
+applyQueryParam(route.query.q);
+
+watch(() => route.query.q, applyQueryParam);
+
 const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
@@ -268,11 +291,12 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
   <main class="cards">
     <div class="header-row">
       <h1>Cards</h1>
-      <NuxtLink to="/cards/new" class="add-link">Add card</NuxtLink>
+      <button type="button" class="add-link" @click="focusSearch">Add card</button>
     </div>
-    <p class="hint">Flashcards built from looked-up anime songs.</p>
+    <p class="hint">Search to find your cards, or to add new ones from AniList and animethemes.moe.</p>
 
     <input
+      ref="searchInputRef"
       v-model="searchInput"
       type="text"
       placeholder="Search by song, artist, or anime title..."
@@ -413,7 +437,7 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
         </li>
       </ul>
       <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
-      <p v-else class="state">No cards yet. <NuxtLink to="/cards/new">Add one</NuxtLink>.</p>
+      <p v-else class="state">No cards yet. Search above to find and add one.</p>
       <div v-if="cards.length" ref="sentinelRef" class="scroll-sentinel">
         <span v-if="loadingMore" class="loading-more">Loading more...</span>
       </div>
@@ -475,12 +499,15 @@ h1 {
 .add-link {
   flex: none;
   padding: 10px 18px;
+  border: none;
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font-sans);
+  font-size: inherit;
   font-weight: 800;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .hint {

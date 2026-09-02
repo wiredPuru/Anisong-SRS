@@ -348,7 +348,7 @@ cleaned-up checkbox version before generating the project overview.
     script and documented release process. Code-signing/notarization
     (macOS Gatekeeper, Windows SmartScreen) is out of scope - unsigned
     binaries will show an OS security warning on first run.
-- [ ] 49. **Unify card search with Add Card** - `/cards`' own search (feature
+- [x] 49. **Unify card search with Add Card** - `/cards`' own search (feature
   35a, already matching song/artist/anime-title) becomes the one surface for
   finding an existing card or adding a new one, replacing three separate
   entry points (NavBar's dropdown, the deck-detail add flow, and the
@@ -374,7 +374,7 @@ cleaned-up checkbox version before generating the project overview.
     an artist's multiple anime and not deck-scoped) with per-theme "Add",
     "Add all", and "Download all" - the same bulk actions `/cards/new`'s
     artist mode has today.
-  - [ ] 49c. **Retire /cards/new** - once 49a/49b are in place, deletes the
+  - [x] 49c. **Retire /cards/new** - once 49a/49b are in place, deletes the
     `/cards/new` page and rewires its six existing entry points (NavBar's
     three query-param navigations, `/cards`' header and empty-state links,
     and the empty-state links on `/stats` and `/decks`) to the unified
