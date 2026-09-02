@@ -196,6 +196,10 @@ checks do not make the Blueprint unusable.
 - Build: `bun run build`
 - Preview production build: `bun run preview`
 - Generate (static): `bun run generate`
+- Launch standalone (after `bun run build`): `bun run launch` - starts the
+  built server and opens the default browser, using an OS-appropriate
+  user-data directory instead of `.data/`. Prototype for the packaged
+  executable (build item 48).
 
 Testing is opt-in. No test runner is configured yet; run `/tests` or `$tests`
 to add one and update this section with the real test commands once logic

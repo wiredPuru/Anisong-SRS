@@ -335,7 +335,7 @@ cleaned-up checkbox version before generating the project overview.
     relocates automatically with it - no separate change needed. No OS
     detection or launcher yet; testable entirely within the dev workflow
     by setting the env var by hand.
-  - [ ] 48b. **Launcher entrypoint + single-platform compile proof** - a
+  - [x] 48b. **Launcher entrypoint + single-platform compile proof** - a
     new entrypoint that computes the OS-appropriate user-data directory
     (Windows/macOS/Linux), sets `GAQ_SRS_DATA_DIR` from it, starts the
     built Nitro server, and opens the user's default browser once it's

@@ -1,6 +1,6 @@
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { db } from "../db/client.ts";
+import { runMigrations } from "../db/client.ts";
+import { resolveMigrationsFolder } from "../db/dataDir.ts";
 
 export default defineNitroPlugin(() => {
-  migrate(db, { migrationsFolder: "server/db/migrations" });
+  runMigrations(resolveMigrationsFolder(process.env));
 });

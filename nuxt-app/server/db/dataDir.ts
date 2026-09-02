@@ -9,3 +9,9 @@ export function resolveDbPath(
   }
   return resolve(cwd, ".data/gaq-srs.db");
 }
+
+export function resolveMigrationsFolder(env: {
+  GAQ_SRS_MIGRATIONS_DIR?: string;
+}): string {
+  return env.GAQ_SRS_MIGRATIONS_DIR ?? "server/db/migrations";
+}

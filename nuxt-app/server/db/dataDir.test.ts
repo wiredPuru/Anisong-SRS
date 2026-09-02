@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveDbPath } from "./dataDir.ts";
+import { resolveDbPath, resolveMigrationsFolder } from "./dataDir.ts";
 
 describe("resolveDbPath", () => {
   it("uses today's project-relative path when GAQ_SRS_DATA_DIR is unset", () => {
@@ -19,5 +19,19 @@ describe("resolveDbPath", () => {
         "gaq-srs.db",
       ),
     );
+  });
+});
+
+describe("resolveMigrationsFolder", () => {
+  it("uses today's relative migrations folder when GAQ_SRS_MIGRATIONS_DIR is unset", () => {
+    expect(resolveMigrationsFolder({})).toBe("server/db/migrations");
+  });
+
+  it("uses GAQ_SRS_MIGRATIONS_DIR when set", () => {
+    expect(
+      resolveMigrationsFolder({
+        GAQ_SRS_MIGRATIONS_DIR: "/some/scratch/migrations",
+      }),
+    ).toBe("/some/scratch/migrations");
   });
 });

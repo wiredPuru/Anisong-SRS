@@ -3,6 +3,13 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   css: ['~/assets/css/main.css'],
+  nitro: {
+    esbuild: {
+      options: {
+        target: 'es2022'
+      }
+    }
+  },
   app: {
     head: {
       link: [
