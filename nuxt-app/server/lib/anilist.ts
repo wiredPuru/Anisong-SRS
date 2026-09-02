@@ -1,3 +1,5 @@
+import { USER_AGENT } from "../utils/mediaDownload.ts";
+
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
 export interface AniListAnime {
@@ -56,7 +58,7 @@ async function postToAniList<T>(
 ): Promise<{ status: number; body: GraphQLResponse<T> }> {
   const response = await fetch(ANILIST_ENDPOINT, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
     body: JSON.stringify({ query, variables }),
   });
   const body = (await response.json()) as GraphQLResponse<T>;
