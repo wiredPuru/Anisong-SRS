@@ -367,7 +367,7 @@ cleaned-up checkbox version before generating the project overview.
     `POST /api/cards`, same as `/cards/new`'s anime mode today). Song
     results add in one click (`/api/lookup/song-search` +
     `/api/lookup/song-import`, same as `/cards/new`'s song mode today).
-  - [ ] 49b. **Artist add-candidates + bulk preview modal** - adds the third
+  - [x] 49b. **Artist add-candidates + bulk preview modal** - adds the third
     group, backed by `/api/lookup/artist-search`; picking a result resolves
     the artist's full catalog (`/api/lookup/artist-import`) into a modal
     (generalizing the `DeckAddAnimeModal` pattern from feature 33, but for

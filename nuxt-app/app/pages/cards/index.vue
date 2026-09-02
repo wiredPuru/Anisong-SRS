@@ -433,6 +433,14 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
       @preview="(card) => (previewCard = card)"
     />
 
+    <CardAddArtistResults
+      :query="searchQuery"
+      :has-default-download-folder="hasDefaultDownloadFolder"
+      :preview-active="previewCard !== null"
+      @refresh="loadFirstPage"
+      @preview="(card) => (previewCard = card)"
+    />
+
     <CardPreviewModal
       :card="previewCard"
       :open="previewCard !== null"
