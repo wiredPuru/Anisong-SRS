@@ -1,5 +1,5 @@
-import { existsSync, statSync } from "node:fs";
-import { isAbsolute, normalize, relative } from "node:path";
+import { existsSync, mkdirSync, statSync } from "node:fs";
+import { isAbsolute, join, normalize, relative } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { mediaLibrarySettings } from "../db/schema.ts";
@@ -160,6 +160,24 @@ export function setPlaybackMode(mode: string): { error: string } | { playbackMod
     .run();
 
   return { playbackMode: mode };
+}
+
+// Packaged builds (and fresh dev/preview installs) otherwise start with no
+// media library folder at all, so a first card can't be downloaded without a
+// trip to /settings first. Seeds a "themes" folder alongside the SQLite DB
+// (dataDir already resolves to the OS-appropriate user-data directory for a
+// packaged build - see launcher/userDataDir.ts) and adds it as the sole
+// library folder, which getDefaultDownloadFolder() then already picks up
+// automatically as the default download destination. Only runs once: any
+// existing library configuration is left untouched.
+export function ensureDefaultLibraryFolder(dataDir: string): void {
+  if (getLibraryPaths().length > 0) return;
+
+  const themesDir = normalizeFolderPath(join(dataDir, "themes"));
+  if (!existsSync(themesDir)) {
+    mkdirSync(themesDir, { recursive: true });
+  }
+  saveLibraryPaths([themesDir]);
 }
 
 export function addLibraryPath(rawPath: string): { error: string } | { libraryPaths: string[] } {
