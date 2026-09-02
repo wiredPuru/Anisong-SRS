@@ -319,7 +319,7 @@ cleaned-up checkbox version before generating the project overview.
   artist's resolved catalog on `/cards/new`) and "Anime" (today's "Add a
   show" AniList lookup, relabeled and always shown rather than gated
   behind Cards being empty). Local Cards matching is untouched.
-- [ ] 48. **Standalone platform-agnostic packaging** - a self-contained
+- [x] 48. **Standalone platform-agnostic packaging** - a self-contained
   executable per OS/arch (Windows, macOS x64/arm64, Linux) built via `bun
   build --compile`, bundling the Nitro server and opening the user's
   default browser on launch. Relocates the SQLite DB to an OS-appropriate
@@ -343,7 +343,7 @@ cleaned-up checkbox version before generating the project overview.
     machine's OS/arch only, proving the mechanism end to end (including
     `better-sqlite3`'s native addon and the migrations folder actually
     working from a compiled binary) before multiplying it across targets.
-  - [ ] 48c. **Full OS/arch build matrix** - extends 48b's proven compile
+  - [x] 48c. **Full OS/arch build matrix** - extends 48b's proven compile
     step to every target (Windows, macOS x64/arm64, Linux) with a build
     script and documented release process. Code-signing/notarization
     (macOS Gatekeeper, Windows SmartScreen) is out of scope - unsigned

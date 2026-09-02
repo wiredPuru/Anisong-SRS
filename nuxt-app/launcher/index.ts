@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveUserDataDir } from "./userDataDir.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -11,9 +11,8 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 // detect this - check the prefix directly and fall back to the
 // executable's real on-disk directory. Uncompiled, scriptDir is already
 // the real launcher/ directory.
-const realDir = scriptDir.startsWith("/$bunfs")
-  ? dirname(process.execPath)
-  : scriptDir;
+const isCompiled = scriptDir.startsWith("/$bunfs");
+const realDir = isCompiled ? dirname(process.execPath) : scriptDir;
 
 process.env.GAQ_SRS_DATA_DIR ??= resolveUserDataDir(
   process.platform,
@@ -43,6 +42,23 @@ try {
   console.error('Could not start the built server. If this is not a compiled binary, run "bun run build" first.');
   console.error(err);
   process.exit(1);
+}
+
+// Nitro resolves its public-asset directory (JS/CSS/favicon) at request
+// time from globalThis._importMeta_.url, which the entry module sets to
+// its own real import.meta.url on import. A compiled binary collapses
+// that to Bun's virtual bundle root ("/$bunfs/..."), so every static
+// asset 404s even though the page itself loads. Point it back at a fake
+// path under the real sibling `public/` folder shipped next to the
+// binary - same pattern as the migrations folder - now that the import
+// above has already run and won't overwrite it again. Uncompiled, the
+// entry module's own real import.meta.url already resolves correctly, so
+// this only runs when compiled.
+if (isCompiled) {
+  (globalThis as { _importMeta_?: { url: string; env: NodeJS.ProcessEnv } })._importMeta_ = {
+    url: pathToFileURL(join(realDir, "server", "index.mjs")).toString(),
+    env: process.env,
+  };
 }
 
 async function waitForServer(maxAttempts = 60, delayMs = 250): Promise<boolean> {

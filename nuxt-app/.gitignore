@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Packaged release binaries (nuxt-app/scripts/package.ts)
+release
+
 # Node dependencies
 node_modules
 

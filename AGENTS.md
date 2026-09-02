@@ -200,6 +200,14 @@ checks do not make the Blueprint unusable.
   built server and opens the default browser, using an OS-appropriate
   user-data directory instead of `.data/`. Prototype for the packaged
   executable (build item 48).
+- Package release binaries (after `bun run build`): `bun run package` -
+  cross-compiles the launcher into a standalone executable for each of
+  Windows x64, macOS x64, macOS arm64, and Linux x64, using Bun's
+  `--target` (no per-OS machine needed). Each target lands at
+  `nuxt-app/release/<target>/`, alongside sibling `migrations/` and
+  `public/` folders - ship the binary with both, since a compiled binary
+  reads migration SQL files and static web assets from disk rather than
+  embedding them.
 
 Testing is opt-in. No test runner is configured yet; run `/tests` or `$tests`
 to add one and update this section with the real test commands once logic

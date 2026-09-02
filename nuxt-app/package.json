@@ -8,6 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "launch": "bun run launcher/index.ts",
+    "package": "bun run scripts/package.ts",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
