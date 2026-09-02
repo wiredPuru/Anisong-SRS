@@ -6,12 +6,15 @@ import { resolveUserDataDir } from "./userDataDir.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 // A compiled binary resolves import.meta.url into Bun's virtual bundle
-// filesystem ("/$bunfs/..."). Its root reports as existing via
-// fs.existsSync (it's Bun's own fs shim), so existsSync alone can't
-// detect this - check the prefix directly and fall back to the
-// executable's real on-disk directory. Uncompiled, scriptDir is already
-// the real launcher/ directory.
-const isCompiled = scriptDir.startsWith("/$bunfs");
+// filesystem: "/$bunfs/..." on macOS/Linux, but a "<drive>:\~BUN\..."
+// virtual drive on Windows (confirmed from a real Windows stack trace
+// showing "B:\~BUN\root\gaq-srs.exe" - the drive letter isn't guaranteed
+// to always be B:, so match the "~BUN" marker instead of the whole
+// prefix). Its root reports as existing via fs.existsSync (it's Bun's own
+// fs shim), so existsSync alone can't detect this - check the prefix
+// directly and fall back to the executable's real on-disk directory.
+// Uncompiled, scriptDir is already the real launcher/ directory.
+const isCompiled = scriptDir.startsWith("/$bunfs") || /~BUN[\\/]/i.test(scriptDir);
 const realDir = isCompiled ? dirname(process.execPath) : scriptDir;
 
 process.env.GAQ_SRS_DATA_DIR ??= resolveUserDataDir(
