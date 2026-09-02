@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash bff16ff1fab3d533fd619d29555ad293cd796d01b340150a5a4812a78fef503e -->
+<!-- blueprint:source-hash e5f1225397d7dd3936eb7bee09b9fa96f378b6c8f1a4134f859d02b9d17e09ea -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -63,7 +63,14 @@ see feature 46's entry below). The Hide Video toggle (feature 10) is
 deliberately unaffected by feature 44 - it keeps today's plain veil on an
 otherwise video-capable card. Feature 47 (two new live-search categories -
 Artists and Anime - in the nav bar's global search dropdown) was added to
-`build-plan.md` on 2026-09-01 and is not yet built.
+`build-plan.md` on 2026-09-01 and is now built and merged. Feature 48
+(standalone platform-agnostic packaging) was added to `build-plan.md` the
+same day and is not yet built - it revisits the idea previously scoped as
+feature 25 ("Standalone desktop packaging"), which was abandoned
+2026-08-30 before any code was written; 48 is a new feature, not a reuse
+of that retired number, and `project-plan.md`'s Deployment section (§8)
+was updated to match, replacing its prior "no packaged build is planned"
+statement.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -585,10 +592,10 @@ Artists and Anime - in the nav bar's global search dropdown) was added to
     Paused" text entirely while it counts down, and scales up proportionally
     with the expanded frame instead of staying pinned at its small
     non-immersive size.
-47. **Artist search + categorized results in global search** - not yet
-    built. Adds two new live-search categories to the nav bar's search
-    dropdown (`NavBar.vue`) alongside today's local `Cards` group (feature
-    19b/26, untouched): an `Artists` group backed by the existing `GET
+47. **Artist search + categorized results in global search** - done. Adds
+    two new live-search categories to the nav bar's search dropdown
+    (`NavBar.vue`) alongside today's local `Cards` group (feature 19b/26,
+    untouched): an `Artists` group backed by the existing `GET
     /api/lookup/artist-search` (animethemes.moe - the same endpoint
     `/cards/new`'s "By artist" tab already uses) and an `Anime` group,
     which is today's "Add a show" AniList fallback (feature 26) relabeled
@@ -600,6 +607,20 @@ Artists and Anime - in the nav bar's global search dropdown) was added to
     `selectArtist` on mount instead of requiring a second "Select" click
     there. Clicking an Anime result behaves exactly as today's "Add a
     show" (`/cards/new?aniListId=<id>`).
+48. **Standalone platform-agnostic packaging** - not yet built. A
+    self-contained executable per OS/arch (Windows, macOS x64/arm64,
+    Linux) built via `bun build --compile`, bundling the Nitro server and
+    opening the user's default browser on launch, so the app runs without
+    a separate Node/Bun/Nuxt install. Relocates the SQLite DB
+    (`nuxt-app/.data/gaq-srs.db`) and `MediaLibrarySettings` (library
+    paths, default download folder, stream cache) to an OS-appropriate
+    user-data directory, since a packaged executable can't rely on a
+    project-relative `.data/` path the way the developer workflow does.
+    `better-sqlite3` is a native addon, so this is a build/release matrix
+    (one binary per OS/arch), not a single universal download. Revisits
+    the idea previously scoped as feature 25 ("Standalone desktop
+    packaging"), abandoned 2026-08-30 before any code was written; 48 is a
+    new feature, not a reuse of that retired number.
 
 ## Data model
 
@@ -912,19 +933,28 @@ Routes:
 
 ## Deployment
 
-Localhost-only - no remote hosting, no accounts, no multi-device sync.
+Localhost-only - no remote hosting, no accounts, no multi-device sync. Two
+ways to run it: the developer workflow, and (feature 48, not yet built) a
+packaged standalone executable.
 
 - **App type**: Nuxt server (Nitro), run on the user's own machine
 - **Build**: `bun run build` (see Commands in `AGENTS.md`)
-- **Run**: `bun run preview` (production) or `bun run dev` (development)
+- **Run**: `bun run preview` (production) or `bun run dev` (development) for
+  the developer workflow; a per-OS/arch compiled executable (`bun build
+  --compile`) for the packaged build once feature 48 lands
 - **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` (resolved in
   feature 1; gitignored, created and migrated automatically on first boot)
-  plus the user-configured media library folder(s). Project-relative path
-  only - no packaged build is planned (feature 25 was abandoned before any
-  code was written; see its entry above).
+  plus the user-configured media library folder(s) - project-relative,
+  used by the developer workflow. Feature 48 relocates the DB and
+  `MediaLibrarySettings` to an OS-appropriate user-data directory for the
+  packaged executable, since that build can't rely on a project-relative
+  path.
 - **Env vars**: none identified yet
-- **Packaged build**: not planned. Run via the developer workflow
-  (`bun run dev`/`bun run preview`) only.
+- **Packaged build**: feature 48, not yet built - a self-contained
+  executable per OS/arch (Windows, macOS x64/arm64, Linux), since
+  `better-sqlite3`'s native addon rules out one universal binary. Revisits
+  the idea previously scoped as the now-retired feature 25, abandoned
+  2026-08-30 before any code was written.
 - **Health check / domain**: not applicable (local-only)
 
 ## Notes

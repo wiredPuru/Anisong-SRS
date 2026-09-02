@@ -119,8 +119,11 @@ Non-profit. No monetization planned.
 
 Localhost-only. A website reachable in any browser of choice as long as the
 app is running on the user's own system. No remote hosting, no accounts, no
-multi-device sync. Run via the developer workflow (`bun run dev`/`bun run
-preview`) - no packaged standalone build is planned.
+multi-device sync. Two ways to run it: the developer workflow (`bun run
+dev`/`bun run preview`) for development, and a packaged standalone
+executable (build 48) for end users - a self-contained per-OS/arch binary
+that starts the local server and opens the browser, with no separate
+Node/Bun/Nuxt install required.
 
 ## 9. Non-Goals
 

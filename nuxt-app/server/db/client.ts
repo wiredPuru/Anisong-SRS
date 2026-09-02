@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { resolveDbPath } from "./dataDir.ts";
 import * as schema from "./schema.ts";
 
-const DB_PATH = resolve(process.cwd(), ".data/gaq-srs.db");
+const DB_PATH = resolveDbPath(process.env, process.cwd());
 
 const dbDir = dirname(DB_PATH);
 if (!existsSync(dbDir)) {

@@ -319,3 +319,32 @@ cleaned-up checkbox version before generating the project overview.
   artist's resolved catalog on `/cards/new`) and "Anime" (today's "Add a
   show" AniList lookup, relabeled and always shown rather than gated
   behind Cards being empty). Local Cards matching is untouched.
+- [ ] 48. **Standalone platform-agnostic packaging** - a self-contained
+  executable per OS/arch (Windows, macOS x64/arm64, Linux) built via `bun
+  build --compile`, bundling the Nitro server and opening the user's
+  default browser on launch. Relocates the SQLite DB to an OS-appropriate
+  user-data directory so the app runs without a separate Node/Bun/Nuxt
+  install. Revisits the idea previously scoped as feature 25 ("Standalone
+  desktop packaging"), abandoned 2026-08-30 before any code was written;
+  this is a new feature, not a reuse of that retired number.
+  - [x] 48a. **User-data-directory storage relocation** - make the SQLite
+    DB path (`server/db/client.ts`'s `DB_PATH`) environment-aware: an
+    optional `GAQ_SRS_DATA_DIR` env var overrides today's project-relative
+    `.data/gaq-srs.db` default. `MediaLibrarySettings` (library paths,
+    default download folder, stream cache) lives in that same DB and
+    relocates automatically with it - no separate change needed. No OS
+    detection or launcher yet; testable entirely within the dev workflow
+    by setting the env var by hand.
+  - [ ] 48b. **Launcher entrypoint + single-platform compile proof** - a
+    new entrypoint that computes the OS-appropriate user-data directory
+    (Windows/macOS/Linux), sets `GAQ_SRS_DATA_DIR` from it, starts the
+    built Nitro server, and opens the user's default browser once it's
+    listening. Compiled via `bun build --compile` for the current dev
+    machine's OS/arch only, proving the mechanism end to end (including
+    `better-sqlite3`'s native addon and the migrations folder actually
+    working from a compiled binary) before multiplying it across targets.
+  - [ ] 48c. **Full OS/arch build matrix** - extends 48b's proven compile
+    step to every target (Windows, macOS x64/arm64, Linux) with a build
+    script and documented release process. Code-signing/notarization
+    (macOS Gatekeeper, Windows SmartScreen) is out of scope - unsigned
+    binaries will show an OS security warning on first run.
