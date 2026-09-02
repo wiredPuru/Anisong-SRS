@@ -348,3 +348,34 @@ cleaned-up checkbox version before generating the project overview.
     script and documented release process. Code-signing/notarization
     (macOS Gatekeeper, Windows SmartScreen) is out of scope - unsigned
     binaries will show an OS security warning on first run.
+- [ ] 49. **Unify card search with Add Card** - `/cards`' own search (feature
+  35a, already matching song/artist/anime-title) becomes the one surface for
+  finding an existing card or adding a new one, replacing three separate
+  entry points (NavBar's dropdown, the deck-detail add flow, and the
+  standalone `/cards/new` page) with one. Local matches are always shown
+  first; Artist/Anime/Song add-candidates run in parallel alongside them
+  (ordering only, not gated on local being empty - keeps feature 47's
+  already-parallel approach rather than reintroducing the older gated
+  behavior). Built additively in phases: `/cards/new` and every existing
+  entry point to it stay untouched until the new surface is proven, then a
+  final sub-feature retires the page and rewires callers.
+  - [x] 49a. **Anime + Song add-candidates on /cards** - extends `/cards`'
+    search to also run the AniList anime lookup and the animethemes song
+    lookup in parallel with the existing local search, rendered as two
+    groups below local matches. Anime results expand inline into a
+    theme-picker (per-theme "Add", reusing `/api/lookup/import` +
+    `POST /api/cards`, same as `/cards/new`'s anime mode today). Song
+    results add in one click (`/api/lookup/song-search` +
+    `/api/lookup/song-import`, same as `/cards/new`'s song mode today).
+  - [ ] 49b. **Artist add-candidates + bulk preview modal** - adds the third
+    group, backed by `/api/lookup/artist-search`; picking a result resolves
+    the artist's full catalog (`/api/lookup/artist-import`) into a modal
+    (generalizing the `DeckAddAnimeModal` pattern from feature 33, but for
+    an artist's multiple anime and not deck-scoped) with per-theme "Add",
+    "Add all", and "Download all" - the same bulk actions `/cards/new`'s
+    artist mode has today.
+  - [ ] 49c. **Retire /cards/new** - once 49a/49b are in place, deletes the
+    `/cards/new` page and rewires its six existing entry points (NavBar's
+    three query-param navigations, `/cards`' header and empty-state links,
+    and the empty-state links on `/stats` and `/decks`) to the unified
+    `/cards` search instead.

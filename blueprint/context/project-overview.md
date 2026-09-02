@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash e5f1225397d7dd3936eb7bee09b9fa96f378b6c8f1a4134f859d02b9d17e09ea -->
+<!-- blueprint:source-hash befb60cf373bf2332dfd7c7214b3c385e5a14c819e090ce0ff481bce0488c55c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -64,13 +64,16 @@ deliberately unaffected by feature 44 - it keeps today's plain veil on an
 otherwise video-capable card. Feature 47 (two new live-search categories -
 Artists and Anime - in the nav bar's global search dropdown) was added to
 `build-plan.md` on 2026-09-01 and is now built and merged. Feature 48
-(standalone platform-agnostic packaging) was added to `build-plan.md` the
-same day and is not yet built - it revisits the idea previously scoped as
-feature 25 ("Standalone desktop packaging"), which was abandoned
-2026-08-30 before any code was written; 48 is a new feature, not a reuse
-of that retired number, and `project-plan.md`'s Deployment section (§8)
-was updated to match, replacing its prior "no packaged build is planned"
-statement.
+(standalone platform-agnostic packaging, in three sub-features 48a-48c)
+was added to `build-plan.md` the same day and is now built and merged,
+plus several fixes layered on top of it since (see feature 48's entry
+below) - it revisits the idea previously scoped as feature 25 ("Standalone
+desktop packaging"), which was abandoned 2026-08-30 before any code was
+written; 48 is a new feature, not a reuse of that retired number, and
+`project-plan.md`'s Deployment section (§8) was updated to match,
+replacing its prior "no packaged build is planned" statement. Feature 49
+(unifying card search with Add Card, in three sub-features 49a-49c) was
+added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -607,11 +610,12 @@ statement.
     `selectArtist` on mount instead of requiring a second "Select" click
     there. Clicking an Anime result behaves exactly as today's "Add a
     show" (`/cards/new?aniListId=<id>`).
-48. **Standalone platform-agnostic packaging** - not yet built. A
-    self-contained executable per OS/arch (Windows, macOS x64/arm64,
-    Linux) built via `bun build --compile`, bundling the Nitro server and
-    opening the user's default browser on launch, so the app runs without
-    a separate Node/Bun/Nuxt install. Relocates the SQLite DB
+48. **Standalone platform-agnostic packaging** - done, in three
+    sub-features. A self-contained executable per OS/arch (Windows,
+    macOS x64/arm64, Linux) built via `bun build --compile` (`bun run
+    package`, `nuxt-app/scripts/package.ts`), bundling the Nitro server
+    and opening the user's default browser on launch, so the app runs
+    without a separate Node/Bun/Nuxt install. Relocates the SQLite DB
     (`nuxt-app/.data/gaq-srs.db`) and `MediaLibrarySettings` (library
     paths, default download folder, stream cache) to an OS-appropriate
     user-data directory, since a packaged executable can't rely on a
@@ -621,6 +625,77 @@ statement.
     the idea previously scoped as feature 25 ("Standalone desktop
     packaging"), abandoned 2026-08-30 before any code was written; 48 is a
     new feature, not a reuse of that retired number.
+    - **48a. User-data-directory storage relocation** - done. An optional
+      `GAQ_SRS_DATA_DIR` env var overrides the project-relative
+      `.data/gaq-srs.db` default (`server/db/dataDir.ts`);
+      `MediaLibrarySettings` relocates automatically with it since it
+      lives in the same DB.
+    - **48b. Launcher entrypoint + single-platform compile proof** -
+      done. `nuxt-app/launcher/index.ts` computes the OS-appropriate
+      user-data directory, sets `GAQ_SRS_DATA_DIR`, starts the built
+      Nitro server, and opens the default browser once it's listening.
+    - **48c. Full OS/arch build matrix** - done. Extends 48b's compile
+      step to every target with `nuxt-app/scripts/package.ts` and a
+      documented release process; code-signing/notarization is out of
+      scope, so unsigned binaries show an OS security warning on first
+      run.
+
+    Several fixes landed on top of 48c once real packaged-binary testing
+    started (2026-09-02): kuromoji/furigana failed to load inside a
+    compiled binary (kuromoji's own `require()` chain can't resolve from
+    inside one - fixed by shipping a pre-bundled, dependency-flattened
+    copy alongside the real `dict/` folder); the launcher's
+    compiled-binary detection missed Windows' `~BUN`-prefixed virtual
+    path (`import.meta.url` resolves to a `<drive>:\~BUN\...` path there,
+    not the macOS/Linux `/$bunfs/...` one); having exactly one library
+    folder configured never actually persisted it as the default download
+    folder, silently hiding `/cards`' download buttons - not
+    packaging-specific (reproduced under `bun run dev` too), just first
+    noticed via Windows testing (archived at
+    `blueprint/history/fixes/default-download-folder-single-library.md`);
+    and AniList lookups returned a bare 403 in the packaged Windows build
+    because `anilist.ts` sent no `User-Agent` header, fixed the same way
+    animethemes.moe already required one (see feature 3's entry). A
+    further addition seeds a "themes" folder next to the database as the
+    default library folder on first boot when none is configured yet, so
+    a fresh install can download a card immediately without a trip to
+    `/settings` first.
+49. **Unify card search with Add Card** - not yet built, in three
+    sub-features. `/cards`' own search (feature 35a, already matching
+    song/artist/anime-title) becomes the one surface for finding an
+    existing card or adding a new one, replacing three separate entry
+    points (NavBar's global search dropdown, the deck-detail add flow
+    from feature 33, and the standalone `/cards/new` page) with one.
+    Local matches are always shown first; Artist/Anime/Song
+    add-candidates run in parallel alongside them (ordering only, not
+    gated on local results being empty - keeps feature 47's already-
+    parallel approach rather than reintroducing the gated behavior
+    feature 47 deliberately moved away from). Built additively in
+    phases: `/cards/new` and every existing entry point to it stay
+    untouched until the new surface is proven, then a final sub-feature
+    retires the page and rewires callers.
+    - **49a. Anime + Song add-candidates on /cards** - not yet built.
+      Extends `/cards`' search to also run the AniList anime lookup and
+      the animethemes song lookup in parallel with the existing local
+      search, rendered as two groups below local matches. Anime results
+      expand inline into a theme-picker (per-theme "Add", reusing
+      `/api/lookup/import` + `POST /api/cards`, same as `/cards/new`'s
+      anime mode today). Song results add in one click
+      (`/api/lookup/song-search` + `/api/lookup/song-import`, same as
+      `/cards/new`'s song mode today).
+    - **49b. Artist add-candidates + bulk preview modal** - not yet
+      built. Adds the third group, backed by `/api/lookup/artist-search`;
+      picking a result resolves the artist's full catalog
+      (`/api/lookup/artist-import`) into a modal (generalizing the
+      `DeckAddAnimeModal` pattern from feature 33, but for an artist's
+      multiple anime and not deck-scoped) with per-theme "Add", "Add
+      all", and "Download all" - the same bulk actions `/cards/new`'s
+      artist mode has today.
+    - **49c. Retire /cards/new** - not yet built. Once 49a/49b are in
+      place, deletes the `/cards/new` page and rewires its six existing
+      entry points (NavBar's three query-param navigations, `/cards`'
+      header and empty-state links, and the empty-state links on
+      `/stats` and `/decks`) to the unified `/cards` search instead.
 
 ## Data model
 
@@ -860,16 +935,21 @@ Routes:
   immediately - no save step). Feature 17 made the existing Delete button
   also remove the card's now-unreferenced local file(s), with no added
   confirmation step. Feature 35a replaced numbered pagination with a search
-  box (song/artist/anime title) plus scroll-triggered "load more."
-- `/cards/new` - done. Add a card via AniList/animethemes.moe lookup, with
-  the same download action available right after a card is added. Feature
-  37a added a "By anime"/"By artist" mode toggle - artist mode searches
-  animethemes.moe for an artist and shows a read-only theme preview grouped
-  by anime; feature 37b turned that preview into per-row "Add", "Add all",
-  and a sequential "Download all" (video only). Feature 39 added a third
-  "By song" mode searching animethemes.moe by song/theme title directly;
-  all three modes share one search query field so switching tabs no
-  longer loses what was typed.
+  box (song/artist/anime title) plus scroll-triggered "load more." Feature
+  49 (not yet built) will extend this same search box to also surface
+  Artist/Anime/Song add-candidates alongside local matches, folding in
+  `/cards/new`'s capability - see feature 49's entry above.
+- `/cards/new` - done, though feature 49 (not yet built) plans to fold its
+  capability into `/cards`' own search and retire this route (49c) once
+  that's proven; unchanged until then. Add a card via AniList/animethemes.moe
+  lookup, with the same download action available right after a card is
+  added. Feature 37a added a "By anime"/"By artist" mode toggle - artist
+  mode searches animethemes.moe for an artist and shows a read-only theme
+  preview grouped by anime; feature 37b turned that preview into per-row
+  "Add", "Add all", and a sequential "Download all" (video only). Feature
+  39 added a third "By song" mode searching animethemes.moe by song/theme
+  title directly; all three modes share one search query field so
+  switching tabs no longer loses what was typed.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle
@@ -934,27 +1014,35 @@ Routes:
 ## Deployment
 
 Localhost-only - no remote hosting, no accounts, no multi-device sync. Two
-ways to run it: the developer workflow, and (feature 48, not yet built) a
-packaged standalone executable.
+ways to run it: the developer workflow, and (feature 48, done) a packaged
+standalone executable.
 
 - **App type**: Nuxt server (Nitro), run on the user's own machine
 - **Build**: `bun run build` (see Commands in `AGENTS.md`)
 - **Run**: `bun run preview` (production) or `bun run dev` (development) for
-  the developer workflow; a per-OS/arch compiled executable (`bun build
-  --compile`) for the packaged build once feature 48 lands
-- **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` (resolved in
-  feature 1; gitignored, created and migrated automatically on first boot)
-  plus the user-configured media library folder(s) - project-relative,
-  used by the developer workflow. Feature 48 relocates the DB and
-  `MediaLibrarySettings` to an OS-appropriate user-data directory for the
-  packaged executable, since that build can't rely on a project-relative
-  path.
-- **Env vars**: none identified yet
-- **Packaged build**: feature 48, not yet built - a self-contained
-  executable per OS/arch (Windows, macOS x64/arm64, Linux), since
-  `better-sqlite3`'s native addon rules out one universal binary. Revisits
-  the idea previously scoped as the now-retired feature 25, abandoned
-  2026-08-30 before any code was written.
+  the developer workflow; a per-OS/arch compiled executable
+  (`nuxt-app/release/<target>/gaq-srs[.exe]`, built via `bun run package`)
+  for the packaged build
+- **Storage**: SQLite database at `nuxt-app/.data/gaq-srs.db` for the
+  developer workflow (resolved in feature 1; gitignored, created and
+  migrated automatically on first boot), or an OS-appropriate user-data
+  directory for the packaged executable (feature 48a) - `%APPDATA%\gaq-srs`
+  on Windows, `~/Library/Application Support/gaq-srs` on macOS,
+  `~/.local/share/gaq-srs` on Linux (`GAQ_SRS_DATA_DIR`, overridable by
+  hand in the developer workflow too) - since that build can't rely on a
+  project-relative path. `MediaLibrarySettings` lives in that same DB and
+  relocates with it. Either way, a "themes" folder is seeded next to the
+  database as the default media library folder on first boot when none is
+  configured yet.
+- **Env vars**: `GAQ_SRS_DATA_DIR` (optional; packaged builds set it
+  automatically)
+- **Packaged build**: feature 48, done - a self-contained executable per
+  OS/arch (Windows, macOS x64/arm64, Linux) built via `bun run package`
+  (`nuxt-app/scripts/package.ts`), since `better-sqlite3`'s native addon
+  rules out one universal binary. Unsigned - macOS Gatekeeper/Windows
+  SmartScreen show a security warning on first run. Revisits the idea
+  previously scoped as the now-retired feature 25, abandoned 2026-08-30
+  before any code was written.
 - **Health check / domain**: not applicable (local-only)
 
 ## Notes

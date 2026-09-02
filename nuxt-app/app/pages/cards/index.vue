@@ -419,6 +419,20 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
       </div>
     </template>
 
+    <CardAddAnimeResults
+      :query="searchQuery"
+      :has-default-download-folder="hasDefaultDownloadFolder"
+      @refresh="loadFirstPage"
+      @preview="(card) => (previewCard = card)"
+    />
+
+    <CardAddSongResults
+      :query="searchQuery"
+      :has-default-download-folder="hasDefaultDownloadFolder"
+      @refresh="loadFirstPage"
+      @preview="(card) => (previewCard = card)"
+    />
+
     <CardPreviewModal
       :card="previewCard"
       :open="previewCard !== null"
