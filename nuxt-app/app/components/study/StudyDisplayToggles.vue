@@ -7,6 +7,7 @@ defineProps<{
   hideCover: boolean;
   randomStart: boolean;
   ambientMode: boolean;
+  audioOnly: boolean;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
 }>();
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   "toggle-hide-cover": [];
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
+  "toggle-audio-only": [];
   "update:auto-reveal-mode": [AutoRevealMode];
   "update:auto-reveal-seconds": [number];
 }>();
@@ -89,6 +91,16 @@ const showAutoRevealSettings = ref(false);
     >
       Ambient
       <span class="tooltip">Hotkey: A</span>
+    </button>
+    <button
+      type="button"
+      class="toggle-btn"
+      :class="{ on: audioOnly }"
+      :aria-pressed="audioOnly"
+      @click="emit('toggle-audio-only')"
+    >
+      Audio only
+      <span class="tooltip">Applies from the next card</span>
     </button>
     <StudyAutoRevealSettingsModal
       v-if="showAutoRevealSettings"

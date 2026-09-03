@@ -37,7 +37,17 @@ const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
 }>("/api/media-library");
 
 const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
-const audioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
+const persistedAudioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
+
+// A session-only override of the persisted Playback mode setting, toggled
+// from the display-toggles row below. `null` means "follow /settings".
+// Deliberately never changes the currently-mounted player's media type live
+// - see playerAudioOnly below - since a reactive mid-playback swap is
+// exactly what caused features 18 and 32 to be abandoned (overlapping
+// audio streams). Resets every visit, like Hide Video/Hide Info/Random
+// start already do; never persisted to localStorage.
+const sessionAudioOnlyOverride = ref<boolean | null>(null);
+const effectiveAudioOnly = computed(() => sessionAudioOnlyOverride.value ?? persistedAudioOnly.value);
 
 const {
   currentCard,
@@ -51,7 +61,16 @@ const {
   dueCount,
   submit,
   refresh: refreshStudySession,
-} = useStudySession(scope, audioOnly);
+} = useStudySession(scope, effectiveAudioOnly);
+
+// Snapshotted only when a new presentation begins (StudyMediaPlayer fully
+// remounts on presentationKey), so toggling "Audio only" mid-card never
+// changes the prop on an already-mounted player instance - it only ever
+// takes effect starting with the next card.
+const playerAudioOnly = ref(effectiveAudioOnly.value);
+watch(presentationKey, () => {
+  playerAudioOnly.value = effectiveAudioOnly.value;
+});
 
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
   if (!currentCard.value) return;
@@ -467,6 +486,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hide-cover="hideCover"
             :random-start="randomStart"
             :ambient-mode="ambientMode"
+            :audio-only="effectiveAudioOnly"
             v-model:auto-reveal-mode="autoRevealMode"
             :auto-reveal-seconds="autoRevealSeconds"
             @toggle-hide-video="hideVideo = !hideVideo"
@@ -474,6 +494,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-hide-cover="hideCover = !hideCover"
             @toggle-random-start="randomStart = !randomStart"
             @toggle-ambient-mode="ambientMode = !ambientMode"
+            @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
           />
           <button
@@ -498,7 +519,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :allow-expand="true"
           :hide-theme-badge="hideInfo && !autoRevealedThisCard"
           :has-default-download-folder="hasDefaultDownloadFolder"
-          :audio-only="audioOnly"
+          :audio-only="playerAudioOnly"
           :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
           :hide-listening-label="immersive && autoRevealCountdownActive"
           v-model:immersive="immersive"
