@@ -79,7 +79,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 50;
+  z-index: var(--z-modal);
 }
 
 .panel {

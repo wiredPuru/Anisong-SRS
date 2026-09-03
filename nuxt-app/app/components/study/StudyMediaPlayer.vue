@@ -174,8 +174,6 @@ watch(volume, (value) => {
   }
 });
 
-const { height: navHeight } = useNavHeight();
-
 const activeEl = computed<HTMLMediaElement | null>(() =>
   mediaKind.value === "video" ? videoRef.value : audioRef.value,
 );
@@ -635,7 +633,6 @@ onUnmounted(() => stopDrag?.());
   <div
     class="player-card"
     :class="{ expanded: immersive, 'ambient-glass': ambient }"
-    :style="{ '--nav-height': `${navHeight}px` }"
     @click.self="emit('update:immersive', false)"
   >
     <div
@@ -806,13 +803,18 @@ onUnmounted(() => stopDrag?.());
   backdrop-filter: var(--glass-blur);
 }
 
+/* Insets past the rail rather than covering it, keeping the pre-50a intent
+   that /study's persistent navigation stays reachable while expanded - it
+   just reserves horizontally now that the nav is a left rail instead of a
+   top bar. CardPreviewModal resets this to 0: it is a modal whose backdrop
+   already covers the rail before immersive starts. */
 .player-card.expanded {
   position: fixed;
-  top: var(--nav-height);
+  top: 0;
   right: 0;
   bottom: 0;
-  left: 0;
-  z-index: 60;
+  left: var(--rail-width);
+  z-index: var(--z-immersive);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -821,8 +823,10 @@ onUnmounted(() => stopDrag?.());
   padding: 0;
 }
 
+/* 90% of the card, not 90vw: the card no longer spans the viewport now that
+   it starts at the rail's right edge. */
 .player-card.expanded .player-frame {
-  width: min(90vw, calc((100vh - var(--nav-height)) * 0.9 * 16 / 9));
+  width: min(90%, calc(100vh * 0.9 * 16 / 9));
   height: auto;
 }
 
@@ -882,7 +886,8 @@ onUnmounted(() => stopDrag?.());
 .player-frame {
   position: relative;
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
   /* Lets immersive-overlay content (info card, language toggles, Pass/Fail
      buttons) size itself in cqw against this frame's actual rendered width
@@ -893,14 +898,14 @@ onUnmounted(() => stopDrag?.());
   background:
     radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
-    #0c0c16;
+    var(--surface-sunken);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 /* The ambient glow canvas lives behind the whole page (Teleport to body,
-   z-index: -1), but this frame's own opaque gradient - solid #0c0c16 as its
+   z-index: -1), but this frame's own opaque gradient - solid --surface-sunken as its
    last background layer - normally blocks it from showing through anywhere
    inside the player itself (letterboxing around a non-16:9 video, or the
    space around the record in audio mode). Dropping it while ambient mode
@@ -939,7 +944,7 @@ onUnmounted(() => stopDrag?.());
   border-radius: 50%;
   background:
     repeating-radial-gradient(circle, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 1px, transparent 1px, transparent 6px),
-    #07070d;
+    var(--bg);
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
   animation: record-spin 3.6s linear infinite;
   animation-play-state: paused;
@@ -968,7 +973,7 @@ onUnmounted(() => stopDrag?.());
   height: 8%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #0c0c16;
+  background: var(--surface-sunken);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
@@ -997,15 +1002,16 @@ onUnmounted(() => stopDrag?.());
 
 .theme-badge {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: rgba(21, 15, 28, 0.75);
+  top: 14px;
+  left: 14px;
+  padding: 4px 12px;
+  border-radius: calc(var(--radius-sm) - 1px);
+  /* 50a missed this one: it was still the old purple ground at 75%. */
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 1px;
   color: var(--accent-secondary);
   z-index: 2;
 }
@@ -1039,7 +1045,7 @@ onUnmounted(() => stopDrag?.());
   background:
     radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
-    #0c0c16;
+    var(--surface-sunken);
   cursor: pointer;
 }
 
@@ -1207,7 +1213,8 @@ onUnmounted(() => stopDrag?.());
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  background: linear-gradient(to top, rgba(10, 6, 14, 0.85), transparent);
+  /* Also a 50a leftover: this was still mixed from the old purple ground. */
+  background: linear-gradient(to top, color-mix(in srgb, var(--bg) 90%, transparent), transparent);
 }
 
 /* Expanded-only proportional override - same rationale as the badge/expand
@@ -1283,7 +1290,7 @@ onUnmounted(() => stopDrag?.());
 
 .scrub {
   flex: 1;
-  height: 7px;
+  height: 5px;
   border-radius: var(--radius-pill);
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -1294,7 +1301,7 @@ onUnmounted(() => stopDrag?.());
 
 .scrub:hover,
 .scrub.dragging {
-  height: 12px;
+  height: 10px;
 }
 
 .player-card.expanded .scrub {
@@ -1313,9 +1320,9 @@ onUnmounted(() => stopDrag?.());
 }
 
 .time {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
   min-width: 76px;
   text-align: right;
 }
@@ -1342,7 +1349,7 @@ onUnmounted(() => stopDrag?.());
 
 .volume-slider {
   width: 90px;
-  accent-color: var(--accent-secondary);
+  accent-color: var(--muted);
   cursor: pointer;
 }
 

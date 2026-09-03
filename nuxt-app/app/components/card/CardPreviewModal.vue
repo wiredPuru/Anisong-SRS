@@ -243,6 +243,7 @@ watch(
               :anime-title-english="card.animeTitleEnglish"
               :anime-title-romaji="card.animeTitleRomaji"
               :anime-title-native="card.animeTitleNative"
+              :theme-slot="card.themeSlot"
               :ambient="ambientMode"
             />
           </div>
@@ -332,6 +333,7 @@ watch(
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"
+          :theme-slot="card.themeSlot"
           :ambient="ambientMode"
         />
         <button type="button" class="edit-toggle-btn" @click="startEdit">Edit card</button>
@@ -350,7 +352,7 @@ watch(
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 50;
+  z-index: var(--z-modal);
 }
 
 .panel {
@@ -391,16 +393,16 @@ watch(
   backdrop-filter: none;
 }
 
-/* StudyMediaPlayer.vue's own .player-card.expanded reserves top:
-   var(--nav-height) so /study's persistent nav bar stays visible above its
-   page-level immersive mode. Preview is a modal, not a page - .backdrop
-   already covers the full viewport (including the nav bar) before
-   immersive even starts, so there's nothing to leave room for; reserving
-   that space here just left a visible gap at the top. !important to
-   reliably beat StudyMediaPlayer.vue's own scoped rule, matching the same
-   pattern study/index.vue's :deep() overrides already use. */
+/* StudyMediaPlayer.vue's own .player-card.expanded reserves left:
+   var(--rail-width) so /study's persistent nav rail stays reachable beside
+   its page-level immersive mode. Preview is a modal, not a page - .backdrop
+   already covers the full viewport (including the rail) before immersive
+   even starts, so there's nothing to leave room for; reserving that space
+   here just leaves a visible gap. !important to reliably beat
+   StudyMediaPlayer.vue's own scoped rule, matching the same pattern
+   study/index.vue's :deep() overrides already use. */
 .panel :deep(.player-card.expanded) {
-  top: 0 !important;
+  left: 0 !important;
 }
 
 .close-btn,

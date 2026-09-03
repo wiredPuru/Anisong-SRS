@@ -7,6 +7,9 @@ const props = withDefaults(
     animeTitleEnglish: string;
     animeTitleRomaji: string;
     animeTitleNative: string;
+    // Optional so the Theme row is simply absent for any caller that doesn't
+    // pass it, rather than this being a breaking addition.
+    themeSlot?: string;
     box?: number;
     streak?: number;
     streakRequired?: number;
@@ -143,43 +146,47 @@ watch(
       'info-hidden': immersive && blurred,
     }"
   >
-    <div v-if="!hideToggles" class="lang-toggles">
-      <button type="button" class="lang-btn" :class="{ on: showEn }" @click="showEn = !showEn">EN</button>
-      <button type="button" class="lang-btn" :class="{ on: showRomaji }" @click="showRomaji = !showRomaji">
-        Romaji
-      </button>
-      <button type="button" class="lang-btn" :class="{ on: showJapanese }" @click="showJapanese = !showJapanese">
-        Japanese
-      </button>
-      <button
-        type="button"
-        class="lang-btn"
-        :class="{ on: showFurigana }"
-        :disabled="!showJapanese"
-        @click="showFurigana = !showFurigana"
-      >
-        Furigana
-      </button>
-    </div>
-
-    <div class="title-block">
-      <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
-      <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
-      <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji && animeJpIsHtml" class="jp" v-html="animeJpHtml" />
-      <span v-else-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp">{{ animeJpHtml }}</span>
-    </div>
-
-    <div class="song-block">
-      <span class="label">Song</span>
-      <span class="song-title">{{ songTitle }}</span>
-      <span v-if="showJapanese && songTitleNative !== songTitle && songJpIsHtml" class="jp" v-html="songJpHtml" />
-      <span v-else-if="showJapanese && songTitleNative !== songTitle" class="jp">{{ songJpHtml }}</span>
-    </div>
-
-    <div class="meta-row">
-      <div class="artist">
-        <span class="label">Artist</span>
-        <span class="name">{{ artistName }}</span>
+    <div class="panel-top">
+      <div v-if="!hideToggles" class="lang-toggles" role="group" aria-label="Title languages">
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ on: showEn }"
+          :aria-pressed="showEn"
+          @click="showEn = !showEn"
+        >
+          EN
+        </button>
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ on: showRomaji }"
+          :aria-pressed="showRomaji"
+          @click="showRomaji = !showRomaji"
+        >
+          Romaji
+        </button>
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ on: showJapanese }"
+          :aria-pressed="showJapanese"
+          aria-label="Japanese"
+          @click="showJapanese = !showJapanese"
+        >
+          日本語
+        </button>
+        <button
+          type="button"
+          class="lang-btn"
+          :class="{ on: showFurigana }"
+          :aria-pressed="showFurigana"
+          aria-label="Furigana"
+          :disabled="!showJapanese"
+          @click="showFurigana = !showFurigana"
+        >
+          ふりがな
+        </button>
       </div>
       <div v-if="box === 1" ref="streakPopoverRef" class="learning">
         <button
@@ -201,6 +208,32 @@ watch(
         <div v-if="showStreakPopover" class="learning-popover">
           <SettingsBoxOneStreakControl :required="streakRequired" @saved="onStreakPopoverSaved" />
         </div>
+      </div>
+    </div>
+
+    <div class="title-block">
+      <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
+      <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
+      <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji && animeJpIsHtml" class="jp" v-html="animeJpHtml" />
+      <span v-else-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp">{{ animeJpHtml }}</span>
+    </div>
+
+    <div class="divider" />
+
+    <div class="detail-rows">
+      <div class="detail-row">
+        <span class="label">Song</span>
+        <span class="value">{{ songTitle }}</span>
+        <span v-if="showJapanese && songTitleNative !== songTitle && songJpIsHtml" class="jp" v-html="songJpHtml" />
+        <span v-else-if="showJapanese && songTitleNative !== songTitle" class="jp">{{ songJpHtml }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Artist</span>
+        <span class="value">{{ artistName }}</span>
+      </div>
+      <div v-if="themeSlot" class="detail-row">
+        <span class="label">Theme</span>
+        <span class="value">{{ themeSlot }}</span>
       </div>
     </div>
   </div>
@@ -281,8 +314,7 @@ watch(
    bar, search dropdown, etc.) so the video stays more visible through it;
    study/index.vue's answer-btn override uses the same lighter value. */
 .info-card.overlay .title-block,
-.info-card.overlay .song-block,
-.info-card.overlay .meta-row {
+.info-card.overlay .detail-rows {
   background: transparent;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -290,11 +322,13 @@ watch(
   padding: clamp(8px, 0.83cqw, 19px) clamp(10px, 1.1cqw, 26px);
 }
 
-.info-card.overlay .meta-row {
-  padding-top: clamp(8px, 0.83cqw, 19px);
+/* The divider is the side panel's separator; in the overlay each block is
+   its own frosted chip, so the gap between them already separates them. */
+.info-card.overlay .divider {
+  display: none;
 }
 
-.info-card.overlay :is(.en, .romaji, .jp, .song-title, .label, .name) {
+.info-card.overlay :is(.en, .romaji, .jp, .value, .label) {
   text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.85),
     0 1px 2px rgba(0, 0, 0, 0.9);
@@ -320,13 +354,13 @@ watch(
   font-size: clamp(10px, 0.83cqw, 19px);
 }
 
-.info-card.overlay .song-title {
+.info-card.overlay .detail-row .value,
+.info-card.overlay .learning .name {
   font-size: clamp(12px, 1.24cqw, 29px);
 }
 
-.info-card.overlay .meta-row .artist .name,
-.info-card.overlay .meta-row .learning .name {
-  font-size: clamp(12px, 1.24cqw, 29px);
+.info-card.overlay .detail-rows {
+  gap: clamp(8px, 0.83cqw, 19px);
 }
 
 .info-card.overlay .lang-toggles {
@@ -338,29 +372,47 @@ watch(
   font-size: clamp(10px, 0.9cqw, 21px);
 }
 
+/* Language control and the learning counter share one row at the top of the
+   panel, per the artboard. margin-left: auto on .learning rather than
+   space-between, so it stays right-aligned when hideToggles drops the
+   language control entirely. */
+.panel-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .lang-toggles {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .lang-btn {
-  padding: 9px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
+  padding: 6px 12px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: none;
   color: var(--muted);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.3px;
   cursor: pointer;
 }
 
+.lang-btn:first-child {
+  border-left: 0;
+  border-radius: calc(var(--radius-sm) - 1px) 0 0 calc(var(--radius-sm) - 1px);
+}
+
+.lang-btn:last-child {
+  border-radius: 0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0;
+}
+
 .lang-btn.on {
-  border-color: var(--accent-secondary);
-  color: var(--accent-secondary);
-  box-shadow: 0 0 14px var(--accent-secondary-glow);
+  background: var(--accent-secondary);
+  color: var(--accent-ink);
 }
 
 .lang-btn:disabled {
@@ -371,12 +423,14 @@ watch(
 .title-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .title-block .en {
-  font-size: 27px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.15;
 }
 
 .title-block .romaji {
@@ -386,57 +440,55 @@ watch(
 }
 
 .jp {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--accent-secondary);
 }
 
 .jp :deep(rt) {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--faint);
   font-weight: 600;
 }
 
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
 .label {
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 11px;
+  color: var(--faint);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1.4px;
 }
 
-.song-block {
+.detail-rows {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 16px;
 }
 
-.song-title {
-  font-size: 18px;
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detail-row .value {
+  font-size: 19px;
   font-weight: 700;
 }
 
-.meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+.detail-row .jp {
+  font-size: 17px;
 }
 
-.meta-row .artist {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.meta-row .artist .name {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.meta-row .learning {
+.learning {
   position: relative;
+  margin-left: auto;
+  flex: none;
 }
 
 .learning-trigger {

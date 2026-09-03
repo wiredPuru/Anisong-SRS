@@ -45,17 +45,17 @@ function isActive(to: string): boolean {
 .app-nav {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-chrome);
   flex: none;
   align-self: flex-start;
   height: 100vh;
-  width: 82px;
+  width: var(--rail-width);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   padding: 18px 0;
-  background: #0c0c16;
+  background: var(--surface-sunken);
   border-right: 1px solid var(--border);
 }
 

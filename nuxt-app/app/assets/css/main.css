@@ -39,6 +39,19 @@
   --radius: 6px;
   --radius-sm: 4px;
   --radius-pill: 999px;
+
+  /* shell - the rail's own width and ground. Anything using position: fixed
+     to fill the viewport beside the rail insets by --rail-width rather than
+     hard-coding 82px. */
+  --rail-width: 82px;
+  --surface-sunken: #0c0c16;
+
+  /* Stacking order, in one place so a new overlay can be slotted in without
+     re-deriving the whole scale. The rail sits above page content but below
+     overlays: it is chrome, and a modal backdrop is meant to cover it. */
+  --z-chrome: 30;
+  --z-modal: 50;
+  --z-immersive: 60;
   /* Denser than before: the ground is much darker now, so a black shadow
      needs more opacity to read at all. */
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -54,6 +67,22 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* For headings the redesign drops visually but the document still needs.
+   The Akiba Neon screens name themselves through the rail's active item
+   rather than a page title, so the <h1> stays for structure and screen
+   readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Ambient glass: automatically applied to shared UI chrome (nav bar,
@@ -81,6 +110,7 @@
 [data-ambient-glass="true"] .nav-search .search-input,
 [data-ambient-glass="true"] .search-dropdown,
 [data-ambient-glass="true"] .display-toggles .toggle-btn,
+[data-ambient-glass="true"] .display-toggles .seg,
 [data-ambient-glass="true"] .answer-btn,
 [data-ambient-glass="true"] .expand-btn,
 [data-ambient-glass="true"] .close-btn,

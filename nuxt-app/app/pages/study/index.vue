@@ -108,6 +108,17 @@ async function fetchDeckLabel() {
 
 watch(scopeResult, fetchDeckLabel, { immediate: true });
 
+// Reviews done out of everything this session will cover. dueCount excludes
+// what's already been passed, so the two sum to the session total and the bar
+// grows as the queue drains. A failed card stays due, so the bar holds rather
+// than advancing - the same deliberate behaviour as the "cards left" count.
+const sessionProgress = computed(() => {
+  const done = reviewedCount.value;
+  const total = done + dueCount.value;
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round((done / total) * 100));
+});
+
 const scopeChipLabel = computed(() => {
   const result = scopeResult.value;
   if (!result.valid) return "";
@@ -405,7 +416,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 <template>
   <main class="study">
-    <h1>Study</h1>
+    <h1 class="sr-only">Study</h1>
 
     <div v-if="!scopeResult.valid" class="state state-error">
       This study link isn't valid. Go back to <NuxtLink to="/decks">Decks</NuxtLink> and pick a deck.
@@ -414,52 +425,70 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="error" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">All caught up! Nothing due right now.</div>
     <template v-else-if="currentCard">
-      <div class="scope-row">
-        <span class="chip">{{ scopeChipLabel }}</span>
-        <span class="count">Card {{ reviewedCount + 1 }} this session</span>
-        <span class="count">{{ dueCount }} card{{ dueCount === 1 ? "" : "s" }} left</span>
-        <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
-          <button
-            type="button"
-            class="chip new-card-chip"
-            :class="{ 'new-card-chip-reached': newCardsToday.limit !== null && newCardsToday.introduced >= newCardsToday.limit }"
-            @click="showNewCardLimitPopover = !showNewCardLimitPopover"
+      <header class="study-header">
+        <div class="header-left">
+          <span class="chip">{{ scopeChipLabel }}</span>
+          <span class="counts">
+            Card {{ reviewedCount + 1 }}
+            <span class="sep" aria-hidden="true">&middot;</span>
+            {{ dueCount }} left
+          </span>
+          <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
+            <span class="sep" aria-hidden="true">&middot;</span>
+            <button
+              type="button"
+              class="new-card-chip"
+              :class="{ 'new-card-chip-reached': newCardsToday.limit !== null && newCardsToday.introduced >= newCardsToday.limit }"
+              @click="showNewCardLimitPopover = !showNewCardLimitPopover"
+            >
+              new {{ newCardsToday.introduced
+              }}<template v-if="newCardsToday.limit !== null">/{{ newCardsToday.limit }}</template>
+            </button>
+            <div v-if="showNewCardLimitPopover" class="new-card-limit-popover">
+              <SettingsNewCardLimitControl :limit="studySettings?.dailyNewCardLimit ?? null" @saved="onSettingsSaved" />
+            </div>
+          </div>
+          <div
+            class="progress"
+            role="progressbar"
+            aria-label="Session progress"
+            :aria-valuenow="sessionProgress"
+            aria-valuemin="0"
+            aria-valuemax="100"
           >
-            New cards today: {{ newCardsToday.introduced }}<template v-if="newCardsToday.limit !== null"
-              >/{{ newCardsToday.limit }}</template
-            ><template v-else> (no limit)</template>
-          </button>
-          <div v-if="showNewCardLimitPopover" class="new-card-limit-popover">
-            <SettingsNewCardLimitControl :limit="studySettings?.dailyNewCardLimit ?? null" @saved="onSettingsSaved" />
+            <span class="progress-fill" :style="{ width: `${sessionProgress}%` }" />
           </div>
         </div>
-        <button
-          type="button"
-          class="controls-toggle-btn"
-          :aria-label="showControls ? 'Hide controls' : 'Show controls'"
-          @click="showControls = !showControls"
-        >
-          <span aria-hidden="true">{{ showControls ? "👁" : "🙈" }}</span>
-          <span class="tooltip">{{ showControls ? "Hide controls" : "Show controls" }} &middot; Hotkey: H</span>
-        </button>
-      </div>
-      <StudyDisplayToggles
-        v-if="showControls"
-        :hide-video="hideVideo"
-        :hide-info="hideInfo"
-        :hide-cover="hideCover"
-        :random-start="randomStart"
-        :ambient-mode="ambientMode"
-        v-model:auto-reveal-mode="autoRevealMode"
-        :auto-reveal-seconds="autoRevealSeconds"
-        @toggle-hide-video="hideVideo = !hideVideo"
-        @toggle-hide-info="hideInfo = !hideInfo"
-        @toggle-hide-cover="hideCover = !hideCover"
-        @toggle-random-start="randomStart = !randomStart"
-        @toggle-ambient-mode="ambientMode = !ambientMode"
-        @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
-      />
+        <div class="header-right">
+          <StudyDisplayToggles
+            v-if="showControls"
+            :hide-video="hideVideo"
+            :hide-info="hideInfo"
+            :hide-cover="hideCover"
+            :random-start="randomStart"
+            :ambient-mode="ambientMode"
+            v-model:auto-reveal-mode="autoRevealMode"
+            :auto-reveal-seconds="autoRevealSeconds"
+            @toggle-hide-video="hideVideo = !hideVideo"
+            @toggle-hide-info="hideInfo = !hideInfo"
+            @toggle-hide-cover="hideCover = !hideCover"
+            @toggle-random-start="randomStart = !randomStart"
+            @toggle-ambient-mode="ambientMode = !ambientMode"
+            @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
+          />
+          <button
+            type="button"
+            class="controls-toggle-btn"
+            :aria-label="showControls ? 'Hide controls' : 'Show controls'"
+            @click="showControls = !showControls"
+          >
+            <span aria-hidden="true">{{ showControls ? "👁" : "🙈" }}</span>
+            <span class="tooltip">{{ showControls ? "Hide controls" : "Show controls" }} &middot; Hotkey: H</span>
+          </button>
+        </div>
+      </header>
       <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
+        <div class="player-pane">
         <StudyMediaPlayer
           :key="presentationKey"
           :card="currentCard"
@@ -498,6 +527,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-english="currentCard.animeTitleEnglish"
                 :anime-title-romaji="currentCard.animeTitleRomaji"
                 :anime-title-native="currentCard.animeTitleNative"
+                :theme-slot="currentCard.themeSlot"
                 :box="currentCard.box"
                 :streak="currentCard.streak"
                 :streak-required="studySettings?.boxOneStreakRequired"
@@ -510,6 +540,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </div>
           </template>
         </StudyMediaPlayer>
+        </div>
         <div v-if="!immersive" class="side">
           <div class="info-panel-wrap">
             <StudyAutoRevealCountdown
@@ -530,6 +561,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :anime-title-english="currentCard.animeTitleEnglish"
               :anime-title-romaji="currentCard.animeTitleRomaji"
               :anime-title-native="currentCard.animeTitleNative"
+              :theme-slot="currentCard.themeSlot"
               :box="currentCard.box"
               :streak="currentCard.streak"
               :streak-required="studySettings?.boxOneStreakRequired"
@@ -537,6 +569,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             />
           </div>
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
+          <!-- Every key here is checked against a real handler: S in
+               StudyMediaPlayer's onKeydown, I and E in this page's own. The
+               artboard's legend reads "SPACE play/pause / R replay / H hide
+               info" - all three wrong, and there is no replay binding at
+               all, so it is deliberately not copied. -->
+          <p class="hotkey-legend">
+            <span><kbd>S</kbd> play/pause</span>
+            <span><kbd>I</kbd> hide info</span>
+            <span><kbd>E</kbd> immersive</span>
+          </p>
         </div>
       </div>
     </template>
@@ -544,21 +586,26 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </template>
 
 <style scoped>
+/* Fills the content column rather than sitting in a centred 1200px measure:
+   the artboard runs the split panes edge to edge. flex: 1 opts into the
+   full-height column layouts/default.vue now provides. */
 .study {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 48px 24px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-h1 {
-  margin: 0 0 24px;
-  font-size: 28px;
-  font-weight: 800;
-}
-
+/* Invalid scope, loading, error and session-complete are each the whole
+   screen when they show. In the full-width shell they centre as a single
+   card rather than stretching edge to edge as a banner - margin: auto works
+   both ways here because .study is a flex column. */
 .state {
-  padding: 16px;
-  border-radius: var(--radius-sm);
+  margin: auto;
+  max-width: 420px;
+  padding: 24px;
+  text-align: center;
+  border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--muted);
@@ -573,43 +620,108 @@ h1 {
   border-color: var(--fail);
 }
 
-.scope-row {
+/* One bordered strip across the top of the content column, replacing the old
+   page heading plus scope row. flex: none so it keeps its height while the
+   panes below take the rest. */
+.study-header {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.header-left {
+  gap: 14px;
+  min-width: 0;
+}
+
+.header-right {
+  gap: 6px;
+  flex: none;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  font-size: 14px;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
   font-weight: 700;
 }
 
-.count {
+.counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
-.new-card-chip-reached {
-  background: color-mix(in srgb, var(--fail) 18%, var(--surface));
-  border-color: var(--fail);
-  color: var(--fail);
+.sep {
+  color: var(--faint);
+}
+
+/* 230px on the artboard, but it is the one flexible thing in the strip, so
+   it shrinks first when the window narrows instead of pushing the counts out. */
+.progress {
+  flex: 0 1 230px;
+  min-width: 60px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
 }
 
 .new-card-chip-wrap {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
 }
 
 .new-card-chip {
+  padding: 0;
+  border: 0;
+  background: none;
   font-family: inherit;
+  font-size: 13px;
+  color: var(--muted);
   cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 3px;
+}
+
+.new-card-chip:hover {
+  color: var(--text);
+}
+
+.new-card-chip-reached {
+  color: var(--fail);
+  text-decoration-color: var(--fail);
 }
 
 .new-card-limit-popover {
@@ -668,11 +780,16 @@ h1 {
   visibility: visible;
 }
 
+/* Two panes, edge to edge, filling whatever height is left under the header.
+   No gap: the artboard separates them with .side's own left border, not
+   whitespace. min-height: 0 lets the panes shrink inside the grid rather
+   than overflowing the page. */
 .study-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 32px;
-  align-items: start;
+  grid-template-columns: 1fr 480px;
+  align-items: stretch;
 }
 
 .study-grid-immersive {
@@ -683,12 +800,29 @@ h1 {
   .study-grid {
     grid-template-columns: 1fr;
   }
+
+  .side {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.player-pane {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 24px;
 }
 
 .side {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 22px;
+  padding: 26px;
+  overflow-y: auto;
+  background: var(--surface-sunken);
+  border-left: 1px solid var(--border);
 }
 
 /* Positioned ancestor for StudyAutoRevealCountdown's absolute centering -
@@ -792,6 +926,23 @@ h1 {
 
 .answer-slot :deep(.answer-bar) {
   gap: clamp(10px, 1.1cqw, 26px) !important;
+}
+
+.hotkey-legend {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--faint);
+}
+
+.hotkey-legend kbd {
+  font-family: inherit;
+  color: var(--muted);
 }
 
 .answer-slot :deep(.key) {
