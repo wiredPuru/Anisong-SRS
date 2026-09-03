@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 6721313a18b4f948e85ceb621dbb2a26269b62f74b9a91aeaddcc36bbf33d7eb -->
+<!-- blueprint:source-hash 7afb464c062330fd3472c0881b0c18b98ce7733fe30c21174d48a73738da9272 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -78,11 +78,24 @@ full, retiring the `/cards/new` route - a same-day follow-on also removed
 `/cards`' leftover "Add card" header button, which after 49c only focused
 the search box directly below it. Feature 50 (the Akiba Neon visual
 redesign, in eight sub-features 50a-50h) was added to `build-plan.md` on
-2026-09-02 and is the first unbuilt item in the plan; it is a retheme and
-relayout only, changing no data model, route, or server behavior. Adding it
-also rewrote `project-plan.md`'s UI/UX section (§7), which had described
-the app as "cute/moe, a little cartoony" with "rounded corners throughout"
-- feature 50 deliberately reverses both.
+2026-09-02 and is now built and merged in full - a retheme and relayout
+only, changing no data model, route, or server behavior. Adding it also
+rewrote `project-plan.md`'s UI/UX section (§7), which had described the app
+as "cute/moe, a little cartoony" with "rounded corners throughout" - feature
+50 deliberately reverses both, and the app now matches §7 as written. Two
+decisions were resolved mid-build and are recorded on the affected
+sub-features rather than here: 50b kept 50a's rail on `/study` rather than
+going rail-less, and 50c restyled feature 49's unified `/cards` search
+instead of reinstating a separate Add-card page. One decision from the
+original note is still open and outside any single sub-feature: which of
+the mockup's `1b`/`2a`/`2b` Study fullscreen/ambient-overlay candidates, if
+any, should replace or complement feature 31's existing immersive mode -
+none of 50a-50h touched it, and immersive mode remains the only
+distraction-free study surface. Features 51 and 52 (previous-card
+navigation and a study session log) were added to `build-plan.md` on
+2026-09-03 and are not yet built; neither changes `project-plan.md`, since
+both are additions to the existing Study screen in the same session-only
+style as the Hide Video/Hide Info toggles (feature 10).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -750,52 +763,72 @@ the app as "cute/moe, a little cartoony" with "rounded corners throughout"
       entry point being replaced. A same-day follow-on then removed
       `/cards`' "Add card" header button, which 49c had left in place as
       a button that only focused the search input directly below it.
-50. **Visual redesign (Akiba Neon)** - not yet built, in eight
-    sub-features. Moves the app off its centered single-column layout to a
-    persistent left rail plus split panes, and rethemes from the current
-    purple/rounded look to blue-black + sakura + cyan with tight radii.
-    Design reference: `blueprint/reference/design_handoff_anisong_srs_redesign/`
-    (`Redesign.dc.html`, `Current UI.dc.html`, and `README.md`) - replaces the
+50. **Visual redesign (Akiba Neon)** - done, in eight sub-features. Moved
+    the app off its centered single-column layout to a persistent left rail
+    plus split panes, and rethemed from the earlier purple/rounded look to
+    blue-black + sakura + cyan with tight radii. Design reference:
+    `blueprint/reference/design_handoff_anisong_srs_redesign/`
+    (`Redesign.dc.html`, `Current UI.dc.html`, and `README.md`) - replaced the
     original single-canvas decode, `akiba-neon-canvas.html` (removed
-    2026-09-03), which this folder fully supersedes: every screen it covered,
-    plus Home, Add card, Settings, and a narrow-window pass, plus two further
-    Study fullscreen/ambient-overlay candidates (`2a`/`2b`, Nocturne-styled)
-    beyond the original `1b` "Jukebox" take - which screen either wins there
-    is still an open decision, unrelated to any single sub-feature below.
-    Direction 1A was chosen for the overall app shell over the alternative 1B
-    "Jukebox" take.
+    2026-09-03), which that folder fully superseded. Direction 1A was chosen
+    for the overall app shell over the alternative 1B "Jukebox" take.
 
-    Measured token deltas (current -> target): `--bg` `#150f1c` ->
+    Token deltas actually shipped (old -> new): `--bg` `#150f1c` ->
     `#07070d`, `--surface` `#1f1729` -> `#12121f`, `--border` `#392c4a` ->
     `#23233c`, `--accent` `#ff5da2` -> `#ff3e88`, `--accent-secondary`
     `#b18cff` -> `#34e7e4`, `--pass` `#7ee2b8` -> `#46e39b`, `--fail`
     `#ff6b6b` -> `#ff5470`, `--radius`/`--radius-sm` 18px/10px -> 4px/6px,
     `--font-sans` M PLUS Rounded 1c -> RocknRoll One + Zen Kaku Gothic New.
-    The canvas's own note that the "purple glow" is gone means exactly this
-    `--accent-secondary` swap - feature 14's ambient video glow stays, it
-    just glows cyan. Do not read it as removing the glow.
-    - **50a. Theme tokens + app shell** - not yet built. Ports the palette,
-      type and radii into `main.css` and builds the rail nav plus shared
-      chrome. Goes first; every later sub-feature builds on it.
-    - **50b. Study screen** - not yet built. 1A keeps today's player + side
-      info panel and collapses the display-toggle row into one icon strip,
-      so features 10/44/46's toggles change presentation, not behavior.
-    - **50c. Cards** - not yet built. Dense table + inspector rail, row
-      actions demoted out of every row. Carries an open decision: 1A draws
-      Add card as a standalone page with Anime/Artist/Song tabs, which is
-      the architecture feature 49 deleted. Restyling feature 49's unified
-      `/cards` search with 1A's split-pane layout is preferred;
-      reinstating a separate page would partly reverse 49 and must be
-      chosen deliberately.
-    - **50d. Decks** - not yet built. Poster grid, covers carrying the
-      layout instead of the current 640px list.
-    - **50e. Stats** - not yet built. Dashboard with KPI tiles and a
-      reviews/pass-rate chart.
-    - **50f. Home** - not yet built. Dashboard replacing feature 15's five
-      link cards.
-    - **50g. Settings** - not yet built. Section rail + two columns.
-    - **50h. Narrow-window pass** - not yet built. Rail collapses to icons,
-      split panes stack, tables drop columns.
+    Feature 14's ambient video glow was unaffected - it just glows cyan now
+    instead of purple.
+    - **50a. Theme tokens + app shell** - done. Ported the palette, type
+      and radii into `main.css` and built the rail nav plus shared chrome.
+    - **50b. Study screen** - done. Kept today's player + side info panel
+      (1A) and collapsed the display-toggle row into one icon strip, so
+      features 10/44/46's toggles changed presentation, not behavior.
+      Resolved decision: kept 50a's rail on `/study` (the mockup's own
+      artboard is rail-less) rather than adding a layout escape hatch;
+      immersive mode (feature 31, `E`) stays the distraction-free surface.
+    - **50c. Cards** - done. Dense table + 400px inspector rail, row
+      actions demoted out of every row. Resolved decision: restyled feature
+      49's unified `/cards` search into the split-pane shape instead of
+      reinstating the mockup's standalone Add-card page (Anime/Artist/Song
+      tabs) - that architecture is exactly what feature 49 deleted.
+    - **50d. Decks** - done. 6-column poster grid, covers carrying the
+      layout instead of the earlier 640px list; applies to the top-level
+      grid and a selected deck's detail view.
+    - **50e. Stats** - done. KPI tiles plus a real reviews/pass-rate chart
+      and by-artist/by-title breakdown with progress bars.
+    - **50f. Home** - done. Dashboard replacing feature 15's five link
+      cards: global search + Add-card shortcut, a due-cards hero, a 30-day
+      activity card, and weakest-decks + recently-added panels, all on real
+      data.
+    - **50g. Settings** - done. Page-local section rail (Media library,
+      Study pacing, Playback, Cache, Import & export) plus a content pane,
+      matching 50d/50e's panel styling. Dropped the mockup's "Appearance"
+      section - feature 24 already rejected a standalone theme toggle.
+    - **50h. Narrow-window pass** - done. Extended the existing 820px
+      breakpoint so every 50a-50g screen collapses the rail to icons,
+      stacks split panes into one column, and drops the Cards table's
+      lower-priority columns.
+
+    One decision from the original scope note is still open, unrelated to
+    any single sub-feature above: which of the mockup's `1b`/`2a`/`2b`
+    Study fullscreen/ambient-overlay candidates (Nocturne-styled), if any,
+    should replace or complement feature 31's existing immersive mode. None
+    of 50a-50h touched it.
+51. **Previous card navigation in Study** - not yet built. Lets you step
+    back to a previously presented card in the current session to review it
+    again, view-only - does not re-submit a review or change that card's
+    Leitner box/interval - alongside today's forward-only due-card queue
+    (`useStudySession`'s `fetchNext()`/Leitner scheduling, feature 6a,
+    unaffected). `ArrowLeft`/`ArrowRight` are already bound to Fail/Pass
+    (`StudyAnswerControls.vue`), so this needs a different hotkey.
+52. **Study session log** - not yet built. A visible list of cards
+    presented so far in the current session (song/artist/anime, pass/fail
+    result) - likely the surface feature 51's "Previous" navigation steps
+    back through. Distinct from feature 7's `/stats` (all-time, aggregate
+    guess-rate tracking): this is a per-session, presentation-order list.
 
 ## Data model
 
@@ -1007,15 +1040,15 @@ as real, selectable DOM text (never baked into an image or video) so the
 Migaku browser extension can attach to it. Theme tokens (colors, fonts,
 radii) live in `nuxt-app/app/assets/css/main.css`.
 
-**This is the target, not the current state.** The app as built is the
-earlier cute/moe direction - rounded 18px/10px corners, a purple-black
-ground (`--bg: #150f1c`), purple `--accent-secondary`, M PLUS Rounded 1c -
-and a top nav bar rather than a rail. Feature 50 moves it to the above, one
-screen at a time, starting with 50a's token and shell port. Until 50a
-lands, build new UI against the tokens actually in `main.css`. The design
-reference is
+**This is the current state**, shipped in full by feature 50 (2026-09-03):
+tight radii, the blue-black ground, cyan `--accent-secondary`, RocknRoll One
++ Zen Kaku Gothic New, and the left rail replacing the earlier top nav bar
+(`NavBar.vue` is now the rail - same component, restyled by 50a, not
+renamed). The design reference is
 `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`;
-measured token deltas are in feature 50's entry.
+token deltas actually shipped are in feature 50's entry. One decision from
+that feature's original scope note is still open - see feature 50's entry
+for the Study fullscreen/ambient-overlay candidates.
 
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
@@ -1031,8 +1064,12 @@ itself with new params without remounting it.
 Routes:
 
 - `/` - done (feature 15). A launcher hub with links to Study, Cards, Decks,
-  Stats, Settings - no live data, no dashboard stats. Ships alongside a
-  persistent top nav bar in a shared Nuxt layout, present on every page.
+  Stats, Settings - no live data, no dashboard stats, plus a persistent nav
+  bar in a shared Nuxt layout, present on every page. Feature 50f (2026-09-03)
+  replaced the five link cards with a real dashboard - global search +
+  Add-card shortcut, a due-cards hero, a 30-day activity card, and
+  weakest-decks + recently-added panels - and 50a restyled the nav bar into
+  the persistent left rail.
 - `/settings` - done. Media library folder configuration, plus (feature 8) a
   default download folder picker shown once 2+ folders are configured, plus
   (feature 9) an "Import deck" form (source path -> created/skipped summary
