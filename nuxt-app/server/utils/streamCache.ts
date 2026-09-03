@@ -132,6 +132,18 @@ export function resolveCachedPath(url: string): Promise<{ path: string } | { err
   return promise;
 }
 
+// Peek-only lookup, never fetches. Lets a caller reuse an already-cached
+// remote clip (e.g. one played back before being downloaded) instead of
+// re-fetching bytes the app already has on disk.
+export function cachedFilePathIfPresent(url: string): string | null {
+  if (!parseAllowedStreamUrl(url)) return null;
+  ensureCacheDir();
+  const destPath = cachedPathFor(url);
+  if (!existsSync(destPath)) return null;
+  touchAccess(destPath);
+  return destPath;
+}
+
 export function enforceStreamCacheQuota(): void {
   ensureCacheDir();
   const maxBytes = getStreamCacheMaxBytes();

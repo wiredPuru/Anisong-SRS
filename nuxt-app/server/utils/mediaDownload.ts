@@ -1,6 +1,7 @@
 import { existsSync, unlinkSync } from "node:fs";
-import { open } from "node:fs/promises";
+import { copyFile, open, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { cachedFilePathIfPresent } from "./streamCache.ts";
 
 // animethemes.moe blocks Node's default fetch User-Agent with a bare 403; matches server/lib/animethemes.ts.
 export const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
@@ -60,6 +61,24 @@ export async function* downloadMediaFile(
   ext: string,
 ): AsyncGenerator<DownloadProgressEvent> {
   const destPath = resolveUniquePath(destDir, baseName, ext);
+
+  // Reuse an already-cached copy of this exact remote clip (feature 41's
+  // stream cache, populated by playback/prefetch) instead of re-fetching
+  // bytes the app already has on disk. Falls through to the network fetch
+  // below if there is no cached copy, or the copy itself fails (e.g. the
+  // entry was evicted between the check and the copy).
+  const cachedPath = cachedFilePathIfPresent(url);
+  if (cachedPath) {
+    try {
+      await copyFile(cachedPath, destPath);
+      const { size } = await stat(destPath);
+      yield { type: "progress", loaded: size, total: size };
+      yield { type: "success", path: destPath };
+      return;
+    } catch {
+      if (existsSync(destPath)) unlinkSync(destPath);
+    }
+  }
 
   let response: Response;
   try {
