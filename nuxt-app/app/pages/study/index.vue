@@ -80,6 +80,49 @@ function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; loca
   };
 }
 
+interface ManualDeck {
+  id: number;
+  name: string;
+}
+
+const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
+  query: { type: "created" },
+});
+const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
+
+const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
+  memberships: Record<number, number[]>;
+}>("/api/decks/memberships");
+
+const togglingMembership = reactive<Record<string, boolean>>({});
+const deckToggleError = ref<string | null>(null);
+
+async function toggleDeckMembership(cardId: number, deckId: number, checked: boolean) {
+  const key = `${cardId}-${deckId}`;
+  deckToggleError.value = null;
+  togglingMembership[key] = true;
+  try {
+    await $fetch("/api/decks/cards", {
+      method: checked ? "POST" : "DELETE",
+      body: { deckId, cardId },
+    });
+  } catch (err) {
+    deckToggleError.value = extractErrorMessage(err, "Failed to update deck membership.");
+  } finally {
+    await refreshMemberships();
+    togglingMembership[key] = false;
+  }
+}
+
+function onCardEdited(updated: { id: number; localVideoPath: string | null; localAudioPath: string | null }) {
+  if (!currentCard.value || currentCard.value.id !== updated.id) return;
+  currentCard.value = {
+    ...currentCard.value,
+    localVideoPath: updated.localVideoPath,
+    localAudioPath: updated.localAudioPath,
+  };
+}
+
 const showNewCardLimitPopover = ref(false);
 const newCardLimitPopoverRef = ref<HTMLElement | null>(null);
 const learningControlOpen = ref(false);
@@ -587,6 +630,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :streak="currentCard.streak"
               :streak-required="studySettings?.boxOneStreakRequired"
               @streak-required-saved="onSettingsSaved"
+            />
+            <StudyCardEditPanel
+              :key="presentationKey"
+              :card="currentCard"
+              :manual-decks="manualDecks"
+              :memberships="membershipsData?.memberships ?? {}"
+              :toggling-membership="togglingMembership"
+              :deck-toggle-error="deckToggleError"
+              @updated="onCardEdited"
+              @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
           </div>
           <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
