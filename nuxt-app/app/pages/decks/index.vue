@@ -3,6 +3,8 @@ interface ArtistDeck {
   id: number;
   name: string;
   cardCount: number;
+  passRate: number | null;
+  dueCount: number;
 }
 
 interface AnimeDeck {
@@ -11,6 +13,8 @@ interface AnimeDeck {
   titleRomaji: string;
   coverImageUrl: string | null;
   cardCount: number;
+  passRate: number | null;
+  dueCount: number;
 }
 
 interface ManualDeck {
@@ -18,6 +22,7 @@ interface ManualDeck {
   name: string;
   createdAt: string;
   cardCount: number;
+  passRate: number | null;
 }
 
 type DeckType = "artist" | "anime" | "created";
@@ -28,6 +33,8 @@ interface DeckItem {
   sublabel: string | null;
   coverImageUrl: string | null;
   cardCount: number;
+  passRate: number | null;
+  dueCount: number | null;
 }
 
 interface DeckCard {
@@ -175,6 +182,8 @@ const deckItems = computed<DeckItem[]>(() => {
       sublabel: null,
       coverImageUrl: null,
       cardCount: d.cardCount,
+      passRate: d.passRate,
+      dueCount: d.dueCount,
     }));
   }
   if (activeType.value === "created") {
@@ -184,6 +193,8 @@ const deckItems = computed<DeckItem[]>(() => {
       sublabel: `Created ${formatDate(d.createdAt)}`,
       coverImageUrl: null,
       cardCount: d.cardCount,
+      passRate: d.passRate,
+      dueCount: null,
     }));
   }
   return (rawDecks.value as AnimeDeck[]).map((d) => ({
@@ -192,8 +203,14 @@ const deckItems = computed<DeckItem[]>(() => {
     sublabel: d.titleRomaji,
     coverImageUrl: d.coverImageUrl,
     cardCount: d.cardCount,
+    passRate: d.passRate,
+    dueCount: d.dueCount,
   }));
 });
+
+function formatPassRate(passRate: number | null): string | null {
+  return passRate === null ? null : `${Math.round(passRate * 100)}%`;
+}
 
 const selectedDeckCover = computed<string | null>(() => {
   if (selectedId.value === null) return null;
@@ -332,6 +349,7 @@ async function downloadMedia(c: DeckCard, kind: "video" | "audio") {
 const newDeckName = ref("");
 const isCreatingDeck = ref(false);
 const createDeckError = ref<string | null>(null);
+const showNewDeckForm = ref(false);
 
 async function createDeck() {
   const name = newDeckName.value.trim();
@@ -342,12 +360,19 @@ async function createDeck() {
   try {
     await $fetch("/api/decks", { method: "POST", body: { name } });
     newDeckName.value = "";
+    showNewDeckForm.value = false;
     await loadFirstPage();
   } catch (err) {
     createDeckError.value = extractErrorMessage(err, "Failed to create deck.");
   } finally {
     isCreatingDeck.value = false;
   }
+}
+
+function cancelNewDeck() {
+  showNewDeckForm.value = false;
+  newDeckName.value = "";
+  createDeckError.value = null;
 }
 
 const editingDeckId = ref<number | null>(null);
@@ -553,6 +578,8 @@ function sourceBadges(c: DeckCard): string[] {
 function setType(type: DeckType) {
   editingDeckId.value = null;
   createDeckError.value = null;
+  showNewDeckForm.value = false;
+  newDeckName.value = "";
   searchInput.value = "";
   searchQuery.value = "";
   router.push({ query: { type } });
@@ -580,96 +607,90 @@ function backToDecks() {
 
 <template>
   <main class="decks">
-    <h1>Decks</h1>
-    <p class="hint">Cards grouped by artist or by anime title.</p>
-    <NuxtLink to="/study?type=all" class="study-link">Study all decks</NuxtLink>
-    <NuxtLink to="/stats" class="study-link stats-link">Review stats</NuxtLink>
-
     <template v-if="selectedId === null">
-      <div class="toggle">
-        <button
-          type="button"
-          class="toggle-btn"
-          :class="{ active: activeType === 'artist' }"
-          @click="setType('artist')"
-        >
-          By Artist
-        </button>
-        <button
-          type="button"
-          class="toggle-btn"
-          :class="{ active: activeType === 'anime' }"
-          @click="setType('anime')"
-        >
-          By Title
-        </button>
-        <button
-          type="button"
-          class="toggle-btn"
-          :class="{ active: activeType === 'created' }"
-          @click="setType('created')"
-        >
-          Created
-        </button>
-      </div>
+      <header class="decks-header">
+        <h1>Decks</h1>
+        <div class="header-controls">
+          <div class="tab-seg" role="tablist">
+            <button
+              type="button"
+              class="tab-seg-btn"
+              :class="{ active: activeType === 'anime' }"
+              @click="setType('anime')"
+            >
+              By title
+            </button>
+            <button
+              type="button"
+              class="tab-seg-btn"
+              :class="{ active: activeType === 'artist' }"
+              @click="setType('artist')"
+            >
+              By artist
+            </button>
+            <button
+              type="button"
+              class="tab-seg-btn"
+              :class="{ active: activeType === 'created' }"
+              @click="setType('created')"
+            >
+              Created
+            </button>
+          </div>
+          <input
+            v-model="searchInput"
+            type="text"
+            :placeholder="searchPlaceholder"
+            class="search-input"
+            @input="onSearchInput"
+          />
+          <NuxtLink to="/study?type=all" class="study-all-btn">Study all</NuxtLink>
+        </div>
+      </header>
 
-      <form v-if="activeType === 'created'" class="export-form create-deck-form" @submit.prevent="createDeck">
-        <input
-          v-model="newDeckName"
-          type="text"
-          placeholder="New deck name"
-          :disabled="isCreatingDeck"
-          class="path-input"
-        />
-        <button type="submit" class="export-btn" :disabled="isCreatingDeck || !newDeckName.trim()">
-          {{ isCreatingDeck ? "Creating..." : "New deck" }}
-        </button>
-      </form>
-      <p v-if="createDeckError" class="export-error create-deck-error">{{ createDeckError }}</p>
-
-      <input
-        v-model="searchInput"
-        type="text"
-        :placeholder="searchPlaceholder"
-        class="search-input"
-        @input="onSearchInput"
-      />
-
+      <div class="decks-body">
       <div v-if="initialPending" class="state">Loading...</div>
       <div v-else-if="initialError" class="state state-error">Couldn't load decks. Try refreshing.</div>
       <template v-else>
-        <ul v-if="deckItems.length" class="deck-list">
-          <li
+        <div v-if="deckItems.length || (activeType === 'created' && !searchQuery)" class="deck-grid">
+          <div
             v-for="item in deckItems"
             :key="item.id"
-            class="deck-row"
-            :class="{ 'deck-row-clickable': editingDeckId !== item.id }"
+            class="deck-tile"
+            :class="{ 'deck-tile-clickable': editingDeckId !== item.id }"
             @click="editingDeckId === item.id ? undefined : selectDeck(item.id)"
           >
-            <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" class="cover-thumb" />
+            <div class="deck-tile-cover">
+              <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" />
+              <span v-if="item.dueCount" class="deck-tile-due">{{ item.dueCount }} due</span>
+            </div>
             <template v-if="activeType === 'created' && editingDeckId === item.id">
               <div class="deck-rename-form" @click.stop>
                 <input v-model="editDeckName" type="text" :disabled="isRenamingDeck" class="path-input" />
-                <button
-                  type="button"
-                  class="export-btn"
-                  :disabled="isRenamingDeck || !editDeckName.trim()"
-                  @click="saveRenameDeck(item.id)"
-                >
-                  Save
-                </button>
-                <button type="button" class="rename-btn" :disabled="isRenamingDeck" @click="cancelRenameDeck">
-                  Cancel
-                </button>
+                <div class="deck-tile-new-actions">
+                  <button
+                    type="button"
+                    class="export-btn"
+                    :disabled="isRenamingDeck || !editDeckName.trim()"
+                    @click="saveRenameDeck(item.id)"
+                  >
+                    Save
+                  </button>
+                  <button type="button" class="rename-btn" :disabled="isRenamingDeck" @click="cancelRenameDeck">
+                    Cancel
+                  </button>
+                </div>
               </div>
             </template>
             <template v-else>
-              <div class="deck-info">
-                <span class="deck-label">{{ item.label }}</span>
-                <span v-if="item.sublabel" class="deck-sublabel">{{ item.sublabel }}</span>
+              <div class="deck-tile-meta" :title="item.sublabel ?? undefined">
+                <span class="deck-tile-label">{{ item.label }}</span>
+                <span class="deck-tile-count">
+                  {{ item.cardCount }} card{{ item.cardCount === 1 ? "" : "s" }}
+                  <template v-if="formatPassRate(item.passRate)"> &middot; {{ formatPassRate(item.passRate) }}</template>
+                </span>
               </div>
-              <span class="deck-count">{{ item.cardCount }} card{{ item.cardCount === 1 ? "" : "s" }}</span>
-              <div v-if="activeType === 'created'" class="deck-manual-actions" @click.stop>
+              <div v-if="activeType === 'created'" class="deck-tile-actions" @click.stop>
                 <button type="button" class="rename-btn" @click="startRenameDeck(item)">Rename</button>
                 <button
                   type="button"
@@ -681,12 +702,40 @@ function backToDecks() {
                 </button>
               </div>
             </template>
-          </li>
-        </ul>
+          </div>
+
+          <div v-if="activeType === 'created'" class="deck-tile deck-tile-new-wrap">
+            <template v-if="showNewDeckForm">
+              <div class="deck-tile-cover deck-tile-cover-empty" />
+              <div class="deck-tile-new-form" @click.stop>
+                <input
+                  v-model="newDeckName"
+                  type="text"
+                  placeholder="Deck name"
+                  :disabled="isCreatingDeck"
+                  class="path-input"
+                  @keyup.enter="createDeck"
+                />
+                <div class="deck-tile-new-actions">
+                  <button
+                    type="button"
+                    class="export-btn"
+                    :disabled="isCreatingDeck || !newDeckName.trim()"
+                    @click="createDeck"
+                  >
+                    {{ isCreatingDeck ? "Creating..." : "Create" }}
+                  </button>
+                  <button type="button" class="rename-btn" :disabled="isCreatingDeck" @click="cancelNewDeck">
+                    Cancel
+                  </button>
+                </div>
+                <p v-if="createDeckError" class="export-error create-deck-error">{{ createDeckError }}</p>
+              </div>
+            </template>
+            <button v-else type="button" class="deck-tile-new" @click="showNewDeckForm = true">+ New deck</button>
+          </div>
+        </div>
         <p v-else-if="searchQuery" class="state">No decks match "{{ searchQuery }}".</p>
-        <p v-else-if="activeType === 'created'" class="state">
-          No manual decks yet. Create one above.
-        </p>
         <p v-else class="state">No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
@@ -694,34 +743,39 @@ function backToDecks() {
           <span v-if="loadingMore" class="loading-more">Loading more...</span>
         </div>
       </template>
+      </div>
     </template>
 
     <template v-else>
-      <button type="button" class="back-btn" @click="backToDecks">&larr; Back to decks</button>
-
-      <input
-        v-model="cardSearchInput"
-        type="text"
-        placeholder="Search this deck's cards..."
-        class="search-input"
-        @input="onCardSearchInput"
-      />
-
-      <div v-if="cardsInitialPending" class="state">Loading...</div>
-      <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
-      <template v-else>
-        <div class="deck-detail-header">
-          <div class="deck-detail-title">
-            <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
-            <h2>{{ deckLabel }}</h2>
-          </div>
+      <header class="decks-header">
+        <div class="header-title">
+          <button type="button" class="back-btn" @click="backToDecks">&larr; Back to decks</button>
+        </div>
+        <div class="header-controls">
+          <input
+            v-model="cardSearchInput"
+            type="text"
+            placeholder="Search this deck's cards..."
+            class="search-input"
+            @input="onCardSearchInput"
+          />
           <NuxtLink
-            v-if="activeType !== 'created'"
+            v-if="activeType !== 'created' && deckLabel"
             :to="`/study?type=${activeType}&id=${selectedId}`"
-            class="study-link"
+            class="study-all-btn"
           >
             Study this deck
           </NuxtLink>
+        </div>
+      </header>
+
+      <div class="decks-body">
+      <div v-if="cardsInitialPending" class="state">Loading...</div>
+      <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
+      <template v-else>
+        <div class="deck-detail-title">
+          <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
+          <h2>{{ deckLabel }}</h2>
         </div>
 
         <div v-if="activeType === 'created'" class="add-card-block">
@@ -868,6 +922,7 @@ function backToDecks() {
           <p v-if="exportError" class="export-error">{{ exportError }}</p>
         </div>
       </template>
+      </div>
     </template>
 
     <CardPreviewModal
@@ -889,26 +944,78 @@ function backToDecks() {
 </template>
 
 <style scoped>
+/* Fills the content column, like /study and /cards after 50b/50c. */
 .decks {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 48px 24px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  font-weight: 800;
+.decks-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 28px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
 }
 
-.hint {
-  margin: 0 0 16px;
+.decks-header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tab-seg {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.tab-seg-btn {
+  padding: 8px 16px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
   color: var(--muted);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.study-link {
+.tab-seg-btn:first-child {
+  border-left: none;
+}
+
+/* Border and glow, never a fill - same reasoning as the old .toggle-btn.active
+   had: main.css's ambient-glass block replaces backgrounds with !important,
+   so a solid fill would be stripped under ambient mode. */
+.tab-seg-btn.active {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.decks-header .search-input {
+  width: 230px;
+  margin: 0;
+}
+
+.study-all-btn {
+  flex: none;
   display: inline-block;
-  margin-bottom: 24px;
   padding: 8px 18px;
   border-radius: var(--radius-pill);
   background: var(--accent);
@@ -916,57 +1023,36 @@ h1 {
   font-family: var(--font-sans);
   font-weight: 700;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.stats-link {
-  margin-left: 8px;
-  background: var(--accent-secondary);
-  color: var(--accent-secondary-ink);
+.decks-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 28px 28px;
 }
 
 h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.deck-detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .deck-detail-title {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 20px;
 }
 
 .back-btn {
-  margin-bottom: 16px;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: transparent;
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.toggle-btn {
-  padding: 8px 18px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface);
   color: var(--muted);
   font-family: var(--font-sans);
   font-weight: 700;
@@ -1006,15 +1092,6 @@ h2 {
   font-weight: 700;
 }
 
-/* Border and glow, never a fill: .toggle-btn is in main.css's ambient-glass
-   block, which replaces its background with !important. A solid fill here
-   would be stripped under ambient mode and leave --accent-ink, which is near
-   black, on dark glass. */
-.toggle-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 14px var(--accent-glow);
-}
 
 .state {
   padding: 16px;
@@ -1033,32 +1110,120 @@ h2 {
   border-color: var(--fail);
 }
 
-.deck-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* auto-fill + a bounded min width, not a fixed column count - fixed columns
+   stretch each 2:3 cover to fill the row on a wide window, making rows tall
+   enough that only about one fits before the body has to scroll. */
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.deck-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deck-tile-clickable {
+  cursor: pointer;
+}
+
+.deck-tile-clickable:hover .deck-tile-cover {
+  border-color: var(--accent);
+}
+
+.deck-tile-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.deck-tile-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.deck-tile-due {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.deck-tile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.deck-tile-label {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-tile-count {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.deck-tile-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.deck-tile-new-wrap {
+  gap: 0;
+}
+
+.deck-tile-new {
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--faint);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deck-tile-new:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.deck-tile-cover-empty {
+  border-style: dashed;
+}
+
+.deck-tile-new-form {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.deck-row {
+.deck-tile-new-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  gap: 8px;
 }
 
-.deck-row-clickable {
-  cursor: pointer;
-}
-
-.deck-row-clickable:hover {
-  border-color: var(--accent);
+.deck-grid .scroll-sentinel {
+  grid-column: 1 / -1;
 }
 
 .deck-card-list {
@@ -1206,41 +1371,14 @@ h2 {
   font-weight: 700;
 }
 
-.deck-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.deck-label {
-  font-weight: 700;
-}
-
 .deck-sublabel {
   color: var(--muted);
   font-size: 14px;
 }
 
-.deck-count {
-  flex: none;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.create-deck-form {
-  margin-bottom: 20px;
-}
-
 .create-deck-error {
   margin-top: -8px;
   margin-bottom: 16px;
-}
-
-.deck-manual-actions {
-  display: flex;
-  flex: none;
-  gap: 8px;
 }
 
 .rename-btn {
@@ -1280,9 +1418,8 @@ h2 {
 
 .deck-rename-form {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  flex: 1;
   min-width: 0;
 }
 

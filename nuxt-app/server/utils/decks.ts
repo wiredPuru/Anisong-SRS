@@ -1,13 +1,16 @@
-import { and, count, countDistinct, eq, like, or } from "drizzle-orm";
+import { and, count, countDistinct, eq, inArray, like, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { anime, artist, card, deck, deckCard, song } from "../db/schema.ts";
-import type { Paginated } from "./cards.ts";
+import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/schema.ts";
+import { baseDueCondition, type Paginated } from "./cards.ts";
 import { PAGE_SIZE } from "./pagination.ts";
+import { deriveCounts, passCountExpr } from "./stats.ts";
 
 export interface ArtistDeck {
   id: number;
   name: string;
   cardCount: number;
+  passRate: number | null;
+  dueCount: number;
 }
 
 export interface AnimeDeck {
@@ -16,6 +19,86 @@ export interface AnimeDeck {
   titleRomaji: string;
   coverImageUrl: string | null;
   cardCount: number;
+  passRate: number | null;
+  dueCount: number;
+}
+
+// Scoped to just the ids on the current page rather than every artist/anime
+// with a card, and computed as a separate grouped query merged by id instead
+// of joined into the cardCount query directly, which would fan out cardCount
+// across each matching reviewLog row.
+function passRatesByArtist(ids: number[]): Map<number, number | null> {
+  if (ids.length === 0) return new Map();
+  const rows = db
+    .select({ id: artist.id, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .where(inArray(artist.id, ids))
+    .groupBy(artist.id)
+    .all();
+  return new Map(rows.map((r) => [r.id, deriveCounts(r.totalReviews, r.passCount).passRate]));
+}
+
+function passRatesByAnime(ids: number[]): Map<number, number | null> {
+  if (ids.length === 0) return new Map();
+  const rows = db
+    .select({ id: anime.id, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .where(inArray(anime.id, ids))
+    .groupBy(anime.id)
+    .all();
+  return new Map(rows.map((r) => [r.id, deriveCounts(r.totalReviews, r.passCount).passRate]));
+}
+
+// Manual decks have no existing stats query to reuse (they aren't grouped by
+// artist/anime), so this joins through deckCard instead - same grouped shape
+// otherwise.
+function passRatesByManualDeck(ids: number[]): Map<number, number | null> {
+  if (ids.length === 0) return new Map();
+  const rows = db
+    .select({ id: deck.id, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(deckCard)
+    .innerJoin(deck, eq(deckCard.deckId, deck.id))
+    .innerJoin(card, eq(deckCard.cardId, card.id))
+    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .where(inArray(deck.id, ids))
+    .groupBy(deck.id)
+    .all();
+  return new Map(rows.map((r) => [r.id, deriveCounts(r.totalReviews, r.passCount).passRate]));
+}
+
+// Reuses cards.ts's shared due/new-card-limit condition (feature 40), grouped
+// by artist/anime id in one query rather than called once per deck - the
+// daily-new-card-limit lookup inside it should only run once per request.
+function dueCountsByArtist(ids: number[]): Map<number, number> {
+  if (ids.length === 0) return new Map();
+  const rows = db
+    .select({ id: artist.id, dueCount: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .where(and(baseDueCondition(), inArray(artist.id, ids)))
+    .groupBy(artist.id)
+    .all();
+  return new Map(rows.map((r) => [r.id, r.dueCount]));
+}
+
+function dueCountsByAnime(ids: number[]): Map<number, number> {
+  if (ids.length === 0) return new Map();
+  const rows = db
+    .select({ id: anime.id, dueCount: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(and(baseDueCondition(), inArray(anime.id, ids)))
+    .groupBy(anime.id)
+    .all();
+  return new Map(rows.map((r) => [r.id, r.dueCount]));
 }
 
 function artistSearchCondition(query?: string) {
@@ -46,7 +129,17 @@ export function listArtistDecks(page: number, query?: string): Paginated<ArtistD
     .offset((page - 1) * PAGE_SIZE)
     .all();
 
-  return { items, total };
+  const ids = items.map((item) => item.id);
+  const passRates = passRatesByArtist(ids);
+  const dueCounts = dueCountsByArtist(ids);
+  return {
+    items: items.map((item) => ({
+      ...item,
+      passRate: passRates.get(item.id) ?? null,
+      dueCount: dueCounts.get(item.id) ?? 0,
+    })),
+    total,
+  };
 }
 
 function animeSearchCondition(query?: string) {
@@ -84,7 +177,17 @@ export function listAnimeDecks(page: number, query?: string): Paginated<AnimeDec
     .offset((page - 1) * PAGE_SIZE)
     .all();
 
-  return { items, total };
+  const ids = items.map((item) => item.id);
+  const passRates = passRatesByAnime(ids);
+  const dueCounts = dueCountsByAnime(ids);
+  return {
+    items: items.map((item) => ({
+      ...item,
+      passRate: passRates.get(item.id) ?? null,
+      dueCount: dueCounts.get(item.id) ?? 0,
+    })),
+    total,
+  };
 }
 
 export function getArtistLabel(id: number): string | undefined {
@@ -100,6 +203,7 @@ export interface ManualDeck {
   name: string;
   createdAt: Date;
   cardCount: number;
+  passRate: number | null;
 }
 
 function manualDeckSearchCondition(query?: string) {
@@ -125,7 +229,11 @@ export function listManualDecks(page: number, query?: string): Paginated<ManualD
     .offset((page - 1) * PAGE_SIZE)
     .all();
 
-  return { items, total };
+  const passRates = passRatesByManualDeck(items.map((item) => item.id));
+  return {
+    items: items.map((item) => ({ ...item, passRate: passRates.get(item.id) ?? null })),
+    total,
+  };
 }
 
 export function getManualDeckLabel(id: number): string | undefined {
@@ -153,7 +261,7 @@ export function createManualDeck(rawName: string): ManualDeckResult {
   }
 
   const inserted = db.insert(deck).values({ name }).returning().get();
-  return { deck: { ...inserted, cardCount: countCardsInDeck(inserted.id) } };
+  return { deck: { ...inserted, cardCount: countCardsInDeck(inserted.id), passRate: null } };
 }
 
 export function renameManualDeck(id: number, rawName: string): ManualDeckResult {
@@ -171,7 +279,7 @@ export function renameManualDeck(id: number, rawName: string): ManualDeckResult 
   }
 
   const updated = db.update(deck).set({ name }).where(eq(deck.id, id)).returning().get();
-  return { deck: { ...updated, cardCount: countCardsInDeck(id) } };
+  return { deck: { ...updated, cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
 }
 
 export function deleteManualDeck(id: number): boolean {

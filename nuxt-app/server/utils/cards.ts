@@ -204,20 +204,27 @@ export function getNewCardsTodayInfo(): { introduced: number; limit: number | nu
   return { introduced: countCardsIntroducedToday(), limit: getDailyNewCardLimit() };
 }
 
-function dueCardCondition(scope: StudyScope) {
+// The due/new-card-limit condition shared by every due query, with no scope
+// filter - grouped due-count queries (e.g. one deck per grid tile) apply this
+// once and group by artist/anime id, rather than calling dueCardCondition
+// per scope and recomputing the daily-limit lookup for every group.
+export function baseDueCondition() {
   const dueCondition = lte(card.nextReviewAt, new Date());
-  const scopeCondition =
-    scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
-
-  let condition = scopeCondition ? and(dueCondition, scopeCondition) : dueCondition;
 
   const { introduced, limit } = getNewCardsTodayInfo();
   if (limit !== null && introduced >= limit) {
     const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
-    condition = and(condition, inArray(card.id, reviewedCardIds));
+    return and(dueCondition, inArray(card.id, reviewedCardIds));
   }
 
-  return condition;
+  return dueCondition;
+}
+
+function dueCardCondition(scope: StudyScope) {
+  const scopeCondition =
+    scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
+  const base = baseDueCondition();
+  return scopeCondition ? and(base, scopeCondition) : base;
 }
 
 export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {

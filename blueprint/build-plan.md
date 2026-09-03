@@ -416,7 +416,7 @@ cleaned-up checkbox version before generating the project overview.
     Prefer restyling feature 49's unified `/cards` search with 1A's
     split-pane layout; reinstating a separate page is a deliberate partial
     reversal of 49 and needs to be chosen, not defaulted into.
-  - [ ] 50d. **Decks** - poster grid, covers carrying the layout.
+  - [x] 50d. **Decks** - poster grid, covers carrying the layout.
   - [ ] 50e. **Stats** - dashboard with KPI tiles and a reviews/pass-rate
     chart.
   - [ ] 50f. **Home** - dashboard replacing the five link cards.

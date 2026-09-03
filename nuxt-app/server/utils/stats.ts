@@ -28,9 +28,9 @@ export interface AnimeStats {
   passRate: number | null;
 }
 
-const passCountExpr = sql<number>`coalesce(sum(case when ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`;
+export const passCountExpr = sql<number>`coalesce(sum(case when ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`;
 
-function deriveCounts(totalReviews: number, rawPassCount: number) {
+export function deriveCounts(totalReviews: number, rawPassCount: number) {
   const passCount = Number(rawPassCount);
   return {
     totalReviews,
