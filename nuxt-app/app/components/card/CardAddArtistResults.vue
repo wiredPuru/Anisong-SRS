@@ -51,7 +51,6 @@ interface CardWithDetails {
 const props = defineProps<{
   query: string;
   hasDefaultDownloadFolder: boolean;
-  previewActive: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -267,7 +266,6 @@ const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
-  if (props.previewActive) return;
   if (event.key === "Escape") closeModal();
 }
 

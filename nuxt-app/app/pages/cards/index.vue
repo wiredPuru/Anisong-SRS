@@ -167,8 +167,6 @@ const editError = ref<string | null>(null);
 const clearingField = reactive<Record<string, boolean>>({});
 const removeCardError = reactive<Record<number, string | null>>({});
 
-const previewCard = ref<CardWithDetails | null>(null);
-
 // The inspector rail's subject. Held as an id rather than the card object so
 // a list refresh (edit, download, delete) re-resolves to the fresh row
 // instead of pinning a stale copy.
@@ -194,6 +192,16 @@ function onInspectorLocalPathUpdated({ kind, localPath }: { kind: "video" | "aud
 
 function selectCard(id: number) {
   selectedId.value = selectedId.value === id ? null : id;
+}
+
+// Shared by the nav bar's global search hand-off and the three add-candidate
+// groups' "Preview" buttons - a card previewed from either path may not be on
+// the currently loaded page, so it is spliced to the front instead of
+// silently ignored. The inspector rail is the one preview surface for cards
+// in the library; nothing on this page opens CardPreviewModal.
+function previewInInspector(card: CardWithDetails) {
+  if (!cards.value.some((c) => c.id === card.id)) cards.value.unshift(card);
+  selectedId.value = card.id;
 }
 
 const DAY_MS = 86_400_000;
@@ -236,8 +244,7 @@ watch(
   pendingCardPreview,
   (card) => {
     if (!card) return;
-    if (!cards.value.some((c) => c.id === card.id)) cards.value.unshift(card);
-    selectedId.value = card.id;
+    previewInInspector(card);
     pendingCardPreview.value = null;
   },
   { immediate: true },
@@ -342,11 +349,6 @@ async function removeCard(id: number) {
     removeCardError[id] = extractErrorMessage(err, "Failed to delete card.");
   }
 }
-
-async function onPreviewCardUpdated(updated: CardWithDetails) {
-  previewCard.value = updated;
-  replaceCard(updated);
-}
 </script>
 
 <template>
@@ -414,22 +416,21 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
           :query="searchQuery"
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
-          @preview="(card) => (previewCard = card)"
+          @preview="previewInInspector"
         />
 
         <CardAddSongResults
           :query="searchQuery"
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
-          @preview="(card) => (previewCard = card)"
+          @preview="previewInInspector"
         />
 
         <CardAddArtistResults
           :query="searchQuery"
           :has-default-download-folder="hasDefaultDownloadFolder"
-          :preview-active="previewCard !== null"
           @refresh="loadFirstPage"
-          @preview="(card) => (previewCard = card)"
+          @preview="previewInInspector"
         />
       </div>
 
@@ -568,15 +569,6 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
         </template>
       </aside>
     </div>
-
-    <CardPreviewModal
-      :card="previewCard"
-      :open="previewCard !== null"
-      :has-default-download-folder="hasDefaultDownloadFolder"
-      :audio-only="audioOnly"
-      @close="previewCard = null"
-      @updated="onPreviewCardUpdated"
-    />
   </main>
 </template>
 
