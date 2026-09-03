@@ -640,144 +640,164 @@ onUnmounted(() => stopDrag?.());
     :class="{ expanded: immersive, 'ambient-glass': ambient }"
     @click.self="emit('update:immersive', false)"
   >
-    <div
-      class="player-frame"
-      :class="{ 'ambient-glass': ambient }"
-      @mousemove="onPlayerPointerMove"
-      @mouseleave="resetPlayerParallax"
-    >
-      <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
-      <button
-        v-if="allowExpand"
-        type="button"
-        class="expand-btn"
-        :aria-label="immersive ? 'Collapse' : 'Expand'"
-        @click="emit('update:immersive', !immersive)"
-      >
-        {{ immersive ? "⤡" : "⤢" }}
-        <span class="tooltip">Hotkey: E</span>
-      </button>
-
-      <video
-        v-if="mediaKind === 'video' && src"
-        ref="videoRef"
-        class="media-el"
-        :src="src"
-        :volume="volume"
-        @play="onPlay"
-        @playing="onPlaying"
-        @pause="onPause"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-        @loadeddata="onLoadedData"
-        @seeked="onSeeked"
-        @error="onError"
-        @click="togglePlay"
-      />
-      <audio
-        v-else-if="src"
-        ref="audioRef"
-        class="hidden-audio"
-        :src="src"
-        :volume="volume"
-        @play="onPlay"
-        @playing="onPlaying"
-        @pause="onPause"
-        @timeupdate="onTimeUpdate"
-        @loadedmetadata="onLoadedMetadata"
-        @error="onError"
-      />
-
+    <div class="player-frame" :class="{ 'has-bar': immersive }">
       <div
-        v-if="showCoverArt"
-        class="record"
-        :style="{ transform: `perspective(700px) rotateX(${recordTiltY}deg) rotateY(${recordTiltX}deg)` }"
+        class="video-area"
+        :class="{ 'ambient-glass': ambient }"
+        @mousemove="onPlayerPointerMove"
+        @mouseleave="resetPlayerParallax"
       >
-        <div class="record-disk" :class="{ spinning: isPlaying }">
-          <img
-            ref="coverImageRef"
-            :src="card.animeCoverImageUrl!"
-            alt=""
-            class="record-label"
-            @error="coverImageFailed = true"
-          />
-          <span class="record-hole" />
-        </div>
-      </div>
-      <canvas
-        v-if="showCoverArt"
-        ref="visualizerCanvasRef"
-        width="320"
-        height="180"
-        class="visualizer-canvas"
-        aria-hidden="true"
-        :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
-      />
-
-      <div v-if="errorMessage" class="veil error-veil">
-        <p>{{ errorMessage }}</p>
-        <div v-if="hasAnyDownloadableSource(card)" class="download-section">
-          <div v-if="hasDefaultDownloadFolder" class="download-actions">
-            <template v-if="canDownload(card, 'video')">
-              <div v-if="downloading[downloadKey(card.id, 'video')]" class="download-progress">
-                <div class="download-progress-bar">
-                  <span :style="{ width: downloadProgressPercent('video') + '%' }" />
-                </div>
-                <span class="download-progress-label">{{
-                  formatDownloadProgress(downloadProgress[downloadKey(card.id, "video")])
-                }}</span>
-              </div>
-              <button v-else type="button" class="download-btn" @click="retryDownload('video')">Download video</button>
-            </template>
-            <template v-if="canDownload(card, 'audio')">
-              <div v-if="downloading[downloadKey(card.id, 'audio')]" class="download-progress">
-                <div class="download-progress-bar">
-                  <span :style="{ width: downloadProgressPercent('audio') + '%' }" />
-                </div>
-                <span class="download-progress-label">{{
-                  formatDownloadProgress(downloadProgress[downloadKey(card.id, "audio")])
-                }}</span>
-              </div>
-              <button v-else type="button" class="download-btn" @click="retryDownload('audio')">Download audio</button>
-            </template>
-          </div>
-          <p v-else class="download-hint">
-            Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
-          </p>
-          <p v-if="downloadError[card.id]" class="download-error">{{ downloadError[card.id] }}</p>
-        </div>
-      </div>
-      <div
-        v-else-if="showVeil"
-        class="veil"
-        :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
-        @click="togglePlay"
-      >
-        <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-        </div>
-        <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
-      </div>
-
-      <div class="player-controls">
-        <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
-          {{ isPlaying ? "⏸" : "▶" }}
-          <span class="tooltip">Hotkey: S</span>
+        <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
+        <button
+          v-if="allowExpand"
+          type="button"
+          class="expand-btn"
+          :aria-label="immersive ? 'Collapse' : 'Expand'"
+          @click="emit('update:immersive', !immersive)"
+        >
+          {{ immersive ? "⤡" : "⤢" }}
+          <span class="tooltip">Hotkey: E</span>
         </button>
-        <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
-          <span :style="{ width: progressPercent + '%' }" />
+
+        <video
+          v-if="mediaKind === 'video' && src"
+          ref="videoRef"
+          class="media-el"
+          :src="src"
+          :volume="volume"
+          @play="onPlay"
+          @playing="onPlaying"
+          @pause="onPause"
+          @timeupdate="onTimeUpdate"
+          @loadedmetadata="onLoadedMetadata"
+          @loadeddata="onLoadedData"
+          @seeked="onSeeked"
+          @error="onError"
+          @click="togglePlay"
+        />
+        <audio
+          v-else-if="src"
+          ref="audioRef"
+          class="hidden-audio"
+          :src="src"
+          :volume="volume"
+          @play="onPlay"
+          @playing="onPlaying"
+          @pause="onPause"
+          @timeupdate="onTimeUpdate"
+          @loadedmetadata="onLoadedMetadata"
+          @error="onError"
+        />
+
+        <div
+          v-if="showCoverArt"
+          class="record"
+          :style="{ transform: `perspective(700px) rotateX(${recordTiltY}deg) rotateY(${recordTiltX}deg)` }"
+        >
+          <div class="record-disk" :class="{ spinning: isPlaying }">
+            <img
+              ref="coverImageRef"
+              :src="card.animeCoverImageUrl!"
+              alt=""
+              class="record-label"
+              @error="coverImageFailed = true"
+            />
+            <span class="record-hole" />
+          </div>
         </div>
-        <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-        <div class="volume-control">
-          <span class="volume-icon" aria-hidden="true">🔊</span>
-          <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+        <canvas
+          v-if="showCoverArt"
+          ref="visualizerCanvasRef"
+          width="320"
+          height="180"
+          class="visualizer-canvas"
+          aria-hidden="true"
+          :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
+        />
+
+        <div v-if="errorMessage" class="veil error-veil">
+          <p>{{ errorMessage }}</p>
+          <div v-if="hasAnyDownloadableSource(card)" class="download-section">
+            <div v-if="hasDefaultDownloadFolder" class="download-actions">
+              <template v-if="canDownload(card, 'video')">
+                <div v-if="downloading[downloadKey(card.id, 'video')]" class="download-progress">
+                  <div class="download-progress-bar">
+                    <span :style="{ width: downloadProgressPercent('video') + '%' }" />
+                  </div>
+                  <span class="download-progress-label">{{
+                    formatDownloadProgress(downloadProgress[downloadKey(card.id, "video")])
+                  }}</span>
+                </div>
+                <button v-else type="button" class="download-btn" @click="retryDownload('video')">Download video</button>
+              </template>
+              <template v-if="canDownload(card, 'audio')">
+                <div v-if="downloading[downloadKey(card.id, 'audio')]" class="download-progress">
+                  <div class="download-progress-bar">
+                    <span :style="{ width: downloadProgressPercent('audio') + '%' }" />
+                  </div>
+                  <span class="download-progress-label">{{
+                    formatDownloadProgress(downloadProgress[downloadKey(card.id, "audio")])
+                  }}</span>
+                </div>
+                <button v-else type="button" class="download-btn" @click="retryDownload('audio')">Download audio</button>
+              </template>
+            </div>
+            <p v-else class="download-hint">
+              Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
+            </p>
+            <p v-if="downloadError[card.id]" class="download-error">{{ downloadError[card.id] }}</p>
+          </div>
         </div>
+        <div
+          v-else-if="showVeil"
+          class="veil"
+          :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
+          @click="togglePlay"
+        >
+          <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+          </div>
+          <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
+        </div>
+
+        <div v-if="!immersive" class="player-controls">
+          <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
+            {{ isPlaying ? "⏸" : "▶" }}
+            <span class="tooltip">Hotkey: S</span>
+          </button>
+          <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
+            <span :style="{ width: progressPercent + '%' }" />
+          </div>
+          <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+          <div class="volume-control">
+            <span class="volume-icon" aria-hidden="true">🔊</span>
+            <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+          </div>
+        </div>
+
+        <slot v-if="immersive" name="video-overlay" />
       </div>
 
-      <slot v-if="immersive" name="immersive" />
+      <div v-if="immersive" class="immersive-bar">
+        <div class="player-controls bar-playback-row">
+          <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
+            {{ isPlaying ? "⏸" : "▶" }}
+            <span class="tooltip">Hotkey: S</span>
+          </button>
+          <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
+            <span :style="{ width: progressPercent + '%' }" />
+          </div>
+          <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+          <div class="volume-control">
+            <span class="volume-icon" aria-hidden="true">🔊</span>
+            <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+          </div>
+        </div>
+        <slot name="immersive" />
+      </div>
     </div>
   </div>
 </template>
@@ -902,32 +922,116 @@ onUnmounted(() => stopDrag?.());
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  /* Lets immersive-overlay content (info card, language toggles, Pass/Fail
-     buttons) size itself in cqw against this frame's actual rendered width
-     rather than the raw viewport - the frame's width already accounts for
-     both the 90vw cap and the height-derived cap (see .player-card.expanded
-     .player-frame above), so cqw tracks whichever constraint is active. */
+  /* Lets immersive-bar content (info, language toggles, Pass/Fail buttons)
+     size itself in cqw against this frame's actual rendered width rather
+     than the raw viewport - the frame's width already accounts for both the
+     90vw cap and the height-derived cap (see .player-card.expanded
+     .player-frame above), so cqw tracks whichever constraint is active.
+     Stays on .player-frame (not .video-area below) so cqw values keep
+     meaning "proportional to the whole frame," not just its video share. */
   container-type: inline-size;
+  /* A column always: .video-area alone fills it end to end when there's no
+     bar (non-immersive - identical result to the old center/center
+     alignment, since .video-area itself now does that centering); immersive
+     adds .immersive-bar as a second, content-sized row below it. See
+     .player-frame.has-bar below for how the frame's own height adapts once
+     that row exists. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Immersive only. The base rule above locks the *whole* frame to 16:9 via
+   aspect-ratio, which is exactly right when the frame is nothing but video
+   (non-immersive) - but once .immersive-bar exists, forcing the same total
+   box to 16:9 starts starving the bar of room: at a narrow-but-tall
+   viewport, the bar's own content (song/artist/theme wrap onto several
+   lines at that width) can need well over 200px, while a 16:9 box that
+   narrow is barely 170px tall in total - live-verified via bun run measure
+   at 390x844, this clipped most of the bar including Fail/Pass, not just
+   trimmed it. Freeing the frame's height to its content and moving the
+   16:9 ratio onto .video-area instead fixes that: the video still renders
+   at its natural aspect ratio, but the frame as a whole simply grows to
+   fit whatever the bar needs. .player-card's own overflow: auto (see
+   .player-card.expanded above) is the backstop if that combined height
+   still exceeds the viewport - scrolling beats clipping, matching this
+   app's existing convention elsewhere (e.g. the non-immersive .side panel). */
+.player-frame.has-bar {
+  aspect-ratio: auto;
+  height: auto;
+}
+
+.player-frame.has-bar .video-area {
+  aspect-ratio: 16 / 9;
+  /* flex-basis: auto (not flex: 1's default 0%) is what lets aspect-ratio
+     act as this item's *preferred* height: at a short frame width where the
+     bar's own content needs several wrapped lines (verified at 390x844),
+     there's room for both at their natural sizes and this is exactly what
+     renders. At a frame width tall enough that video-at-16:9 plus the bar
+     would exceed .player-frame's max-height: 100% cap (verified at
+     1920x1000), flex-shrink: 1 gives the space back from video-area first -
+     .immersive-bar stays flex: none (shrink: 0) precisely so its controls
+     are never what gets squeezed. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Holds the video/record/veil/corner controls - what used to be
+   .player-frame's own content, now scoped to its own box so a sibling
+   .immersive-bar below it doesn't inherit any of this positioning context
+   (every absolutely-positioned child here - the veil, the record, the
+   corner badges - sizes and centers against .video-area, not the taller
+   video+bar frame). */
+.video-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background:
     radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
     var(--surface-sunken);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* The ambient glow canvas lives behind the whole page (Teleport to body,
-   z-index: -1), but this frame's own opaque gradient - solid --surface-sunken as its
+   z-index: -1), but this area's own opaque gradient - solid --surface-sunken as its
    last background layer - normally blocks it from showing through anywhere
-   inside the player itself (letterboxing around a non-16:9 video, or the
+   inside the video itself (letterboxing around a non-16:9 video, or the
    space around the record in audio mode). Dropping it while ambient mode
-   is on lets that glow fill the frame too instead of stopping at its edges;
-   .player-card's own translucent glass background (feature 24) already
-   does the same for the space around the frame. Non-ambient mode is
+   is on lets that glow fill the video area too instead of stopping at its
+   edges; .player-card's own translucent glass background (feature 24)
+   already does the same for the space around the frame. Non-ambient mode is
    unaffected - the gradient stays exactly as it's always been. */
-.player-frame.ambient-glass {
+.video-area.ambient-glass {
   background: transparent;
+}
+
+/* The bar underneath the video in immersive mode (feature 53) - a clean
+   video with everything (playback, info, Fail/Pass) living here instead of
+   floated on top of it. flex: none sizes to its own content (the playback
+   row plus whatever the #immersive slot renders), so .video-area above
+   absorbs the rest of the frame's fixed aspect-ratio box - the video ends
+   up with a bit more letterboxing than a bar-less 16:9 would, which is
+   exactly the space this bar needs, with zero new sizing math. */
+.immersive-bar {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-raised);
+}
+
+/* The bar's own playback row: same markup, refs and handlers as the
+   non-immersive .player-controls above (togglePlay/scrub/volume are
+   shared, not duplicated logic) - just laid out in normal flow instead of
+   overlaid on the video, so it needs its own position/background, not the
+   scrim meant to sit over video pixels. Every other .player-controls rule
+   below (including every .player-card.expanded cqw override) still applies
+   here unchanged, since the class name is shared. */
+.player-controls.bar-playback-row {
+  position: static;
+  background: none;
+  border-bottom: 1px solid var(--border);
 }
 
 .media-el {

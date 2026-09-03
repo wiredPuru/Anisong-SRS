@@ -116,7 +116,10 @@
    the current page. .toggle-btn and .search-input are scoped through a unique parent
    container (.display-toggles / .nav-search) because those bare class
    names are also used, unrelated to ambient mode, on /decks, /stats,
-   and /cards. */
+   and /cards. .immersive-bar is included as of feature 53: it's new
+   chrome (the bar under the video in immersive mode), so it follows the
+   same "shared chrome goes glass with ambient mode" rule as everything
+   else here rather than being special-cased out of it. */
 [data-ambient-glass="true"] .app-nav,
 [data-ambient-glass="true"] .nav-link,
 [data-ambient-glass="true"] .nav-search .search-input,
@@ -128,7 +131,8 @@
 [data-ambient-glass="true"] .close-btn,
 [data-ambient-glass="true"] .ambient-btn,
 [data-ambient-glass="true"] .scrub,
-[data-ambient-glass="true"] .lang-toggles {
+[data-ambient-glass="true"] .lang-toggles,
+[data-ambient-glass="true"] .immersive-bar {
   background: var(--glass-surface) !important;
   backdrop-filter: var(--glass-blur) !important;
 }

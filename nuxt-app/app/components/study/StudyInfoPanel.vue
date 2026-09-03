@@ -277,116 +277,82 @@ watch(
   backdrop-filter: var(--glass-blur);
 }
 
+/* Feature 53: this panel no longer floats over the video - it's one section
+   of the bar underneath it (StudyMediaPlayer.vue's .immersive-bar), on that
+   bar's own solid surface, so none of the old "must stay legible over
+   arbitrary video pixels" treatment (text-shadow, per-chip frosted glass,
+   cqw-proportional scaling) is needed any more. Plain flex row instead of
+   the base rule's column, reusing the same fixed sizes the non-immersive
+   side panel already uses (just tightened a little for a shorter bar row). */
 .info-card.overlay {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 0;
   background: none;
   border: none;
   box-shadow: none;
   backdrop-filter: none;
-  /* Overrides the base rule's default stretch so short chips (a one-word
-     song title, a short artist name) hug their text instead of stretching
-     to the widest sibling's width. The title block's own children keep the
-     default stretch (unset here) so EN/Romaji/JP still share one chip. */
-  align-items: flex-start;
   /* The base .info-card rule sets filter: blur(0) for the non-immersive
      Hide Info blur toggle - even a no-op blur(0) makes this element a new
-     backdrop-filter sampling root for its descendants (CSS spec behavior),
-     so the chips below were blurring an empty inner layer instead of the
-     real video. Immersive mode never uses that blur-transition mechanism
-     (it's a plain show/hide instead), so resetting filter here is safe. */
+     backdrop-filter sampling root for its descendants (CSS spec behavior).
+     Immersive mode never uses that blur-transition mechanism (it's a plain
+     show/hide instead), so resetting filter here is harmless. */
   filter: none;
-  /* Overlay-only: sized in cqw against .player-frame's actual rendered
-     width (see its container-type: inline-size), so this keeps constant
-     proportion to the frame at every size - grows on a large frame, shrinks
-     on a small one - rather than being capped at a fixed px value that only
-     looked right at one particular frame width. Each cqw multiplier is
-     calibrated so a ~1450px-wide frame (a typical desktop immersive size)
-     lands on today's original px value; the clamp floor keeps text
-     readable on a small frame, and the generous ceiling is a sanity cap
-     against an unrealistically huge display, not a normal-range target. */
-  padding: clamp(10px, 1.79cqw, 42px);
-  gap: clamp(8px, 1.38cqw, 32px);
 }
 
-/* Matches the immersive Pass/Fail buttons' per-element frosted treatment
-   (study/index.vue's .answer-slot :deep(.answer-btn)) rather than one big
-   card background - each block gets its own frosted chip instead. Uses a
-   lighter blur than the shared --glass-blur token (used app-wide - nav
-   bar, search dropdown, etc.) so the video stays more visible through it;
-   study/index.vue's answer-btn override uses the same lighter value. */
-/* A dark scrim, not pure transparency. These chips sit over arbitrary video:
-   a bright frame left the blurred glass light, and --muted/--faint text on it
-   became near-unreadable (the romaji line and the row labels in particular).
-   Tinting toward --bg keeps the text on a dark ground whatever is playing
-   underneath, while the blur still lets the video through. */
-.info-card.overlay .title-block,
-.info-card.overlay .detail-rows {
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(10px) saturate(1.3);
-  padding: clamp(8px, 0.83cqw, 19px) clamp(10px, 1.1cqw, 26px);
-}
-
-/* Lifted off --faint for the same reason: it is a deliberately low-contrast
-   grey against the app's own dark surfaces, which is the wrong assumption
-   over video. */
-.info-card.overlay .label {
-  color: var(--muted);
-}
-
-.info-card.overlay .romaji {
-  color: var(--text);
-  opacity: 0.85;
-}
-
-/* The divider is the side panel's separator; in the overlay each block is
-   its own frosted chip, so the gap between them already separates them. */
+/* The divider separated stacked blocks in the side panel; a horizontal bar
+   row already separates them with the gap above instead. */
 .info-card.overlay .divider {
   display: none;
 }
 
-.info-card.overlay :is(.en, .romaji, .jp, .value, .label) {
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
+/* flex: 1 1 100% forces this to claim the whole row width and wrap
+   title-block/detail-rows onto a line of their own below it (the parent's
+   flex-wrap: wrap is already set) - deliberately, not just for layout: the
+   "Learning" streak trigger lives in here (base .learning{margin-left:auto}
+   pushes it to the far end), and its popover opens leftward from wherever
+   the trigger sits. Grouped tightly with the language toggles at the
+   bar's left edge, that trigger sat close enough to the frame's left side
+   that the popover opened out over the nav rail - confirmed live via
+   bun run measure's browser check, not just reasoned about. Giving this row
+   the bar's full width instead puts the trigger near the *right* edge, so
+   the popover has the whole bar to open into. */
+.info-card.overlay .panel-top {
+  flex: 1 1 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
 }
 
-/* Overlay-only font-size overrides - more specific than the base rules below
-   (which the non-immersive side panel still uses unchanged), so they only
-   apply here. Proportional (cqw), not capped at the base rule's px value -
-   see the comment on .info-card.overlay above for why. */
+.info-card.overlay .title-block {
+  gap: 2px;
+}
+
 .info-card.overlay .title-block .en {
-  font-size: clamp(15px, 1.86cqw, 43px);
+  font-size: 20px;
 }
 
 .info-card.overlay .title-block .romaji {
-  font-size: clamp(11px, 1.1cqw, 26px);
+  font-size: 12px;
 }
 
 .info-card.overlay .jp {
-  font-size: clamp(13px, 1.38cqw, 32px);
+  font-size: 15px;
 }
 
-.info-card.overlay .label {
-  font-size: clamp(10px, 0.83cqw, 19px);
-}
-
-.info-card.overlay .detail-row .value,
-.info-card.overlay .learning .name {
-  font-size: clamp(12px, 1.24cqw, 29px);
-}
-
+/* Song/artist/theme side by side instead of stacked, matching the bar's
+   horizontal shape. */
 .info-card.overlay .detail-rows {
-  gap: clamp(8px, 0.83cqw, 19px);
+  flex-direction: row;
+  gap: 20px;
 }
 
-.info-card.overlay .lang-toggles {
-  gap: clamp(6px, 0.69cqw, 16px);
-}
-
-.info-card.overlay .lang-btn {
-  padding: clamp(6px, 0.62cqw, 14px) clamp(8px, 1.1cqw, 26px);
-  font-size: clamp(10px, 0.9cqw, 21px);
+.info-card.overlay .detail-row .value {
+  font-size: 14px;
 }
 
 /* Language control and the learning counter share one row at the top of the

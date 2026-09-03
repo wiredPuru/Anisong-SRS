@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 7afb464c062330fd3472c0881b0c18b98ce7733fe30c21174d48a73738da9272 -->
+<!-- blueprint:source-hash 0eeaf8d0fe10135b288f638ff177aa5e2a33043460dd9e9d0365567e2e2f061a -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -90,12 +90,17 @@ instead of reinstating a separate Add-card page. One decision from the
 original note is still open and outside any single sub-feature: which of
 the mockup's `1b`/`2a`/`2b` Study fullscreen/ambient-overlay candidates, if
 any, should replace or complement feature 31's existing immersive mode -
-none of 50a-50h touched it, and immersive mode remains the only
-distraction-free study surface. Features 51 and 52 (previous-card
+none of 50a-50h touched it. Features 51 and 52 (previous-card
 navigation and a study session log) were added to `build-plan.md` on
-2026-09-03 and are not yet built; neither changes `project-plan.md`, since
-both are additions to the existing Study screen in the same session-only
-style as the Hide Video/Hide Info toggles (feature 10).
+2026-09-03 and are now both built and merged; neither changed
+`project-plan.md`, since both are additions to the existing Study screen in
+the same session-only style as the Hide Video/Hide Info toggles (feature
+10). Feature 53 (an immersive-mode redesign) was added to `build-plan.md`
+the same day, resolving that still-open overlay decision by picking the
+`#2b` "Bottom bar" candidate - reskinned to the app's shipped Akiba Neon
+tokens rather than that candidate's own Nocturne tokens - and is not yet
+built; it also updates `project-plan.md` §7, replacing the sentence
+describing today's overlay-on-video behavior.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -812,23 +817,59 @@ style as the Hide Video/Hide Info toggles (feature 10).
       stacks split panes into one column, and drops the Cards table's
       lower-priority columns.
 
-    One decision from the original scope note is still open, unrelated to
-    any single sub-feature above: which of the mockup's `1b`/`2a`/`2b`
-    Study fullscreen/ambient-overlay candidates (Nocturne-styled), if any,
-    should replace or complement feature 31's existing immersive mode. None
-    of 50a-50h touched it.
-51. **Previous card navigation in Study** - not yet built. Lets you step
-    back to a previously presented card in the current session to review it
-    again, view-only - does not re-submit a review or change that card's
-    Leitner box/interval - alongside today's forward-only due-card queue
-    (`useStudySession`'s `fetchNext()`/Leitner scheduling, feature 6a,
-    unaffected). `ArrowLeft`/`ArrowRight` are already bound to Fail/Pass
-    (`StudyAnswerControls.vue`), so this needs a different hotkey.
-52. **Study session log** - not yet built. A visible list of cards
-    presented so far in the current session (song/artist/anime, pass/fail
-    result) - likely the surface feature 51's "Previous" navigation steps
-    back through. Distinct from feature 7's `/stats` (all-time, aggregate
-    guess-rate tracking): this is a per-session, presentation-order list.
+    One decision from the original scope note - which of the mockup's
+    `1b`/`2a`/`2b` Study fullscreen/ambient-overlay candidates, if any,
+    should replace or complement feature 31's existing immersive mode - was
+    left unresolved by 50a-50h. It is picked up by feature 53 below (the
+    `#2b` candidate).
+51. **Previous card navigation in Study** - done. Lets you step
+    back to the single most recently reviewed card in the current session
+    and review it again, view-only - does not re-submit a review or change
+    that card's Leitner box/interval - via a "Previous" button + `P`
+    hotkey that opens it in the existing `CardPreviewModal` (features
+    11/16/36), pausing the live `StudyMediaPlayer` first so its audio can
+    never overlap with Preview's (the failure class that got features
+    18/32 abandoned). Builds a client-side `sessionHistory` list in
+    `study/index.vue` - `SessionHistoryEntry { card: CardWithDetails;
+    result: "pass" | "fail" }` - that resets on scope change and is
+    load-bearing for feature 52. Today's forward-only due-card queue
+    (`useStudySession`'s `fetchNext()`/Leitner scheduling, feature 6a) is
+    unaffected. `ArrowLeft`/`ArrowRight` stayed bound to Fail/Pass, so this
+    used a different hotkey. A same-build fix added a `--z-above-immersive`
+    (70) token so the Preview modal renders above, not behind, the
+    immersive layer (`--z-immersive`, 60).
+52. **Study session log** - done. A small popup
+    (`StudySessionLogModal.vue`, trigger button + `L` hotkey in the study
+    header, always visible) listing every `sessionHistory` entry (feature
+    51) newest-first - song/artist/anime title, Pass/Fail chip - distinct
+    from feature 7's `/stats` (all-time, aggregate guess-rate tracking).
+    Clicking a row opens that card in `CardPreviewModal`, paused, same as
+    feature 51's "Previous" - both now share one `openHistoryCard(entry)` /
+    `viewedHistoryEntry` mechanism and both render at `--z-above-immersive`.
+    A correctness fix landed alongside it: neither overlay previously
+    blocked the live `ArrowLeft`/`ArrowRight` Pass/Fail hotkeys, so
+    answering while one was open silently reviewed the live card behind it
+    - both now disable `StudyAnswerControls` via its existing `disabled`
+    prop while open.
+53. **Immersive study mode: bottom bar layout** - not yet built. Added to
+    `build-plan.md` on 2026-09-03, resolving the open decision noted under
+    feature 50 above. Replaces feature 31's current immersive overlay (card
+    info floated directly on top of the video) with the `#2b` "Bottom bar"
+    candidate from
+    `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`:
+    the video stays completely clean while playing, and everything -
+    scrubber, volume, language toggles, title/song/artist/theme info, and
+    Fail/Pass - moves into a horizontal bar underneath it instead.
+    Reskinned to the app's shipped Akiba Neon tokens (`main.css`), not that
+    mockup candidate's own Nocturne tokens (`--color-bg`/`--color-accent`
+    purple mono-accent, Inter font, 8px radius) - a deliberate choice so the
+    app doesn't carry two design systems, mirroring how feature 50c chose
+    to restyle feature 49's real architecture over reinstating the
+    mockup's own. Applies everywhere feature 31's immersive mode applies
+    today: `/study` (video + bar, including Fail/Pass and feature 51's
+    "Previous" button) and `CardPreviewModal` (info only, no review
+    controls, matching today). Also updates `project-plan.md` §7, replacing
+    the sentence describing today's overlay-on-video behavior.
 
 ## Data model
 
@@ -1046,9 +1087,12 @@ tight radii, the blue-black ground, cyan `--accent-secondary`, RocknRoll One
 (`NavBar.vue` is now the rail - same component, restyled by 50a, not
 renamed). The design reference is
 `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`;
-token deltas actually shipped are in feature 50's entry. One decision from
-that feature's original scope note is still open - see feature 50's entry
-for the Study fullscreen/ambient-overlay candidates.
+token deltas actually shipped are in feature 50's entry. The one decision
+left open by that feature's original scope note - which Study
+fullscreen/ambient-overlay candidate, if any, should replace feature 31's
+existing immersive mode - is picked up by feature 53 (not yet built): the
+`#2b` "Bottom bar" candidate, reskinned to this Akiba Neon token set rather
+than that candidate's own Nocturne tokens.
 
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
@@ -1155,7 +1199,19 @@ Routes:
   playback, stops on an early manual reveal, doesn't re-hide an
   already-revealed card, and - fixed after initial release - the countdown
   now actually renders in immersive mode, dead-centered and scaled to the
-  frame, instead of never appearing there at all).
+  frame, instead of never appearing there at all). Feature 51 added a
+  "Previous" button + `P` hotkey that reopens the single most recently
+  reviewed card, view-only, in `CardPreviewModal` with the live player
+  paused; feature 52 added a session-log popup (📋 button + `L` hotkey,
+  always visible in the header) listing every card reviewed this session,
+  each row opening the same way "Previous" does - both share one
+  `viewedHistoryEntry`/`openHistoryCard()` mechanism, render above the
+  immersive layer (`--z-above-immersive`), and disable the live Pass/Fail
+  hotkeys while open. Feature 53 (not yet built) replaces today's
+  immersive overlay - card info floated directly on the video - with a
+  clean video and a bottom bar underneath it holding the scrubber, volume,
+  language toggles, title/song/artist/theme info, and Fail/Pass; applies
+  to `/study` and, minus Fail/Pass, `CardPreviewModal`.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes

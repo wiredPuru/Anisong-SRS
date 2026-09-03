@@ -111,9 +111,10 @@ Non-profit. No monetization planned.
   choice (Video / Info / Both) and a countdown interval rather than being
   a plain on/off. Core playback/interaction
   controls (play/pause, pass/fail, scrub, volume, expand) stay inline. An
-  `E` hotkey toggles an immersive expanded mode that overlays all card
-  info directly on the video instead of showing it in a side panel, and
-  stays active as you move between cards.
+  `E` hotkey toggles an immersive expanded mode where the video stays
+  completely clean and all card info, language toggles, playback controls,
+  and Fail/Pass move into a horizontal bar underneath it instead of
+  overlaying the video; it stays active as you move between cards (build 53).
 - Review controls follow Anki/Migaku convention: pass/fail buttons, or left
   arrow (fail) / right arrow (pass) as keyboard shortcuts.
 - Japanese text must render as real, selectable DOM text (not baked into an

@@ -435,6 +435,19 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 52. **Study session log** - a visible list of cards presented so far
   in the current session (song/artist/anime, pass/fail result), likely the
   surface "Previous" navigation (51) steps back through.
+- [x] 53. **Immersive study mode: bottom bar layout** - replaces feature
+  31's current immersive overlay (card info floated directly on top of the
+  video) with the `#2b` "Bottom bar" candidate from
+  `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`:
+  the video stays completely clean while playing, and everything -
+  scrubber, volume, language toggles, title/song/artist/theme info, and
+  Fail/Pass - moves into a horizontal bar underneath it instead. Reskinned
+  to the app's shipped Akiba Neon tokens (`main.css`), not the mockup's
+  Nocturne tokens. Resolves the open Study fullscreen/ambient-overlay
+  decision left unresolved by build 50 (see 50's entry above and the
+  design reference's `README.md`). Applies everywhere feature 31's
+  immersive mode applies today: `/study` (with Fail/Pass) and
+  `CardPreviewModal` (info only, no review controls, matching today).
 
 ## Plan maintenance
 
