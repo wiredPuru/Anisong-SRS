@@ -374,8 +374,8 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
             <div class="table-head">
               <span />
               <span>Song</span>
-              <span>Anime</span>
-              <span>Sources</span>
+              <span class="col-anime">Anime</span>
+              <span class="col-sources">Sources</span>
               <span>Due</span>
             </div>
             <button
@@ -1112,5 +1112,35 @@ h1 {
 
 .download-hint a {
   color: var(--accent);
+}
+
+/* 50h: same breakpoint and stacking pattern as .study-grid. Placed last so
+   it wins the source-order tiebreak over the earlier same-specificity base
+   rules above. */
+@media (max-width: 820px) {
+  .cards-header {
+    flex-wrap: wrap;
+  }
+
+  .cards-body {
+    grid-template-columns: 1fr;
+  }
+
+  .inspector {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .table-head,
+  .card-row {
+    grid-template-columns: 46px 1fr 92px;
+  }
+
+  .cell-anime,
+  .col-anime,
+  .cell-sources,
+  .col-sources {
+    display: none;
+  }
 }
 </style>

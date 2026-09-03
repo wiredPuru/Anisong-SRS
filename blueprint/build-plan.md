@@ -397,7 +397,7 @@ cleaned-up checkbox version before generating the project overview.
     and the empty-state links on `/stats` and `/decks`) to the unified
     `/cards` search instead.
 
-- [ ] 50. **Visual redesign (Akiba Neon)** - move off the current vertical
+- [x] 50. **Visual redesign (Akiba Neon)** - move off the current vertical
   single-column layout to a rail nav with split panes, and retheme from the
   purple/rounded look to the canvas's blue-black + sakura + cyan with tight
   radii. The design reference is
@@ -425,7 +425,7 @@ cleaned-up checkbox version before generating the project overview.
     chart.
   - [x] 50f. **Home** - dashboard replacing the five link cards.
   - [x] 50g. **Settings** - section rail + two columns.
-  - [ ] 50h. **Narrow-window pass** - rail collapses to icons, split panes
+  - [x] 50h. **Narrow-window pass** - rail collapses to icons, split panes
     stack, tables drop columns.
 
 ## Plan maintenance

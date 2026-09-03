@@ -1561,4 +1561,15 @@ h2 {
   font-size: 13px;
   font-weight: 700;
 }
+
+/* 50h: same breakpoint as .study-grid. The poster grid (repeat(auto-fill,
+   minmax(150px, 1fr))) already reflows on its own - only the headers (list
+   and detail share .decks-header/.header-controls) need to wrap here.
+   Placed last so it wins the source-order tiebreak. */
+@media (max-width: 820px) {
+  .decks-header,
+  .header-controls {
+    flex-wrap: wrap;
+  }
+}
 </style>

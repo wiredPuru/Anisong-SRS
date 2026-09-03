@@ -757,4 +757,17 @@ function setType(type: StatsType) {
 .breakdown-bar-fill.tier-fail {
   background: var(--fail);
 }
+
+/* 50h: same breakpoint as .study-grid. Placed last so it wins the
+   source-order tiebreak over the earlier same-specificity base rules. */
+@media (max-width: 820px) {
+  .stats-header,
+  .header-controls {
+    flex-wrap: wrap;
+  }
+
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

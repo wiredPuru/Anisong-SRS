@@ -145,3 +145,13 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
 }
+
+/* Same breakpoint as layouts/default.vue's .app-content and study/index.vue's
+   .study-grid (50h). Redefining the token here narrows every fixed-position
+   overlay that insets by --rail-width (StudyMediaPlayer, CardPreviewModal)
+   without touching either component directly. */
+@media (max-width: 820px) {
+  :root {
+    --rail-width: 56px;
+  }
+}

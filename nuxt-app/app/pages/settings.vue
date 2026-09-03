@@ -518,4 +518,34 @@ async function importDeck() {
   color: var(--accent-strong);
   font-size: 13px;
 }
+
+/* 50h: the one page-specific narrow treatment in this pass (everywhere else
+   reuses .study-grid's stacking pattern exactly). A 210px vertical rail
+   stacked *above* the content pane would push every panel below the fold on
+   a short window, so it becomes a horizontal scrollable strip instead -
+   same "collapse to a strip" spirit as the icon rail. Placed last so it
+   wins the source-order tiebreak over the earlier same-specificity rules. */
+@media (max-width: 820px) {
+  .settings {
+    flex-direction: column;
+  }
+
+  .section-rail {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+
+  .section-rail-item {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .section-panels {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -628,7 +628,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   padding: 12px 20px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
@@ -647,7 +648,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .header-right {
   gap: 6px;
-  flex: none;
+  /* flex-shrink: 1 (not flex: none's 0) so this can narrow below its
+     content width once .study-header wraps at narrow widths - otherwise
+     .display-toggles' own flex-wrap never gets a chance to engage. */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .chip {

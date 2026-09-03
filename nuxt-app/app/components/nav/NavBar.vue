@@ -120,4 +120,32 @@ function isActive(to: string): boolean {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* Icon-only rail below 820px (50h), matching the narrow mockup's 56px rail /
+   34px icon buttons. --rail-width itself is redefined in main.css so this
+   only needs to bring the rail's own internals in line with that width. */
+@media (max-width: 820px) {
+  .app-nav {
+    padding: 14px 0;
+    gap: 8px;
+  }
+
+  .nav-logo {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 8px;
+    font-size: 15px;
+  }
+
+  .nav-link {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .nav-label {
+    display: none;
+  }
+}
 </style>

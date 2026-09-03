@@ -563,4 +563,18 @@ h1 {
 .state-error {
   color: var(--fail);
 }
+
+/* 50h: hero-panel already spans both columns (grid-column: 1 / -1), so
+   collapsing to one column just stacks the stats card above weakest-decks
+   in document order - no other change needed. Placed last so it wins the
+   source-order tiebreak over the earlier same-specificity base rules. */
+@media (max-width: 820px) {
+  .home-header {
+    flex-wrap: wrap;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
