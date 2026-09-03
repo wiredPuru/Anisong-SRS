@@ -638,6 +638,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :memberships="membershipsData?.memberships ?? {}"
               :toggling-membership="togglingMembership"
               :deck-toggle-error="deckToggleError"
+              :has-default-download-folder="hasDefaultDownloadFolder"
               @updated="onCardEdited"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />

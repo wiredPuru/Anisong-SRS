@@ -3,6 +3,8 @@ interface CardWithDetails {
   id: number;
   localVideoPath: string | null;
   localAudioPath: string | null;
+  animethemesVideoUrl: string | null;
+  animethemesAudioUrl: string | null;
 }
 
 interface ManualDeck {
@@ -16,6 +18,7 @@ const props = defineProps<{
   memberships: Record<number, number[]>;
   togglingMembership: Record<string, boolean>;
   deckToggleError: string | null;
+  hasDefaultDownloadFolder: boolean;
 }>();
 const emit = defineEmits<{
   updated: [card: CardWithDetails];
@@ -77,6 +80,16 @@ async function clearLocalPath(kind: "video" | "audio") {
     clearing[kind] = false;
   }
 }
+
+const { downloading, downloadProgress, downloadError, downloadKey, canDownload, downloadMedia } = useCardDownloads();
+
+async function downloadLocalPath(kind: "video" | "audio") {
+  const result = await downloadMedia<CardWithDetails>(props.card.id, props.card.id, kind);
+  if (!result) return;
+  if (kind === "video") videoPath.value = result.localVideoPath ?? "";
+  else audioPath.value = result.localAudioPath ?? "";
+  emit("updated", result);
+}
 </script>
 
 <template>
@@ -88,13 +101,30 @@ async function clearLocalPath(kind: "video" | "audio") {
         <div class="path-row">
           <input v-model="videoPath" type="text" placeholder="Blank to clear" :disabled="saving" />
           <button
+            v-if="card.localVideoPath"
             type="button"
             class="clear-btn"
-            :disabled="!card.localVideoPath || saving || clearing.video"
+            :disabled="saving || clearing.video"
             @click="clearLocalPath('video')"
           >
             {{ clearing.video ? "Clearing..." : "Clear" }}
           </button>
+          <button
+            v-else-if="canDownload(card, 'video') && hasDefaultDownloadFolder"
+            type="button"
+            class="download-btn"
+            :disabled="saving || downloading[downloadKey(card.id, 'video')]"
+            @click="downloadLocalPath('video')"
+          >
+            {{
+              downloading[downloadKey(card.id, "video")]
+                ? formatDownloadProgress(downloadProgress[downloadKey(card.id, "video")])
+                : "Download"
+            }}
+          </button>
+          <NuxtLink v-else-if="canDownload(card, 'video')" to="/settings" class="download-hint-inline">
+            Set download folder
+          </NuxtLink>
         </div>
       </label>
       <label class="field">
@@ -102,15 +132,33 @@ async function clearLocalPath(kind: "video" | "audio") {
         <div class="path-row">
           <input v-model="audioPath" type="text" placeholder="Blank to clear" :disabled="saving" />
           <button
+            v-if="card.localAudioPath"
             type="button"
             class="clear-btn"
-            :disabled="!card.localAudioPath || saving || clearing.audio"
+            :disabled="saving || clearing.audio"
             @click="clearLocalPath('audio')"
           >
             {{ clearing.audio ? "Clearing..." : "Clear" }}
           </button>
+          <button
+            v-else-if="canDownload(card, 'audio') && hasDefaultDownloadFolder"
+            type="button"
+            class="download-btn"
+            :disabled="saving || downloading[downloadKey(card.id, 'audio')]"
+            @click="downloadLocalPath('audio')"
+          >
+            {{
+              downloading[downloadKey(card.id, "audio")]
+                ? formatDownloadProgress(downloadProgress[downloadKey(card.id, "audio")])
+                : "Download"
+            }}
+          </button>
+          <NuxtLink v-else-if="canDownload(card, 'audio')" to="/settings" class="download-hint-inline">
+            Set download folder
+          </NuxtLink>
         </div>
       </label>
+      <p v-if="downloadError[card.id]" class="edit-error">{{ downloadError[card.id] }}</p>
 
       <div class="field">
         <span class="field-label">Decks</span>
@@ -219,6 +267,31 @@ async function clearLocalPath(kind: "video" | "audio") {
 .clear-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.download-btn {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.download-hint-inline {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .edit-actions {
