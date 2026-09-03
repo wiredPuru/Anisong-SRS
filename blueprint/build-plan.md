@@ -396,3 +396,16 @@ cleaned-up checkbox version before generating the project overview.
     three query-param navigations, `/cards`' header and empty-state links,
     and the empty-state links on `/stats` and `/decks`) to the unified
     `/cards` search instead.
+
+## Plan maintenance
+
+Not features and not build targets - documentation drift to correct in
+`project-plan.md` whenever it is next edited. Deliberately plain bullets,
+never checkboxes, so `/feature` can't mistake one for the next item to build.
+
+- `project-plan.md` §7 (UI/UX) lists the study screen's display toggles as
+  "Hide Video, Hide Info, Random Start, Ambient mode". Two later additions
+  are missing: Hide Cover (feature 44, `c` hotkey, session-only like the
+  others) and the Auto Reveal control (feature 38, redesigned into a
+  Video/Info/Both mode picker plus interval in its own popup by feature 46).
+  Noted 2026-09-02.
