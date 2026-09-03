@@ -410,7 +410,7 @@ cleaned-up checkbox version before generating the project overview.
     sub-feature builds on this, so it goes first.
   - [x] 50b. **Study screen** - 1A's treatment: keeps today's player + side
     info panel, collapses the display-toggle row into one icon strip.
-  - [ ] 50c. **Cards** - dense table + inspector rail, row actions demoted.
+  - [x] 50c. **Cards** - dense table + inspector rail, row actions demoted.
     Carries an open decision: 1A draws Add card as a standalone page with
     Anime/Artist/Song tabs, which is the architecture feature 49 deleted.
     Prefer restyling feature 49's unified `/cards` search with 1A's

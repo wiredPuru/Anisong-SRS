@@ -11,8 +11,8 @@ export default defineEventHandler((event) => {
 
   if (page !== requestedPage) {
     const clamped = listCards(page, q);
-    return { cards: clamped.items, page, totalPages };
+    return { cards: clamped.items, page, totalPages, total: clamped.total };
   }
 
-  return { cards: items, page, totalPages };
+  return { cards: items, page, totalPages, total };
 });
