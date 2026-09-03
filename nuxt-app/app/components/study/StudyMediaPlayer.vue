@@ -216,17 +216,20 @@ function onLoadedMetadata() {
   const el = activeEl.value;
   if (!el) return;
 
-  if (Number.isFinite(el.duration)) {
+  if (Number.isFinite(el.duration) && el.duration > 0) {
     duration.value = el.duration;
-    if (props.randomStart && el.duration > 0) {
+    if (props.randomStart) {
       el.currentTime = randomStartTime(el.duration);
     }
     return;
   }
 
-  // Some webm streams report an Infinity/NaN duration until the browser scans to
-  // the end of the stream; seeking past the end forces that scan, then durationchange
-  // reports the real value. Standard workaround for this browser quirk.
+  // Some webm streams report a duration of Infinity, NaN, or 0 until the
+  // browser scans to the end of the stream; seeking past the end forces
+  // that scan, then durationchange reports the real value. Standard
+  // workaround for this browser quirk. A 0-duration loadedmetadata used to
+  // slip past the check above (Number.isFinite(0) is true) and freeze the
+  // scrub bar's total at "0:00" forever - see the fix's history entry.
   el.addEventListener(
     "durationchange",
     () => {
