@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ maxBytes: number }>();
+const props = defineProps<{ maxBytes: number; path: string }>();
 const emit = defineEmits<{ saved: [] }>();
 
 const value = ref(Math.round(props.maxBytes / (1024 * 1024)));
@@ -46,6 +46,7 @@ async function setValue(next: number) {
       <span class="cache-size-hint">MB</span>
     </div>
     <p v-if="error" class="control-error">{{ error }}</p>
+    <p class="cache-path">Cache location: <code>{{ props.path }}</code></p>
   </div>
 </template>
 
@@ -97,5 +98,16 @@ async function setValue(next: number) {
   margin: 0;
   color: var(--fail);
   font-size: 14px;
+}
+
+.cache-path {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.cache-path code {
+  color: var(--muted);
+  font-family: monospace;
 }
 </style>

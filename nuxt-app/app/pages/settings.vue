@@ -5,6 +5,7 @@ const { data, pending, error, refresh } = await useFetch<{
   dailyNewCardLimit: number | null;
   boxOneStreakRequired: number;
   streamCacheMaxBytes: number;
+  streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
 }>("/api/media-library");
 
@@ -217,7 +218,11 @@ async function importDeck() {
                 Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't
                 re-fetch from the CDN.
               </p>
-              <SettingsStreamCacheSizeControl :max-bytes="data.streamCacheMaxBytes" @saved="refresh" />
+              <SettingsStreamCacheSizeControl
+                :max-bytes="data.streamCacheMaxBytes"
+                :path="data.streamCachePath"
+                @saved="refresh"
+              />
             </template>
 
             <template v-else-if="activeSection === 'import'">

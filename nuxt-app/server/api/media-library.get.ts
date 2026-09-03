@@ -6,6 +6,7 @@ import {
   getPlaybackMode,
   getStreamCacheMaxBytes,
 } from "../utils/mediaLibrary.ts";
+import { getStreamCacheDir } from "../utils/streamCache.ts";
 
 export default defineEventHandler(() => {
   return {
@@ -14,6 +15,7 @@ export default defineEventHandler(() => {
     dailyNewCardLimit: getDailyNewCardLimit(),
     boxOneStreakRequired: getBoxOneStreakRequired(),
     streamCacheMaxBytes: getStreamCacheMaxBytes(),
+    streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
   };
 });

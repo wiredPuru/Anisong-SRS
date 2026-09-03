@@ -12,6 +12,10 @@ const CACHE_DIR = resolve(process.cwd(), ".data/stream-cache");
 // enough to outlast the response stream reading it.
 const EPHEMERAL_CLEANUP_DELAY_MS = 30_000;
 
+export function getStreamCacheDir(): string {
+  return CACHE_DIR;
+}
+
 function ensureCacheDir(): void {
   if (!existsSync(CACHE_DIR)) {
     mkdirSync(CACHE_DIR, { recursive: true });
