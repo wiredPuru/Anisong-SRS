@@ -29,6 +29,8 @@
   --pass-ink: #071a12;
   --fail: #ff5470;
   --fail-ink: #1f0910;
+  --warning: #ffd166;
+  --warning-ink: #241a02;
 
   /* type - RocknRoll One for display, Zen Kaku Gothic New for body. Both
      cover Latin + Japanese, including furigana. */
