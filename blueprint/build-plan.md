@@ -405,7 +405,7 @@ cleaned-up checkbox version before generating the project overview.
   master and its link is kept out of this public repo). Direction 1A was
   chosen over the alternative 1B "Jukebox" study-screen take. Added
   2026-09-02.
-  - [ ] 50a. **Theme tokens + app shell** - port the palette, type and radii
+  - [x] 50a. **Theme tokens + app shell** - port the palette, type and radii
     into `main.css`, and build the rail nav plus shared chrome. Every later
     sub-feature builds on this, so it goes first.
   - [ ] 50b. **Study screen** - 1A's treatment: keeps today's player + side

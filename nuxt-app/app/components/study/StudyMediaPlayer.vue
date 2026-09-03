@@ -891,16 +891,16 @@ onUnmounted(() => stopDrag?.());
      .player-frame above), so cqw tracks whichever constraint is active. */
   container-type: inline-size;
   background:
-    radial-gradient(120% 120% at 30% 20%, rgba(255, 93, 162, 0.35), transparent 55%),
-    radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),
-    #120c19;
+    radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
+    radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
+    #0c0c16;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 /* The ambient glow canvas lives behind the whole page (Teleport to body,
-   z-index: -1), but this frame's own opaque gradient - solid #120c19 as its
+   z-index: -1), but this frame's own opaque gradient - solid #0c0c16 as its
    last background layer - normally blocks it from showing through anywhere
    inside the player itself (letterboxing around a non-16:9 video, or the
    space around the record in audio mode). Dropping it while ambient mode
@@ -939,7 +939,7 @@ onUnmounted(() => stopDrag?.());
   border-radius: 50%;
   background:
     repeating-radial-gradient(circle, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 1px, transparent 1px, transparent 6px),
-    #0c0a10;
+    #07070d;
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
   animation: record-spin 3.6s linear infinite;
   animation-play-state: paused;
@@ -968,7 +968,7 @@ onUnmounted(() => stopDrag?.());
   height: 8%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #120c19;
+  background: #0c0c16;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
@@ -1037,9 +1037,9 @@ onUnmounted(() => stopDrag?.());
 
 .audio-veil {
   background:
-    radial-gradient(120% 120% at 30% 20%, rgba(255, 93, 162, 0.35), transparent 55%),
-    radial-gradient(120% 120% at 80% 80%, rgba(177, 140, 255, 0.35), transparent 55%),
-    #120c19;
+    radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
+    radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
+    #0c0c16;
   cursor: pointer;
 }
 

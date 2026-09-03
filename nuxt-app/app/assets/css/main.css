@@ -1,49 +1,54 @@
-/* Ported from prototypes/theme.css - keep the two in sync if the look changes. */
+/* Akiba Neon. Values read off blueprint/reference/akiba-neon-canvas.html;
+   open that file and search data-screen-label to find an artboard. */
 
 :root {
   /* surfaces */
-  --bg: #150f1c;
-  --surface: #1f1729;
-  --surface-raised: #2a1f38;
-  --border: #392c4a;
+  --bg: #07070d;
+  --surface: #12121f;
+  --surface-raised: #16162a;
+  --border: #23233c;
 
   /* text */
-  --text: #f5eef8;
-  --muted: #ab9abf;
-  --faint: #6d5c82;
+  --text: #f2f0ff;
+  --muted: #8c88b0;
+  --faint: #5b5880;
 
-  /* accent - primary (pink/magenta) */
-  --accent: #ff5da2;
-  --accent-strong: #ff3d94;
-  --accent-ink: #2b0f1c;
-  --accent-glow: rgba(255, 93, 162, 0.35);
+  /* accent - primary (sakura) */
+  --accent: #ff3e88;
+  --accent-strong: #ff5470;
+  --accent-ink: #07070d;
+  --accent-glow: rgba(255, 62, 136, 0.35);
 
-  /* accent - secondary (lavender, for JP text / box indicators) */
-  --accent-secondary: #b18cff;
-  --accent-secondary-ink: #1c1330;
-  --accent-secondary-glow: rgba(177, 140, 255, 0.45);
+  /* accent - secondary (cyan, for JP text / box indicators) */
+  --accent-secondary: #34e7e4;
+  --accent-secondary-ink: #07070d;
+  --accent-secondary-glow: rgba(52, 231, 228, 0.45);
 
   /* review states */
-  --pass: #7ee2b8;
-  --pass-ink: #0d2b1f;
-  --fail: #ff6b6b;
-  --fail-ink: #350f0f;
+  --pass: #46e39b;
+  --pass-ink: #071a12;
+  --fail: #ff5470;
+  --fail-ink: #1f0910;
 
-  /* type - one rounded family covers Latin + Japanese, including furigana */
-  --font-sans: "M PLUS Rounded 1c", "Nunito", system-ui, sans-serif;
+  /* type - RocknRoll One for display, Zen Kaku Gothic New for body. Both
+     cover Latin + Japanese, including furigana. */
+  --font-display: "RocknRoll One", system-ui, sans-serif;
+  --font-sans: "Zen Kaku Gothic New", system-ui, sans-serif;
 
   /* scale */
-  --radius: 18px;
-  --radius-sm: 10px;
+  --radius: 6px;
+  --radius-sm: 4px;
   --radius-pill: 999px;
-  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* Denser than before: the ground is much darker now, so a black shadow
+     needs more opacity to read at all. */
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.45);
   --shadow-accent: 0 0 28px var(--accent-glow);
 
   /* glass - a translucent, frosted look applied automatically wherever
      ambient mode is on (StudyMediaPlayer, StudyInfoPanel, CardPreviewModal) */
-  --glass-surface: rgba(42, 31, 56, 0.2);
-  --glass-surface-panel: rgba(42, 31, 56, 0.82);
-  --glass-border: rgba(245, 238, 248, 0.16);
+  --glass-surface: rgba(22, 22, 42, 0.2);
+  --glass-surface-panel: rgba(22, 22, 42, 0.82);
+  --glass-border: rgba(242, 240, 255, 0.16);
   --glass-blur: blur(20px) saturate(1.6);
 }
 
@@ -63,14 +68,16 @@
    .ambient-btn's own .on/.active rules no longer set a background at
    all (border-color + box-shadow glow indicate "active" instead), so
    they're included here too - active buttons stay glass, not a solid
-   fill. .nav-link.active keeps its own distinct accent-pink background
-   (page wayfinding, not part of this treatment) and is excluded.
-   .toggle-btn and .search-input are scoped through a unique parent
+   fill. .nav-link.active is included as of feature 50a: the rail's active
+   item is now a subtle surface fill with an accent border and accent text,
+   not the solid accent-pink background that previously justified excluding
+   it, so it can go glass like everything else and keep its border to mark
+   the current page. .toggle-btn and .search-input are scoped through a unique parent
    container (.display-toggles / .nav-search) because those bare class
    names are also used, unrelated to ambient mode, on /decks, /stats,
    and /cards. */
 [data-ambient-glass="true"] .app-nav,
-[data-ambient-glass="true"] .nav-link:not(.active),
+[data-ambient-glass="true"] .nav-link,
 [data-ambient-glass="true"] .nav-search .search-input,
 [data-ambient-glass="true"] .search-dropdown,
 [data-ambient-glass="true"] .display-toggles .toggle-btn,
