@@ -1006,10 +1006,14 @@ h2 {
   font-weight: 700;
 }
 
+/* Border and glow, never a fill: .toggle-btn is in main.css's ambient-glass
+   block, which replaces its background with !important. A solid fill here
+   would be stripped under ambient mode and leave --accent-ink, which is near
+   black, on dark glass. */
 .toggle-btn.active {
   border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
+  color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .state {

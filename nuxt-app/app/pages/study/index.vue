@@ -807,10 +807,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   }
 }
 
+/* A column, not a row: the player was a grid child before 50b and stretched
+   to its column by default. As a row flex item it collapsed to its content
+   width instead. Column direction leaves align-items at stretch, so the
+   player fills the pane, and justify-content centres it vertically. */
 .player-pane {
   min-width: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   padding: 24px;
 }
 

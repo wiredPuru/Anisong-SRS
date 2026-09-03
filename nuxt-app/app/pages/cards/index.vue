@@ -175,6 +175,23 @@ const previewCard = ref<CardWithDetails | null>(null);
 const selectedId = ref<number | null>(null);
 const selectedCard = computed(() => cards.value.find((c) => c.id === selectedId.value) ?? null);
 
+// The inspector's own player state. Separate from anything the add-candidate
+// preview modal does, and reset per card so expanding one card does not carry
+// into the next selection.
+const inspectorImmersive = ref(false);
+watch(selectedId, () => {
+  inspectorImmersive.value = false;
+});
+
+function onInspectorLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
+  const current = selectedCard.value;
+  if (!current) return;
+  replaceCard({
+    ...current,
+    ...(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath }),
+  });
+}
+
 function selectCard(id: number) {
   selectedId.value = selectedId.value === id ? null : id;
 }
@@ -211,13 +228,17 @@ function compactSourceBadges(c: CardWithDetails): string[] {
 }
 
 const pendingCardPreview = useState<CardWithDetails | null>("pendingCardPreview", () => null);
+// NavBar's global search hands a card over to be shown here. The inspector
+// replaced the preview modal for cards in the library, so select it in the
+// rail instead of opening an overlay. The card may not be on the loaded page,
+// so it is spliced to the front when missing rather than silently ignored.
 watch(
   pendingCardPreview,
   (card) => {
-    if (card) {
-      previewCard.value = card;
-      pendingCardPreview.value = null;
-    }
+    if (!card) return;
+    if (!cards.value.some((c) => c.id === card.id)) cards.value.unshift(card);
+    selectedId.value = card.id;
+    pendingCardPreview.value = null;
   },
   { immediate: true },
 );
@@ -415,7 +436,20 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
       <aside class="inspector">
         <p v-if="!selectedCard" class="inspector-empty">Select a card to see its details.</p>
         <template v-else>
-          <div class="inspector-cover">
+          <!-- The rail is the preview now: a real player rather than a still.
+               A card with no source at all has nothing to play, so it keeps
+               the plain cover tile. -->
+          <StudyMediaPlayer
+            v-if="sourceBadges(selectedCard).length"
+            :key="selectedCard.id"
+            :card="selectedCard"
+            :audio-only="audioOnly"
+            :has-default-download-folder="hasDefaultDownloadFolder"
+            :allow-expand="true"
+            v-model:immersive="inspectorImmersive"
+            @local-path-updated="onInspectorLocalPathUpdated"
+          />
+          <div v-else class="inspector-cover">
             <img v-if="selectedCard.animeCoverImageUrl" :src="selectedCard.animeCoverImageUrl" alt="" />
             <span class="inspector-slot">{{ selectedCard.themeSlot }}</span>
           </div>
@@ -526,14 +560,6 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
             </div>
 
             <div v-else class="inspector-actions">
-              <button
-                v-if="sourceBadges(selectedCard).length"
-                type="button"
-                class="preview-btn"
-                @click="previewCard = selectedCard"
-              >
-                Preview
-              </button>
               <button type="button" class="edit-btn" @click="startEdit(selectedCard)">Edit card</button>
               <button type="button" class="remove-btn" @click="removeCard(selectedCard.id)">Delete</button>
             </div>
@@ -623,6 +649,22 @@ h1 {
   padding: 26px;
   color: var(--faint);
   font-size: 13px;
+}
+
+/* The player fills the top of the rail as one flush tile, like the artboard's
+   preview block - no card padding, no rounded corners, just a bottom edge.
+   Skipped while expanded, where it is a fixed full-viewport overlay. */
+.inspector > :deep(.player-card:not(.expanded)) {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.inspector > :deep(.player-card:not(.expanded)) .player-frame {
+  border: 0;
+  border-radius: 0;
 }
 
 .inspector-cover {

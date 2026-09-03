@@ -313,13 +313,30 @@ watch(
    lighter blur than the shared --glass-blur token (used app-wide - nav
    bar, search dropdown, etc.) so the video stays more visible through it;
    study/index.vue's answer-btn override uses the same lighter value. */
+/* A dark scrim, not pure transparency. These chips sit over arbitrary video:
+   a bright frame left the blurred glass light, and --muted/--faint text on it
+   became near-unreadable (the romaji line and the row labels in particular).
+   Tinting toward --bg keeps the text on a dark ground whatever is playing
+   underneath, while the blur still lets the video through. */
 .info-card.overlay .title-block,
 .info-card.overlay .detail-rows {
-  background: transparent;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   backdrop-filter: blur(10px) saturate(1.3);
   padding: clamp(8px, 0.83cqw, 19px) clamp(10px, 1.1cqw, 26px);
+}
+
+/* Lifted off --faint for the same reason: it is a deliberately low-contrast
+   grey against the app's own dark surfaces, which is the wrong assumption
+   over video. */
+.info-card.overlay .label {
+  color: var(--muted);
+}
+
+.info-card.overlay .romaji {
+  color: var(--text);
+  opacity: 0.85;
 }
 
 /* The divider is the side panel's separator; in the overlay each block is

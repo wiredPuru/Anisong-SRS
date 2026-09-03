@@ -93,11 +93,15 @@
    !important is needed: these selectors match component-scoped class
    names from outside their own <style scoped> blocks, so specificity
    ties with each component's own background rule and would otherwise be
-   decided by unreliable stylesheet load order. .toggle-btn/.lang-btn/
-   .ambient-btn's own .on/.active rules no longer set a background at
-   all (border-color + box-shadow glow indicate "active" instead), so
-   they're included here too - active buttons stay glass, not a solid
-   fill. .nav-link.active is included as of feature 50a: the rail's active
+   decided by unreliable stylesheet load order. .toggle-btn/.ambient-btn's own
+   .on/.active rules set no background at all (border-color +
+   box-shadow glow indicate "active" instead), so they're listed here
+   themselves - active buttons stay glass rather than a solid fill.
+   Segmented controls work the other way as of 50b: .display-toggles
+   .seg and .lang-toggles are frosted as containers, so their active
+   segment keeps the cyan fill the artboard calls for. Listing the
+   segment buttons instead would strip that fill via !important and
+   leave --accent-ink, which is near black, on dark glass. .nav-link.active is included as of feature 50a: the rail's active
    item is now a subtle surface fill with an accent border and accent text,
    not the solid accent-pink background that previously justified excluding
    it, so it can go glass like everything else and keep its border to mark
@@ -116,7 +120,7 @@
 [data-ambient-glass="true"] .close-btn,
 [data-ambient-glass="true"] .ambient-btn,
 [data-ambient-glass="true"] .scrub,
-[data-ambient-glass="true"] .lang-btn {
+[data-ambient-glass="true"] .lang-toggles {
   background: var(--glass-surface) !important;
   backdrop-filter: var(--glass-blur) !important;
 }
