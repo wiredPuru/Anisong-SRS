@@ -89,10 +89,19 @@ Non-profit. No monetization planned.
 
 ## 7. UI/UX - How should this look and feel?
 
-- Cute/moe, a little cartoony - Akihabara, anime posters, otaku culture as the
-  visual reference point.
-- Rounded corners throughout.
-- Layout: video centered, song/title info panel on the right.
+- Akihabara arcade signage, not cute/moe - the same otaku-culture reference
+  point, read through neon storefronts and game-centre panels rather than
+  soft cartoon shapes. Dark blue-black ground, sakura pink as the primary
+  accent, cyan as the secondary. Superseded an earlier "cute/moe, a little
+  cartoony" direction (build 50).
+- Tight corners, not rounded throughout - small radii on panels and controls,
+  with full pills reserved for buttons and badges. Also a reversal of the
+  earlier direction, made deliberately in build 50.
+- App layout: a persistent left rail for navigation, with content in split
+  panes that use the full window width, rather than a centered single column.
+- Study layout: video centered, song/title info panel on the right. Unchanged
+  by build 50 - the redesign keeps this arrangement and only collapses the
+  display-toggle row into a single icon strip.
 - Language toggles (EN/Romaji/Japanese, with Furigana as a Japanese
   sub-toggle) and the screen's other display toggles (Hide Video, Hide
   Info, Hide Cover, Random Start, Ambient mode) render as always-visible

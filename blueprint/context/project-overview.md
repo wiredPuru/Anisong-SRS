@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 3aac658499ba19c1a09385d660d0ceb4bff25df25d58e6ad9da046c7f91aa935 -->
+<!-- blueprint:source-hash 6721313a18b4f948e85ceb621dbb2a26269b62f74b9a91aeaddcc36bbf33d7eb -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -76,7 +76,13 @@ replacing its prior "no packaged build is planned" statement. Feature 49
 added to `build-plan.md` on 2026-09-02 and is now built and merged in
 full, retiring the `/cards/new` route - a same-day follow-on also removed
 `/cards`' leftover "Add card" header button, which after 49c only focused
-the search box directly below it.
+the search box directly below it. Feature 50 (the Akiba Neon visual
+redesign, in eight sub-features 50a-50h) was added to `build-plan.md` on
+2026-09-02 and is the first unbuilt item in the plan; it is a retheme and
+relayout only, changing no data model, route, or server behavior. Adding it
+also rewrote `project-plan.md`'s UI/UX section (§7), which had described
+the app as "cute/moe, a little cartoony" with "rounded corners throughout"
+- feature 50 deliberately reverses both.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -744,6 +750,47 @@ the search box directly below it.
       entry point being replaced. A same-day follow-on then removed
       `/cards`' "Add card" header button, which 49c had left in place as
       a button that only focused the search input directly below it.
+50. **Visual redesign (Akiba Neon)** - not yet built, in eight
+    sub-features. Moves the app off its centered single-column layout to a
+    persistent left rail plus split panes, and rethemes from the current
+    purple/rounded look to blue-black + sakura + cyan with tight radii.
+    Design reference: `blueprint/reference/akiba-neon-canvas.html`, decoded
+    from a Claude Design canvas that stays the editable master (its link is
+    deliberately kept out of this public repo, in Claude Code's project
+    memory instead). The canvas drew the study screen two ways; direction
+    1A was chosen over the alternative 1B "Jukebox" take.
+
+    Measured token deltas (current -> target): `--bg` `#150f1c` ->
+    `#07070d`, `--surface` `#1f1729` -> `#12121f`, `--border` `#392c4a` ->
+    `#23233c`, `--accent` `#ff5da2` -> `#ff3e88`, `--accent-secondary`
+    `#b18cff` -> `#34e7e4`, `--pass` `#7ee2b8` -> `#46e39b`, `--fail`
+    `#ff6b6b` -> `#ff5470`, `--radius`/`--radius-sm` 18px/10px -> 4px/6px,
+    `--font-sans` M PLUS Rounded 1c -> RocknRoll One + Zen Kaku Gothic New.
+    The canvas's own note that the "purple glow" is gone means exactly this
+    `--accent-secondary` swap - feature 14's ambient video glow stays, it
+    just glows cyan. Do not read it as removing the glow.
+    - **50a. Theme tokens + app shell** - not yet built. Ports the palette,
+      type and radii into `main.css` and builds the rail nav plus shared
+      chrome. Goes first; every later sub-feature builds on it.
+    - **50b. Study screen** - not yet built. 1A keeps today's player + side
+      info panel and collapses the display-toggle row into one icon strip,
+      so features 10/44/46's toggles change presentation, not behavior.
+    - **50c. Cards** - not yet built. Dense table + inspector rail, row
+      actions demoted out of every row. Carries an open decision: 1A draws
+      Add card as a standalone page with Anime/Artist/Song tabs, which is
+      the architecture feature 49 deleted. Restyling feature 49's unified
+      `/cards` search with 1A's split-pane layout is preferred;
+      reinstating a separate page would partly reverse 49 and must be
+      chosen deliberately.
+    - **50d. Decks** - not yet built. Poster grid, covers carrying the
+      layout instead of the current 640px list.
+    - **50e. Stats** - not yet built. Dashboard with KPI tiles and a
+      reviews/pass-rate chart.
+    - **50f. Home** - not yet built. Dashboard replacing feature 15's five
+      link cards.
+    - **50g. Settings** - not yet built. Section rail + two columns.
+    - **50h. Narrow-window pass** - not yet built. Rail collapses to icons,
+      split panes stack, tables drop columns.
 
 ## Data model
 
@@ -945,11 +992,24 @@ Non-profit. No monetization planned.
 
 ## UI/UX
 
-Cute/moe, a little cartoony - Akihabara, anime posters, otaku culture as the
-visual reference. Rounded corners throughout. Japanese text renders as real,
-selectable DOM text (never baked into an image or video) so the Migaku
-browser extension can attach to it. Theme tokens (colors, fonts, radii) live
-in `nuxt-app/app/assets/css/main.css`, ported from `prototypes/theme.css`.
+Akihabara arcade signage - the same otaku-culture reference, read through
+neon storefronts and game-centre panels rather than soft cartoon shapes.
+Dark blue-black ground, sakura pink primary accent, cyan secondary; tight
+radii on panels and controls, with full pills kept for buttons and badges.
+A persistent left rail navigates, and content sits in split panes using the
+full window width instead of a centered single column. Japanese text renders
+as real, selectable DOM text (never baked into an image or video) so the
+Migaku browser extension can attach to it. Theme tokens (colors, fonts,
+radii) live in `nuxt-app/app/assets/css/main.css`.
+
+**This is the target, not the current state.** The app as built is the
+earlier cute/moe direction - rounded 18px/10px corners, a purple-black
+ground (`--bg: #150f1c`), purple `--accent-secondary`, M PLUS Rounded 1c -
+and a top nav bar rather than a rail. Feature 50 moves it to the above, one
+screen at a time, starting with 50a's token and shell port. Until 50a
+lands, build new UI against the tokens actually in `main.css`. The design
+reference is `blueprint/reference/akiba-neon-canvas.html`; measured token
+deltas are in feature 50's entry.
 
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
