@@ -1,32 +1,17 @@
-<!-- Akiba Neon design reference, decoded from the Claude Design canvas.
-     Embedded @font-face blocks stripped: their src pointed at artifact
-     bundle asset ids that do not resolve outside it. Fonts used are
-     RocknRoll One and Zen Kaku Gothic New (both on Google Fonts).
-     Layout, copy, colours and spacing are otherwise verbatim. -->
 <!DOCTYPE html>
-<html><head>
+<html>
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
 </head>
 <body>
 <x-dc>
 <helmet>
 <meta name="design_doc_mode" content="canvas">
-<style>/* latin-ext */
-/* latin */
-/* cyrillic */
-/* latin-ext */
-/* latin */
-/* cyrillic */
-/* latin-ext */
-/* latin */
-/* cyrillic */
-/* latin-ext */
-/* latin */
-/* cyrillic */
-/* latin-ext */
-/* latin */
-</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=RocknRoll+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+<link rel="stylesheet" href="_ds/nocturne-6877b547-4501-43c9-b67b-ce65e72d4d13/styles.css">
+<script src="_ds/nocturne-6877b547-4501-43c9-b67b-ce65e72d4d13/_ds_bundle.js"></script>
 <style>
 body{margin:0;background:#07070d;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
 a{color:#ff3e88;text-decoration:none}
@@ -36,10 +21,103 @@ a:hover{color:#34e7e4}
 
 <div style="display:flex;flex-direction:column;gap:72px;padding:48px 40px 120px">
 
-<div style="display:flex;flex-direction:column;gap:8px;max-width:820px">
-<div style="font:400 26px/1.2 'RocknRoll One',sans-serif;color:#f2f0ff">Redesign — turn 1</div>
-<div style="font:400 15px/1.6 'Zen Kaku Gothic New',sans-serif;color:#8c88b0">Two directions off the same brief: get off the vertical single-column, use the width, and swap the purple-glow pill language for something with an Akihabara arcade edge. <a href="#1a">1a</a> is the full app in the new direction. <a href="#1b">1b</a> restyles just the study screen a second way, since that's the page you're happiest with and least sure about.</div>
+<div style="display:flex;flex-direction:column;gap:8px;max-width:900px">
+<div style="font:400 26px/1.2 'RocknRoll One',sans-serif;color:var(--color-text)">Redesign — turn 2</div>
+<div style="font:400 15px/1.6 'Zen Kaku Gothic New',sans-serif;color:var(--color-neutral-300)">The expanded/ambient study view was overlaying text and buttons directly on top of the video, with a blur that still let the anime scene bleed through and fight the copy for attention. Both options pull the UI off the video and onto Nocturne surfaces instead, using the design system's cards, tags and outlined buttons. <a href="#2a">2a</a> keeps the video full-height and moves everything into a side panel. <a href="#2b">2b</a> keeps the video full-width and moves everything into a bar underneath.</div>
 </div>
+
+<section id="2a-2b" style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div id="2a" style="display:flex;align-items:center;gap:12px">
+  <span style="font:700 13px/1 'Zen Kaku Gothic New',sans-serif;color:#161826;background:var(--color-accent);padding:7px 12px;border-radius:var(--radius-sm,4px);letter-spacing:1px">2A</span>
+  <span style="font:400 20px/1 'RocknRoll One',sans-serif;color:var(--color-text)">Side panel — video stays full-height, clean</span>
+</div>
+<div data-screen-label="2a Study expanded" style="width:1440px;height:810px;position:relative;display:flex;background:#0b0710;border:1px solid var(--color-neutral-800);border-radius:var(--radius-lg,10px);overflow:hidden;color:var(--color-text);font-family:var(--font-body,inherit)">
+  <div style="position:relative;flex:1;background:radial-gradient(120% 120% at 30% 20%,rgba(255,93,162,.22),transparent 55%),radial-gradient(120% 120% at 80% 80%,rgba(145,132,217,.28),transparent 55%),#120c19">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-size:13px;font-weight:600;letter-spacing:1px">VIDEO — clean, no overlay text</div>
+    <span class="tag tag-outline" style="position:absolute;top:18px;left:18px;backdrop-filter:blur(10px)">OP1</span>
+    <button class="btn btn-icon" style="position:absolute;top:16px;right:16px;background:rgba(22,24,38,.55);backdrop-filter:blur(10px)"><i class="ph ph-arrows-in"></i></button>
+    <div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:16px;padding:16px 22px;background:linear-gradient(to top,rgba(11,7,16,.9),transparent)">
+      <button class="btn btn-icon btn-primary" style="width:44px;height:44px;border-radius:50%"><i class="ph ph-pause"></i></button>
+      <span style="font-size:13px;color:var(--color-neutral-300);min-width:36px">0:34</span>
+      <div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-800);position:relative"><span style="position:absolute;left:0;top:0;height:100%;width:38%;background:var(--color-accent);border-radius:999px"></span></div>
+      <span style="font-size:13px;color:var(--color-neutral-300);min-width:36px">1:29</span>
+      <i class="ph ph-speaker-high" style="color:var(--color-neutral-300)"></i>
+      <div style="width:80px;height:4px;border-radius:999px;background:var(--color-neutral-800);position:relative"><span style="position:absolute;left:0;top:0;height:100%;width:70%;background:var(--color-neutral-400);border-radius:999px"></span></div>
+    </div>
+  </div>
+  <div class="card elev-md" style="flex:none;width:340px;border-radius:0;border-left:1px solid var(--color-neutral-800);border-top:none;border-right:none;border-bottom:none;display:flex;flex-direction:column;gap:0;padding:0">
+    <div style="padding:22px 22px 18px;display:flex;flex-direction:column;gap:16px;border-bottom:1px solid var(--color-neutral-800)">
+      <div class="seg" style="display:inline-flex">
+        <span class="seg-opt" aria-selected="true">EN</span>
+        <span class="seg-opt">Romaji</span>
+        <span class="seg-opt" aria-selected="true">日本語</span>
+        <span class="seg-opt">ふりがな</span>
+      </div>
+      <span class="tag tag-accent" style="align-self:flex-start">Learning 0/2</span>
+    </div>
+    <div style="flex:1;padding:22px;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span class="card-title" style="font-size:26px;line-height:1.2">MM!</span>
+        <span style="font-size:15px;color:var(--color-neutral-300)">MM!</span>
+        <span style="font-size:19px;font-weight:600;color:var(--color-accent-300,var(--color-accent))">えむえむっ!</span>
+      </div>
+      <div style="height:1px;background:var(--color-neutral-800)"></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">SONG</span><span style="font-size:17px;font-weight:600">Help!! -Hell side-</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">ARTIST</span><span style="font-size:17px;font-weight:600">Ayana Taketatsu</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">THEME</span><span style="font-size:17px;font-weight:600">OP1</span></div>
+      </div>
+    </div>
+    <div style="padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-block" style="border-color:#ff5470;color:#ff8a9c;justify-content:space-between;padding:16px 18px"><span style="font-weight:700;font-size:16px">Fail</span><span style="font-size:11px;color:var(--color-neutral-400);font-weight:600">← ARROW</span></button>
+      <button class="btn btn-block" style="border-color:#46e39b;color:#7cf0bb;justify-content:space-between;padding:16px 18px"><span style="font-weight:700;font-size:16px">Pass</span><span style="font-size:11px;color:var(--color-neutral-400);font-weight:600">ARROW →</span></button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div id="2b" style="display:flex;align-items:center;gap:12px">
+  <span style="font:700 13px/1 'Zen Kaku Gothic New',sans-serif;color:#161826;background:var(--color-accent);padding:7px 12px;border-radius:var(--radius-sm,4px);letter-spacing:1px">2B</span>
+  <span style="font:400 20px/1 'RocknRoll One',sans-serif;color:var(--color-text)">Bottom bar — video stays full-width, clean</span>
+</div>
+<div data-screen-label="2b Study expanded" style="width:1440px;height:810px;position:relative;display:flex;flex-direction:column;background:#0b0710;border:1px solid var(--color-neutral-800);border-radius:var(--radius-lg,10px);overflow:hidden;color:var(--color-text);font-family:var(--font-body,inherit)">
+  <div style="position:relative;flex:1;background:radial-gradient(120% 120% at 30% 20%,rgba(255,93,162,.22),transparent 55%),radial-gradient(120% 120% at 80% 80%,rgba(145,132,217,.28),transparent 55%),#120c19">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--color-neutral-500);font-size:13px;font-weight:600;letter-spacing:1px">VIDEO — clean, no overlay text</div>
+    <span class="tag tag-outline" style="position:absolute;top:18px;left:18px;backdrop-filter:blur(10px)">OP1</span>
+    <button class="btn btn-icon" style="position:absolute;top:16px;right:16px;background:rgba(22,24,38,.55);backdrop-filter:blur(10px)"><i class="ph ph-arrows-in"></i></button>
+  </div>
+  <div class="card elev-lg" style="flex:none;border-radius:0;border:none;border-top:1px solid var(--color-neutral-800);padding:0;display:flex;flex-direction:column;gap:0">
+    <div style="display:flex;align-items:center;gap:24px;padding:16px 24px;border-bottom:1px solid var(--color-neutral-800)">
+      <button class="btn btn-icon btn-primary" style="width:40px;height:40px;border-radius:50%;flex:none"><i class="ph ph-pause"></i></button>
+      <span style="font-size:13px;color:var(--color-neutral-300);flex:none">0:34</span>
+      <div style="flex:1;height:5px;border-radius:999px;background:var(--color-neutral-800);position:relative"><span style="position:absolute;left:0;top:0;height:100%;width:38%;background:var(--color-accent);border-radius:999px"></span></div>
+      <span style="font-size:13px;color:var(--color-neutral-300);flex:none">1:29</span>
+      <i class="ph ph-speaker-high" style="color:var(--color-neutral-300)"></i>
+      <div style="width:80px;height:4px;border-radius:999px;background:var(--color-neutral-800);position:relative;flex:none"><span style="position:absolute;left:0;top:0;height:100%;width:70%;background:var(--color-neutral-400);border-radius:999px"></span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:32px;padding:18px 24px">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div class="seg" style="display:inline-flex;margin-bottom:6px"><span class="seg-opt" aria-selected="true">EN</span><span class="seg-opt">Romaji</span><span class="seg-opt" aria-selected="true">日本語</span><span class="seg-opt">ふりがな</span></div>
+        <span class="card-title" style="font-size:22px;line-height:1.15">MM! <span style="font-size:14px;color:var(--color-neutral-300);font-weight:500">MM! · えむえむっ!</span></span>
+      </div>
+      <div style="display:flex;gap:28px;flex:none">
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">SONG</span><span style="font-size:15px;font-weight:600">Help!! -Hell side-</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">ARTIST</span><span style="font-size:15px;font-weight:600">Ayana Taketatsu</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><span class="card-kicker">LEARNING</span><span style="font-size:15px;font-weight:600;color:var(--color-accent-300,var(--color-accent))">0/2</span></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-left:auto;flex:none">
+        <button class="btn" style="border-color:#ff5470;color:#ff8a9c;padding:12px 22px"><span style="font-weight:700">Fail</span></button>
+        <button class="btn" style="border-color:#46e39b;color:#7cf0bb;padding:12px 22px"><span style="font-weight:700">Pass</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</section>
 
 <!-- ================= TURN 1 ================= -->
 <section style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
@@ -394,7 +472,7 @@ a:hover{color:#34e7e4}
         <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-weight:900;font-size:15px">Reviews and pass rate</span><div style="display:flex;gap:14px;font-size:12px;color:#8c88b0"><span><span style="color:#ff3e88">■</span> reviews</span><span><span style="color:#34e7e4">■</span> pass rate</span></div></div>
         <div style="position:relative;height:230px;display:flex;align-items:flex-end;gap:6px">
           <div style="flex:1;height:34%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:48%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:41%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:66%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:58%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:82%;background:#ff3e88;border-radius:2px 2px 0 0"></div><div style="flex:1;height:47%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:61%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:73%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:43%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:55%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:88%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:70%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:38%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:52%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:64%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:76%;background:#33203a;border-radius:2px 2px 0 0"></div><div style="flex:1;height:45%;background:#33203a;border-radius:2px 2px 0 0"></div>
-          <svg sc-camel-view-box="0 0 100 100" sc-camel-preserve-aspect-ratio="none" style="position:absolute;inset:0;width:100%;height:100%"><polyline points="2,62 8,55 14,58 20,44 26,48 32,36 38,50 44,42 50,33 56,52 62,46 68,28 74,35 80,54 86,45 92,38 96,30 99,41" fill="none" stroke="#34e7e4" stroke-width="1.4" vector-effect="non-scaling-stroke"></polyline></svg>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polyline points="2,62 8,55 14,58 20,44 26,48 32,36 38,50 44,42 50,33 56,52 62,46 68,28 74,35 80,54 86,45 92,38 96,30 99,41" fill="none" stroke="#34e7e4" stroke-width="1.4" vector-effect="non-scaling-stroke"></polyline></svg>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#5b5880"><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div>
       </div>
@@ -684,15 +762,6 @@ a:hover{color:#34e7e4}
 </section>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1000}}"></script>
-
-
-<div id="__claude_design_branding"><style>#__claude_design_branding{position:fixed;right:16px;bottom:16px;z-index:2147483646;display:flex;align-items:center;gap:7px;height:30px;padding:0 5px 0 10px;border-radius:999px;font-family:"Anthropic Sans",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:12.5px;font-weight:400;line-height:1;letter-spacing:normal;text-transform:none;color:#141413;background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 0 0 .5px rgba(31,30,29,.14),0 2px 10px rgba(0,0,0,.09)}
-#__claude_design_branding *{box-sizing:border-box;margin:0}
-#__claude_design_branding a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-#__claude_design_branding a:hover span{text-decoration:underline}
-#__claude_design_branding svg{flex:none}
-#__claude_design_branding a svg{color:#D97757}
-#__claude_design_branding button{width:20px;height:20px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:currentColor;opacity:.55;border:0;background:none;cursor:pointer;flex:none;font:inherit;transition:opacity .14s}
-#__claude_design_branding button:hover{opacity:1;background:rgba(127,127,127,.22)}
-@media print{#__claude_design_branding{display:none}}</style><a href="https://claude.com/product/design" target="_blank" rel="noopener noreferrer"><svg width="14" height="14" viewBox="0 0 20 21" fill="none" aria-hidden="true"><path fill="currentColor" d="M9.99902 0C15.5258 0.000170936 19.999 4.50643 19.999 10.0547C19.999 11.7656 19.5863 12.9976 18.7861 13.8203C17.9924 14.6362 16.9465 14.9138 15.9854 15.0078C15.05 15.0993 14.0097 15.0262 13.2549 15.0186C12.8524 15.0145 12.5177 15.0267 12.2441 15.0703C11.9682 15.1144 11.8143 15.1813 11.7305 15.2432C11.4745 15.4322 11.3353 15.7121 11.2656 16.1602C11.2303 16.3875 11.2168 16.6362 11.209 16.9131C11.2017 17.1715 11.1986 17.4893 11.1807 17.7705C11.1469 18.2975 11.0495 19.0865 10.4199 19.5908C9.7846 20.0996 8.88652 20.1057 7.85449 19.877C7.36399 19.7682 6.88652 19.6232 6.42578 19.4453C2.66989 17.9949 0.000187748 14.3414 0 10.0547C0 4.50643 4.47223 0.000171048 9.99902 0ZM9.99902 1.60547C5.36781 1.60564 1.60547 5.38391 1.60547 10.0547C1.60566 13.6582 3.84823 16.7296 7.00391 17.9482C7.39027 18.0974 7.79085 18.2184 8.20215 18.3096C9.1375 18.5169 9.384 18.3633 9.41602 18.3379C9.4524 18.3087 9.54558 18.1915 9.5791 17.668C9.5947 17.4239 9.59473 17.1786 9.60352 16.8672C9.61179 16.5742 9.62831 16.2435 9.67969 15.9131C9.78359 15.2455 10.0474 14.4906 10.7764 13.9521C11.1479 13.6778 11.5842 13.5493 11.9912 13.4844C12.4007 13.4191 12.8434 13.4088 13.2705 13.4131C14.1753 13.4222 15.0071 13.4905 15.8291 13.4102C16.6257 13.3322 17.2249 13.1235 17.6357 12.7012C18.0401 12.2855 18.3935 11.5261 18.3936 10.0547C18.3936 5.38391 14.6302 1.60564 9.99902 1.60547ZM5.11621 9.86719C5.86386 9.91468 6.45486 10.5348 6.45508 11.2939C6.45506 12.0838 5.81519 12.7245 5.02539 12.7246C4.28481 12.7246 3.67573 12.1617 3.60254 11.4404L3.59473 11.2939L3.60156 11.1533C3.66942 10.4596 4.23282 9.91186 4.93359 9.86719H5.11621ZM14.9814 7.19141C15.729 7.23889 16.3199 7.85919 16.3203 8.61816C16.3203 9.40801 15.6804 10.0487 14.8906 10.0488C14.1501 10.0487 13.5409 9.48586 13.4678 8.76465L13.46 8.61816L13.4668 8.47754C13.5348 7.78403 14.0983 7.23618 14.7988 7.19141H14.9814ZM6.4541 4.93457C7.20161 4.9822 7.79275 5.60231 7.79297 6.36133C7.79288 7.151 7.15291 7.7917 6.36328 7.79199C5.62274 7.79199 5.01369 7.22903 4.94043 6.50781L4.93262 6.36133L4.93945 6.2207C5.00731 5.52698 5.5707 4.97922 6.27148 4.93457H6.4541ZM11.3867 3.59668C12.1343 3.64419 12.7253 4.26436 12.7256 5.02344C12.7256 5.81326 12.0857 6.45393 11.2959 6.4541C10.5553 6.4541 9.94622 5.89123 9.87305 5.16992L9.86523 5.02344L9.87207 4.88281C9.93996 4.18912 10.5033 3.64133 11.2041 3.59668H11.3867Z"></path></svg><span>Made with Claude Design</span></a><button type="button" aria-label="Dismiss" onclick="this.parentElement.remove()"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg></button></div></body></html>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1000}}"></script>
+</body>
+</html>

@@ -754,11 +754,16 @@ the app as "cute/moe, a little cartoony" with "rounded corners throughout"
     sub-features. Moves the app off its centered single-column layout to a
     persistent left rail plus split panes, and rethemes from the current
     purple/rounded look to blue-black + sakura + cyan with tight radii.
-    Design reference: `blueprint/reference/akiba-neon-canvas.html`, decoded
-    from a Claude Design canvas that stays the editable master (its link is
-    deliberately kept out of this public repo, in Claude Code's project
-    memory instead). The canvas drew the study screen two ways; direction
-    1A was chosen over the alternative 1B "Jukebox" take.
+    Design reference: `blueprint/reference/design_handoff_anisong_srs_redesign/`
+    (`Redesign.dc.html`, `Current UI.dc.html`, and `README.md`) - replaces the
+    original single-canvas decode, `akiba-neon-canvas.html` (removed
+    2026-09-03), which this folder fully supersedes: every screen it covered,
+    plus Home, Add card, Settings, and a narrow-window pass, plus two further
+    Study fullscreen/ambient-overlay candidates (`2a`/`2b`, Nocturne-styled)
+    beyond the original `1b` "Jukebox" take - which screen either wins there
+    is still an open decision, unrelated to any single sub-feature below.
+    Direction 1A was chosen for the overall app shell over the alternative 1B
+    "Jukebox" take.
 
     Measured token deltas (current -> target): `--bg` `#150f1c` ->
     `#07070d`, `--surface` `#1f1729` -> `#12121f`, `--border` `#392c4a` ->
@@ -1008,8 +1013,9 @@ ground (`--bg: #150f1c`), purple `--accent-secondary`, M PLUS Rounded 1c -
 and a top nav bar rather than a rail. Feature 50 moves it to the above, one
 screen at a time, starting with 50a's token and shell port. Until 50a
 lands, build new UI against the tokens actually in `main.css`. The design
-reference is `blueprint/reference/akiba-neon-canvas.html`; measured token
-deltas are in feature 50's entry.
+reference is
+`blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`;
+measured token deltas are in feature 50's entry.
 
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;600;700;800&display=swap">
+<style>
+body{margin:0;background:#0b070f;font-family:"M PLUS Rounded 1c","Nunito",system-ui,sans-serif}
+a{color:#ff5da2;text-decoration:none}
+a:hover{color:#ff3d94}
+@keyframes eq-bounce{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;gap:56px;padding:48px 40px 96px">
+
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font:800 22px/1.2 'M PLUS Rounded 1c',sans-serif;color:#f5eef8">GAQ SRS — current UI, recreated from source</div>
+<div style="font:400 14px/1.5 'M PLUS Rounded 1c',sans-serif;color:#ab9abf;max-width:760px">Eight screens rebuilt from <span style="color:#b18cff">nuxt-app/app</span> — the same tokens (main.css), the same page shells, the same component structure. Nothing here is invented; it's the baseline to design against.</div>
+</div>
+
+<!-- ============ 1. HOME ============ -->
+<div data-screen-label="01 Home" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">01 · Home · pages/index.vue</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="position:relative;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:640px;margin:0 auto;padding:48px 24px">
+    <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">GAQ SRS</h1>
+    <p style="margin:0 0 32px;color:#ab9abf">Spaced-repetition practice for anime openings, endings, titles, and artists.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+      <div style="display:flex;flex-direction:column;gap:4px;padding:20px;border-radius:18px;background:#1f1729;border:1px solid #392c4a"><span style="font-weight:800;font-size:18px">Study</span><span style="color:#ab9abf;font-size:14px">Run through your due cards.</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:20px;border-radius:18px;background:#1f1729;border:1px solid #392c4a"><span style="font-weight:800;font-size:18px">Cards</span><span style="color:#ab9abf;font-size:14px">Browse, add, and edit flashcards.</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:20px;border-radius:18px;background:#1f1729;border:1px solid #392c4a"><span style="font-weight:800;font-size:18px">Decks</span><span style="color:#ab9abf;font-size:14px">Group cards by artist, anime, or your own decks.</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:20px;border-radius:18px;background:#1f1729;border:1px solid #392c4a"><span style="font-weight:800;font-size:18px">Stats</span><span style="color:#ab9abf;font-size:14px">See your guess-rate history.</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:20px;border-radius:18px;background:#1f1729;border:1px solid #392c4a"><span style="font-weight:800;font-size:18px">Settings</span><span style="color:#ab9abf;font-size:14px">Configure your media library.</span></div>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ============ 2. STUDY ============ -->
+<div data-screen-label="02 Study session" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">02 · Study session · pages/study/index.vue + components/study/*</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:1200px;margin:0 auto;padding:48px 24px">
+    <h1 style="margin:0 0 24px;font-size:28px;font-weight:800">Study</h1>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <span style="display:inline-flex;align-items:center;padding:8px 16px;border-radius:999px;background:color-mix(in srgb,#ff5da2 22%,#1f1729);border:1px solid #ff5da2;color:#ff5da2;font-size:14px;font-weight:700">All decks</span>
+      <span style="color:#ab9abf;font-size:14px">Card 1 this session</span>
+      <span style="color:#ab9abf;font-size:14px">143 cards left</span>
+      <span style="display:inline-flex;align-items:center;padding:8px 16px;border-radius:999px;background:color-mix(in srgb,#ff6b6b 18%,#1f1729);border:1px solid #ff6b6b;color:#ff6b6b;font-size:14px;font-weight:700">New cards today: 0/5</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;color:#6d5c82;font-size:14px;opacity:.6">👁</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Hide Video</span>
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Hide Info</span>
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Hide Cover</span>
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Auto Reveal</span>
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#ab9abf;font-size:13px;font-weight:700;letter-spacing:.3px">Start at random times</span>
+      <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Ambient mode</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:32px;align-items:start">
+      <div style="padding:24px;background:#1f1729;border:1px solid #392c4a;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.35)">
+        <div style="position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:radial-gradient(120% 120% at 30% 20%,rgba(255,93,162,.35),transparent 55%),radial-gradient(120% 120% at 80% 80%,rgba(177,140,255,.35),transparent 55%),#120c19;display:flex;align-items:center;justify-content:center">
+          <span style="position:absolute;top:16px;left:16px;padding:6px 14px;border-radius:999px;background:rgba(21,15,28,.75);border:1px solid #392c4a;font-size:13px;font-weight:700;letter-spacing:.4px;color:#b18cff;z-index:2">OP1</span>
+          <div style="position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;border:1px solid #392c4a;background:#2a1f38;color:#f5eef8;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:3">⤢</div>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;backdrop-filter:blur(18px);background:rgba(10,6,15,.45)">
+            <p style="margin:0;font-size:16px;font-weight:700;color:#f5eef8;letter-spacing:.3px">Paused</p>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(to top,rgba(10,6,14,.85),transparent)">
+            <div style="width:48px;height:48px;border-radius:50%;background:#ff5da2;color:#2b0f1c;font-size:18px;display:flex;align-items:center;justify-content:center;flex:none">▶</div>
+            <div style="flex:1;height:7px;border-radius:999px;background:#2a1f38;border:1px solid #392c4a;overflow:hidden"><span style="display:block;height:100%;width:11%;background:#b18cff"></span></div>
+            <span style="font-size:14px;color:#ab9abf;font-weight:600;min-width:76px;text-align:right">0:10 / 1:30</span>
+            <div style="display:flex;align-items:center;gap:8px;flex:none">
+              <span style="font-size:14px">🔊</span>
+              <div style="width:90px;height:4px;border-radius:999px;background:#392c4a;position:relative"><span style="position:absolute;left:0;top:0;height:100%;width:70%;background:#b18cff;border-radius:999px"></span><span style="position:absolute;left:calc(70% - 6px);top:-4px;width:12px;height:12px;border-radius:50%;background:#b18cff"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:26px">
+        <div style="padding:26px;display:flex;flex-direction:column;gap:20px;background:#1f1729;border:1px solid #392c4a;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.35)">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">EN</span>
+            <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Romaji</span>
+            <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Japanese</span>
+            <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:#2a1f38;color:#b18cff;font-size:13px;font-weight:700;letter-spacing:.3px;box-shadow:0 0 14px rgba(177,140,255,.45)">Furigana</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:27px;font-weight:800">Strawberry Marshmallow</span>
+            <span style="font-size:16px;color:#ab9abf;font-weight:600">Ichigo Mashimaro</span>
+            <span style="font-size:20px;font-weight:700;color:#b18cff"><ruby>苺<rt style="font-size:11px;color:#ab9abf;font-weight:600">いちご</rt></ruby>ましまろ</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:12px;color:#ab9abf;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Song</span>
+            <span style="font-size:18px;font-weight:700">Ichigo Complete</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid #392c4a">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:12px;color:#ab9abf;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Artist</span>
+              <span style="font-size:18px;font-weight:700">Mamiko Noto</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+              <span style="font-size:12px;color:#ab9abf;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Learning</span>
+              <span style="font-size:18px;font-weight:700;color:#b18cff">0/2</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:20px;border-radius:18px;border:1px solid color-mix(in srgb,#ff6b6b 45%,#392c4a);background:#1f1729;font-weight:800;font-size:18px;color:#ff6b6b"><span style="font-size:13px;padding:3px 9px;border-radius:7px;color:#ab9abf;font-weight:700">←</span> Fail</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:20px;border-radius:18px;border:1px solid color-mix(in srgb,#7ee2b8 45%,#392c4a);background:#1f1729;font-weight:800;font-size:18px;color:#7ee2b8">Pass <span style="font-size:13px;padding:3px 9px;border-radius:7px;color:#ab9abf;font-weight:700">→</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ============ 3. STUDY IMMERSIVE ============ -->
+<div data-screen-label="03 Study immersive" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">03 · Study, immersive + ambient (Hide Info off) · StudyMediaPlayer .expanded</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6)">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px;background:rgba(42,31,56,.2)">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px;background:rgba(42,31,56,.2)">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px;background:rgba(42,31,56,.2)">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px;background:rgba(42,31,56,.2)">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px;background:rgba(42,31,56,.2)">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid rgba(245,238,248,.16);background:rgba(42,31,56,.2);color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <div style="position:relative;height:740px;display:flex;align-items:center;justify-content:center;background:radial-gradient(60% 60% at 35% 40%,rgba(255,93,162,.28),transparent 70%),radial-gradient(60% 60% at 70% 65%,rgba(177,140,255,.3),transparent 70%),#150f1c">
+    <div style="position:relative;width:1296px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent">
+      <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 30% 20%,rgba(255,93,162,.3),transparent 55%),radial-gradient(120% 120% at 80% 80%,rgba(177,140,255,.3),transparent 55%)"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+        <div style="position:relative;width:45%;aspect-ratio:1/1;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.06) 0,rgba(255,255,255,.06) 1px,transparent 1px,transparent 6px),#0c0a10;box-shadow:0 0 30px rgba(0,0,0,.6)">
+          <div style="position:absolute;top:50%;left:50%;width:64%;height:64%;transform:translate(-50%,-50%);border-radius:50%;background:linear-gradient(135deg,#3a2140,#7b3b6b 45%,#c76f9a);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.42);font-size:12px;font-weight:700;letter-spacing:.6px">COVER ART</div>
+          <span style="position:absolute;top:50%;left:50%;width:8%;height:8%;transform:translate(-50%,-50%);border-radius:50%;background:#120c19;box-shadow:0 0 0 2px rgba(255,255,255,.15)"></span>
+        </div>
+      </div>
+      <span style="position:absolute;top:14px;left:14px;padding:5px 12px;border-radius:999px;background:rgba(21,15,28,.75);border:1px solid #392c4a;font-size:12px;font-weight:700;letter-spacing:.4px;color:#b18cff;z-index:2">ED2</span>
+      <div style="position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(245,238,248,.16);background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);color:#f5eef8;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:3">⤡</div>
+
+      <div style="position:absolute;top:7.36%;left:1.1%;max-width:55%;display:flex;flex-direction:column;align-items:flex-start;gap:19px;padding:26px;z-index:10">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);color:#b18cff;font-size:13px;font-weight:700;box-shadow:0 0 14px rgba(177,140,255,.45)">EN</span>
+          <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);color:#b18cff;font-size:13px;font-weight:700;box-shadow:0 0 14px rgba(177,140,255,.45)">Romaji</span>
+          <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);color:#b18cff;font-size:13px;font-weight:700;box-shadow:0 0 14px rgba(177,140,255,.45)">Japanese</span>
+          <span style="padding:9px 16px;border-radius:999px;border:1px solid #b18cff;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);color:#b18cff;font-size:13px;font-weight:700;box-shadow:0 0 14px rgba(177,140,255,.45)">Furigana</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;border:1px solid rgba(245,238,248,.16);border-radius:18px;backdrop-filter:blur(10px) saturate(1.3);padding:16px 22px">
+          <span style="font-size:38px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,.85),0 1px 2px rgba(0,0,0,.9)">Azumanga Daioh</span>
+          <span style="font-size:22px;color:#ab9abf;font-weight:600;text-shadow:0 2px 8px rgba(0,0,0,.85)">Azumanga Daiou</span>
+          <span style="font-size:28px;font-weight:700;color:#b18cff;text-shadow:0 2px 8px rgba(0,0,0,.85)">あずまんが大王</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;border:1px solid rgba(245,238,248,.16);border-radius:18px;backdrop-filter:blur(10px) saturate(1.3);padding:16px 22px">
+          <span style="font-size:16px;color:#ab9abf;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.85)">Song</span>
+          <span style="font-size:26px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.85)">Raspberry Heaven</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:48px;border:1px solid rgba(245,238,248,.16);border-radius:18px;backdrop-filter:blur(10px) saturate(1.3);padding:16px 22px">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:16px;color:#ab9abf;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.85)">Artist</span>
+            <span style="font-size:26px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.85)">Oranges &amp; Lemons</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute;left:1.1%;right:1.1%;bottom:11.03%;z-index:10;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,#ff6b6b 45%,#392c4a);background:transparent;backdrop-filter:blur(10px) saturate(1.3);font-weight:800;font-size:22px;color:#ff6b6b;text-shadow:0 2px 8px rgba(0,0,0,.85)"><span style="font-size:15px;padding:3px 9px;color:#ab9abf">←</span> Fail</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:22px;border-radius:18px;border:1px solid color-mix(in srgb,#7ee2b8 45%,#392c4a);background:transparent;backdrop-filter:blur(10px) saturate(1.3);font-weight:800;font-size:22px;color:#7ee2b8;text-shadow:0 2px 8px rgba(0,0,0,.85)">Pass <span style="font-size:15px;padding:3px 9px;color:#ab9abf">→</span></div>
+      </div>
+
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(to top,rgba(10,6,14,.85),transparent)">
+        <div style="width:44px;height:44px;border-radius:50%;background:#ff5da2;color:#2b0f1c;font-size:17px;display:flex;align-items:center;justify-content:center;flex:none">⏸</div>
+        <div style="flex:1;height:6px;border-radius:999px;background:rgba(42,31,56,.2);backdrop-filter:blur(20px) saturate(1.6);border:1px solid #392c4a;overflow:hidden"><span style="display:block;height:100%;width:38%;background:#b18cff"></span></div>
+        <span style="font-size:14px;color:#ab9abf;font-weight:600;min-width:70px;text-align:right">0:34 / 1:29</span>
+        <div style="display:flex;align-items:center;gap:8px;flex:none"><span style="font-size:14px">🔊</span><div style="width:90px;height:4px;border-radius:999px;background:#392c4a;position:relative"><span style="position:absolute;left:0;top:0;height:100%;width:70%;background:#b18cff;border-radius:999px"></span><span style="position:absolute;left:calc(70% - 6px);top:-4px;width:12px;height:12px;border-radius:50%;background:#b18cff"></span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ 4. CARDS ============ -->
+<div data-screen-label="04 Cards library" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">04 · Cards library · pages/cards/index.vue (max-width 720)</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:720px;margin:0 auto;padding:48px 24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">Cards</h1>
+      <span style="padding:10px 18px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:800">Add card</span>
+    </div>
+    <p style="margin:0 0 24px;color:#ab9abf">Flashcards built from looked-up anime songs.</p>
+    <div style="width:100%;margin:0 0 16px;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#6d5c82;font-size:15px;box-sizing:border-box">Search by song, artist, or anime title...</div>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">
+          <span style="font-weight:700">Raspberry Heaven</span>
+          <span style="color:#ab9abf;font-size:14px">Oranges &amp; Lemons - Azumanga Daioh (ED1)</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+            <span style="padding:2px 10px;border-radius:999px;background:#b18cff;color:#1c1330;font-size:12px;font-weight:700">Local video</span>
+            <span style="padding:2px 10px;border-radius:999px;background:#b18cff;color:#1c1330;font-size:12px;font-weight:700">Remote audio</span>
+          </div>
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">
+            <span style="padding:4px 12px;border-radius:999px;border:1px solid #b18cff;color:#b18cff;font-size:13px;font-weight:700">Download audio</span>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;flex-wrap:wrap;gap:8px;max-width:230px;justify-content:flex-end">
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Preview</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Decks</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Edit</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Delete</span>
+        </div>
+      </li>
+      <li style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">
+          <span style="font-weight:700">Ichigo Complete</span>
+          <span style="color:#ab9abf;font-size:14px">Mamiko Noto - Strawberry Marshmallow (OP1)</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+            <span style="padding:2px 10px;border-radius:999px;background:#b18cff;color:#1c1330;font-size:12px;font-weight:700">Remote video</span>
+          </div>
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <div style="display:flex;align-items:center;gap:8px;min-width:140px">
+              <div style="flex:1;height:6px;border-radius:999px;background:#2a1f38;border:1px solid #392c4a;overflow:hidden"><span style="display:block;height:100%;width:62%;background:#b18cff"></span></div>
+              <span style="color:#ab9abf;font-size:12px;font-weight:700;min-width:34px;text-align:right">62%</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;flex-wrap:wrap;gap:8px;max-width:230px;justify-content:flex-end">
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Preview</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Decks</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Edit</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Delete</span>
+        </div>
+      </li>
+      <li style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">
+          <span style="font-weight:700">Sincerely</span>
+          <span style="color:#ab9abf;font-size:14px">TRUE - Violet Evergarden (OP1)</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+            <span style="padding:2px 10px;border-radius:999px;background:#ff6b6b;color:#350f0f;font-size:12px;font-weight:700">No source</span>
+          </div>
+        </div>
+        <div style="flex:none;display:flex;flex-wrap:wrap;gap:8px;max-width:230px;justify-content:flex-end">
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Decks</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Edit</span>
+          <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Delete</span>
+        </div>
+      </li>
+    </ul>
+    <div style="display:flex;justify-content:center;padding:20px 0 4px"><span style="color:#ab9abf;font-size:13px;font-weight:700">Loading more...</span></div>
+  </main>
+</div>
+</div>
+
+<!-- ============ 5. ADD CARD ============ -->
+<div data-screen-label="05 Add cards" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">05 · Add card, by anime · pages/cards/new.vue (max-width 720)</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:720px;margin:0 auto;padding:48px 24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">Add card</h1>
+      <span style="color:#ab9abf">Back to cards</span>
+    </div>
+    <p style="margin:0 0 24px;color:#ab9abf">Search AniList, pick an anime, then add a card per theme.</p>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #ff5da2;background:#ff5da2;color:#2b0f1c;font-weight:700">By anime</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#ab9abf;font-weight:700">By artist</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#ab9abf;font-weight:700">By song</span>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#f5eef8;font-size:15px">clannad</div>
+      <span style="flex:none;padding:12px 22px;border-radius:10px;background:#ff5da2;color:#2b0f1c;font-weight:800">Search</span>
+    </div>
+    <ul style="list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Clannad</span><span style="color:#ab9abf;font-size:14px">Clannad</span></div>
+        <span style="flex:none;padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Select</span>
+      </li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Clannad: After Story</span><span style="color:#ab9abf;font-size:14px">Clannad After Story</span></div>
+        <span style="flex:none;padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Select</span>
+      </li>
+    </ul>
+    <div style="margin-top:0">
+      <h2 style="margin:24px 0 12px;font-size:20px;font-weight:800">Clannad</h2>
+      <ul style="list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:8px">
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Mag Mell</span><span style="color:#ab9abf;font-size:14px">eufonius - OP1</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="padding:8px 12px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px;width:220px">Local video path (optional)</div>
+            <span style="flex:none;padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Add card</span>
+          </div>
+        </li>
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Dango Daikazoku</span><span style="color:#ab9abf;font-size:14px">Chata - ED1</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="padding:4px 12px;border-radius:999px;background:#7ee2b8;color:#0d2b1f;font-size:13px;font-weight:700">Added</span>
+              <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700">Preview</span>
+              <span style="padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Delete</span>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <span style="padding:4px 12px;border-radius:999px;border:1px solid #b18cff;color:#b18cff;font-size:13px;font-weight:700">Download video</span>
+              <span style="padding:4px 12px;border-radius:999px;border:1px solid #b18cff;color:#b18cff;font-size:13px;font-weight:700">Download audio</span>
+            </div>
+          </div>
+        </li>
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Ana</span><span style="color:#ab9abf;font-size:14px">Lia - ED2</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="padding:8px 12px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px;width:220px">Local video path (optional)</div>
+            <span style="flex:none;padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Add card</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ============ 6. DECKS ============ -->
+<div data-screen-label="06 Decks" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">06 · Decks, list + detail · pages/decks/index.vue (max-width 640)</div>
+<div style="display:flex;gap:24px;align-items:flex-start">
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:640px;margin:0 auto;padding:48px 24px">
+    <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">Decks</h1>
+    <p style="margin:0 0 16px;color:#ab9abf">Cards grouped by artist or by anime title.</p>
+    <div style="margin-bottom:24px;display:flex;gap:8px">
+      <span style="display:inline-block;padding:8px 18px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Study all decks</span>
+      <span style="display:inline-block;padding:8px 18px;border-radius:999px;background:#b18cff;color:#1c1330;font-weight:700">Review stats</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#ab9abf;font-weight:700">By Artist</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #ff5da2;background:#ff5da2;color:#2b0f1c;font-weight:700">By Title</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#ab9abf;font-weight:700">Created</span>
+    </div>
+    <div style="width:100%;margin:0 0 16px;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#6d5c82;font-size:15px;box-sizing:border-box">Search anime titles...</div>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1"><span style="font-weight:700">Azumanga Daioh</span><span style="color:#ab9abf;font-size:14px">Azumanga Daiou</span></div>
+        <span style="flex:none;color:#ab9abf;font-size:14px">6 cards</span>
+      </li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1"><span style="font-weight:700">Strawberry Marshmallow</span><span style="color:#ab9abf;font-size:14px">Ichigo Mashimaro</span></div>
+        <span style="flex:none;color:#ab9abf;font-size:14px">2 cards</span>
+      </li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1"><span style="font-weight:700">Violet Evergarden</span><span style="color:#ab9abf;font-size:14px">Violet Evergarden</span></div>
+        <span style="flex:none;color:#ab9abf;font-size:14px">3 cards</span>
+      </li>
+    </ul>
+  </main>
+</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:640px;margin:0 auto;padding:48px 24px">
+    <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">Decks</h1>
+    <p style="margin:0 0 16px;color:#ab9abf">Cards grouped by artist or by anime title.</p>
+    <div style="margin-bottom:24px;display:flex;gap:8px">
+      <span style="display:inline-block;padding:8px 18px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Study all decks</span>
+      <span style="display:inline-block;padding:8px 18px;border-radius:999px;background:#b18cff;color:#1c1330;font-weight:700">Review stats</span>
+    </div>
+    <div style="margin-bottom:16px"><span style="padding:6px 14px;border-radius:999px;border:1px solid #392c4a;color:#ab9abf;font-weight:700">← Back to decks</span></div>
+    <div style="width:100%;margin:0 0 16px;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#6d5c82;font-size:15px;box-sizing:border-box">Search this deck's cards...</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:64px;height:90px;border-radius:10px;background:#2a1f38"></div>
+        <h2 style="margin:0;font-size:22px;font-weight:800">Azumanga Daioh</h2>
+      </div>
+      <span style="padding:8px 18px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700">Study this deck</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+          <div style="display:flex;flex:1;flex-direction:column;gap:6px;min-width:0">
+            <span style="font-weight:700">Soramimi Cake</span>
+            <span style="color:#ab9abf;font-size:14px">Oranges &amp; Lemons - Azumanga Daioh (OP1)</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><span style="padding:2px 10px;border-radius:999px;background:#b18cff;color:#1c1330;font-size:12px;font-weight:700">Local video</span></div>
+          </div>
+          <span style="flex:none;padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700;font-size:13px">Preview</span>
+        </div>
+      </li>
+      <li style="padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:none;width:48px;height:68px;border-radius:10px;background:#2a1f38"></div>
+          <div style="display:flex;flex:1;flex-direction:column;gap:6px;min-width:0">
+            <span style="font-weight:700">Raspberry Heaven</span>
+            <span style="color:#ab9abf;font-size:14px">Oranges &amp; Lemons - Azumanga Daioh (ED1)</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><span style="padding:2px 10px;border-radius:999px;background:#b18cff;color:#1c1330;font-size:12px;font-weight:700">Remote video</span></div>
+          </div>
+          <span style="flex:none;padding:6px 14px;border-radius:999px;border:1px solid #ff5da2;color:#ff5da2;font-weight:700;font-size:13px">Preview</span>
+        </div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"><span style="padding:4px 12px;border-radius:999px;border:1px solid #b18cff;color:#b18cff;font-size:13px;font-weight:700">Download video</span></div>
+      </li>
+    </ul>
+    <div style="margin-top:24px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+      <h3 style="margin:0 0 10px;font-size:16px;font-weight:800">Export deck</h3>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+        <div style="flex:1;min-width:220px;padding:10px 14px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">/path/to/empty/or/new/folder</div>
+        <span style="display:flex;align-items:center;gap:6px;color:#ab9abf;font-size:14px;font-weight:700;white-space:nowrap"><span style="display:inline-block;width:13px;height:13px;border:1px solid #6d5c82;border-radius:3px"></span> Include audio</span>
+        <span style="flex:none;padding:10px 18px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:800">Export</span>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</div>
+
+<!-- ============ 7. STATS ============ -->
+<div data-screen-label="07 Stats" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">07 · Review stats · pages/stats/index.vue (max-width 640)</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:640px;margin:0 auto;padding:48px 24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+      <h1 style="margin:0;font-size:28px;font-weight:800">Review Stats</h1>
+      <span style="flex:none;padding:8px 16px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#f5eef8;font-weight:700;font-size:14px">Refresh</span>
+    </div>
+    <p style="margin:0 0 16px;color:#ab9abf">Guess-rate tracking from your study history.</p>
+    <div style="display:flex;gap:12px;margin-bottom:20px">
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a"><span style="font-size:24px;font-weight:800">412</span><span style="color:#ab9abf;font-size:14px">Total reviews</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a"><span style="font-size:24px;font-weight:800;color:#7ee2b8">73%</span><span style="color:#ab9abf;font-size:14px">Overall pass rate</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span style="padding:8px 16px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700;font-size:14px">Clear history</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #ff5da2;background:#ff5da2;color:#2b0f1c;font-weight:700">By Artist</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#1f1729;color:#ab9abf;font-weight:700">By Title</span>
+    </div>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Oranges &amp; Lemons</span></div>
+        <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font-weight:700;color:#7ee2b8">88%</span><span style="color:#ab9abf;font-size:14px">34 reviews</span></div>
+      </li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">Mamiko Noto</span></div>
+        <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font-weight:700;color:#7ee2b8">61%</span><span style="color:#ab9abf;font-size:14px">18 reviews</span></div>
+      </li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:700">TRUE</span></div>
+        <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="color:#ab9abf;font-weight:400;font-size:14px">No reviews yet</span><span style="color:#ab9abf;font-size:14px">0 reviews</span></div>
+      </li>
+    </ul>
+  </main>
+</div>
+</div>
+
+<!-- ============ 8. SETTINGS ============ -->
+<div data-screen-label="08 Settings" style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 12px/1 'M PLUS Rounded 1c',sans-serif;color:#6d5c82;letter-spacing:1.2px;text-transform:uppercase">08 · Settings · pages/settings.vue (max-width 640)</div>
+<div style="width:1440px;background:#150f1c;border:1px solid #392c4a;border-radius:12px;overflow:hidden;color:#f5eef8">
+  <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px">
+    <div style="display:flex;gap:4px;align-items:center">
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Home</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Study</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Cards</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Decks</span>
+      <span style="padding:8px 14px;border-radius:999px;color:#ab9abf;font-weight:700;font-size:14px">Stats</span>
+      <span style="padding:8px 14px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Settings</span>
+    </div>
+    <div style="width:220px;padding:8px 14px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#6d5c82;font-size:14px">Search Anime or Artist</div>
+  </nav>
+  <main style="max-width:640px;margin:0 auto;padding:48px 24px">
+    <h1 style="margin:0 0 8px;font-size:28px;font-weight:800">Media library</h1>
+    <p style="margin:0 0 24px;color:#ab9abf">Folders the app will look in for local anime clips.</p>
+    <ul style="list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a"><span style="word-break:break-all">/Users/puru/Media/anime-clips</span><span style="flex:none;padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Remove</span></li>
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a"><span style="word-break:break-all">/Volumes/AMQ/openings</span><span style="flex:none;padding:6px 14px;border-radius:999px;border:1px solid #ff6b6b;color:#ff6b6b;font-weight:700">Remove</span></li>
+    </ul>
+    <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+      <span style="color:#ab9abf;font-size:14px;font-weight:700">Default download folder</span>
+      <div style="padding:10px 14px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#f5eef8;font-size:15px">/Users/puru/Media/anime-clips</div>
+    </div>
+    <div style="margin-top:24px;display:flex;gap:10px">
+      <div style="flex:1;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#6d5c82;font-size:15px">/path/to/anime/clips</div>
+      <span style="flex:none;padding:12px 22px;border-radius:10px;background:#ff5da2;color:#2b0f1c;font-weight:800">Add folder</span>
+    </div>
+    <h2 style="margin:40px 0 8px;font-size:20px;font-weight:800">Import deck</h2>
+    <p style="margin:0 0 20px;color:#ab9abf">Recreate cards from a bundle written by an "Export deck" action on <span style="color:#ff5da2">/decks</span>.</p>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1;padding:12px 16px;border-radius:10px;border:1px solid #392c4a;background:#1f1729;color:#6d5c82;font-size:15px">/path/to/exported/deck</div>
+      <span style="flex:none;padding:12px 22px;border-radius:10px;background:#ff5da2;color:#2b0f1c;font-weight:800;opacity:.6">Import</span>
+    </div>
+    <h2 style="margin:40px 0 8px;font-size:20px;font-weight:800">Study</h2>
+    <p style="margin:0 0 20px;color:#ab9abf">Pace how many never-studied cards get introduced per day, and how many correct answers a new card needs before it graduates.</p>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <span style="color:#ab9abf;font-size:14px;font-weight:700">Daily new card limit</span>
+        <div style="display:flex;gap:8px;align-items:center"><div style="width:72px;padding:8px 12px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#f5eef8;font-size:14px">5</div><span style="padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Save</span></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+        <span style="color:#ab9abf;font-size:14px;font-weight:700">Correct answers to graduate</span>
+        <div style="display:flex;gap:8px;align-items:center"><div style="width:72px;padding:8px 12px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#f5eef8;font-size:14px">2</div><span style="padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Save</span></div>
+      </div>
+    </div>
+    <h2 style="margin:40px 0 8px;font-size:20px;font-weight:800">Streamed clip cache</h2>
+    <p style="margin:0 0 20px;color:#ab9abf">Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't re-fetch from the CDN.</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+      <span style="color:#ab9abf;font-size:14px;font-weight:700">Max cache size</span>
+      <div style="display:flex;gap:8px;align-items:center"><div style="width:96px;padding:8px 12px;border-radius:10px;border:1px solid #392c4a;background:#2a1f38;color:#f5eef8;font-size:14px">2 GB</div><span style="padding:8px 16px;border-radius:999px;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Save</span></div>
+    </div>
+    <h2 style="margin:40px 0 8px;font-size:20px;font-weight:800">Playback</h2>
+    <p style="margin:0 0 20px;color:#ab9abf">Audio only plays every card from its audio source when one exists, and stops the streamed-clip cache above from fetching or storing video - useful to save local storage.</p>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:#1f1729;border:1px solid #392c4a">
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #ff5da2;background:#ff5da2;color:#2b0f1c;font-weight:700;font-size:14px">Auto</span>
+      <span style="padding:8px 18px;border-radius:999px;border:1px solid #392c4a;background:#2a1f38;color:#ab9abf;font-weight:700;font-size:14px">Audio only</span>
+    </div>
+  </main>
+</div>
+</div>
+
+</div>
+</x-dc>
+</body>
+</html>

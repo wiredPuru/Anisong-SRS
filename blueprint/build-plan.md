@@ -400,11 +400,15 @@ cleaned-up checkbox version before generating the project overview.
 - [ ] 50. **Visual redesign (Akiba Neon)** - move off the current vertical
   single-column layout to a rail nav with split panes, and retheme from the
   purple/rounded look to the canvas's blue-black + sakura + cyan with tight
-  radii. The design reference is `blueprint/reference/akiba-neon-canvas.html`
-  (decoded from a Claude Design canvas; the canvas itself stays the editable
-  master and its link is kept out of this public repo). Direction 1A was
-  chosen over the alternative 1B "Jukebox" study-screen take. Added
-  2026-09-02.
+  radii. The design reference is
+  `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`
+  (see that folder's `README.md` for how to use it, plus an open decision on
+  Study's fullscreen/ambient overlay unrelated to any single sub-feature
+  here). Direction 1A was chosen over the alternative 1B "Jukebox"
+  study-screen take. Added 2026-09-02; the design reference was replaced
+  2026-09-03 (the original single-canvas decode, `akiba-neon-canvas.html`,
+  is superseded and removed - this folder covers every screen it did, plus
+  more).
   - [x] 50a. **Theme tokens + app shell** - port the palette, type and radii
     into `main.css`, and build the rail nav plus shared chrome. Every later
     sub-feature builds on this, so it goes first.
