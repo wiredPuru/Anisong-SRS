@@ -289,6 +289,8 @@ function togglePlay() {
   }
 }
 
+defineExpose({ pause: () => activeEl.value?.pause() });
+
 // Ambient glow: samples the *same* <video> already decoding for playback via
 // canvas, rather than a second <video> playing a duplicate stream - avoids
 // doubling network/decode cost for remote animethemes.moe clips. When

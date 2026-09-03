@@ -55,6 +55,11 @@
   --z-chrome: 30;
   --z-modal: 50;
   --z-immersive: 60;
+  /* Above --z-immersive, for the one case a plain modal isn't enough for:
+     a modal opened from *within* immersive mode (Study's "Previous card"),
+     which must outrank the immersive layer it was triggered from. Not the
+     default for modals - CardPreviewModal itself still uses --z-modal. */
+  --z-above-immersive: 70;
   /* Denser than before: the ground is much darker now, so a black shadow
      needs more opacity to read at all. */
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.45);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StudyScope } from "~/composables/useStudySession";
+import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
 
 const route = useRoute();
 
@@ -78,6 +78,56 @@ function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; loca
     ...currentCard.value,
     ...(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath }),
   };
+}
+
+interface SessionHistoryEntry {
+  card: CardWithDetails;
+  result: "pass" | "fail";
+}
+
+// Every card actually reviewed this session, in order - load-bearing for a
+// future study-session-log feature, which should read this directly rather
+// than re-deriving it. Session-only, like Hide Video/Hide Info/Random
+// start/Ambient mode; resets on scope change below.
+const sessionHistory = ref<SessionHistoryEntry[]>([]);
+
+watch(scope, () => {
+  sessionHistory.value = [];
+});
+
+async function submitReview(result: "pass" | "fail") {
+  const reviewedCard = currentCard.value;
+  const countBefore = reviewedCount.value;
+  await submit(result);
+  // reviewedCount only increments after a *successful* POST
+  // /api/study/review, inside submit() - comparing it (not presentationKey,
+  // which does not bump once the queue runs out) is what tells a real
+  // review apart from a no-op double-submit (submit() guards on
+  // `reviewing`) or a failed request.
+  if (reviewedCard && reviewedCount.value !== countBefore) {
+    sessionHistory.value.push({ card: reviewedCard, result });
+  }
+}
+
+const mediaPlayerRef = ref<{ pause: () => void } | null>(null);
+const showPreviousCard = ref(false);
+const previousCardEntry = computed(() => sessionHistory.value.at(-1) ?? null);
+
+function openPreviousCard() {
+  if (!previousCardEntry.value) return;
+  mediaPlayerRef.value?.pause();
+  showPreviousCard.value = true;
+}
+
+function onPreviousCardUpdated(updated: CardWithDetails) {
+  const entry = sessionHistory.value.at(-1);
+  if (entry && entry.card.id === updated.id) entry.card = updated;
+  // A failed card can resurface immediately (box 1, 0-day interval) as the
+  // very next due card, so the just-reviewed card and the live one can be
+  // the same id - keep both in sync when that happens.
+  if (currentCard.value && currentCard.value.id === updated.id) {
+    currentCard.value = { ...currentCard.value, ...updated };
+  }
 }
 
 interface ManualDeck {
@@ -469,6 +519,8 @@ function onKeydown(event: KeyboardEvent) {
     showControls.value = !showControls.value;
   } else if (key === "e") {
     immersive.value = !immersive.value;
+  } else if (key === "p") {
+    openPreviousCard();
   }
 }
 
@@ -485,7 +537,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     </div>
     <div v-else-if="loading && !currentCard" class="state">Loading...</div>
     <div v-else-if="error" class="state state-error">{{ error }}</div>
-    <div v-else-if="sessionComplete" class="state">All caught up! Nothing due right now.</div>
+    <div v-else-if="sessionComplete" class="state">
+      All caught up! Nothing due right now.
+      <button
+        v-if="previousCardEntry"
+        type="button"
+        class="previous-card-btn"
+        @click="openPreviousCard"
+      >
+        &#8617; Previous card
+        <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+      </button>
+    </div>
     <template v-else-if="currentCard">
       <header class="study-header">
         <div class="header-left">
@@ -554,6 +617,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
         <div class="player-pane">
         <StudyMediaPlayer
+          ref="mediaPlayerRef"
           :key="presentationKey"
           :card="currentCard"
           :hide-video="(hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
@@ -600,7 +664,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
             </div>
             <div class="answer-slot">
-              <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
+              <button
+                v-if="previousCardEntry"
+                type="button"
+                class="previous-card-btn"
+                @click="openPreviousCard"
+              >
+                &#8617; Previous
+                <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+              </button>
+              <StudyAnswerControls :disabled="reviewing" @pass="submitReview('pass')" @fail="submitReview('fail')" />
             </div>
           </template>
         </StudyMediaPlayer>
@@ -643,7 +716,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
           </div>
-          <StudyAnswerControls :disabled="reviewing" @pass="submit('pass')" @fail="submit('fail')" />
+          <button
+            v-if="previousCardEntry"
+            type="button"
+            class="previous-card-btn"
+            @click="openPreviousCard"
+          >
+            &#8617; Previous card
+            <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+          </button>
+          <StudyAnswerControls :disabled="reviewing" @pass="submitReview('pass')" @fail="submitReview('fail')" />
           <!-- Every key here is checked against a real handler: S in
                StudyMediaPlayer's onKeydown, I and E in this page's own. The
                artboard's legend reads "SPACE play/pause / R replay / H hide
@@ -653,10 +735,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span><kbd>S</kbd> play/pause</span>
             <span><kbd>I</kbd> hide info</span>
             <span><kbd>E</kbd> immersive</span>
+            <span><kbd>P</kbd> previous card</span>
           </p>
         </div>
       </div>
     </template>
+    <div class="previous-card-modal-anchor">
+      <CardPreviewModal
+        :card="previousCardEntry?.card ?? null"
+        :open="showPreviousCard && previousCardEntry !== null"
+        :has-default-download-folder="hasDefaultDownloadFolder"
+        :audio-only="effectiveAudioOnly"
+        @close="showPreviousCard = false"
+        @updated="onPreviousCardUpdated"
+      />
+    </div>
   </main>
 </template>
 
@@ -856,6 +949,56 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .controls-toggle-btn:hover .tooltip,
 .controls-toggle-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* CardPreviewModal itself renders at --z-modal, which sits below
+   --z-immersive - fine for every other place it's used, but "Previous"
+   can be opened from inside immersive mode, so this specific instance
+   needs to outrank it. A wrapper with its own stacking context does that
+   without changing CardPreviewModal or the shared z-index scale. */
+.previous-card-modal-anchor {
+  position: relative;
+  z-index: var(--z-above-immersive);
+}
+
+.previous-card-btn {
+  position: relative;
+  align-self: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.previous-card-btn .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.previous-card-btn:hover .tooltip,
+.previous-card-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
 }
