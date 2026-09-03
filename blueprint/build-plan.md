@@ -397,6 +397,31 @@ cleaned-up checkbox version before generating the project overview.
     and the empty-state links on `/stats` and `/decks`) to the unified
     `/cards` search instead.
 
+## Under consideration
+
+Not build targets yet - no direction has been picked, so these are plain
+bullets rather than checkboxes and `/feature` should not treat them as the
+next item. Promote one to a numbered checklist item only after the decision
+below is made.
+
+- **Visual redesign** - a Claude Design canvas holds "Redesign - turn 1",
+  two directions off one brief (drop the vertical single-column layout, use
+  the full width, replace the purple-glow pill styling with an Akihabara
+  arcade edge). 1A "Akiba Neon" covers the whole app in eight artboards
+  (Home, Add card, Cards, Decks, Stats, Study, Settings, narrow window); 1B
+  "Jukebox" restyles just the study screen a second way. The canvas is the
+  source of truth and is not in this repo; its link is deliberately not
+  recorded here, since this repository is public and the canvas is viewable
+  by anyone holding the link. Ask the project owner for it, or read it from
+  Claude Code's project memory, which is where it is kept. Noted 2026-09-02.
+- **Open decision blocking the above** - 1A draws Add card as a standalone
+  page with Anime/Artist/Song tabs, plus `+ Add card` buttons on Home and
+  Cards. That is the architecture feature 49 deleted. Building 1A literally
+  would reverse it. Either restyle feature 49's unified `/cards` search with
+  1A's split-pane layout (keeps shipped work, still gets the visual win), or
+  decide deliberately to reinstate a separate Add card page. Settle this
+  before spec'ing any redesign feature.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
