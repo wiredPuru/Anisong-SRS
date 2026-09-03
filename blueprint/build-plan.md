@@ -428,9 +428,7 @@ Not features and not build targets - documentation drift to correct in
 `project-plan.md` whenever it is next edited. Deliberately plain bullets,
 never checkboxes, so `/feature` can't mistake one for the next item to build.
 
-- `project-plan.md` §7 (UI/UX) lists the study screen's display toggles as
-  "Hide Video, Hide Info, Random Start, Ambient mode". Two later additions
-  are missing: Hide Cover (feature 44, `c` hotkey, session-only like the
-  others) and the Auto Reveal control (feature 38, redesigned into a
-  Video/Info/Both mode picker plus interval in its own popup by feature 46).
-  Noted 2026-09-02.
+- ~~`project-plan.md` §7 (UI/UX) omitted Hide Cover (feature 44) and the Auto
+  Reveal control (features 38/46) from the study screen's display toggles.~~
+  Corrected 2026-09-02; §7 now lists both. Kept here as a worked example of
+  what belongs in this section.

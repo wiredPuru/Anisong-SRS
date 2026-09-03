@@ -95,9 +95,12 @@ Non-profit. No monetization planned.
 - Layout: video centered, song/title info panel on the right.
 - Language toggles (EN/Romaji/Japanese, with Furigana as a Japanese
   sub-toggle) and the screen's other display toggles (Hide Video, Hide
-  Info, Random Start, Ambient mode) render as always-visible inline
-  buttons on the study screen, with an `H` hotkey and a subtle icon to
-  hide/show them together when not needed. Core playback/interaction
+  Info, Hide Cover, Random Start, Ambient mode) render as always-visible
+  inline buttons on the study screen, with an `H` hotkey and a subtle icon
+  to hide/show them together when not needed. Auto Reveal sits alongside
+  them as a single button opening a small popup, since it carries a mode
+  choice (Video / Info / Both) and a countdown interval rather than being
+  a plain on/off. Core playback/interaction
   controls (play/pause, pass/fail, scrub, volume, expand) stay inline. An
   `E` hotkey toggles an immersive expanded mode that overlays all card
   info directly on the video instead of showing it in a side panel, and

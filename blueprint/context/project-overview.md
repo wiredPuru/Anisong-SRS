@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash e33f18251c6bdd6767bffd7be5158671d295576ada3da7406577fdb57522887c -->
+<!-- blueprint:source-hash 3aac658499ba19c1a09385d660d0ceb4bff25df25d58e6ad9da046c7f91aa935 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
