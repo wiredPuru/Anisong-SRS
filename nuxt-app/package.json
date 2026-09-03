@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "launch": "bun run launcher/index.ts",
     "package": "bun run scripts/package.ts",
+    "measure": "bun run scripts/measure.ts",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

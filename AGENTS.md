@@ -208,6 +208,21 @@ checks do not make the Blueprint unusable.
   `public/` folders - ship the binary with both, since a compiled binary
   reads migration SQL files and static web assets from disk rather than
   embedding them.
+- Measure real layout geometry (with the dev server running): `bun run measure
+  <path> [flags]` - drives headless Chrome over the DevTools protocol and
+  prints each selector's box, aspect ratio, whether it fits the viewport, and
+  whether it scrolls internally. Playwright is deliberately not a dependency
+  (see Browser Verification in `coding-standards.md`); this needs only Chrome,
+  found automatically or via `CHROME_PATH`. Flags: `--size WxH` (repeatable),
+  `--select "a,b"`, `--wait-for <selector>`, `--key <k>`, `--click <selector>`,
+  `--click-text <text>`, `--css "<declarations>"` / `--css-file`, `--shot
+  <file>`, `--json`, `--base <url>`. Use `--css` to inject reverted
+  declarations and get before/after numbers from one run, which is how a
+  layout claim becomes evidence rather than a screenshot memory:
+
+      bun run measure /study --size 1920x700 --select .player-frame --wait-for .player-frame
+      bun run measure /study --size 1400x640 --key e --select .player-frame
+      bun run measure /study --css ".app-content{height:auto;min-height:100vh}"
 
 Testing is opt-in. No test runner is configured yet; run `/tests` or `$tests`
 to add one and update this section with the real test commands once logic
