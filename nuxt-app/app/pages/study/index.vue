@@ -813,10 +813,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    player fills the pane, and justify-content centres it vertically. */
 .player-pane {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 24px;
+}
+
+/* Lets the card shrink to the pane instead of stopping at its content's
+   height, which is what gives .player-frame's max-height a definite height
+   to resolve against. Scoped here rather than set on .player-card itself:
+   CardPreviewModal's panel is also a flex column, and there the card must
+   keep its content height and let the panel scroll. */
+.player-pane :deep(.player-card) {
+  min-height: 0;
 }
 
 .side {

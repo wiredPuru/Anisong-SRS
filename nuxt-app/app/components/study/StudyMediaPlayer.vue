@@ -883,9 +883,17 @@ onUnmounted(() => stopDrag?.());
   font-size: clamp(8px, 0.83cqw, 19px);
 }
 
+/* width stays unset on purpose. As a block box with an aspect ratio and an
+   auto width, a binding max-height is transferred back into the width, so
+   the frame shrinks whole and stays 16:9. Declaring width: 100% would pin
+   the width while the height clamps, stretching the box past 16:9 and
+   pillarboxing the video. Auto width still fills the pane whenever height
+   is not the binding constraint, and margin-inline centres it when it is. */
 .player-frame {
   position: relative;
   aspect-ratio: 16 / 9;
+  max-height: 100%;
+  margin-inline: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
