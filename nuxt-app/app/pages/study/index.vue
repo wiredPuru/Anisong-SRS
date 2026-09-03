@@ -110,21 +110,30 @@ async function submitReview(result: "pass" | "fail") {
 }
 
 const mediaPlayerRef = ref<{ pause: () => void } | null>(null);
-const showPreviousCard = ref(false);
-const previousCardEntry = computed(() => sessionHistory.value.at(-1) ?? null);
+const viewedHistoryEntry = ref<SessionHistoryEntry | null>(null);
+const showSessionLog = ref(false);
 
-function openPreviousCard() {
-  if (!previousCardEntry.value) return;
+function openHistoryCard(entry: SessionHistoryEntry) {
   mediaPlayerRef.value?.pause();
-  showPreviousCard.value = true;
+  viewedHistoryEntry.value = entry;
+  showSessionLog.value = false;
 }
 
-function onPreviousCardUpdated(updated: CardWithDetails) {
+function openPreviousCard() {
   const entry = sessionHistory.value.at(-1);
-  if (entry && entry.card.id === updated.id) entry.card = updated;
-  // A failed card can resurface immediately (box 1, 0-day interval) as the
-  // very next due card, so the just-reviewed card and the live one can be
-  // the same id - keep both in sync when that happens.
+  if (entry) openHistoryCard(entry);
+}
+
+function onHistoryCardUpdated(updated: CardWithDetails) {
+  // A card can appear more than once in sessionHistory (failed, then
+  // resurfaced and answered again), so every matching entry is kept in
+  // sync, not just the one currently being viewed.
+  for (const entry of sessionHistory.value) {
+    if (entry.card.id === updated.id) entry.card = updated;
+  }
+  // A failed card can also resurface immediately (box 1, 0-day interval) as
+  // the very next due card, so the just-reviewed card and the live one can
+  // be the same id - keep both in sync when that happens.
   if (currentCard.value && currentCard.value.id === updated.id) {
     currentCard.value = { ...currentCard.value, ...updated };
   }
@@ -521,6 +530,8 @@ function onKeydown(event: KeyboardEvent) {
     immersive.value = !immersive.value;
   } else if (key === "p") {
     openPreviousCard();
+  } else if (key === "l") {
+    showSessionLog.value = !showSessionLog.value;
   }
 }
 
@@ -540,7 +551,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="sessionComplete" class="state">
       All caught up! Nothing due right now.
       <button
-        v-if="previousCardEntry"
+        v-if="sessionHistory.length > 0"
         type="button"
         class="previous-card-btn"
         @click="openPreviousCard"
@@ -612,6 +623,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span aria-hidden="true">{{ showControls ? "👁" : "🙈" }}</span>
             <span class="tooltip">{{ showControls ? "Hide controls" : "Show controls" }} &middot; Hotkey: H</span>
           </button>
+          <button
+            type="button"
+            class="controls-toggle-btn"
+            aria-label="Session log"
+            @click="showSessionLog = !showSessionLog"
+          >
+            <span aria-hidden="true">📋</span>
+            <span class="tooltip">Session log &middot; Hotkey: L</span>
+          </button>
         </div>
       </header>
       <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
@@ -665,7 +685,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </div>
             <div class="answer-slot">
               <button
-                v-if="previousCardEntry"
+                v-if="sessionHistory.length > 0"
                 type="button"
                 class="previous-card-btn"
                 @click="openPreviousCard"
@@ -673,7 +693,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 &#8617; Previous
                 <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
               </button>
-              <StudyAnswerControls :disabled="reviewing" @pass="submitReview('pass')" @fail="submitReview('fail')" />
+              <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
             </div>
           </template>
         </StudyMediaPlayer>
@@ -717,7 +737,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             />
           </div>
           <button
-            v-if="previousCardEntry"
+            v-if="sessionHistory.length > 0"
             type="button"
             class="previous-card-btn"
             @click="openPreviousCard"
@@ -725,7 +745,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             &#8617; Previous card
             <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
           </button>
-          <StudyAnswerControls :disabled="reviewing" @pass="submitReview('pass')" @fail="submitReview('fail')" />
+          <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
           <!-- Every key here is checked against a real handler: S in
                StudyMediaPlayer's onKeydown, I and E in this page's own. The
                artboard's legend reads "SPACE play/pause / R replay / H hide
@@ -736,18 +756,25 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span><kbd>I</kbd> hide info</span>
             <span><kbd>E</kbd> immersive</span>
             <span><kbd>P</kbd> previous card</span>
+            <span><kbd>L</kbd> session log</span>
           </p>
         </div>
       </div>
     </template>
-    <div class="previous-card-modal-anchor">
+    <div class="study-overlay-anchor">
       <CardPreviewModal
-        :card="previousCardEntry?.card ?? null"
-        :open="showPreviousCard && previousCardEntry !== null"
+        :card="viewedHistoryEntry?.card ?? null"
+        :open="viewedHistoryEntry !== null"
         :has-default-download-folder="hasDefaultDownloadFolder"
         :audio-only="effectiveAudioOnly"
-        @close="showPreviousCard = false"
-        @updated="onPreviousCardUpdated"
+        @close="viewedHistoryEntry = null"
+        @updated="onHistoryCardUpdated"
+      />
+      <StudySessionLogModal
+        :entries="sessionHistory"
+        :open="showSessionLog"
+        @close="showSessionLog = false"
+        @select="openHistoryCard"
       />
     </div>
   </main>
@@ -954,11 +981,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 /* CardPreviewModal itself renders at --z-modal, which sits below
-   --z-immersive - fine for every other place it's used, but "Previous"
-   can be opened from inside immersive mode, so this specific instance
-   needs to outrank it. A wrapper with its own stacking context does that
-   without changing CardPreviewModal or the shared z-index scale. */
-.previous-card-modal-anchor {
+   --z-immersive - fine for every other place it's used, but both
+   overlays here ("Previous" and the session log) can be opened from
+   inside immersive mode (their triggers stay visible there), so they
+   need to outrank it. A wrapper with its own stacking context does that
+   without changing CardPreviewModal, StudySessionLogModal (which sets its
+   own --z-above-immersive directly), or the shared z-index scale. */
+.study-overlay-anchor {
   position: relative;
   z-index: var(--z-above-immersive);
 }

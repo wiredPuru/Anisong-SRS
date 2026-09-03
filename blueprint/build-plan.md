@@ -432,7 +432,7 @@ cleaned-up checkbox version before generating the project overview.
   previously presented card in the current session to review it again,
   view-only (does not re-submit a review or change its Leitner box/interval)
   - alongside today's forward-only due-card queue.
-- [ ] 52. **Study session log** - a visible list of cards presented so far
+- [x] 52. **Study session log** - a visible list of cards presented so far
   in the current session (song/artist/anime, pass/fail result), likely the
   surface "Previous" navigation (51) steps back through.
 
