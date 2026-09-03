@@ -212,6 +212,19 @@ function formatPassRate(passRate: number | null): string | null {
   return passRate === null ? null : `${Math.round(passRate * 100)}%`;
 }
 
+// Artist/Created decks have no single cover image, unlike Anime decks
+// (Anime.coverImageUrl). These give their tile a stable, hashed accent tint
+// instead of the empty box that used to render there.
+const DECK_TINT_TOKENS = ["--accent", "--accent-secondary", "--pass", "--warning"];
+
+function deckTint(id: number): string {
+  return DECK_TINT_TOKENS[id % DECK_TINT_TOKENS.length]!;
+}
+
+function deckInitial(label: string): string {
+  return label.trim().charAt(0).toUpperCase() || "?";
+}
+
 const selectedDeckCover = computed<string | null>(() => {
   if (selectedId.value === null) return null;
   return deckItems.value.find((item) => item.id === selectedId.value)?.coverImageUrl ?? null;
@@ -662,6 +675,14 @@ function backToDecks() {
           >
             <div class="deck-tile-cover">
               <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" />
+              <div
+                v-else-if="activeType !== 'anime'"
+                class="deck-tile-monogram"
+                :style="{ '--tint': `var(${deckTint(item.id)})` }"
+              >
+                <span class="deck-tile-monogram-letter">{{ deckInitial(item.label) }}</span>
+                <span v-if="activeType === 'created'" class="deck-tile-monogram-badge" aria-hidden="true">✦</span>
+              </div>
               <span v-if="item.dueCount" class="deck-tile-due">{{ item.dueCount }} due</span>
             </div>
             <template v-if="activeType === 'created' && editingDeckId === item.id">
@@ -1147,6 +1168,32 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.deck-tile-monogram {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--tint) 20%, var(--surface-raised));
+}
+
+.deck-tile-monogram-letter {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--tint);
+}
+
+.deck-tile-monogram-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 14px;
+  color: var(--tint);
 }
 
 .deck-tile-due {
