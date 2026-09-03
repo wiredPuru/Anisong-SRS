@@ -8,6 +8,37 @@ const { data, pending, error, refresh } = await useFetch<{
   playbackMode: "auto" | "audioOnly";
 }>("/api/media-library");
 
+type SettingsSection = "library" | "study" | "playback" | "cache" | "import";
+
+const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import"];
+const SECTION_LABELS: Record<SettingsSection, string> = {
+  library: "Media library",
+  study: "Study pacing",
+  playback: "Playback",
+  cache: "Cache",
+  import: "Import & export",
+};
+
+function parseSection(value: unknown): SettingsSection {
+  return SECTIONS.includes(value as SettingsSection) ? (value as SettingsSection) : "library";
+}
+
+const route = useRoute();
+const router = useRouter();
+
+const activeSection = ref<SettingsSection>(parseSection(route.query.section));
+
+watch(
+  () => route.query.section,
+  (section) => {
+    activeSection.value = parseSection(section);
+  },
+);
+
+function setSection(section: SettingsSection) {
+  router.push({ query: { section } });
+}
+
 const newPath = ref("");
 const addError = ref<string | null>(null);
 const isAdding = ref(false);
@@ -86,127 +117,284 @@ async function importDeck() {
 
 <template>
   <main class="settings">
-    <h1>Media library</h1>
-    <p class="hint">Folders the app will look in for local anime clips.</p>
-
-    <div v-if="pending" class="state">Loading...</div>
-    <div v-else-if="error" class="state state-error">Couldn't load settings. Try refreshing.</div>
-    <template v-else>
-      <ul v-if="data?.libraryPaths.length" class="folder-list">
-        <li v-for="path in data.libraryPaths" :key="path" class="folder-row">
-          <span class="path">{{ path }}</span>
-          <button type="button" class="remove-btn" @click="removeFolder(path)">Remove</button>
-        </li>
-      </ul>
-      <p v-else class="state">No folders configured yet.</p>
-      <p v-if="removeFolderError" class="add-error">{{ removeFolderError }}</p>
-
-      <div v-if="data?.libraryPaths.length === 1" class="state download-folder-note">
-        Downloads will go to <span class="path">{{ data.libraryPaths[0] }}</span>.
-      </div>
-      <div v-else-if="data && data.libraryPaths.length > 1" class="download-folder-picker">
-        <label for="download-folder-select">Default download folder</label>
-        <select
-          id="download-folder-select"
-          class="download-folder-select"
-          :disabled="isSettingDefault"
-          :value="data.defaultDownloadFolder ?? ''"
-          @change="setDefaultDownloadFolder(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="" disabled>Choose a folder...</option>
-          <option v-for="path in data.libraryPaths" :key="path" :value="path">{{ path }}</option>
-        </select>
-        <p v-if="defaultFolderError" class="add-error">{{ defaultFolderError }}</p>
-      </div>
-    </template>
-
-    <form class="add-form" @submit.prevent="addFolder">
-      <input
-        v-model="newPath"
-        type="text"
-        placeholder="/path/to/anime/clips"
-        :disabled="isAdding"
-        class="path-input"
-      />
-      <button type="submit" class="add-btn" :disabled="isAdding">Add folder</button>
-    </form>
-    <p v-if="addError" class="add-error">{{ addError }}</p>
-
-    <h2>Import deck</h2>
-    <p class="hint">Recreate cards from a bundle written by an "Export deck" action on <NuxtLink to="/decks">/decks</NuxtLink>.</p>
-    <form class="add-form" @submit.prevent="importDeck">
-      <input
-        v-model="importPath"
-        type="text"
-        placeholder="/path/to/exported/deck"
-        :disabled="isImporting"
-        class="path-input"
-      />
-      <button type="submit" class="add-btn" :disabled="isImporting || !importPath.trim()">
-        {{ isImporting ? "Importing..." : "Import" }}
+    <nav class="section-rail" aria-label="Settings sections">
+      <button
+        v-for="section in SECTIONS"
+        :key="section"
+        type="button"
+        class="section-rail-item"
+        :class="{ active: activeSection === section }"
+        @click="setSection(section)"
+      >
+        {{ SECTION_LABELS[section] }}
       </button>
-    </form>
-    <p v-if="importSummary" class="import-summary">{{ importSummary }}</p>
-    <ul v-if="importErrors.length" class="import-error-list">
-      <li v-for="(msg, i) in importErrors" :key="i">{{ msg }}</li>
-    </ul>
-    <p v-if="importError" class="add-error">{{ importError }}</p>
+    </nav>
 
-    <h2>Study</h2>
-    <p class="hint">Pace how many never-studied cards get introduced per day, and how many correct answers a new card needs before it graduates.</p>
-    <div v-if="data" class="study-settings">
-      <SettingsNewCardLimitControl :limit="data.dailyNewCardLimit" @saved="refresh" />
-      <SettingsBoxOneStreakControl :required="data.boxOneStreakRequired" @saved="refresh" />
-    </div>
+    <div class="settings-content">
+      <header class="settings-header">
+        <span class="settings-header-title">{{ SECTION_LABELS[activeSection] }}</span>
+        <span class="settings-header-hint">Changes save as you go</span>
+      </header>
 
-    <h2>Streamed clip cache</h2>
-    <p class="hint">Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't re-fetch from the CDN.</p>
-    <div v-if="data" class="study-settings">
-      <SettingsStreamCacheSizeControl :max-bytes="data.streamCacheMaxBytes" @saved="refresh" />
-    </div>
+      <div class="settings-body">
+        <div v-if="pending" class="state">Loading...</div>
+        <div v-else-if="error" class="state state-error">Couldn't load settings. Try refreshing.</div>
+        <template v-else-if="data">
+          <div class="section-panels">
+            <template v-if="activeSection === 'library'">
+              <div class="panel panel-full">
+                <div class="panel-header">
+                  <span class="panel-title">Local folders</span>
+                  <span class="panel-hint">Folders the app looks in for local anime clips.</span>
+                </div>
+                <ul v-if="data.libraryPaths.length" class="folder-list">
+                  <li v-for="path in data.libraryPaths" :key="path" class="folder-row">
+                    <span class="path">{{ path }}</span>
+                    <button type="button" class="remove-btn" @click="removeFolder(path)">Remove</button>
+                  </li>
+                </ul>
+                <p v-else class="state">No folders configured yet.</p>
+                <p v-if="removeFolderError" class="add-error">{{ removeFolderError }}</p>
 
-    <h2>Playback</h2>
-    <p class="hint">Audio only plays every card from its audio source when one exists, and stops the streamed-clip cache above from fetching or storing video - useful to save local storage. Takes effect starting with the next card; changing it here never affects a card already playing.</p>
-    <div v-if="data" class="study-settings">
-      <SettingsPlaybackModeControl :mode="data.playbackMode" @saved="refresh" />
+                <form class="add-form" @submit.prevent="addFolder">
+                  <input
+                    v-model="newPath"
+                    type="text"
+                    placeholder="/path/to/anime/clips"
+                    :disabled="isAdding"
+                    class="path-input"
+                  />
+                  <button type="submit" class="add-btn" :disabled="isAdding">Add folder</button>
+                </form>
+                <p v-if="addError" class="add-error">{{ addError }}</p>
+              </div>
+
+              <div class="panel">
+                <div class="panel-header">
+                  <span class="panel-title">Downloads</span>
+                </div>
+                <div v-if="data.libraryPaths.length === 1" class="state download-folder-note">
+                  Downloads will go to <span class="path">{{ data.libraryPaths[0] }}</span>.
+                </div>
+                <div v-else-if="data.libraryPaths.length > 1" class="download-folder-picker">
+                  <label for="download-folder-select">Default download folder</label>
+                  <select
+                    id="download-folder-select"
+                    class="download-folder-select"
+                    :disabled="isSettingDefault"
+                    :value="data.defaultDownloadFolder ?? ''"
+                    @change="setDefaultDownloadFolder(($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="" disabled>Choose a folder...</option>
+                    <option v-for="path in data.libraryPaths" :key="path" :value="path">{{ path }}</option>
+                  </select>
+                  <p v-if="defaultFolderError" class="add-error">{{ defaultFolderError }}</p>
+                </div>
+                <p v-else class="state">Add a folder to configure downloads.</p>
+              </div>
+            </template>
+
+            <template v-else-if="activeSection === 'study'">
+              <p class="section-hint">
+                Pace how many never-studied cards get introduced per day, and how many correct answers a new card
+                needs before it graduates.
+              </p>
+              <SettingsNewCardLimitControl :limit="data.dailyNewCardLimit" @saved="refresh" />
+              <SettingsBoxOneStreakControl :required="data.boxOneStreakRequired" @saved="refresh" />
+            </template>
+
+            <template v-else-if="activeSection === 'playback'">
+              <p class="section-hint">
+                Audio only plays every card from its audio source when one exists, and stops the streamed-clip cache
+                from fetching or storing video - useful to save local storage. Takes effect starting with the next
+                card; changing it here never affects a card already playing.
+              </p>
+              <SettingsPlaybackModeControl :mode="data.playbackMode" @saved="refresh" />
+            </template>
+
+            <template v-else-if="activeSection === 'cache'">
+              <p class="section-hint">
+                Remote clips are cached to disk after they're played, up to this size, so replaying them doesn't
+                re-fetch from the CDN.
+              </p>
+              <SettingsStreamCacheSizeControl :max-bytes="data.streamCacheMaxBytes" @saved="refresh" />
+            </template>
+
+            <template v-else-if="activeSection === 'import'">
+              <div class="panel panel-full">
+                <div class="panel-header">
+                  <span class="panel-title">Import deck</span>
+                  <span class="panel-hint">
+                    Recreate cards from a bundle written by an "Export deck" action on
+                    <NuxtLink to="/decks">/decks</NuxtLink>.
+                  </span>
+                </div>
+                <form class="add-form" @submit.prevent="importDeck">
+                  <input
+                    v-model="importPath"
+                    type="text"
+                    placeholder="/path/to/exported/deck"
+                    :disabled="isImporting"
+                    class="path-input"
+                  />
+                  <button type="submit" class="add-btn" :disabled="isImporting || !importPath.trim()">
+                    {{ isImporting ? "Importing..." : "Import" }}
+                  </button>
+                </form>
+                <p v-if="importSummary" class="import-summary">{{ importSummary }}</p>
+                <ul v-if="importErrors.length" class="import-error-list">
+                  <li v-for="(msg, i) in importErrors" :key="i">{{ msg }}</li>
+                </ul>
+                <p v-if="importError" class="add-error">{{ importError }}</p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
     </div>
   </main>
 </template>
 
 <style scoped>
 .settings {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 48px 24px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  font-weight: 800;
+.section-rail {
+  flex: none;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px 14px;
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--border);
 }
 
-.hint {
-  margin: 0 0 24px;
+.section-rail-item {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
   color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Border and glow, never a fill - main.css's ambient-glass block strips
+   backgrounds via !important elsewhere in the app, which would leave
+   --accent-ink (near black) text on dark glass. Matched here for
+   consistency even though /settings has no ambient mode of its own. */
+.section-rail-item.active {
+  background: var(--surface-raised);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 28px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.settings-header-hint {
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 28px 28px;
+}
+
+.section-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-content: start;
+}
+
+.panel {
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-full {
+  grid-column: 1 / -1;
+}
+
+.section-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-title {
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.panel-hint {
+  font-size: 12px;
+  color: var(--faint);
 }
 
 .state {
   padding: 16px;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--muted);
 }
 
 .state-error {
-  color: var(--fail);
-  border-color: var(--fail);
+  color: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 .folder-list {
   list-style: none;
-  margin: 0 0 20px;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -218,9 +406,9 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
 }
 
@@ -233,29 +421,28 @@ h1 {
   flex: none;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--fail);
+  border: 1px solid var(--accent-strong);
   background: transparent;
-  color: var(--fail);
+  color: var(--accent-strong);
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
 }
 
 .add-form {
-  margin-top: 24px;
   display: flex;
   gap: 10px;
 }
 
 .path-input {
   flex: 1;
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-raised);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .path-input:focus {
@@ -266,7 +453,7 @@ h1 {
 
 .add-btn {
   flex: none;
-  padding: 12px 22px;
+  padding: 11px 20px;
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
@@ -283,28 +470,24 @@ h1 {
 }
 
 .add-error {
-  margin-top: 10px;
-  color: var(--fail);
-  font-size: 14px;
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 13px;
 }
 
 .download-folder-note {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .download-folder-picker {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
 }
 
 .download-folder-picker label {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -315,7 +498,7 @@ h1 {
   background: var(--surface-raised);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .download-folder-select:disabled {
@@ -323,32 +506,16 @@ h1 {
   cursor: not-allowed;
 }
 
-h2 {
-  margin: 40px 0 8px;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-h2 + .hint {
-  margin-bottom: 20px;
-}
-
 .import-summary {
-  margin-top: 10px;
+  margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .import-error-list {
-  margin: 10px 0 0;
+  margin: 0;
   padding-left: 20px;
-  color: var(--fail);
-  font-size: 14px;
-}
-
-.study-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  color: var(--accent-strong);
+  font-size: 13px;
 }
 </style>
