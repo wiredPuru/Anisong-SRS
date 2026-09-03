@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash befb60cf373bf2332dfd7c7214b3c385e5a14c819e090ce0ff481bce0488c55c -->
+<!-- blueprint:source-hash c288028615eed919975ccc8dcd55d69defcd2828ab78d9cefec2e6cc11dc4da6 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -38,9 +38,9 @@ in its two sub-features - 37a artist search + theme resolution, 37b bulk
 card creation + download - and the auto-reveal timer for Hide Info).
 Features 39 and 40 (search-by-song mode and a study "cards left" counter)
 were built ad hoc directly in chat rather than through the `/feature`
-workflow, so they were never written to `build-plan.md` as planned items;
-this overview was updated after the fact (2026-08-31) to keep the record
-accurate. Features 18, 25, and 32 were each abandoned outright (see their
+workflow, so they were missing from `build-plan.md` for a time; this
+overview recorded them from 2026-08-31, and they were added to the
+checklist retroactively on 2026-09-02 so both plans match what shipped. Features 18, 25, and 32 were each abandoned outright (see their
 entries below) - all three numbers are retired, not reused: 18 was built,
 then rolled back, then dropped; 25 was dropped before any code was
 written; 32 was spec'd and partially implemented, then dropped before any
@@ -73,7 +73,10 @@ written; 48 is a new feature, not a reuse of that retired number, and
 `project-plan.md`'s Deployment section (§8) was updated to match,
 replacing its prior "no packaged build is planned" statement. Feature 49
 (unifying card search with Add Card, in three sub-features 49a-49c) was
-added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
+added to `build-plan.md` on 2026-09-02 and is now built and merged in
+full, retiring the `/cards/new` route - a same-day follow-on also removed
+`/cards`' leftover "Add card" header button, which after 49c only focused
+the search box directly below it.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -82,14 +85,17 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
 3. **Anime & song lookup** - done. `/api/lookup/*` - search AniList and
    animethemes.moe (both GraphQL) and cache metadata (EN/Romaji/JP titles,
    artist, OP/ED themes) into the local DB.
-4. **Flashcard CRUD** - done. `/cards`, `/cards/new` - create/edit/delete
-   cards from looked-up song data; attach a local file and/or an
-   animethemes.moe reference. A same-day fix (2026-08-31) closed a
+4. **Flashcard CRUD** - done. `/cards` - create/edit/delete cards from
+   looked-up song data; attach a local file and/or an animethemes.moe
+   reference. Originally split across `/cards` and a separate `/cards/new`
+   page; feature 49 folded that page's add flows into `/cards`' own search
+   box and deleted the route. A same-day fix (2026-08-31) closed a
    duplicate-card gap: `POST /api/cards` (`createCard`) now rejects a
-   second card for a song that already has one, and `/cards/new` pre-marks
-   an already-added song as "Added" (via `GET /api/cards/by-songs`) as
-   soon as its anime/artist/song search result loads, instead of showing
-   an addable button that would just error on click.
+   second card for a song that already has one, and every add flow
+   pre-marks an already-added song as "Added" (via `GET
+   /api/cards/by-songs`) as soon as its anime/artist/song search result
+   loads, instead of showing an addable button that would just error on
+   click.
 5. **Decks by Artist/Title** - done. `/decks` - automatic, query-time
    grouping of cards by artist or by anime title (no separate deck table).
 6. **Study session** - the headline feature, split into three sub-features:
@@ -104,7 +110,8 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
 7. **Review stats** - done. `/stats` - guess-rate tracking (overall and
    sliced by artist / by anime title), read from `ReviewLog`.
 8. **Downloadable options for Cards** - done. A default download folder
-   setting (`/settings`) plus a download action on `/cards` and `/cards/new`
+   setting (`/settings`) plus a download action on `/cards` (including its
+   add-candidate result groups)
    that pulls a card's `animethemesVideoUrl`/`animethemesAudioUrl` into the
    local media library and sets the matching local path.
 9. **Deck export/import** - done. `POST /api/decks/export`/`/api/decks/import`
@@ -123,7 +130,10 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     for a card with no source) opening a modal that reuses
     `StudyMediaPlayer`/`StudyInfoPanel` as-is - playback, scrub, and the
     language toggles, no pass/fail or study-state writes. Closes via ✕,
-    backdrop click, or `Escape`. Not on `/cards/new` (deferred). Its
+    backdrop click, or `Escape`. Originally deferred on the separate
+    `/cards/new` page; feature 49 retired that page, and all three of
+    `/cards`' add-candidate groups now emit `preview` up to this same
+    single modal instance. Its
     component lives at `components/card/CardPreviewModal.vue` (singular
     `card/`, not `cards/` - Nuxt's auto-import prefix-stripping needs the
     filename to start with the folder name, so plural `cards/` would have
@@ -146,8 +156,9 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
       ways), `GET /api/decks/memberships` returns every card's membership
       in one query. `/cards` has a per-row "Decks" checkbox panel; `/decks`
       shows real card counts and a real card list per manual deck with a
-      "Remove" action. Not on `/cards/new` (same deferral feature 11 made
-      for its own Preview button on that page). A same-day fix
+      "Remove" action. Not offered inside `/cards`' add-candidate result
+      groups (feature 49) - a just-added card picks the panel up from its
+      own row once the local list refreshes. A same-day fix
       (2026-08-31) stopped that checkbox panel from rendering twice on
       `/cards` when a card's "Decks" panel was left open and then its
       "Edit" form was also opened - the edit form has its own copy of the
@@ -254,12 +265,14 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     (`NavBar.vue`) falls back to `GET /api/lookup/anilist-search` when the
     local `Cards` group is empty, showing an "Add a show" dropdown group -
     a single full-width button per AniList match, same pattern as the
-    `Cards` group's own result buttons. Clicking one navigates to
-    `/cards/new?aniListId=<id>`, which reads that param on mount and
-    auto-triggers the existing `selectAnime` import flow - no new server
+    `Cards` group's own result buttons. Clicking one originally navigated
+    to `/cards/new?aniListId=<id>`, which read that param on mount and
+    auto-triggered the existing `selectAnime` import flow - no new server
     routes, no duplicated theme-list UI. Pressing Enter in the search box
-    (2+ characters) hands off to `/cards/new?q=<query>` instead, which
-    auto-runs that page's existing manual AniList search. A same-day fix
+    (2+ characters) handed off to `/cards/new?q=<query>` instead, which
+    auto-ran that page's existing manual AniList search. Feature 49c
+    retired that page and repointed both at `/cards?q=<text>` (see feature
+    49's entry). A same-day fix
     (`blueprint/history/fixes/narrow-global-search-to-cards.md`) removed
     the dropdown's Artists/Anime/manual-Decks groups entirely (search is
     cards-only now) and moved this fallback's trigger from the removed
@@ -386,7 +399,9 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     gated on `!immersive` so the two `window`-level handlers don't both
     fire the same keypress.
 37. **Bulk artist import** - done, two sub-features. A "search by artist"
-    mode on `/cards/new` (alongside the existing anime search) that pulls
+    mode (originally on `/cards/new`, alongside that page's anime search;
+    ported to `/cards`' Artist add-candidate group by feature 49b and the
+    page retired by 49c) that pulls
     in an artist's entire animethemes.moe catalog across every anime they
     have themes in, instead of one anime at a time.
     - **37a. Artist search + theme resolution** - done. Finds an artist on
@@ -397,7 +412,8 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
       `upsertAnime`/`getOrCreateArtist`/`upsertSong` pipeline
       `/api/lookup/import` already uses for a single anime - looped across
       all of that artist's anime instead of one picked by the user. A "By
-      anime"/"By artist" mode toggle on `/cards/new` gates a parallel
+      anime"/"By artist" mode toggle on the then-current `/cards/new`
+      gated a parallel
       artist-search form; selecting a candidate shows a read-only preview
       list of every song/theme found grouped by anime - no `Card` rows
       created yet. Only the artist's own direct `performances` are
@@ -436,9 +452,12 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     `<audio>` elements.
 39. **Search-by-song mode on Add card** - done, built ad hoc in chat
     (2026-08-31), not spec'd through `/feature`. A third "By song" toggle
-    on `/cards/new`, alongside the existing "By anime" (feature 3/4) and
-    "By artist" (feature 37) modes, letting a card be found directly by
-    song/theme title instead of going through an anime or artist first.
+    on the then-current `/cards/new`, alongside its "By anime" (feature
+    3/4) and "By artist" (feature 37) modes, letting a card be found
+    directly by song/theme title instead of going through an anime or
+    artist first. Feature 49a ported this to `/cards`' Song
+    add-candidate group and 49c retired the page; the server side below
+    is unchanged and still backs it.
     `searchSongsOnAnimeThemes()` (`server/lib/animethemes.ts`) uses
     animethemes.moe's global `search { songs { ... } }` query;
     `GET /api/lookup/song-search` wraps it read-only, and
@@ -496,7 +515,7 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     back up through a `local-path-updated` event (translated, for Preview,
     into `CardPreviewModal`'s existing `updated` event) so the calling page
     patches its own card state - `/study`'s in-memory current card, or the
-    same `updated` handler `/cards`, `/cards/new`, and `/decks` already had
+    same `updated` handler `/cards` and `/decks` already had
     for edits - and the error clears the instant the media source actually
     changes, no reload needed. A card whose failure is a broken *local*
     file (a path already set, but 404s or won't decode) is out of scope
@@ -517,8 +536,7 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     2-card lookahead), and is editable only on `/settings` - never inline on
     `/study` - so nothing can change it reactively mid-playback, specifically
     to avoid feature 18's overlapping-audio rollback cause. Wired into both
-    `/study` and Preview (`CardPreviewModal`, via `/cards`, `/cards/new`,
-    `/decks`).
+    `/study` and Preview (`CardPreviewModal`, via `/cards` and `/decks`).
 44. **Cover image for audio-mode cards, with a Hide Cover toggle** - done.
     For a card with no video actually playing this session - naturally
     audio-only, or forced there by feature 43's Audio Only setting -
@@ -600,16 +618,19 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     (`NavBar.vue`) alongside today's local `Cards` group (feature 19b/26,
     untouched): an `Artists` group backed by the existing `GET
     /api/lookup/artist-search` (animethemes.moe - the same endpoint
-    `/cards/new`'s "By artist" tab already uses) and an `Anime` group,
-    which is today's "Add a show" AniList fallback (feature 26) relabeled
+    `/cards`' Artist add-candidate group uses) and an `Anime` group,
+    which is the "Add a show" AniList fallback (feature 26) relabeled
     and always shown rather than gated behind the `Cards` group being
-    empty. Clicking an Artist result navigates to `/cards/new` with that
-    artist's full catalog already resolved via a new `?artistSlug=<slug>`
-    deep link, mirroring the existing `?aniListId=` one exactly - it
-    switches to the "By artist" tab and calls the page's existing
-    `selectArtist` on mount instead of requiring a second "Select" click
-    there. Clicking an Anime result behaves exactly as today's "Add a
-    show" (`/cards/new?aniListId=<id>`).
+    empty. Both groups originally deep-linked into `/cards/new`
+    (`?artistSlug=<slug>` and `?aniListId=<id>`), auto-resolving the
+    catalog or theme list on arrival with no second click. Feature 49c
+    retired that page, so both now navigate to `/cards?q=<name or title>`
+    instead: the same result re-surfaces in `/cards`' own Artist or Anime
+    group, one click from the same action. That extra click is a
+    deliberate trade recorded in 49c's spec - auto-opening the Artist
+    modal on arrival would cover the local/Anime/Song groups behind an
+    overlay, working against the unification feature 49 exists to
+    deliver.
 48. **Standalone platform-agnostic packaging** - done, in three
     sub-features. A self-contained executable per OS/arch (Windows,
     macOS x64/arm64, Linux) built via `bun build --compile` (`bun run
@@ -660,42 +681,69 @@ added to `build-plan.md` on 2026-09-02; only 49a is specced so far.
     default library folder on first boot when none is configured yet, so
     a fresh install can download a card immediately without a trip to
     `/settings` first.
-49. **Unify card search with Add Card** - not yet built, in three
-    sub-features. `/cards`' own search (feature 35a, already matching
-    song/artist/anime-title) becomes the one surface for finding an
-    existing card or adding a new one, replacing three separate entry
-    points (NavBar's global search dropdown, the deck-detail add flow
-    from feature 33, and the standalone `/cards/new` page) with one.
-    Local matches are always shown first; Artist/Anime/Song
-    add-candidates run in parallel alongside them (ordering only, not
-    gated on local results being empty - keeps feature 47's already-
-    parallel approach rather than reintroducing the gated behavior
-    feature 47 deliberately moved away from). Built additively in
-    phases: `/cards/new` and every existing entry point to it stay
-    untouched until the new surface is proven, then a final sub-feature
-    retires the page and rewires callers.
-    - **49a. Anime + Song add-candidates on /cards** - not yet built.
-      Extends `/cards`' search to also run the AniList anime lookup and
-      the animethemes song lookup in parallel with the existing local
-      search, rendered as two groups below local matches. Anime results
-      expand inline into a theme-picker (per-theme "Add", reusing
-      `/api/lookup/import` + `POST /api/cards`, same as `/cards/new`'s
-      anime mode today). Song results add in one click
-      (`/api/lookup/song-search` + `/api/lookup/song-import`, same as
-      `/cards/new`'s song mode today).
-    - **49b. Artist add-candidates + bulk preview modal** - not yet
-      built. Adds the third group, backed by `/api/lookup/artist-search`;
-      picking a result resolves the artist's full catalog
-      (`/api/lookup/artist-import`) into a modal (generalizing the
-      `DeckAddAnimeModal` pattern from feature 33, but for an artist's
-      multiple anime and not deck-scoped) with per-theme "Add", "Add
-      all", and "Download all" - the same bulk actions `/cards/new`'s
-      artist mode has today.
-    - **49c. Retire /cards/new** - not yet built. Once 49a/49b are in
-      place, deletes the `/cards/new` page and rewires its six existing
-      entry points (NavBar's three query-param navigations, `/cards`'
-      header and empty-state links, and the empty-state links on
-      `/stats` and `/decks`) to the unified `/cards` search instead.
+49. **Unify card search with Add Card** - done, in three sub-features.
+    `/cards`' own search (feature 35a, already matching
+    song/artist/anime-title) is now the one surface for finding an
+    existing card or adding a new one, replacing the standalone
+    `/cards/new` page (deleted) and repointing NavBar's global search
+    dropdown at it. Local matches are always shown first; Anime, Song,
+    and Artist add-candidates run in parallel alongside them (ordering
+    only, not gated on local results being empty - keeps feature 47's
+    already-parallel approach rather than reintroducing the gated
+    behavior feature 47 deliberately moved away from). Each group is its
+    own component under `components/card/` (`CardAddAnimeResults`,
+    `CardAddSongResults`, `CardAddArtistResults`), taking the same
+    `query`/`has-default-download-folder` props and emitting the same
+    `refresh`/`preview` events, with independent loading/error/empty
+    states so a slow or failed AniList lookup can't block the other
+    groups or the local list. No server route was added, removed, or
+    changed by any of the three sub-features - every endpoint
+    `/cards/new` called is still in use, now from these components.
+    Built additively in phases: `/cards/new` and every entry point to it
+    stayed untouched until the new surface was proven, then a final
+    sub-feature retired the page and rewired callers.
+    - **49a. Anime + Song add-candidates on /cards** - done. Extends
+      `/cards`' existing debounced search to also run the AniList anime
+      lookup and the animethemes song lookup in parallel with the local
+      list fetch, at the same 2-character minimum NavBar uses, rendered
+      as two groups below local matches. Anime results expand inline (no
+      navigation, no modal) into a theme-picker via `POST
+      /api/lookup/import`, with each theme getting a local-video-path
+      input and an "Add" button (`POST /api/cards`). Song results add in
+      one click (`/api/lookup/song-search` + `/api/lookup/song-import`,
+      which returns an `existingCard` instead of erroring when one
+      already exists). Both groups pre-mark already-added themes via
+      `GET /api/cards/by-songs` before any Add button renders, and a
+      successful add refreshes the local list while flipping the result
+      row to an "Added" state rather than removing it.
+    - **49b. Artist add-candidates + bulk preview modal** - done. Adds
+      the third group, backed by `GET /api/lookup/artist-search`;
+      picking a result resolves the artist's full catalog (`POST
+      /api/lookup/artist-import`, which returns `{ artistName,
+      animeGroups }` already grouped by anime) into a modal - a new
+      interaction shape for `/cards`, since Anime and Song both expand
+      inline - generalizing the `DeckAddAnimeModal` pattern from feature
+      33 for an artist's multiple anime and not deck-scoped. Per-theme
+      "Add", "Add all", and a sequential "Download all", the same bulk
+      actions feature 37b gave `/cards/new`'s artist mode. No
+      local-video-path input, matching that mode.
+    - **49c. Retire /cards/new** - done. Deleted the page and rewired
+      its seven entry points (the build-plan line says six; grep
+      confirmed seven) - NavBar's three query-param navigations, and the
+      empty-state links on `/cards`, `/stats`, and `/decks` - to the
+      unified `/cards` search. `/cards` gained one optional `?q=` param
+      that seeds its search, replacing the three retired `/cards/new`
+      params (`?q=`, `?aniListId=`, `?artistSlug=`); it is read both on
+      mount and via a `watch`, since NavBar sits on every page and a
+      search submitted while already on `/cards` navigates
+      `/cards` -> `/cards?q=X` without remounting. No redirect from
+      `/cards/new` was added - the route 404s, deliberately, for a local
+      single-user app with no external inbound links. The deck-detail
+      add flow (features 28/33) never touched `/cards/new` and is
+      unaffected, despite the parent feature's text listing it as an
+      entry point being replaced. A same-day follow-on then removed
+      `/cards`' "Add card" header button, which 49c had left in place as
+      a button that only focused the search input directly below it.
 
 ## Data model
 
@@ -907,8 +955,12 @@ Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
 path), `$fetch` for mutations, scoped `<style>` blocks using `var(--token)`.
 No dynamic route segments (`[id].ts`) exist anywhere yet - every route uses
-query-string parameters (`?type=&id=`) or a body-carried `id` for mutations,
-and that convention should continue rather than mixing in a new one.
+query-string parameters (`/decks`' `?type=&id=`, `/cards`' `?q=`) or a
+body-carried `id` for mutations, and that convention should continue rather
+than mixing in a new one. A page reading a query param should handle both
+first mount and a later same-route navigation (a `watch`, not just
+`onMounted`), since the nav bar is on every page and can navigate a page to
+itself with new params without remounting it.
 
 Routes:
 
@@ -936,20 +988,15 @@ Routes:
   also remove the card's now-unreferenced local file(s), with no added
   confirmation step. Feature 35a replaced numbered pagination with a search
   box (song/artist/anime title) plus scroll-triggered "load more." Feature
-  49 (not yet built) will extend this same search box to also surface
-  Artist/Anime/Song add-candidates alongside local matches, folding in
-  `/cards/new`'s capability - see feature 49's entry above.
-- `/cards/new` - done, though feature 49 (not yet built) plans to fold its
-  capability into `/cards`' own search and retire this route (49c) once
-  that's proven; unchanged until then. Add a card via AniList/animethemes.moe
-  lookup, with the same download action available right after a card is
-  added. Feature 37a added a "By anime"/"By artist" mode toggle - artist
-  mode searches animethemes.moe for an artist and shows a read-only theme
-  preview grouped by anime; feature 37b turned that preview into per-row
-  "Add", "Add all", and a sequential "Download all" (video only). Feature
-  39 added a third "By song" mode searching animethemes.moe by song/theme
-  title directly; all three modes share one search query field so
-  switching tabs no longer loses what was typed.
+  49 extended that same search box into the app's one add-a-card surface:
+  Anime, Song, and Artist add-candidate groups render below the local
+  matches and run in parallel with them, folding in the whole capability
+  of the now-deleted `/cards/new` page - see feature 49's entry above. It
+  accepts one optional `?q=` param that seeds the search (49c), the only
+  route param in the app besides `/decks`' existing `?type=&id=`.
+  `/cards` has no separate "Add card" button: the search box itself is
+  the add affordance, advertised by the hint line under the heading and
+  by the empty state.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle

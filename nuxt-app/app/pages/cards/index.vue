@@ -36,12 +36,6 @@ function onSearchInput() {
   }, 250);
 }
 
-const searchInputRef = ref<HTMLInputElement | null>(null);
-
-function focusSearch() {
-  searchInputRef.value?.focus();
-}
-
 const route = useRoute();
 
 function applyQueryParam(raw: unknown) {
@@ -289,14 +283,10 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
 
 <template>
   <main class="cards">
-    <div class="header-row">
-      <h1>Cards</h1>
-      <button type="button" class="add-link" @click="focusSearch">Add card</button>
-    </div>
+    <h1>Cards</h1>
     <p class="hint">Search to find your cards, or to add new ones from AniList and animethemes.moe.</p>
 
     <input
-      ref="searchInputRef"
       v-model="searchInput"
       type="text"
       placeholder="Search by song, artist, or anime title..."
@@ -483,31 +473,10 @@ async function onPreviewCardUpdated(updated: CardWithDetails) {
   padding: 48px 24px;
 }
 
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 h1 {
   margin: 0 0 8px;
   font-size: 28px;
   font-weight: 800;
-}
-
-.add-link {
-  flex: none;
-  padding: 10px 18px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-family: var(--font-sans);
-  font-size: inherit;
-  font-weight: 800;
-  text-decoration: none;
-  cursor: pointer;
 }
 
 .hint {

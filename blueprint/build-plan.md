@@ -49,20 +49,27 @@ it to your project.
 Use checkboxes. Each item should be a feature-sized outcome, not a loose task or
 a whole product area.
 
+These examples are fenced so they are never mistaken for real items in this
+plan. The real checklist starts at `## MVP` below.
+
 Good:
 
+```markdown
 - [ ] 1. **Skill submission** - upload a skill package and save its metadata
 - [ ] 2. **Validation result** - run checks and show pass/fail status for a skill
 - [ ] 3. **Directory listing** - browse and filter published skills
 - [ ] 4. **Deployment readiness** - configure Render or Vercel and verify the
   production build
+```
 
 Avoid:
 
+```markdown
 - Upload stuff
 - Database
 - Make it look nice
 - Auth, billing, dashboard, validation, and deploy
+```
 
 If your first pass is just rough bullets, that is okay. Run `/overview` after
 filling both planning docs; it will flag plan-shape problems and can propose a
@@ -267,6 +274,16 @@ cleaned-up checkbox version before generating the project overview.
   usual but automatically reveals it after a short, visibly counting-down
   timer - re-arming on every new card (including after pass/fail), not just
   once per session.
+- [x] 39. **Search-by-song mode on Add card** - a third search mode alongside
+  anime and artist that finds a card directly by song/theme title via
+  animethemes.moe's global song search, resolving the chosen result into
+  Anime/Artist/Song rows only on click. Built ad hoc in chat (2026-08-31)
+  rather than through `/feature`, and added to this plan retroactively on
+  2026-09-02 so the checklist matches what shipped.
+- [x] 40. **"Cards left" counter on Study** - a live count of due cards
+  remaining in the active study scope, next to the existing "Card N this
+  session" counter. Built ad hoc in chat (2026-08-31) rather than through
+  `/feature`, and added to this plan retroactively on 2026-09-02.
 - [x] 41. **Configurable local cache for streamed clips** - a size-capped
   local disk cache (default 1GB, adjustable in Settings) for remote
   animethemes.moe video/audio clips played directly from the CDN, so a clip
