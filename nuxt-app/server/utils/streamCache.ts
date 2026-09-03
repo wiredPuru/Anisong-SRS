@@ -1,11 +1,16 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync } from "node:fs";
 import { open } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join } from "node:path";
+import { resolveDbPath } from "../db/dataDir.ts";
 import { getStreamCacheMaxBytes } from "./mediaLibrary.ts";
 import { DOWNLOAD_TIMEOUT_MS, USER_AGENT } from "./mediaDownload.ts";
 
-const CACHE_DIR = resolve(process.cwd(), ".data/stream-cache");
+// Lives alongside the DB and the seeded "themes" library folder, both of
+// which already relocate to GAQ_SRS_DATA_DIR in a packaged build (feature
+// 48a) - reuses dataDir.ts's plain path helper rather than importing the DB
+// client module, so this stays a fs-only utility with no SQLite dependency.
+const CACHE_DIR = join(dirname(resolveDbPath(process.env, process.cwd())), "stream-cache");
 
 // How long an oversized (bigger than the configured cap) fetch is left on
 // disk after being served once, before its temp file is cleaned up - long
