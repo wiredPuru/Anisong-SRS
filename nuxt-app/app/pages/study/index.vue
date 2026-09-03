@@ -368,6 +368,26 @@ function startAutoRevealTimeout(durationMs: number) {
   }, durationMs);
 }
 
+// StudyAutoRevealCountdown only reads its `seconds` prop once, in its own
+// onMounted - it has no way to know time has already elapsed. study/index.vue
+// renders two separate instances of it (immersive vs non-immersive,
+// v-if-gated), so toggling immersive unmounts one and mounts the other fresh;
+// without this, that fresh instance would always start from the full
+// autoRevealSeconds setting instead of continuing the real countdown. Mirrors
+// the same three states onPlaybackPaused/maybeStartOrResumeAutoReveal already
+// track: actively counting down, paused mid-countdown (autoRevealRemainingMs),
+// or not started yet.
+function currentAutoRevealRemainingSeconds(): number {
+  if (autoRevealTimeout !== null) {
+    const elapsedMs = Date.now() - autoRevealArmedAt;
+    return Math.max(0, Math.ceil((autoRevealArmedDurationMs - elapsedMs) / 1000));
+  }
+  if (autoRevealRemainingMs !== null) {
+    return Math.max(0, Math.ceil(autoRevealRemainingMs / 1000));
+  }
+  return autoRevealSeconds.value;
+}
+
 // Arms (or resumes, with whatever time was left at the last pause) the
 // countdown. Called both from the reactive reset below and from every
 // playback resume. No-ops harmlessly when Auto Reveal is off, nothing has
@@ -658,7 +678,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <StudyAutoRevealCountdown
               v-if="autoRevealCountdownActive"
               :key="presentationKey"
-              :seconds="autoRevealSeconds"
+              :seconds="currentAutoRevealRemainingSeconds()"
               :ambient="ambientMode"
               :immersive="true"
             />
@@ -705,7 +725,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <StudyAutoRevealCountdown
               v-if="autoRevealCountdownActive"
               :key="presentationKey"
-              :seconds="autoRevealSeconds"
+              :seconds="currentAutoRevealRemainingSeconds()"
               :ambient="ambientMode"
             />
             <StudyInfoPanel
