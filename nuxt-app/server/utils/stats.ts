@@ -161,6 +161,77 @@ export function listAnimeStats(): AnimeStats[] {
     }));
 }
 
+// Sums raw counts across entries, then derives one rate from the totals -
+// never average the per-day passRate values, since that misweights days
+// with different review volumes.
+export function summarizeTimeline(entries: ReviewTimelineEntry[]): { totalReviews: number; passRate: number | null } {
+  const totalReviews = entries.reduce((sum, entry) => sum + entry.totalReviews, 0);
+  const passCount = entries.reduce((sum, entry) => sum + entry.passCount, 0);
+  return { totalReviews, passRate: totalReviews > 0 ? passCount / totalReviews : null };
+}
+
+export interface WeakestDeckEntry {
+  type: "artist" | "anime";
+  id: number;
+  label: string;
+  coverImageUrl: string | null;
+  passRate: number;
+  totalReviews: number;
+}
+
+// Pools artist and anime groupings into one ranked list (manual decks have no
+// per-deck stats to rank, same gap the by-artist/by-title breakdown already
+// has). minReviews filters out noisy low-sample decks before ranking.
+export function getWeakestDecks(limit: number, minReviews: number): WeakestDeckEntry[] {
+  const artistRows = db
+    .select({ id: artist.id, name: artist.name, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .groupBy(artist.id)
+    .all();
+
+  const animeRows = db
+    .select({
+      id: anime.id,
+      titleEnglish: anime.titleEnglish,
+      coverImageUrl: anime.coverImageUrl,
+      totalReviews: count(reviewLog.id),
+      passCount: passCountExpr,
+    })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .groupBy(anime.id)
+    .all();
+
+  const entries: WeakestDeckEntry[] = [];
+
+  for (const row of artistRows) {
+    const { passRate, totalReviews } = deriveCounts(row.totalReviews, row.passCount);
+    if (passRate === null || totalReviews < minReviews) continue;
+    entries.push({ type: "artist", id: row.id, label: row.name, coverImageUrl: null, passRate, totalReviews });
+  }
+
+  for (const row of animeRows) {
+    const { passRate, totalReviews } = deriveCounts(row.totalReviews, row.passCount);
+    if (passRate === null || totalReviews < minReviews) continue;
+    entries.push({
+      type: "anime",
+      id: row.id,
+      label: row.titleEnglish,
+      coverImageUrl: row.coverImageUrl,
+      passRate,
+      totalReviews,
+    });
+  }
+
+  entries.sort((a, b) => a.passRate - b.passRate);
+  return entries.slice(0, limit);
+}
+
 export function clearReviewLog(): number {
   const result = db.delete(reviewLog).run();
   return result.changes;

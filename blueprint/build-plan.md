@@ -423,7 +423,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 50d. **Decks** - poster grid, covers carrying the layout.
   - [x] 50e. **Stats** - dashboard with KPI tiles and a reviews/pass-rate
     chart.
-  - [ ] 50f. **Home** - dashboard replacing the five link cards.
+  - [x] 50f. **Home** - dashboard replacing the five link cards.
   - [ ] 50g. **Settings** - section rail + two columns.
   - [ ] 50h. **Narrow-window pass** - rail collapses to icons, split panes
     stack, tables drop columns.

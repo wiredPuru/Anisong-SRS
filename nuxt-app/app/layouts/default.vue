@@ -1,20 +1,7 @@
-<script setup lang="ts">
-const route = useRoute();
-
-// Home only, matching the design reference: every other screen carries its
-// own page-scoped search (Cards' unified search, Decks' per-tab filter) and
-// the artboards show no global box on any of them. 50f moves this into the
-// redesigned Home header; until then the strip is how Home carries it.
-const showGlobalSearch = computed(() => route.path === "/");
-</script>
-
 <template>
   <div class="app-shell">
     <NavBar />
     <div class="app-content">
-      <div v-if="showGlobalSearch" class="app-topbar">
-        <NavSearch />
-      </div>
       <slot />
     </div>
   </div>
@@ -65,20 +52,5 @@ const showGlobalSearch = computed(() => route.path === "/");
     height: auto;
     min-height: 100vh;
   }
-}
-
-/* Home only - see showGlobalSearch above.
-
-   The search dropdown is absolutely positioned inside NavSearch, and used to
-   sit above page content via .app-nav's z-index. The rail keeps that for
-   itself now, so the strip needs its own stacking context or the dropdown
-   renders underneath Home's own content. Chrome level, so an open modal
-   still covers the dropdown rather than the other way round. */
-.app-topbar {
-  position: relative;
-  z-index: var(--z-chrome);
-  display: flex;
-  justify-content: flex-end;
-  padding: 18px 24px 0;
 }
 </style>

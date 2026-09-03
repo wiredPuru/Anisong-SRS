@@ -1,6 +1,6 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, inArray, like, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { getDailyNewCardLimit, isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -248,6 +248,51 @@ export function getDueCardCount(scope: StudyScope): number {
     .innerJoin(anime, eq(song.animeId, anime.id))
     .where(dueCardCondition(scope))
     .get()!.count;
+}
+
+// "New" means never reviewed at all (zero ReviewLog rows), not box === 1 -
+// a failed card also resets to box 1, and that isn't "new".
+export function getDueCardBreakdown(scope: StudyScope): { due: number; new: number } {
+  const condition = dueCardCondition(scope);
+  const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+
+  const due = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(condition)
+    .get()!.count;
+
+  const newCount = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(and(condition, notInArray(card.id, reviewedCardIds)))
+    .get()!.count;
+
+  return { due, new: newCount };
+}
+
+// Learning/mature is a new, documented split (no existing tier concept to
+// match): box 1-2 = learning (0-1 day intervals, still forming), box 3-5 =
+// mature (3+ day intervals).
+export function getCardMaturityBreakdown(): { learning: number; mature: number } {
+  const row = db
+    .select({
+      learning: sql<number>`coalesce(sum(case when ${card.box} < 3 then 1 else 0 end), 0)`,
+      mature: sql<number>`coalesce(sum(case when ${card.box} >= 3 then 1 else 0 end), 0)`,
+    })
+    .from(card)
+    .get()!;
+  return { learning: Number(row.learning), mature: Number(row.mature) };
+}
+
+export function listRecentCards(limit: number): CardWithDetails[] {
+  return cardQuery().orderBy(desc(card.createdAt)).limit(limit).all();
 }
 
 function validateLocalPath(rawPath: string): { error: string } | { path: string } {
