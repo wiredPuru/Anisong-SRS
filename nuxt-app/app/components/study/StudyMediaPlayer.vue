@@ -786,6 +786,15 @@ onUnmounted(() => stopDrag?.());
 :global(.ambient-glow) {
   position: fixed;
   inset: 0;
+  /* .ambient-glow is a <canvas> - a replaced element, unlike a plain div.
+     A fixed/absolute replaced element with width/height auto falls back to
+     its intrinsic size (this canvas's 40x22 attributes) instead of
+     stretching to the inset box, so it needs an explicit size here. 100%
+     (not the original 100vw/100vh) resolves against the same
+     viewport-sized containing block without vw's scrollbar-inclusive
+     overflow bug in Safari. */
+  width: 100%;
+  height: 100%;
   z-index: -1;
   filter: blur(80px) saturate(1.6) brightness(0.9);
   opacity: 0.55;
