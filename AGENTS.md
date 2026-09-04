@@ -204,10 +204,13 @@ checks do not make the Blueprint unusable.
   cross-compiles the launcher into a standalone executable for each of
   Windows x64, macOS x64, macOS arm64, and Linux x64, using Bun's
   `--target` (no per-OS machine needed). Each target lands at
-  `nuxt-app/release/<target>/`, alongside sibling `migrations/` and
-  `public/` folders - ship the binary with both, since a compiled binary
-  reads migration SQL files and static web assets from disk rather than
-  embedding them.
+  `nuxt-app/release/<target>/`, alongside sibling `migrations/`,
+  `public/`, and `kuromoji/` folders - ship the binary with all three,
+  since a compiled binary reads migration SQL files, static web assets,
+  and the furigana dictionary from disk rather than embedding them. Each
+  target is also zipped to `nuxt-app/release/gaq-srs-<target>.zip`, using
+  the exact asset names the GitHub releases are published with, so those
+  archives can be uploaded as-is.
 - Measure real layout geometry (with the dev server running): `bun run measure
   <path> [flags]` - drives headless Chrome over the DevTools protocol and
   prints each selector's box, aspect ratio, whether it fits the viewport, and

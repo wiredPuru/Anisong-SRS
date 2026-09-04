@@ -97,6 +97,34 @@ for (const target of TARGETS) {
   }
   cpSync(KUROMOJI_DICT_DIR, join(kuromojiDir, "dict"), { recursive: true });
 
+  // Deleted first so a stale archive from an earlier run can't survive a
+  // failed rebuild and get uploaded as if it were current.
+  const archiveName = `gaq-srs-${target.label}.zip`;
+  rmSync(join(RELEASE_ROOT, archiveName), { force: true });
+
+  // Shelling out to zip, rather than bundling a JS zip library, is what
+  // keeps the unix exec bit on the binary - a library would have to set the
+  // entry's external attributes by hand to match. Zipping "." from inside
+  // the target folder stores paths flat, so the archive unzips to the
+  // binary and its three sibling folders side by side, which is what the
+  // published release instructions tell people to expect.
+  let zipExit: number | null = null;
+  try {
+    zipExit = Bun.spawnSync(["zip", "-qry", join("..", archiveName), ".", "-x", "*.DS_Store"], {
+      cwd: releaseDir,
+      stdout: "inherit",
+      stderr: "inherit",
+    }).exitCode;
+  } catch {
+    console.error('Could not run "zip" - is it installed and on PATH?');
+  }
+
+  if (zipExit !== 0) {
+    console.error(`Failed to archive ${target.label}.`);
+    results.push({ label: target.label, ok: false });
+    continue;
+  }
+
   results.push({ label: target.label, ok: true });
 }
 
