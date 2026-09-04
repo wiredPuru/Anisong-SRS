@@ -138,6 +138,10 @@ executable (build 48) for end users - a self-contained per-OS/arch binary
 that starts the local server and opens the browser, with no separate
 Node/Bun/Nuxt install required.
 
+The packaged build checks the project's GitHub releases for a newer version
+on launch and links to it; it never downloads or replaces itself, and the
+check failing changes nothing about how the app runs.
+
 ## 9. Non-Goals
 
 Nothing was explicitly ruled out, but the following are assumed out of scope

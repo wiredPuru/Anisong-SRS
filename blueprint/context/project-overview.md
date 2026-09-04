@@ -851,9 +851,16 @@ describing today's overlay-on-video behavior.
     answering while one was open silently reviewed the live card behind it
     - both now disable `StudyAnswerControls` via its existing `disabled`
     prop while open.
-53. **Immersive study mode: bottom bar layout** - not yet built. Added to
+53. **Immersive study mode: bottom bar layout** - built, then rolled back
+    2026-09-03 (see
+    `blueprint/history/rollbacks/2026-09-03-53-immersive-study-bottom-bar.md`).
+    A follow-on commit then removed the expand/immersive mode from `/study`
+    specifically (`CardPreviewModal` keeps its own, reached from `/cards`
+    and `/decks`), so the `/study` overlay this feature existed to replace
+    is gone and the feature's premise no longer holds there. Its build-plan
+    box is unchecked but it is not the next thing to build. Added to
     `build-plan.md` on 2026-09-03, resolving the open decision noted under
-    feature 50 above. Replaces feature 31's current immersive overlay (card
+    feature 50 above. Replaced feature 31's then-current immersive overlay (card
     info floated directly on top of the video) with the `#2b` "Bottom bar"
     candidate from
     `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`:
@@ -870,6 +877,22 @@ describing today's overlay-on-video behavior.
     "Previous" button) and `CardPreviewModal` (info only, no review
     controls, matching today). Also updates `project-plan.md` §7, replacing
     the sentence describing today's overlay-on-video behavior.
+54. **Update checker** - not yet built. Added to `build-plan.md` on
+    2026-09-04. Nothing in the app carries a version today -
+    `nuxt-app/package.json` has no `version` field - so this feature creates
+    one, stamps it into both the developer workflow and the packaged build,
+    then checks the public `wiredPuru/Anisong-SRS` GitHub releases API for a
+    newer tag and surfaces an "update available" notice linking to the
+    release page. Notify only: it never downloads or replaces the running
+    binary, because a build is an executable plus three sibling folders
+    (`migrations/`, `public/`, `kuromoji/`), Windows cannot overwrite a
+    running `.exe`, and macOS needs re-signing after any binary swap (see
+    feature 48's entry). The check is cached and fail-quiet - a rate limit,
+    an offline machine, or a GitHub outage leaves the app behaving exactly
+    as it does now, with no error surfaced. GitHub's API rejects a request
+    with no `User-Agent`, the same trap AniList and animethemes.moe already
+    required a header for (features 3 and 48). Also updates
+    `project-plan.md` §8.
 
 ## Data model
 
@@ -1249,6 +1272,12 @@ standalone executable.
   SmartScreen show a security warning on first run. Revisits the idea
   previously scoped as the now-retired feature 25, abandoned 2026-08-30
   before any code was written.
+- **Updates**: feature 54, not yet built - the packaged build checks the
+  project's GitHub releases for a newer version on launch and links to it.
+  It never downloads or replaces itself, and the check failing changes
+  nothing about how the app runs. Releases are published by hand from
+  `bun run package`'s zipped output; there is no update channel or
+  manifest beyond the GitHub releases list itself.
 - **Health check / domain**: not applicable (local-only)
 
 ## Notes

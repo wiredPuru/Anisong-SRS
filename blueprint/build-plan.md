@@ -451,6 +451,16 @@ cleaned-up checkbox version before generating the project overview.
   **Rolled back 2026-09-03** - reverted to feature 31's overlay-style
   immersive mode; see
   `blueprint/history/rollbacks/2026-09-03-53-immersive-study-bottom-bar.md`.
+- [x] 54. **Update checker** - stamps a real version into the app and the
+  packaged build (nothing carries one today), then checks the GitHub
+  releases API on launch for a newer tag and surfaces an "update available"
+  notice with a link to the release page. Cached and fail-quiet: a rate
+  limit, an offline machine, or a GitHub outage leaves the app working
+  exactly as it does now, with no error surfaced. Does not download or
+  replace the running binary - a build is an executable plus three sibling
+  folders, and Windows cannot overwrite a running .exe while macOS needs
+  re-signing after a swap, so self-replacement is a separate feature if it
+  is ever wanted.
 
 ## Plan maintenance
 

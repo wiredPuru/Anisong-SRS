@@ -16,6 +16,9 @@ const links: NavLink[] = [
 
 const route = useRoute();
 
+const { status: updateStatus, check: checkForUpdate } = useUpdateCheck();
+onMounted(() => checkForUpdate());
+
 function isActive(to: string): boolean {
   if (to === "/") return route.path === "/";
   return route.path === to || route.path.startsWith(`${to}/`);
@@ -36,6 +39,11 @@ function isActive(to: string): boolean {
       >
         <span class="nav-icon" aria-hidden="true">{{ link.icon }}</span>
         <span class="nav-label">{{ link.label }}</span>
+        <span
+          v-if="link.to === '/settings' && updateStatus?.updateAvailable"
+          class="update-dot"
+          :title="`Update available - ${updateStatus.latest}`"
+        />
       </NuxtLink>
     </div>
   </nav>
@@ -83,6 +91,7 @@ function isActive(to: string): boolean {
 }
 
 .nav-link {
+  position: relative;
   width: 60px;
   display: flex;
   flex-direction: column;
@@ -113,6 +122,19 @@ function isActive(to: string): boolean {
 
 .nav-link:hover {
   color: var(--text);
+}
+
+/* Absolutely positioned so turning it on never reflows the rail, and so it
+   survives the icon-only collapse below 820px unchanged. */
+.update-dot {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-secondary);
+  box-shadow: 0 0 6px var(--accent-secondary);
 }
 
 .nav-link.active {

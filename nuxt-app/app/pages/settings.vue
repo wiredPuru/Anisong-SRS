@@ -9,16 +9,21 @@ const { data, pending, error, refresh } = await useFetch<{
   playbackMode: "auto" | "audioOnly";
 }>("/api/media-library");
 
-type SettingsSection = "library" | "study" | "playback" | "cache" | "import";
+type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "about";
 
-const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import"];
+const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import", "about"];
 const SECTION_LABELS: Record<SettingsSection, string> = {
   library: "Media library",
   study: "Study pacing",
   playback: "Playback",
   cache: "Cache",
   import: "Import & export",
+  about: "About",
 };
+
+const appVersion = useRuntimeConfig().public.appVersion;
+const { status: updateStatus, pending: updatePending, check: checkForUpdate } = useUpdateCheck();
+onMounted(() => checkForUpdate());
 
 function parseSection(value: unknown): SettingsSection {
   return SECTIONS.includes(value as SettingsSection) ? (value as SettingsSection) : "library";
@@ -138,6 +143,44 @@ async function importDeck() {
       </header>
 
       <div class="settings-body">
+        <!-- Deliberately outside the settings fetch below: the running version
+             is exactly what you want readable when settings fail to load. -->
+        <div v-if="activeSection === 'about'" class="section-panels">
+          <div class="panel panel-full">
+            <div class="panel-header">
+              <span class="panel-title">Version</span>
+              <span class="panel-hint">This copy of GAQ SRS, and whether a newer release exists.</span>
+            </div>
+
+            <p class="version-line">{{ updateStatus?.current ?? appVersion }}</p>
+
+            <p v-if="updatePending" class="state">Checking for updates...</p>
+            <a
+              v-else-if="updateStatus?.updateAvailable && updateStatus.releaseUrl"
+              :href="updateStatus.releaseUrl"
+              target="_blank"
+              rel="noreferrer"
+              class="update-link"
+            >
+              Update available - {{ updateStatus.latest }}
+            </a>
+            <p v-else-if="updateStatus && !updateStatus.checkFailed" class="version-hint">
+              You're up to date.
+            </p>
+            <p v-else class="version-hint">Couldn't check for updates.</p>
+
+            <button
+              type="button"
+              class="add-btn version-check-btn"
+              :disabled="updatePending"
+              @click="checkForUpdate(true)"
+            >
+              Check again
+            </button>
+          </div>
+        </div>
+
+        <template v-else>
         <div v-if="pending" class="state">Loading...</div>
         <div v-else-if="error" class="state state-error">Couldn't load settings. Try refreshing.</div>
         <template v-else-if="data">
@@ -254,6 +297,7 @@ async function importDeck() {
               </div>
             </template>
           </div>
+        </template>
         </template>
       </div>
     </div>
@@ -390,6 +434,36 @@ async function importDeck() {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--muted);
+}
+
+.version-line {
+  font-size: 22px;
+  font-family: var(--font-sans);
+  color: var(--text);
+}
+
+.version-hint {
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.update-link {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.version-check-btn {
+  align-self: flex-start;
+}
+
+.update-link:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .state-error {
