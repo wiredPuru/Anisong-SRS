@@ -85,7 +85,6 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
         body: { cardId: currentCard.value.id, result },
       });
       reviewedCount.value += 1;
-      await fetchNext();
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to submit review.");
     } finally {

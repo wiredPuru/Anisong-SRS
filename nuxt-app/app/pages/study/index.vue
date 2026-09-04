@@ -91,13 +91,24 @@ interface SessionHistoryEntry {
 // start/Ambient mode; resets on scope change below.
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
 
+// True once a grade has been posted for the current card but Info was still
+// hidden at that moment - the reveal happens immediately, but advancing to
+// the next card waits for an explicit Continue (see submitReview/confirmAdvance
+// below). Session-only, like sessionHistory; resets on scope change.
+const pendingAdvance = ref(false);
+
 watch(scope, () => {
   sessionHistory.value = [];
+  pendingAdvance.value = false;
 });
 
 async function submitReview(result: "pass" | "fail") {
   const reviewedCard = currentCard.value;
   const countBefore = reviewedCount.value;
+  // Read before submit() - nothing else changes these refs during the await,
+  // but reading them at the wrong point would break the "Info already
+  // visible -> advance immediately" case below.
+  const needsReveal = hideInfo.value && !autoRevealedThisCard.value;
   await submit(result);
   // reviewedCount only increments after a *successful* POST
   // /api/study/review, inside submit() - comparing it (not presentationKey,
@@ -106,7 +117,25 @@ async function submitReview(result: "pass" | "fail") {
   // `reviewing`) or a failed request.
   if (reviewedCard && reviewedCount.value !== countBefore) {
     sessionHistory.value.push({ card: reviewedCard, result });
+    if (needsReveal) {
+      // Same finalize-reveal path the `i` hotkey / Auto Reveal already use
+      // (onHideToggleChanged below) - grading while Info is still hidden
+      // reveals it immediately, but holds off fetching the next card until
+      // the user confirms via Continue.
+      autoRevealedThisCard.value = true;
+      stopAutoRevealTimeout();
+      autoRevealRemainingMs = null;
+      pendingAdvance.value = true;
+    } else {
+      await refreshStudySession();
+    }
   }
+}
+
+async function confirmAdvance() {
+  if (!pendingAdvance.value) return;
+  pendingAdvance.value = false;
+  await refreshStudySession();
 }
 
 const mediaPlayerRef = ref<{ pause: () => void } | null>(null);
@@ -710,7 +739,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             &#8617; Previous card
             <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
           </button>
-          <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
+          <StudyAnswerControls
+            :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog"
+            :pending-advance="pendingAdvance"
+            @pass="submitReview('pass')"
+            @fail="submitReview('fail')"
+            @continue="confirmAdvance"
+          />
           <!-- Every key here is checked against a real handler: S in
                StudyMediaPlayer's onKeydown, I in this page's own. The
                artboard's legend reads "SPACE play/pause / R replay / H hide

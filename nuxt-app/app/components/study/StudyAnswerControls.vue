@@ -1,11 +1,17 @@
 <script setup lang="ts">
-const props = defineProps<{ disabled: boolean }>();
-const emit = defineEmits<{ pass: []; fail: [] }>();
+const props = defineProps<{ disabled: boolean; pendingAdvance: boolean }>();
+const emit = defineEmits<{ pass: []; fail: []; continue: [] }>();
 
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
   if (props.disabled || isTypingTarget(event)) return;
+  // Once a grade is locked in and awaiting confirmation to advance, Fail/Pass
+  // are inert - only Enter (Continue) does anything.
+  if (props.pendingAdvance) {
+    if (event.key === "Enter") emit("continue");
+    return;
+  }
   if (event.key === "ArrowLeft") emit("fail");
   else if (event.key === "ArrowRight") emit("pass");
 }
@@ -16,15 +22,19 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 <template>
   <div class="answer-bar">
-    <button type="button" class="answer-btn fail" :disabled="disabled" @click="emit('fail')">
+    <button type="button" class="answer-btn fail" :disabled="disabled || pendingAdvance" @click="emit('fail')">
       <span class="answer-label">Fail</span>
       <span class="key">&larr; Arrow</span>
     </button>
-    <button type="button" class="answer-btn pass" :disabled="disabled" @click="emit('pass')">
+    <button type="button" class="answer-btn pass" :disabled="disabled || pendingAdvance" @click="emit('pass')">
       <span class="answer-label">Pass</span>
       <span class="key">Arrow &rarr;</span>
     </button>
   </div>
+  <button v-if="pendingAdvance" type="button" class="continue-btn" :disabled="disabled" @click="emit('continue')">
+    <span class="answer-label">Continue</span>
+    <span class="key">Enter</span>
+  </button>
 </template>
 
 <style scoped>
@@ -111,5 +121,41 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   letter-spacing: 1px;
   text-transform: uppercase;
   opacity: 0.75;
+}
+
+.continue-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 12%, var(--bg));
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.continue-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
+}
+
+.continue-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
+}
+
+.continue-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
