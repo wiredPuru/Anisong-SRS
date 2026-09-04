@@ -184,7 +184,6 @@ function onCardEdited(updated: { id: number; localVideoPath: string | null; loca
 
 const showNewCardLimitPopover = ref(false);
 const newCardLimitPopoverRef = ref<HTMLElement | null>(null);
-const learningControlOpen = ref(false);
 
 async function onSettingsSaved() {
   await Promise.all([refreshStudySettings(), refreshStudySession()]);
@@ -252,7 +251,6 @@ const hideCover = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
 const showControls = ref(true);
-const immersive = ref(false);
 type AutoRevealMode = "off" | "video" | "info" | "both";
 const AUTO_REVEAL_MODES: readonly AutoRevealMode[] = ["off", "video", "info", "both"];
 function isAutoRevealMode(value: string | null): value is AutoRevealMode {
@@ -332,8 +330,6 @@ watch(autoRevealSeconds, (value) => {
 
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
-// Shared by both StudyAutoRevealCountdown instances (immersive and
-// non-immersive) so their v-if conditions can't drift apart.
 const autoRevealCountdownActive = computed(
   () => autoRevealMode.value !== "off" && hasStartedPlaybackThisCard.value && !autoRevealedThisCard.value,
 );
@@ -369,12 +365,9 @@ function startAutoRevealTimeout(durationMs: number) {
 }
 
 // StudyAutoRevealCountdown only reads its `seconds` prop once, in its own
-// onMounted - it has no way to know time has already elapsed. study/index.vue
-// renders two separate instances of it (immersive vs non-immersive,
-// v-if-gated), so toggling immersive unmounts one and mounts the other fresh;
-// without this, that fresh instance would always start from the full
-// autoRevealSeconds setting instead of continuing the real countdown. Mirrors
-// the same three states onPlaybackPaused/maybeStartOrResumeAutoReveal already
+// onMounted - it has no way to know time has already elapsed, so this
+// derives the true remaining time instead of a static prop. Mirrors the
+// same three states onPlaybackPaused/maybeStartOrResumeAutoReveal already
 // track: actively counting down, paused mid-countdown (autoRevealRemainingMs),
 // or not started yet.
 function currentAutoRevealRemainingSeconds(): number {
@@ -546,8 +539,6 @@ function onKeydown(event: KeyboardEvent) {
     ambientMode.value = !ambientMode.value;
   } else if (key === "h") {
     showControls.value = !showControls.value;
-  } else if (key === "e") {
-    immersive.value = !immersive.value;
   } else if (key === "p") {
     openPreviousCard();
   } else if (key === "l") {
@@ -654,7 +645,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
         </div>
       </header>
-      <div class="study-grid" :class="{ 'study-grid-immersive': immersive }">
+      <div class="study-grid">
         <div class="player-pane">
         <StudyMediaPlayer
           ref="mediaPlayerRef"
@@ -663,62 +654,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :hide-video="(hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
           :random-start="randomStart"
           :ambient="ambientMode"
-          :allow-expand="true"
           :hide-theme-badge="hideInfo && !autoRevealedThisCard"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="playerAudioOnly"
           :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
-          :hide-listening-label="immersive && autoRevealCountdownActive"
-          v-model:immersive="immersive"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
-        >
-          <template v-if="immersive" #immersive>
-            <StudyAutoRevealCountdown
-              v-if="autoRevealCountdownActive"
-              :key="presentationKey"
-              :seconds="currentAutoRevealRemainingSeconds()"
-              :ambient="ambientMode"
-              :immersive="true"
-            />
-            <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
-              <StudyInfoPanel
-                :blurred="hideInfo && !autoRevealedThisCard"
-                :presentation-key="presentationKey"
-                :ambient="ambientMode"
-                :hide-toggles="!showControls"
-                :immersive="true"
-                :song-title="currentCard.songTitle"
-                :song-title-native="currentCard.songTitleNative"
-                :artist-name="currentCard.artistName"
-                :anime-title-english="currentCard.animeTitleEnglish"
-                :anime-title-romaji="currentCard.animeTitleRomaji"
-                :anime-title-native="currentCard.animeTitleNative"
-                :theme-slot="currentCard.themeSlot"
-                :box="currentCard.box"
-                :streak="currentCard.streak"
-                :streak-required="studySettings?.boxOneStreakRequired"
-                @streak-required-saved="onSettingsSaved"
-                @streak-control-open-change="learningControlOpen = $event"
-              />
-            </div>
-            <div class="answer-slot">
-              <button
-                v-if="sessionHistory.length > 0"
-                type="button"
-                class="previous-card-btn"
-                @click="openPreviousCard"
-              >
-                &#8617; Previous
-                <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
-              </button>
-              <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
-            </div>
-          </template>
-        </StudyMediaPlayer>
+        />
         </div>
-        <div v-if="!immersive" class="side">
+        <div class="side">
           <div class="info-panel-wrap">
             <StudyAutoRevealCountdown
               v-if="autoRevealCountdownActive"
@@ -767,14 +712,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
           <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
           <!-- Every key here is checked against a real handler: S in
-               StudyMediaPlayer's onKeydown, I and E in this page's own. The
+               StudyMediaPlayer's onKeydown, I in this page's own. The
                artboard's legend reads "SPACE play/pause / R replay / H hide
                info" - all three wrong, and there is no replay binding at
                all, so it is deliberately not copied. -->
           <p class="hotkey-legend">
             <span><kbd>S</kbd> play/pause</span>
             <span><kbd>I</kbd> hide info</span>
-            <span><kbd>E</kbd> immersive</span>
             <span><kbd>P</kbd> previous card</span>
             <span><kbd>L</kbd> session log</span>
           </p>
@@ -1000,16 +944,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   visibility: visible;
 }
 
-/* CardPreviewModal itself renders at --z-modal, which sits below
-   --z-immersive - fine for every other place it's used, but both
-   overlays here ("Previous" and the session log) can be opened from
-   inside immersive mode (their triggers stay visible there), so they
-   need to outrank it. A wrapper with its own stacking context does that
-   without changing CardPreviewModal, StudySessionLogModal (which sets its
-   own --z-above-immersive directly), or the shared z-index scale. */
 .study-overlay-anchor {
   position: relative;
-  z-index: var(--z-above-immersive);
 }
 
 .previous-card-btn {
@@ -1064,10 +1000,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   align-items: stretch;
 }
 
-.study-grid-immersive {
-  grid-template-columns: 1fr;
-}
-
 @media (max-width: 820px) {
   .study-grid {
     grid-template-columns: 1fr;
@@ -1120,101 +1052,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   position: relative;
 }
 
-/* Rendered through StudyMediaPlayer.vue's "immersive" slot, so these are
-   real DOM children of .player-frame (position: relative) - positioning is
-   plain and exact relative to the video's own box, no need to replicate its
-   viewport-centering math (a previous attempt at that got both the
-   horizontal AND vertical math wrong in different ways). */
-/* Each offset is a plain percent of .player-frame's own box (the
-   containing block for an absolutely positioned descendant), calibrated
-   against the same ~1450x816 reference frame as the cqw values below, so
-   position keeps constant proportion to the frame at every size instead of
-   sticking to a fixed px offset tuned for one particular width. */
-/* max-height bounds the card so its own content (a long title can wrap to
-   two lines, on top of romaji/JP/song/artist) can never grow tall enough to
-   run under .answer-slot, which paints after it in DOM order and would
-   otherwise silently hide whatever it overlaps - proportional width scaling
-   alone doesn't shrink content to fit a *short* frame, only a narrow one.
-   67% leaves room for the top offset plus .answer-slot's own reserved space
-   below. overflow-y is the backstop for the rare case content still doesn't
-   fit even at the smallest clamped text size - scrollable beats silently
-   hidden. */
-.info-slot {
-  position: absolute;
-  top: 7.36%;
-  left: 1.1%;
-  max-width: 55%;
-  max-height: 67%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 10;
-}
-
-/* The Learning chip's tooltip/popover are positioned absolute descendants of
-   .info-slot, but .info-slot and .answer-slot are separate stacking contexts
-   at the same z-index - a child's z-index can never out-rank a sibling
-   stacking context, so nothing inside .info-slot could paint above
-   .answer-slot no matter how high its own z-index was. Bumped only while the
-   Learning tooltip/popover is actually open (StudyInfoPanel.vue's
-   streak-control-open-change), so normal info-card content still loses to
-   .answer-slot by default - the deliberate behavior the max-height comment
-   above already relies on. */
-.info-slot-elevated {
-  z-index: 20;
-  overflow: visible;
-}
-
-/* bottom uses max(), not a plain %, so this never shrinks below
-   .player-controls' own clamped floor height (StudyMediaPlayer.vue) on a
-   very small frame - a plain percentage clearance can shrink faster than
-   that floor stops shrinking, letting the two overlap again right where the
-   proportional scaling above bottoms out. 60px clears the controls bar's
-   worst-case floor height (~49px: two 9px vertical paddings plus a 31px
-   play button) with a small buffer. */
-.answer-slot {
-  position: absolute;
-  left: 1.1%;
-  right: 1.1%;
-  bottom: max(11.03%, 60px);
-  z-index: 10;
-}
-
-/* Each button gets its own frosted background, matching the info card's
-   overlay treatment, rather than one undifferentiated bar behind both -
-   :deep() reaches into StudyAnswerControls.vue's own scoped .answer-btn
-   without needing to touch that component. Its existing pass/fail-tinted
-   border-color is left alone so the two stay visually distinct. */
-/* Transparent, blur-only "glass" look (the one the user actually wanted -
-   an earlier round mistakenly forced this to a dark tint instead).
-   !important still needed to beat StudyAnswerControls.vue's own scoped
-   .answer-btn rule (background: var(--surface)). */
-.answer-slot :deep(.answer-btn) {
-  background: transparent !important;
-  /* Lighter than the shared --glass-blur token (app-wide default) so the
-     video stays more visible through it - matches StudyInfoPanel.vue's
-     immersive chips, which use the same value. */
-  backdrop-filter: blur(10px) saturate(1.3) !important;
-  /* Matches StudyInfoPanel.vue's immersive text-shadow treatment. */
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
-  /* Proportional to .player-frame's rendered width (StudyMediaPlayer.vue's
-     container-type: inline-size) instead of StudyAnswerControls.vue's own
-     fixed px, calibrated against the same ~1450px reference frame as
-     StudyInfoPanel.vue - see its .info-card.overlay comment for why this
-     isn't capped at today's fixed value. !important for the same
-     specificity reason as the properties above - StudyAnswerControls.vue is
-     also used outside .player-frame (the non-immersive .side panel), so its
-     own base rule is left untouched and only overridden here. */
-  padding: clamp(12px, 1.38cqw, 32px) !important;
-  gap: clamp(8px, 0.83cqw, 19px) !important;
-  font-size: clamp(13px, 1.24cqw, 29px) !important;
-}
-
-.answer-slot :deep(.answer-bar) {
-  gap: clamp(10px, 1.1cqw, 26px) !important;
-}
-
 .hotkey-legend {
   margin: 0;
   display: flex;
@@ -1230,10 +1067,5 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .hotkey-legend kbd {
   font-family: inherit;
   color: var(--muted);
-}
-
-.answer-slot :deep(.key) {
-  padding: clamp(2px, 0.21cqw, 5px) clamp(6px, 0.62cqw, 14px) !important;
-  font-size: clamp(9px, 0.9cqw, 21px) !important;
 }
 </style>
