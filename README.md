@@ -1,82 +1,141 @@
 # GAQ SRS
 
-A personal, local-only spaced-repetition flashcard app for memorizing anime
-opening/ending songs, titles, and artists - built for practicing
-[animemusicquiz.com](https://animemusicquiz.com) (AMQ). Card metadata and
-clips are pulled from AniList and animethemes.moe; everything else (your
-library, your review history) stays on your own machine.
+Flashcards for anime songs. You hear an opening or ending, try to name the
+anime, the song, and the artist, and the app schedules it to come back later -
+more often for the ones you keep missing, rarely for the ones you know cold.
 
-## Screenshots
+Built for practicing [animemusicquiz.com](https://animemusicquiz.com) (AMQ).
+Song data and clips come from AniList and animethemes.moe. Everything else -
+your library, your review history - stays on your own machine. There is no
+account, no sync, and no server but the one running on your laptop.
 
 <p align="center">
-  <img src="docs/screenshots/study-session.png" width="800" alt="Study session"><br>
-  <sub>Study session - video playback, pass/fail, and language toggles (EN / Romaji / Japanese + Furigana)</sub>
+  <img src="docs/screenshots/home.png" width="820" alt="Home dashboard">
 </p>
+
+## Install
+
+Grab your platform from the
+[Releases](https://github.com/wiredPuru/Anisong-SRS/releases) page, unzip it,
+and run the executable. It starts a local server and opens your browser. No
+Node, Bun, or Nuxt install needed.
+
+| Platform | File |
+| --- | --- |
+| Windows (x64) | `gaq-srs-windows-x64.zip` |
+| macOS (Apple Silicon) | `gaq-srs-macos-arm64.zip` |
+| macOS (Intel) | `gaq-srs-macos-x64.zip` |
+| Linux (x64) | `gaq-srs-linux-x64.zip` |
+
+Keep the executable next to the `migrations/`, `public/`, and `kuromoji/`
+folders it ships with - it reads all three from disk at startup.
+
+The builds are not code-signed, so you get a warning the first time:
+
+- **macOS** - right-click the executable and choose Open, then confirm. On
+  v1.1.0 and earlier you may instead see `"gaq-srs" is damaged and can't be
+  opened`, which is misleading; the file is fine. Either download v1.2.0 or
+  later, or clear the quarantine flag:
+  `xattr -dr com.apple.quarantine /path/to/folder`
+- **Windows** - SmartScreen shows "Windows protected your PC". Choose More
+  info, then Run anyway.
+- **macOS/Linux** - if the file will not execute, `chmod +x gaq-srs`.
+
+Your database lives outside the app folder (in your OS's standard app-data
+directory), so upgrading is just replacing the folder.
+
+## Getting started
+
+### 1. Add some cards
+
+Go to **Cards** and type into the search box. It searches the cards you already
+have and, at the same time, offers new ones to add from three directions:
+
+- **by anime** - pick a show, then pick which openings and endings you want
+- **by song** - if you know the track name but not the show
+- **by artist** - pulls that artist's whole catalog across every anime they
+  have themes in, so you can add them in bulk
+
+Each result has an Add button. Added cards show up in the list immediately.
+
 <p align="center">
-  <img src="docs/screenshots/study-ambient-mode.jpg" width="800" alt="Ambient mode with info hidden"><br>
-  <sub>Ambient mode, with Hide Info and Auto Reveal active</sub>
+  <img src="docs/screenshots/cards.png" width="820" alt="Card library">
 </p>
+
+By default, clips stream from animethemes.moe and get cached to disk as you
+play them. If you would rather keep local copies, set a download folder in
+**Settings -> Media library**, then use the download action on a card. Already
+have a folder of clips? Add it under Local folders and point cards at those
+files instead.
+
+### 2. Study
+
+Hit **Study**. You get a clip and a hidden answer; play it, guess, then reveal
+and mark yourself.
+
 <p align="center">
-  <img src="docs/screenshots/cards-library.png" width="700" alt="Cards library"><br>
-  <sub>Card library with search</sub>
+  <img src="docs/screenshots/study.png" width="820" alt="Study session">
 </p>
+
+The panel on the right shows the anime title in English, Romaji, and Japanese,
+each independently toggleable, with furigana over the kanji if you want it. In
+the shot above the video itself is veiled - that is the Hide Video toggle, so
+you are guessing from audio alone.
+
+Answer with **Pass** or **Fail** (or the left and right arrow keys). Pass moves
+a card up a box and pushes it further out; fail sends it back to box 1 and it
+returns in the same session.
+
+| Box | Comes back in |
+| --- | --- |
+| 1 | immediately |
+| 2 | 1 day |
+| 3 | 3 days |
+| 4 | 7 days |
+| 5 | 14 days |
+
+The row of toggles up top changes how much you get to see: hide the video, hide
+the cover art, hide the info panel, start at a random point in the clip, or let
+**Auto reveal** uncover the answer on a timer. There is also an ambient glow
+mode that samples colour from whatever is playing.
+
+**Hotkeys**
+
+| Key | Does |
+| --- | --- |
+| <kbd>&larr;</kbd> / <kbd>&rarr;</kbd> | Fail / Pass |
+| <kbd>S</kbd> | Play / pause |
+| <kbd>I</kbd> | Hide or show the info panel |
+| <kbd>V</kbd> | Hide or show the video |
+| <kbd>C</kbd> | Hide or show the cover art |
+| <kbd>A</kbd> | Ambient glow |
+| <kbd>H</kbd> | Hide or show the toggle row |
+| <kbd>P</kbd> | Reopen the card you just reviewed |
+| <kbd>L</kbd> | Session log |
+
+### 3. Study a slice of your library
+
+**Decks** groups your cards automatically by anime and by artist, so you can
+drill one show or one singer instead of everything. You can also create your
+own decks and put whatever you like in them.
+
 <p align="center">
-  <img src="docs/screenshots/settings.png" width="500" alt="Settings page"><br>
-  <sub>Media library, deck import, and study-pacing settings</sub>
+  <img src="docs/screenshots/decks.png" width="820" alt="Decks">
 </p>
 
-## Features
+Any deck can be studied on its own, and artist and anime decks can be exported
+to a folder and imported back (or handed to someone else).
 
-- **Add cards** by anime, by artist, or by song title, via AniList and
-  animethemes.moe lookup - including bulk artist import (pull an artist's
-  entire catalog at once)
-- **Study sessions** using a 5-box Leitner scheduler, with video/audio
-  playback, pass/fail review, an immersive full-screen mode, and independent
-  English / Romaji / Japanese+Furigana title toggles
-- **Decks** - automatic Artist and Anime-Title groupings, plus manual decks
-  you create and organize yourself
-- **Stats** - guess-rate tracking, overall and sliced by artist or anime
-- **Media handling** - local file support, remote streaming with an on-disk
-  cache, download-to-local, and deck export/import
-- **Global search** across your cards, artists, and anime
-- **Standalone packaging** - runs as a double-clickable executable with no
-  Node/Bun/Nuxt install required (see Downloads below)
+### 4. Check how you are doing
 
-## Downloads
+**Stats** tracks your guess rate over time, broken down by artist and by anime,
+so you can see which shows you keep whiffing.
 
-Prebuilt executables for Windows, macOS (Intel and Apple Silicon), and Linux
-are published on the [Releases](https://github.com/wiredPuru/Anisong-SRS/releases)
-page. Download the archive for your platform, unzip it, and run the
-executable - it starts a local server and opens your browser to it
-automatically. Keep the executable next to the `migrations/`, `public/`, and
-`kuromoji/` folders it ships with; it reads all three from disk at startup.
+**Settings** is where you point the app at local clip folders, set a download
+folder, cap the size of the streaming cache, choose audio-only playback, and
+pace how many new cards get introduced per day.
 
-The binaries are not code-signed, so your OS warns about them on first run.
-
-**macOS.** A downloaded build is quarantined by the browser, and because it
-isn't signed by a registered developer macOS may refuse it outright - in some
-versions with the misleading message `"gaq-srs" is damaged and can't be
-opened`, whose only offered action is to delete it. The file is not damaged.
-Clear the quarantine flag on the unzipped folder and it will run:
-
-```sh
-xattr -dr com.apple.quarantine /path/to/gaq-srs-macos-arm64
-```
-
-You may also need `chmod +x gaq-srs` if the executable bit was lost in
-transit. Right-click -> Open is the other way past the warning.
-
-**Windows.** SmartScreen shows "Windows protected your PC" - choose More info
--> Run anyway.
-
-## Tech stack
-
-- [Nuxt](https://nuxt.com) (TypeScript) - application framework
-- SQLite + [Drizzle ORM](https://orm.drizzle.team) - local data storage
-- [AniList](https://anilist.co) and [animethemes.moe](https://animethemes.moe) - anime/song metadata and clips
-- [Bun](https://bun.sh) - runtime, package manager, and standalone executable packaging
-
-## Development
+## Building from source
 
 The app lives in `nuxt-app/`:
 
@@ -86,8 +145,8 @@ bun install
 bun run dev        # http://localhost:3000
 ```
 
-Other commands (build, test, package a release binary) are documented in
-[AGENTS.md](AGENTS.md).
+Build, packaging, and other commands are in [AGENTS.md](AGENTS.md), along with
+the workflow this project is built with.
 
-This project is scaffolded with the AI Blueprint workflow layer - see
-`AGENTS.md` and `blueprint/` for how it's built.
+Nuxt + TypeScript, SQLite via Drizzle, Bun for the runtime and the standalone
+executables.
