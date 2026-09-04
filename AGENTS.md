@@ -231,9 +231,15 @@ checks do not make the Blueprint unusable.
       bun run measure /study --size 1400x640 --key e --select .player-frame
       bun run measure /study --css ".app-content{height:auto;min-height:100vh}"
 
-Testing is opt-in. No test runner is configured yet; run `/tests` or `$tests`
-to add one and update this section with the real test commands once logic
-worth testing exists (data layer, SRS scheduling, API clients).
+- Test: `bun run test` (Vitest, run once) - run in `nuxt-app/`
+- Test (watch): `bun run test:watch`
+
+Tests live next to the source they cover (`version.test.ts` beside
+`version.ts`). Scope is pure logic where a wrong answer is possible; UI and
+integration surfaces ride on browser and build evidence instead. See the
+Testing section of `blueprint/context/coding-standards.md` for the gate this
+turns on: a build step that adds in-scope logic now ships a passing test in
+the same diff.
 
 No GitHub Actions CI exists yet. Run `/ci` or `$ci` when you want a
 project-specific `Verify` command and matching automatic GitHub checks.

@@ -11,6 +11,8 @@
     "launch": "bun run launcher/index.ts",
     "package": "bun run scripts/package.ts",
     "measure": "bun run scripts/measure.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "vitest": "^5.0.0"
   }
 }

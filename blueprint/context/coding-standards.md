@@ -89,10 +89,10 @@ colors/sizes.
 
 ## Testing
 
-No test runner is configured yet, so the logic-test gate below is opt-in until
-`/tests` (or `$tests`) adds one. Good early candidates once it exists: Leitner
-box interval logic, GraphQL response mapping, and deck export/import
-metadata handling - all pure logic with clear right/wrong answers.
+Vitest is configured (`bun run test`), so the logic-test gate below is **on**.
+Remaining good candidates for coverage: Leitner box interval logic, GraphQL
+response mapping, and deck export/import metadata handling - all pure logic
+with clear right/wrong answers.
 
 When `AGENTS.md` declares a `Verify` command, treat it as the umbrella automated
 gate. It combines only the checks this project actually has, in this order when
