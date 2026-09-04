@@ -1,5 +1,6 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { checkPackagedVersion } from "./versionGuard.ts";
 
 interface Target {
   label: string;
@@ -33,6 +34,57 @@ if (!existsSync(SERVER_ENTRY)) {
   console.error(`${SERVER_ENTRY} not found. Run "bun run build" first.`);
   process.exit(1);
 }
+
+// Walks .output/server for the appVersion nuxt build baked into runtimeConfig,
+// rather than reading one known chunk path, so a Nitro reshuffle degrades to
+// "could not read" instead of silently comparing against nothing.
+function findBakedVersion(dir: string): string | null {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findBakedVersion(path);
+      if (found) return found;
+      continue;
+    }
+    if (!entry.name.endsWith(".mjs")) continue;
+    const match = readFileSync(path, "utf8").match(/"appVersion"\s*:\s*"([^"]+)"/);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+function readHeadTag(): string | null {
+  try {
+    const proc = Bun.spawnSync(["git", "tag", "--points-at", "HEAD"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (proc.exitCode !== 0) return null;
+    // Several tags can point at one commit; only a version-shaped one matters.
+    return (
+      proc.stdout
+        .toString()
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => /^v?\d+(\.\d+)*$/.test(line)) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+const packageVersion = JSON.parse(readFileSync("package.json", "utf8")).version as string;
+const versionCheck = checkPackagedVersion({
+  packageVersion,
+  bakedVersion: findBakedVersion(".output/server"),
+  headTag: readHeadTag(),
+});
+
+if (!versionCheck.ok) {
+  console.error(versionCheck.message);
+  process.exit(1);
+}
+console.log(versionCheck.message);
 
 // Nitro's Node-targeted dependency pruning drops files Bun's --compile
 // bundler needs from @vue/shared and sibling packages' conditional exports
