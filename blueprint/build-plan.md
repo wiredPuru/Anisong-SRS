@@ -461,6 +461,13 @@ cleaned-up checkbox version before generating the project overview.
   folders, and Windows cannot overwrite a running .exe while macOS needs
   re-signing after a swap, so self-replacement is a separate feature if it
   is ever wanted.
+- [x] 55. **Bulk add-all + download-all parity for anime search results** -
+  the Anime add-candidate group on `/cards` gains the same bulk actions the
+  Artist group already has (feature 49b): an "Add all" button that adds
+  every theme for the expanded anime in one action, and a "Download all"
+  button that downloads every added card's remaining source. Also extends
+  both groups' "Download all" to cover audio as well as video - today it's
+  video-only even for artists.
 
 ## Plan maintenance
 

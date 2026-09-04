@@ -162,6 +162,48 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
   if (updated) addedCards[songId] = updated;
 }
 
+const downloadingAll = ref(false);
+
+function hasDownloadableAdded(): boolean {
+  if (!selectedAnime.value) return false;
+  return selectedAnime.value.themes.some((theme) => {
+    const card = addedCards[theme.songId];
+    return card ? hasAnyDownloadableSource(card) : false;
+  });
+}
+
+async function downloadAllMedia() {
+  if (!selectedAnime.value) return;
+
+  downloadingAll.value = true;
+  try {
+    for (const theme of selectedAnime.value.themes) {
+      const card = addedCards[theme.songId];
+      if (!card) continue;
+      if (canDownload(card, "video")) await downloadMedia(theme.songId, "video");
+      if (canDownload(addedCards[theme.songId]!, "audio")) await downloadMedia(theme.songId, "audio");
+    }
+  } finally {
+    downloadingAll.value = false;
+  }
+}
+
+const addingAll = ref(false);
+
+async function addAllThemes() {
+  if (!selectedAnime.value) return;
+
+  addingAll.value = true;
+  try {
+    for (const theme of selectedAnime.value.themes) {
+      if (addedCards[theme.songId]) continue;
+      await addCard(theme);
+    }
+  } finally {
+    addingAll.value = false;
+  }
+}
+
 async function addCard(theme: ThemeResult) {
   addError[theme.songId] = null;
   adding[theme.songId] = true;
@@ -221,7 +263,22 @@ async function removeCard(songId: number) {
               <p v-if="!selectedAnime.themes.length" class="state">
                 No themes found for this anime on animethemes.moe.
               </p>
-              <ul v-else class="theme-list">
+              <template v-else>
+                <div class="bulk-actions">
+                  <button type="button" class="add-btn" :disabled="addingAll" @click="addAllThemes">
+                    {{ addingAll ? "Adding..." : "Add all" }}
+                  </button>
+                  <button
+                    v-if="props.hasDefaultDownloadFolder && hasDownloadableAdded()"
+                    type="button"
+                    class="download-btn"
+                    :disabled="downloadingAll"
+                    @click="downloadAllMedia"
+                  >
+                    {{ downloadingAll ? "Downloading..." : "Download all" }}
+                  </button>
+                </div>
+                <ul class="theme-list">
                 <li v-for="theme in selectedAnime.themes" :key="theme.songId" class="theme-row">
                   <div class="theme-info">
                     <span class="theme-title">{{ theme.songTitle }}</span>
@@ -299,7 +356,8 @@ async function removeCard(songId: number) {
                     <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
                   </template>
                 </li>
-              </ul>
+                </ul>
+              </template>
             </template>
           </div>
         </li>
@@ -378,6 +436,12 @@ async function removeCard(songId: number) {
 .theme-picker {
   padding: 0 16px 16px;
   border-top: 1px solid var(--border);
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .theme-list {
@@ -520,6 +584,11 @@ async function removeCard(songId: number) {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .download-progress {

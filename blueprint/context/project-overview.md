@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 0eeaf8d0fe10135b288f638ff177aa5e2a33043460dd9e9d0365567e2e2f061a -->
+<!-- blueprint:source-hash e4575b393bb9800c60737782b9b039627fb27ae95afe2c3fb198c0922e4b4ac1 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -76,7 +76,11 @@ replacing its prior "no packaged build is planned" statement. Feature 49
 added to `build-plan.md` on 2026-09-02 and is now built and merged in
 full, retiring the `/cards/new` route - a same-day follow-on also removed
 `/cards`' leftover "Add card" header button, which after 49c only focused
-the search box directly below it. Feature 50 (the Akiba Neon visual
+the search box directly below it. Feature 55 (bulk add-all + download-all
+parity for the Anime add-candidate group, matching what 49b already gave
+the Artist group, plus extending both groups' bulk download to cover
+audio as well as video) was added to `build-plan.md` on 2026-09-04 and is
+now built and merged. Feature 50 (the Akiba Neon visual
 redesign, in eight sub-features 50a-50h) was added to `build-plan.md` on
 2026-09-02 and is now built and merged in full - a retheme and relayout
 only, changing no data model, route, or server behavior. Adding it also
@@ -933,6 +937,21 @@ Vitest was installed the same day, so the logic-test gate in
     `HEAD` disagrees with `package.json`, since a binary published under a
     tag it does not carry would show its users a permanent, unclearable
     "update available" notice.
+55. **Bulk add-all + download-all parity for anime search results** -
+    done. Added and built 2026-09-04. `/cards`' Anime add-candidate
+    group (`CardAddAnimeResults.vue`, feature 49a) gained the same bulk
+    actions the Artist group (`CardAddArtistResults.vue`, feature 49b)
+    already had: an "Add all" button that adds every theme for the
+    expanded anime in one action, and a "Download all" button that
+    downloads every added card's remaining source (video and audio).
+    Also extended the Artist group's own "Download all"
+    (`downloadAllVideos`/`hasDownloadableAddedVideos`, renamed to
+    `downloadAllMedia`/`hasDownloadableAdded`) to cover audio as well as
+    video - it had been video-only since 49b shipped, silently leaving
+    every bulk-added theme's audio remote-only. No server route changes;
+    both groups' bulk actions are client-side loops over the same
+    per-card `/api/cards` and `/api/cards/download` endpoints each
+    already called one row at a time.
 
 ## Data model
 

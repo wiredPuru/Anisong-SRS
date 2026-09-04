@@ -200,17 +200,17 @@ async function addAllThemes() {
 
 const downloadingAll = ref(false);
 
-function hasDownloadableAddedVideos(): boolean {
+function hasDownloadableAdded(): boolean {
   if (!artistImport.value) return false;
   return artistImport.value.animeGroups.some((group) =>
     group.themes.some((theme) => {
       const card = addedCards[theme.songId];
-      return card ? canDownload(card, "video") : false;
+      return card ? hasAnyDownloadableSource(card) : false;
     }),
   );
 }
 
-async function downloadAllVideos() {
+async function downloadAllMedia() {
   if (!artistImport.value) return;
 
   downloadingAll.value = true;
@@ -218,8 +218,9 @@ async function downloadAllVideos() {
     for (const group of artistImport.value.animeGroups) {
       for (const theme of group.themes) {
         const card = addedCards[theme.songId];
-        if (!card || !canDownload(card, "video")) continue;
-        await downloadMedia(theme.songId, "video");
+        if (!card) continue;
+        if (canDownload(card, "video")) await downloadMedia(theme.songId, "video");
+        if (canDownload(addedCards[theme.songId]!, "audio")) await downloadMedia(theme.songId, "audio");
       }
     }
   } finally {
@@ -307,11 +308,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               {{ addingAll ? "Adding..." : "Add all" }}
             </button>
             <button
-              v-if="hasDefaultDownloadFolder && hasDownloadableAddedVideos()"
+              v-if="hasDefaultDownloadFolder && hasDownloadableAdded()"
               type="button"
               class="download-btn"
               :disabled="downloadingAll"
-              @click="downloadAllVideos"
+              @click="downloadAllMedia"
             >
               {{ downloadingAll ? "Downloading..." : "Download all" }}
             </button>
