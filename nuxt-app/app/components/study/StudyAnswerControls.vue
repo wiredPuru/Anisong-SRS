@@ -22,19 +22,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 <template>
   <div class="answer-bar">
-    <button type="button" class="answer-btn fail" :disabled="disabled || pendingAdvance" @click="emit('fail')">
-      <span class="answer-label">Fail</span>
-      <span class="key">&larr; Arrow</span>
+    <button
+      v-if="pendingAdvance"
+      type="button"
+      class="continue-btn"
+      :disabled="disabled"
+      @click="emit('continue')"
+    >
+      <span class="answer-label">Continue</span>
+      <span class="key">Enter</span>
     </button>
-    <button type="button" class="answer-btn pass" :disabled="disabled || pendingAdvance" @click="emit('pass')">
-      <span class="answer-label">Pass</span>
-      <span class="key">Arrow &rarr;</span>
-    </button>
+    <template v-else>
+      <button type="button" class="answer-btn fail" :disabled="disabled" @click="emit('fail')">
+        <span class="answer-label">Fail</span>
+        <span class="key">&larr; Arrow</span>
+      </button>
+      <button type="button" class="answer-btn pass" :disabled="disabled" @click="emit('pass')">
+        <span class="answer-label">Pass</span>
+        <span class="key">Arrow &rarr;</span>
+      </button>
+    </template>
   </div>
-  <button v-if="pendingAdvance" type="button" class="continue-btn" :disabled="disabled" @click="emit('continue')">
-    <span class="answer-label">Continue</span>
-    <span class="key">Enter</span>
-  </button>
 </template>
 
 <style scoped>
@@ -124,13 +132,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .continue-btn {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  width: 100%;
-  margin-top: 12px;
   padding: 18px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent-secondary);

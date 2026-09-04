@@ -275,7 +275,7 @@ const scopeChipLabel = computed(() => {
 });
 
 const hideVideo = ref(false);
-const hideInfo = ref(false);
+const hideInfo = ref(true);
 const hideCover = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
