@@ -674,7 +674,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
         >
-          <template v-if="immersive" #video-overlay>
+          <template v-if="immersive" #immersive>
             <StudyAutoRevealCountdown
               v-if="autoRevealCountdownActive"
               :key="presentationKey"
@@ -682,9 +682,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :ambient="ambientMode"
               :immersive="true"
             />
-          </template>
-          <template v-if="immersive" #immersive>
-            <div class="bar-row">
+            <div class="info-slot" :class="{ 'info-slot-elevated': learningControlOpen }">
               <StudyInfoPanel
                 :blurred="hideInfo && !autoRevealedThisCard"
                 :presentation-key="presentationKey"
@@ -704,18 +702,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 @streak-required-saved="onSettingsSaved"
                 @streak-control-open-change="learningControlOpen = $event"
               />
-              <div class="bar-answer-group">
-                <button
-                  v-if="sessionHistory.length > 0"
-                  type="button"
-                  class="previous-card-btn"
-                  @click="openPreviousCard"
-                >
-                  &#8617; Previous
-                  <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
-                </button>
-                <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
-              </div>
+            </div>
+            <div class="answer-slot">
+              <button
+                v-if="sessionHistory.length > 0"
+                type="button"
+                class="previous-card-btn"
+                @click="openPreviousCard"
+              >
+                &#8617; Previous
+                <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+              </button>
+              <StudyAnswerControls :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog" @pass="submitReview('pass')" @fail="submitReview('fail')" />
             </div>
           </template>
         </StudyMediaPlayer>
@@ -1122,36 +1120,99 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   position: relative;
 }
 
-/* Rendered through StudyMediaPlayer.vue's "immersive" slot, so this is a
-   real DOM child of .immersive-bar - a normal-flow row now (feature 53),
-   not an absolutely-positioned overlay floated on the video, so it needs no
-   viewport-relative math at all: it just sits in the bar under the video
-   and wraps like any other flex row. */
-.bar-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 14px 20px;
+/* Rendered through StudyMediaPlayer.vue's "immersive" slot, so these are
+   real DOM children of .player-frame (position: relative) - positioning is
+   plain and exact relative to the video's own box, no need to replicate its
+   viewport-centering math (a previous attempt at that got both the
+   horizontal AND vertical math wrong in different ways). */
+/* Each offset is a plain percent of .player-frame's own box (the
+   containing block for an absolutely positioned descendant), calibrated
+   against the same ~1450x816 reference frame as the cqw values below, so
+   position keeps constant proportion to the frame at every size instead of
+   sticking to a fixed px offset tuned for one particular width. */
+/* max-height bounds the card so its own content (a long title can wrap to
+   two lines, on top of romaji/JP/song/artist) can never grow tall enough to
+   run under .answer-slot, which paints after it in DOM order and would
+   otherwise silently hide whatever it overlaps - proportional width scaling
+   alone doesn't shrink content to fit a *short* frame, only a narrow one.
+   67% leaves room for the top offset plus .answer-slot's own reserved space
+   below. overflow-y is the backstop for the rare case content still doesn't
+   fit even at the smallest clamped text size - scrollable beats silently
+   hidden. */
+.info-slot {
+  position: absolute;
+  top: 7.36%;
+  left: 1.1%;
+  max-width: 55%;
+  max-height: 67%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 10;
 }
 
-.bar-answer-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
+/* The Learning chip's tooltip/popover are positioned absolute descendants of
+   .info-slot, but .info-slot and .answer-slot are separate stacking contexts
+   at the same z-index - a child's z-index can never out-rank a sibling
+   stacking context, so nothing inside .info-slot could paint above
+   .answer-slot no matter how high its own z-index was. Bumped only while the
+   Learning tooltip/popover is actually open (StudyInfoPanel.vue's
+   streak-control-open-change), so normal info-card content still loses to
+   .answer-slot by default - the deliberate behavior the max-height comment
+   above already relies on. */
+.info-slot-elevated {
+  z-index: 20;
+  overflow: visible;
 }
 
-/* Fail/Pass sit at content width in the bar, not stretched to fill a
-   two-column grid the way the non-immersive .side panel's full-width
-   version does - StudyAnswerControls.vue's own .answer-bar rule
-   (grid-template-columns: 1fr 1fr) is left untouched there. */
-.bar-answer-group :deep(.answer-bar) {
-  display: flex;
+/* bottom uses max(), not a plain %, so this never shrinks below
+   .player-controls' own clamped floor height (StudyMediaPlayer.vue) on a
+   very small frame - a plain percentage clearance can shrink faster than
+   that floor stops shrinking, letting the two overlap again right where the
+   proportional scaling above bottoms out. 60px clears the controls bar's
+   worst-case floor height (~49px: two 9px vertical paddings plus a 31px
+   play button) with a small buffer. */
+.answer-slot {
+  position: absolute;
+  left: 1.1%;
+  right: 1.1%;
+  bottom: max(11.03%, 60px);
+  z-index: 10;
 }
 
-.bar-answer-group :deep(.answer-btn) {
-  padding: 12px 22px;
+/* Each button gets its own frosted background, matching the info card's
+   overlay treatment, rather than one undifferentiated bar behind both -
+   :deep() reaches into StudyAnswerControls.vue's own scoped .answer-btn
+   without needing to touch that component. Its existing pass/fail-tinted
+   border-color is left alone so the two stay visually distinct. */
+/* Transparent, blur-only "glass" look (the one the user actually wanted -
+   an earlier round mistakenly forced this to a dark tint instead).
+   !important still needed to beat StudyAnswerControls.vue's own scoped
+   .answer-btn rule (background: var(--surface)). */
+.answer-slot :deep(.answer-btn) {
+  background: transparent !important;
+  /* Lighter than the shared --glass-blur token (app-wide default) so the
+     video stays more visible through it - matches StudyInfoPanel.vue's
+     immersive chips, which use the same value. */
+  backdrop-filter: blur(10px) saturate(1.3) !important;
+  /* Matches StudyInfoPanel.vue's immersive text-shadow treatment. */
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
+  /* Proportional to .player-frame's rendered width (StudyMediaPlayer.vue's
+     container-type: inline-size) instead of StudyAnswerControls.vue's own
+     fixed px, calibrated against the same ~1450px reference frame as
+     StudyInfoPanel.vue - see its .info-card.overlay comment for why this
+     isn't capped at today's fixed value. !important for the same
+     specificity reason as the properties above - StudyAnswerControls.vue is
+     also used outside .player-frame (the non-immersive .side panel), so its
+     own base rule is left untouched and only overridden here. */
+  padding: clamp(12px, 1.38cqw, 32px) !important;
+  gap: clamp(8px, 0.83cqw, 19px) !important;
+  font-size: clamp(13px, 1.24cqw, 29px) !important;
+}
+
+.answer-slot :deep(.answer-bar) {
+  gap: clamp(10px, 1.1cqw, 26px) !important;
 }
 
 .hotkey-legend {

@@ -234,7 +234,7 @@ watch(
         @local-path-updated="onLocalPathUpdated"
       >
         <template v-if="immersive" #immersive>
-          <div class="bar-row">
+          <div class="info-slot">
             <StudyInfoPanel
               :immersive="true"
               :song-title="card.songTitle"
@@ -434,17 +434,20 @@ watch(
 }
 
 /* Rendered through StudyMediaPlayer.vue's "immersive" slot, so this is a
-   real DOM child of .immersive-bar - same class/layout as study/index.vue's
-   own .bar-row, kept in sync deliberately so Preview's immersive bar looks
-   identical to /study's (both wrap the same StudyInfoPanel.vue
-   .info-card.overlay styles, since it's the same component). No answer
-   group here - Preview has no Pass/Fail. */
-.bar-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 14px 20px;
+   real DOM child of .player-frame (position: relative) - same offsets as
+   study/index.vue's own .info-slot, kept in sync deliberately so Preview's
+   immersive overlay looks and scales identically to /study's (both inherit
+   the same proportional cqw-based sizing from StudyInfoPanel.vue's
+   .info-card.overlay styles, since it's the same component). */
+.info-slot {
+  position: absolute;
+  top: 7.36%;
+  left: 1.1%;
+  max-width: 55%;
+  max-height: 67%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 10;
 }
 
 .edit-toggle-btn {

@@ -435,7 +435,7 @@ cleaned-up checkbox version before generating the project overview.
 - [x] 52. **Study session log** - a visible list of cards presented so far
   in the current session (song/artist/anime, pass/fail result), likely the
   surface "Previous" navigation (51) steps back through.
-- [x] 53. **Immersive study mode: bottom bar layout** - replaces feature
+- [ ] 53. **Immersive study mode: bottom bar layout** - replaces feature
   31's current immersive overlay (card info floated directly on top of the
   video) with the `#2b` "Bottom bar" candidate from
   `blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html`:
@@ -448,6 +448,9 @@ cleaned-up checkbox version before generating the project overview.
   design reference's `README.md`). Applies everywhere feature 31's
   immersive mode applies today: `/study` (with Fail/Pass) and
   `CardPreviewModal` (info only, no review controls, matching today).
+  **Rolled back 2026-09-03** - reverted to feature 31's overlay-style
+  immersive mode; see
+  `blueprint/history/rollbacks/2026-09-03-53-immersive-study-bottom-bar.md`.
 
 ## Plan maintenance
 
