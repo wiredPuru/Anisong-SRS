@@ -87,10 +87,13 @@ decisions were resolved mid-build and are recorded on the affected
 sub-features rather than here: 50b kept 50a's rail on `/study` rather than
 going rail-less, and 50c restyled feature 49's unified `/cards` search
 instead of reinstating a separate Add-card page. One decision from the
-original note is still open and outside any single sub-feature: which of
+original note was open and outside any single sub-feature: which of
 the mockup's `1b`/`2a`/`2b` Study fullscreen/ambient-overlay candidates, if
-any, should replace or complement feature 31's existing immersive mode -
-none of 50a-50h touched it. Features 51 and 52 (previous-card
+any, should replace or complement feature 31's immersive mode -
+none of 50a-50h touched it. Feature 53 answered it with `#2b`, was built,
+then rolled back, after which `/study` lost immersive mode altogether, so
+the question is now moot rather than resolved: there is no `/study`
+overlay left to replace. Features 51 and 52 (previous-card
 navigation and a study session log) were added to `build-plan.md` on
 2026-09-03 and are now both built and merged; neither changed
 `project-plan.md`, since both are additions to the existing Study screen in
@@ -98,9 +101,15 @@ the same session-only style as the Hide Video/Hide Info toggles (feature
 10). Feature 53 (an immersive-mode redesign) was added to `build-plan.md`
 the same day, resolving that still-open overlay decision by picking the
 `#2b` "Bottom bar" candidate - reskinned to the app's shipped Akiba Neon
-tokens rather than that candidate's own Nocturne tokens - and is not yet
-built; it also updates `project-plan.md` §7, replacing the sentence
-describing today's overlay-on-video behavior.
+tokens rather than that candidate's own Nocturne tokens. It was built and
+merged, then rolled back the same day, and a follow-on fix then removed
+`/study`'s immersive mode entirely. Its build-plan box is unchecked but it
+is not a pending build target; whether to rebuild it, or retire the number
+the way 18/25/32 were retired, is an open roadmap decision. Feature 54 (a
+version stamp plus a GitHub release check) was added and built on
+2026-09-04, and is the point at which the project gained a unit test runner:
+Vitest was installed the same day, so the logic-test gate in
+`coding-standards.md` is now on rather than opt-in.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -358,6 +367,15 @@ describing today's overlay-on-video behavior.
     language toggles stay inline on the study screen either way, with the
     `H` hotkey + icon (from the `study-player-polish` fix) to hide/show
     them together.
+
+    **No longer on `/study` as of 2026-09-03.** After feature 53's rollback,
+    a follow-on fix (`remove-study-immersive-mode`) dropped the `E` hotkey
+    and expand button from `/study` entirely; the page now passes
+    `:immersive="false"` and does not pass `allow-expand`. The mechanism
+    itself still lives in `StudyMediaPlayer.vue` and is still used by
+    `CardPreviewModal` (feature 36), reached from `/cards` and `/decks`,
+    so immersive mode is a Preview-only capability now. Everything above
+    describes what `/study` did between features 31 and that removal.
 32. ~~**Study playback-mode option**~~ - abandoned 2026-08-30. Spec'd and
     partially implemented (a `playbackMode` prop on `StudyMediaPlayer.vue`
     plus an immersive-overlay control), then dropped by user decision
@@ -793,7 +811,10 @@ describing today's overlay-on-video behavior.
       features 10/44/46's toggles changed presentation, not behavior.
       Resolved decision: kept 50a's rail on `/study` (the mockup's own
       artboard is rail-less) rather than adding a layout escape hatch;
-      immersive mode (feature 31, `E`) stays the distraction-free surface.
+      immersive mode (feature 31, `E`) was the distraction-free surface at
+      the time. That reasoning no longer holds: `/study` lost immersive
+      mode on 2026-09-03 (see feature 31's entry), so the rail is now the
+      only Study layout and there is no rail-less escape hatch.
     - **50c. Cards** - done. Dense table + 400px inspector rail, row
       actions demoted out of every row. Resolved decision: restyled feature
       49's unified `/cards` search into the split-pane shape instead of
@@ -819,9 +840,10 @@ describing today's overlay-on-video behavior.
 
     One decision from the original scope note - which of the mockup's
     `1b`/`2a`/`2b` Study fullscreen/ambient-overlay candidates, if any,
-    should replace or complement feature 31's existing immersive mode - was
-    left unresolved by 50a-50h. It is picked up by feature 53 below (the
-    `#2b` candidate).
+    should replace or complement feature 31's immersive mode - was
+    left unresolved by 50a-50h. Feature 53 below picked `#2b`, then was
+    rolled back and `/study`'s immersive mode removed, so the decision is
+    moot rather than resolved.
 51. **Previous card navigation in Study** - done. Lets you step
     back to the single most recently reviewed card in the current session
     and review it again, view-only - does not re-submit a review or change
@@ -872,27 +894,45 @@ describing today's overlay-on-video behavior.
     purple mono-accent, Inter font, 8px radius) - a deliberate choice so the
     app doesn't carry two design systems, mirroring how feature 50c chose
     to restyle feature 49's real architecture over reinstating the
-    mockup's own. Applies everywhere feature 31's immersive mode applies
-    today: `/study` (video + bar, including Fail/Pass and feature 51's
+    mockup's own. It applied everywhere feature 31's immersive mode then
+    applied: `/study` (video + bar, including Fail/Pass and feature 51's
     "Previous" button) and `CardPreviewModal` (info only, no review
-    controls, matching today). Also updates `project-plan.md` §7, replacing
-    the sentence describing today's overlay-on-video behavior.
-54. **Update checker** - not yet built. Added to `build-plan.md` on
-    2026-09-04. Nothing in the app carries a version today -
-    `nuxt-app/package.json` has no `version` field - so this feature creates
-    one, stamps it into both the developer workflow and the packaged build,
-    then checks the public `wiredPuru/Anisong-SRS` GitHub releases API for a
+    controls). It also updated `project-plan.md` §7 at the time; that
+    section has since been rewritten again to record that `/study` has no
+    immersive mode at all.
+54. **Update checker** - done. Added to `build-plan.md` and built on
+    2026-09-04. Nothing in the app carried a version before it -
+    `nuxt-app/package.json` had no `version` field - so it added one
+    (`1.2.0`, matching the published release), read at build time into
+    `runtimeConfig.public.appVersion` in `nuxt.config.ts` so a compiled
+    binary, which has no `package.json` beside it, still knows what it is.
+    `GET /api/version` (`server/api/version.get.ts`, backed by
+    `server/utils/version.ts`) checks the public `wiredPuru/Anisong-SRS`
+    GitHub releases API for a
     newer tag and surfaces an "update available" notice linking to the
-    release page. Notify only: it never downloads or replaces the running
+    release page: a new Settings "About" section (rendered outside the
+    settings fetch, so the version stays readable when settings fail to
+    load) and a dot on the rail's Settings link, shared through
+    `app/composables/useUpdateCheck.ts` so both read one fetch. Only the
+    remote lookup is cached (6h on success, 10min on failure), with
+    `updateAvailable` recomputed per call so a cached result cannot outlive
+    the version it was compared against.
+    Notify only: it never downloads or replaces the running
     binary, because a build is an executable plus three sibling folders
     (`migrations/`, `public/`, `kuromoji/`), Windows cannot overwrite a
     running `.exe`, and macOS needs re-signing after any binary swap (see
-    feature 48's entry). The check is cached and fail-quiet - a rate limit,
-    an offline machine, or a GitHub outage leaves the app behaving exactly
-    as it does now, with no error surfaced. GitHub's API rejects a request
+    feature 48's entry). The check is fail-quiet - a rate limit, an offline
+    machine, a 404, a timeout, or malformed JSON all return HTTP 200 with
+    `checkFailed: true` and no notice, never an error state. GitHub's API
+    rejects a request
     with no `User-Agent`, the same trap AniList and animethemes.moe already
-    required a header for (features 3 and 48). Also updates
-    `project-plan.md` §8.
+    required a header for (features 3 and 48). Updated
+    `project-plan.md` §8. A follow-on fix
+    (`blueprint/history/fixes/packaging-version-guard.md`) then made
+    `bun run package` fail when the version baked into `.output` or a tag on
+    `HEAD` disagrees with `package.json`, since a binary published under a
+    tag it does not carry would show its users a permanent, unclearable
+    "update available" notice.
 
 ## Data model
 
@@ -1087,6 +1127,12 @@ stored session queue.
   feature 6c for furigana generation
 - **Node `fs`** - reads the user-configured local media library and writes
   files downloaded by feature 8, and removes files feature 17 cleans up
+- **Vitest** - added 2026-09-04 alongside feature 54. Run with
+  `bun run test` from `nuxt-app/`. Two test files written for feature 48
+  already existed and imported from `vitest`, but the runner had never been
+  installed, so neither had ever run. The logic-test gate in
+  `coding-standards.md` is on as a result: a build step adding in-scope
+  logic ships a passing test in the same diff.
 
 ## Monetization
 
@@ -1113,9 +1159,11 @@ renamed). The design reference is
 token deltas actually shipped are in feature 50's entry. The one decision
 left open by that feature's original scope note - which Study
 fullscreen/ambient-overlay candidate, if any, should replace feature 31's
-existing immersive mode - is picked up by feature 53 (not yet built): the
-`#2b` "Bottom bar" candidate, reskinned to this Akiba Neon token set rather
-than that candidate's own Nocturne tokens.
+immersive mode - was answered by feature 53 with the `#2b` "Bottom bar"
+candidate, which was then rolled back. `/study` has had no immersive or
+expand mode since 2026-09-03; the mechanism survives only in
+`CardPreviewModal`. Study is the rail plus player plus side info panel,
+with no fullscreen surface.
 
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
@@ -1230,11 +1278,13 @@ Routes:
   each row opening the same way "Previous" does - both share one
   `viewedHistoryEntry`/`openHistoryCard()` mechanism, render above the
   immersive layer (`--z-above-immersive`), and disable the live Pass/Fail
-  hotkeys while open. Feature 53 (not yet built) replaces today's
-  immersive overlay - card info floated directly on the video - with a
-  clean video and a bottom bar underneath it holding the scrubber, volume,
-  language toggles, title/song/artist/theme info, and Fail/Pass; applies
-  to `/study` and, minus Fail/Pass, `CardPreviewModal`.
+  hotkeys while open. Feature 53 replaced that immersive overlay with a
+  clean video plus a bottom bar, then was rolled back; a follow-on fix
+  removed `/study`'s immersive and expand modes outright. **`/study` has
+  no fullscreen or immersive surface today** - it is the rail, the player,
+  the side info panel, and the toggle strip. The `--z-immersive` token and
+  `StudyMediaPlayer`'s expand mechanism remain in use by
+  `CardPreviewModal` only.
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes
@@ -1272,12 +1322,15 @@ standalone executable.
   SmartScreen show a security warning on first run. Revisits the idea
   previously scoped as the now-retired feature 25, abandoned 2026-08-30
   before any code was written.
-- **Updates**: feature 54, not yet built - the packaged build checks the
+- **Updates**: feature 54, done - the packaged build checks the
   project's GitHub releases for a newer version on launch and links to it.
   It never downloads or replaces itself, and the check failing changes
   nothing about how the app runs. Releases are published by hand from
   `bun run package`'s zipped output; there is no update channel or
-  manifest beyond the GitHub releases list itself.
+  manifest beyond the GitHub releases list itself. `bun run package`
+  refuses to build when `package.json`'s version disagrees with the
+  version baked into `.output` or with a tag on `HEAD`, so a release
+  cannot ship carrying a version it will not be published under.
 - **Health check / domain**: not applicable (local-only)
 
 ## Notes

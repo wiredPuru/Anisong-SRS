@@ -110,11 +110,11 @@ Non-profit. No monetization planned.
   them as a single button opening a small popup, since it carries a mode
   choice (Video / Info / Both) and a countdown interval rather than being
   a plain on/off. Core playback/interaction
-  controls (play/pause, pass/fail, scrub, volume, expand) stay inline. An
-  `E` hotkey toggles an immersive expanded mode where the video stays
-  completely clean and all card info, language toggles, playback controls,
-  and Fail/Pass move into a horizontal bar underneath it instead of
-  overlaying the video; it stays active as you move between cards (build 53).
+  controls (play/pause, pass/fail, scrub, volume) stay inline. The study
+  screen has no fullscreen or immersive mode: build 53 tried a bottom-bar
+  version, was rolled back, and `/study`'s earlier overlay (build 31) was
+  removed with it. Card Preview keeps its own expand/immersive mode, which
+  is where that mechanism still lives.
 - Review controls follow Anki/Migaku convention: pass/fail buttons, or left
   arrow (fail) / right arrow (pass) as keyboard shortcuts.
 - Japanese text must render as real, selectable DOM text (not baked into an

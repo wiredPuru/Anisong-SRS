@@ -472,3 +472,14 @@ never checkboxes, so `/feature` can't mistake one for the next item to build.
   Reveal control (features 38/46) from the study screen's display toggles.~~
   Corrected 2026-09-02; §7 now lists both. Kept here as a worked example of
   what belongs in this section.
+- ~~`project-plan.md` §7 described the study screen as having an `E`-hotkey
+  immersive mode with a bottom bar (build 53), and `project-overview.md`
+  described build 31's overlay as live on `/study` in several places.~~
+  Corrected 2026-09-04. Build 53 was rolled back and a follow-on fix removed
+  `/study`'s immersive and expand modes entirely; the mechanism survives only
+  in `CardPreviewModal`. Both docs now say so.
+- Build 53's checkbox is unchecked but it is not a pending build target: the
+  feature was built, rolled back, and the surface it replaced no longer
+  exists. Retiring the number (as 18, 25, and 32 were retired) or rebuilding
+  it is an open roadmap decision, deliberately left to the user rather than
+  resolved by a documentation pass.
