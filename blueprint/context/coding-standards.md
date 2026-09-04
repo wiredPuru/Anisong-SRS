@@ -41,7 +41,17 @@ accounts, no remote hosting, no multi-device sync (see Non-Goals in
 - Server routes: `nuxt-app/server/api/[feature]/[action].ts`
 - DB schema (Drizzle): `nuxt-app/server/db/schema.ts`
 - External API clients (AniList, animethemes.moe): `nuxt-app/server/lib/[client].ts`
-- Types: `nuxt-app/app/types/[feature].ts`
+- Types: no shared `app/types/` directory. A server route's response shape
+  (e.g. `CardWithDetails`, `UpdateStatus`) is declared once server-side
+  (`server/utils/` or the route file) and once more, by hand, wherever the
+  client consumes it - usually a composable. This is deliberate duplication,
+  not drift: a client-side copy exists partly because JSON serializes `Date`
+  to `string`, so the two shapes are not always identical, and this
+  project's size does not justify a generic serialized-type derivation
+  mechanism to keep them mechanically in sync (accepted as F-09). Keep a
+  duplicated shape's fields in the same order as its server-side source so a
+  diff between them stays easy to eyeball, and update both when a route's
+  shape changes.
 
 ## Naming
 

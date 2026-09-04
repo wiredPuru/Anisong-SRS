@@ -1008,16 +1008,24 @@ interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   box: number;
+  streak: number;
   nextReviewAt: string; // ISO timestamp
   createdAt: string; // ISO timestamp
   songTitle: string;
+  songTitleNative: string;
   themeSlot: string;
   artistName: string;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
+  animeCoverImageUrl: string | null;
 }
 ```
+
+The server-side declaration (`server/utils/cards.ts`) types `nextReviewAt` and
+`createdAt` as `Date`, not `string`; the client-side copy above is the
+post-JSON wire shape. See F-09 (or its archived resolution once closed) for
+why these are two hand-maintained declarations rather than one shared type.
 
 ### ReviewLog
 
