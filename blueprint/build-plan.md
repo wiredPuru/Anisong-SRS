@@ -468,6 +468,12 @@ cleaned-up checkbox version before generating the project overview.
   button that downloads every added card's remaining source. Also extends
   both groups' "Download all" to cover audio as well as video - today it's
   video-only even for artists.
+- [x] 56. **Card notes (Migaku-style memory notes)** - a free-text notes
+  field per card, editable from the existing Edit surfaces
+  (`CardPreviewModal`, `/study`'s `StudyCardEditPanel`, and `/cards`'
+  inspector edit form), shown in `StudyInfoPanel` during Study and Preview
+  as a personal mnemonic aid (subject to the same Hide Info blur as the
+  rest of the panel).
 
 ## Plan maintenance
 

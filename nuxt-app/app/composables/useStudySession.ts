@@ -12,6 +12,7 @@ export interface CardWithDetails {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
   box: number;
   streak: number;
   nextReviewAt: string;

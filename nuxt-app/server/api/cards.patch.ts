@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
     id: body.id,
     localVideoPath: body.localVideoPath,
     localAudioPath: body.localAudioPath,
+    notes: body.notes,
     songTitle: body.songTitle,
     themeSlot: body.themeSlot,
     artistMode: body.artistMode,

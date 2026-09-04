@@ -10,6 +10,7 @@ const props = withDefaults(
     // Optional so the Theme row is simply absent for any caller that doesn't
     // pass it, rather than this being a breaking addition.
     themeSlot?: string;
+    notes?: string | null;
     box?: number;
     streak?: number;
     streakRequired?: number;
@@ -234,6 +235,10 @@ watch(
       <div v-if="themeSlot" class="detail-row">
         <span class="label">Theme</span>
         <span class="value">{{ themeSlot }}</span>
+      </div>
+      <div v-if="notes" class="detail-row">
+        <span class="label">Notes</span>
+        <span class="value notes-value">{{ notes }}</span>
       </div>
     </div>
   </div>
@@ -496,6 +501,13 @@ watch(
 .detail-row .value {
   font-size: 19px;
   font-weight: 700;
+}
+
+/* Free text, not a title - lighter weight and wraps/respects line breaks
+   instead of the bold single-line treatment the rest of .value gets. */
+.detail-row .value.notes-value {
+  font-weight: 500;
+  white-space: pre-wrap;
 }
 
 .detail-row .jp {

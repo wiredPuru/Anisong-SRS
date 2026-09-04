@@ -19,6 +19,7 @@ export interface CardWithDetails {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
   box: number;
   streak: number;
   nextReviewAt: Date;
@@ -40,6 +41,7 @@ const cardSelection = {
   localAudioPath: card.localAudioPath,
   animethemesVideoUrl: card.animethemesVideoUrl,
   animethemesAudioUrl: card.animethemesAudioUrl,
+  notes: card.notes,
   box: card.box,
   streak: card.streak,
   nextReviewAt: card.nextReviewAt,
@@ -380,6 +382,7 @@ export interface UpdateCardInput {
   id: number;
   localVideoPath?: string | null;
   localAudioPath?: string | null;
+  notes?: string | null;
   songTitle?: string;
   themeSlot?: string;
   artistMode?: "rename" | "reassign";
@@ -450,8 +453,13 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
     db.update(song).set(songUpdates).where(eq(song.id, songRow.id)).run();
   }
 
-  const updates: { localVideoPath?: string | null; localAudioPath?: string | null } = {};
+  const updates: { localVideoPath?: string | null; localAudioPath?: string | null; notes?: string | null } = {};
   const clearedLocalPaths: string[] = [];
+
+  if (input.notes !== undefined) {
+    const trimmed = input.notes?.trim() ?? "";
+    updates.notes = trimmed === "" ? null : trimmed;
+  }
 
   if (input.localVideoPath !== undefined) {
     if (input.localVideoPath === null) {

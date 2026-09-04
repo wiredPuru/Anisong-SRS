@@ -6,6 +6,7 @@ interface CardWithDetails {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -95,6 +96,7 @@ const editArtistMode = ref<"rename" | "reassign">("rename");
 const editArtistName = ref("");
 const editVideoPath = ref("");
 const editAudioPath = ref("");
+const editNotes = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
 const clearingVideo = ref(false);
@@ -146,6 +148,7 @@ function startEdit() {
   editArtistName.value = props.card.artistName;
   editVideoPath.value = props.card.localVideoPath ?? "";
   editAudioPath.value = props.card.localAudioPath ?? "";
+  editNotes.value = props.card.notes ?? "";
   editError.value = null;
   editing.value = true;
   loadDeckData();
@@ -171,6 +174,7 @@ async function saveEdit() {
         artistName: editArtistName.value,
         localVideoPath: editVideoPath.value.trim() === "" ? null : editVideoPath.value.trim(),
         localAudioPath: editAudioPath.value.trim() === "" ? null : editAudioPath.value.trim(),
+        notes: editNotes.value.trim() === "" ? null : editNotes.value.trim(),
       },
     });
     editing.value = false;
@@ -244,6 +248,7 @@ watch(
               :anime-title-romaji="card.animeTitleRomaji"
               :anime-title-native="card.animeTitleNative"
               :theme-slot="card.themeSlot"
+              :notes="card.notes"
               :ambient="ambientMode"
             />
           </div>
@@ -309,6 +314,16 @@ watch(
           </div>
         </label>
 
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea
+            v-model="editNotes"
+            rows="3"
+            placeholder="A memory hook for this card - what threw you off last time, a mnemonic, anything worth remembering"
+            :disabled="editSaving"
+          />
+        </label>
+
         <DeckMembershipPanel
           :card-id="card.id"
           :decks="manualDecks"
@@ -334,6 +349,7 @@ watch(
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"
           :theme-slot="card.themeSlot"
+          :notes="card.notes"
           :ambient="ambientMode"
         />
         <button type="button" class="edit-toggle-btn" @click="startEdit">Edit card</button>
@@ -497,6 +513,23 @@ watch(
 }
 
 .field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.field textarea {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.field textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);

@@ -5,6 +5,7 @@ interface CardWithDetails {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
 }
 
 interface ManualDeck {
@@ -28,6 +29,7 @@ const emit = defineEmits<{
 const editing = ref(false);
 const videoPath = ref("");
 const audioPath = ref("");
+const notes = ref("");
 const saving = ref(false);
 const error = ref<string | null>(null);
 const clearing = reactive<Record<string, boolean>>({});
@@ -35,6 +37,7 @@ const clearing = reactive<Record<string, boolean>>({});
 function startEdit() {
   videoPath.value = props.card.localVideoPath ?? "";
   audioPath.value = props.card.localAudioPath ?? "";
+  notes.value = props.card.notes ?? "";
   error.value = null;
   editing.value = true;
 }
@@ -54,6 +57,7 @@ async function save() {
         id: props.card.id,
         localVideoPath: videoPath.value.trim() === "" ? null : videoPath.value.trim(),
         localAudioPath: audioPath.value.trim() === "" ? null : audioPath.value.trim(),
+        notes: notes.value.trim() === "" ? null : notes.value.trim(),
       },
     });
     editing.value = false;
@@ -160,6 +164,16 @@ async function downloadLocalPath(kind: "video" | "audio") {
       </label>
       <p v-if="downloadError[card.id]" class="edit-error">{{ downloadError[card.id] }}</p>
 
+      <label class="field">
+        <span class="field-label">Notes</span>
+        <textarea
+          v-model="notes"
+          rows="3"
+          placeholder="A memory hook for this card"
+          :disabled="saving"
+        />
+      </label>
+
       <div class="field">
         <span class="field-label">Decks</span>
         <DeckMembershipPanel
@@ -235,6 +249,23 @@ async function downloadLocalPath(kind: "video" | "audio") {
 }
 
 .field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.field textarea {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.field textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);

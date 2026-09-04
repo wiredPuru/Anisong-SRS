@@ -713,6 +713,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :anime-title-romaji="currentCard.animeTitleRomaji"
               :anime-title-native="currentCard.animeTitleNative"
               :theme-slot="currentCard.themeSlot"
+              :notes="currentCard.notes"
               :box="currentCard.box"
               :streak="currentCard.streak"
               :streak-required="studySettings?.boxOneStreakRequired"

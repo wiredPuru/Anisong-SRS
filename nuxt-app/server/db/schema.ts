@@ -43,6 +43,7 @@ export const card = sqliteTable("card", {
   localAudioPath: text("local_audio_path"),
   animethemesVideoUrl: text("animethemes_video_url"),
   animethemesAudioUrl: text("animethemes_audio_url"),
+  notes: text("notes"),
   box: integer("box").notNull().default(1),
   streak: integer("streak").notNull().default(0),
   nextReviewAt: integer("next_review_at", { mode: "timestamp" })

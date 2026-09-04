@@ -6,6 +6,7 @@ interface CardWithDetails {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -162,6 +163,7 @@ async function toggleDeckMembership(cardId: number, deckId: number, checked: boo
 const editingId = ref<number | null>(null);
 const editVideoPath = ref("");
 const editAudioPath = ref("");
+const editNotes = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
 const clearingField = reactive<Record<string, boolean>>({});
@@ -290,6 +292,7 @@ function startEdit(c: CardWithDetails) {
   editingId.value = c.id;
   editVideoPath.value = c.localVideoPath ?? "";
   editAudioPath.value = c.localAudioPath ?? "";
+  editNotes.value = c.notes ?? "";
   editError.value = null;
 }
 
@@ -308,6 +311,7 @@ async function saveEdit(id: number) {
         id,
         localVideoPath: editVideoPath.value.trim() === "" ? null : editVideoPath.value.trim(),
         localAudioPath: editAudioPath.value.trim() === "" ? null : editAudioPath.value.trim(),
+        notes: editNotes.value.trim() === "" ? null : editNotes.value.trim(),
       },
     });
     editingId.value = null;
@@ -550,6 +554,16 @@ async function removeCard(id: number) {
                 >
                   {{ clearingField[`${selectedCard.id}-audio`] ? "Clearing..." : "Clear" }}
                 </button>
+              </div>
+              <div class="notes-field">
+                <span class="block-label">Notes</span>
+                <textarea
+                  v-model="editNotes"
+                  rows="3"
+                  placeholder="A memory hook for this card"
+                  :disabled="editSaving"
+                  class="path-input"
+                />
               </div>
               <div class="edit-actions">
                 <button type="button" class="save-btn" :disabled="editSaving" @click="saveEdit(selectedCard.id)">
@@ -993,6 +1007,16 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.notes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+textarea.path-input {
+  resize: vertical;
 }
 
 .path-input {
