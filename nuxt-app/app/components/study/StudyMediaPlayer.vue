@@ -786,8 +786,6 @@ onUnmounted(() => stopDrag?.());
 :global(.ambient-glow) {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: -1;
   filter: blur(80px) saturate(1.6) brightness(0.9);
   opacity: 0.55;

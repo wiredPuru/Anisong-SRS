@@ -149,6 +149,12 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  /* The app shell (rail + content) is always sized to exactly fill the
+     viewport width - no page here is meant to scroll sideways. This is a
+     defensive guard against stray sub-pixel horizontal overflow (observed
+     in Safari, not Chrome) turning into an actual scrollable page that an
+     arrow-key press can reveal, pushing the rail off-screen. */
+  overflow-x: hidden;
 }
 
 /* Same breakpoint as layouts/default.vue's .app-content and study/index.vue's

@@ -9,11 +9,19 @@ function onKeydown(event: KeyboardEvent) {
   // Once a grade is locked in and awaiting confirmation to advance, Fail/Pass
   // are inert - only Enter (Continue) does anything.
   if (props.pendingAdvance) {
-    if (event.key === "Enter") emit("continue");
+    if (event.key === "Enter") {
+      event.preventDefault();
+      emit("continue");
+    }
     return;
   }
-  if (event.key === "ArrowLeft") emit("fail");
-  else if (event.key === "ArrowRight") emit("pass");
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    emit("fail");
+  } else if (event.key === "ArrowRight") {
+    event.preventDefault();
+    emit("pass");
+  }
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
