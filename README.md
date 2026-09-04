@@ -48,7 +48,26 @@ Prebuilt executables for Windows, macOS (Intel and Apple Silicon), and Linux
 are published on the [Releases](https://github.com/wiredPuru/Anisong-SRS/releases)
 page. Download the archive for your platform, unzip it, and run the
 executable - it starts a local server and opens your browser to it
-automatically.
+automatically. Keep the executable next to the `migrations/`, `public/`, and
+`kuromoji/` folders it ships with; it reads all three from disk at startup.
+
+The binaries are not code-signed, so your OS warns about them on first run.
+
+**macOS.** A downloaded build is quarantined by the browser, and because it
+isn't signed by a registered developer macOS may refuse it outright - in some
+versions with the misleading message `"gaq-srs" is damaged and can't be
+opened`, whose only offered action is to delete it. The file is not damaged.
+Clear the quarantine flag on the unzipped folder and it will run:
+
+```sh
+xattr -dr com.apple.quarantine /path/to/gaq-srs-macos-arm64
+```
+
+You may also need `chmod +x gaq-srs` if the executable bit was lost in
+transit. Right-click -> Open is the other way past the warning.
+
+**Windows.** SmartScreen shows "Windows protected your PC" - choose More info
+-> Run anyway.
 
 ## Tech stack
 

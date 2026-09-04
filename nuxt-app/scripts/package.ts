@@ -5,12 +5,19 @@ interface Target {
   label: string;
   bunTarget: string;
   binaryName: string;
+  // macOS only: bun build --compile appends its payload after the linker
+  // ad-hoc-signs the Mach-O, leaving a signature that no longer matches the
+  // file. Gatekeeper ignores that for local files, but a browser download
+  // carries com.apple.quarantine, and evaluating a broken signature makes
+  // macOS report the binary as "damaged" and offer only "Move to Trash".
+  // Re-signing after the fact is what keeps a downloaded build launchable.
+  needsCodesign?: boolean;
 }
 
 const TARGETS: Target[] = [
   { label: "windows-x64", bunTarget: "bun-windows-x64", binaryName: "gaq-srs.exe" },
-  { label: "macos-x64", bunTarget: "bun-darwin-x64", binaryName: "gaq-srs" },
-  { label: "macos-arm64", bunTarget: "bun-darwin-arm64", binaryName: "gaq-srs" },
+  { label: "macos-x64", bunTarget: "bun-darwin-x64", binaryName: "gaq-srs", needsCodesign: true },
+  { label: "macos-arm64", bunTarget: "bun-darwin-arm64", binaryName: "gaq-srs", needsCodesign: true },
   { label: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "gaq-srs" },
 ];
 
@@ -63,6 +70,36 @@ for (const target of TARGETS) {
     console.error(`Failed to build ${target.label}.`);
     results.push({ label: target.label, ok: false });
     continue;
+  }
+
+  // Verified, not assumed: --verify is the exact check that fails on Bun's
+  // own output, so running it here is what stops this from silently rotting
+  // back to shipping a build macOS calls damaged. A failure fails the target
+  // rather than warning, because an unsigned macOS binary is broken output.
+  // Note this does make macOS targets buildable only from a Mac, since
+  // codesign ships with the Xcode command line tools; the Windows and Linux
+  // targets still cross-compile from anywhere.
+  if (target.needsCodesign) {
+    let signExit: number | null = null;
+    try {
+      signExit = Bun.spawnSync(["codesign", "--force", "--sign", "-", outfile], {
+        stdout: "inherit",
+        stderr: "inherit",
+      }).exitCode;
+    } catch {
+      console.error('Could not run "codesign" - macOS targets must be packaged on macOS.');
+    }
+
+    const verified =
+      signExit === 0 &&
+      Bun.spawnSync(["codesign", "--verify", outfile], { stdout: "inherit", stderr: "inherit" })
+        .exitCode === 0;
+
+    if (!verified) {
+      console.error(`Failed to ad-hoc sign ${target.label}.`);
+      results.push({ label: target.label, ok: false });
+      continue;
+    }
   }
 
   cpSync(MIGRATIONS_DIR, join(releaseDir, "migrations"), { recursive: true });

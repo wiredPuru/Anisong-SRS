@@ -210,7 +210,11 @@ checks do not make the Blueprint unusable.
   and the furigana dictionary from disk rather than embedding them. Each
   target is also zipped to `nuxt-app/release/gaq-srs-<target>.zip`, using
   the exact asset names the GitHub releases are published with, so those
-  archives can be uploaded as-is.
+  archives can be uploaded as-is. The two macOS binaries are ad-hoc
+  re-signed (`codesign --force --sign -`) and verified after compiling,
+  because Bun appends its payload after the linker signs and leaves an
+  invalid signature that makes a downloaded build fail to launch - which
+  also means macOS targets can only be packaged from macOS.
 - Measure real layout geometry (with the dev server running): `bun run measure
   <path> [flags]` - drives headless Chrome over the DevTools protocol and
   prints each selector's box, aspect ratio, whether it fits the viewport, and
