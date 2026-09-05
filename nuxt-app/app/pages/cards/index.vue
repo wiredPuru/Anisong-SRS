@@ -42,15 +42,27 @@ const importLoading = ref(false);
 const importAniListError = ref<string | null>(null);
 const importMalError = ref<string | null>(null);
 const importResults = ref<AniListResult[] | null>(null);
+const importBlankHint = ref(false);
+const importSources = ref<string[]>([]);
+const importSummary = ref<{ aniList: number | null; mal: number | null; total: number } | null>(null);
 
 async function runImport() {
   const aniListUsername = importAniListUsername.value.trim();
   const malUsername = importMalUsername.value.trim();
-  if (!aniListUsername && !malUsername) return;
+  if (!aniListUsername && !malUsername) {
+    importBlankHint.value = true;
+    return;
+  }
 
+  importBlankHint.value = false;
   importLoading.value = true;
   importAniListError.value = null;
   importMalError.value = null;
+  importSummary.value = null;
+  importSources.value = [
+    ...(aniListUsername ? ["AniList"] : []),
+    ...(malUsername ? ["MyAnimeList"] : []),
+  ];
 
   const [aniListOutcome, malOutcome] = await Promise.allSettled([
     aniListUsername
@@ -68,9 +80,30 @@ async function runImport() {
   if (malOutcome.status === "fulfilled") lists.push(malOutcome.value.results);
   else importMalError.value = extractErrorMessage(malOutcome.reason, "MyAnimeList import failed.");
 
-  importResults.value = mergeImportCandidates(lists);
+  const merged = mergeImportCandidates(lists);
+  // Counted per source rather than from the merged list so the summary can
+  // show what each source contributed before dedupe collapsed the overlap.
+  importSummary.value = {
+    aniList: aniListUsername && aniListOutcome.status === "fulfilled" ? aniListOutcome.value.results.length : null,
+    mal: malUsername && malOutcome.status === "fulfilled" ? malOutcome.value.results.length : null,
+    total: merged.length,
+  };
+  importResults.value = merged;
   importLoading.value = false;
 }
+
+const importSummaryText = computed(() => {
+  const summary = importSummary.value;
+  if (!summary) return "";
+
+  const parts: string[] = [];
+  if (summary.aniList !== null) parts.push(`${summary.aniList} from AniList`);
+  if (summary.mal !== null) parts.push(`${summary.mal} from MyAnimeList`);
+
+  const perSource = parts.length ? ` (${parts.join(", ")})` : "";
+  const deduped = parts.length > 1 ? " Duplicates across both lists are shown once." : "";
+  return `Found ${summary.total} anime${perSource}.${deduped}`;
+});
 
 const searchInput = ref("");
 const searchQuery = ref("");
@@ -428,15 +461,28 @@ async function removeCard(id: number) {
           {{ importLoading ? "Importing..." : "Import" }}
         </button>
       </div>
+      <p v-if="importBlankHint" class="import-status">Enter an AniList or MyAnimeList username first.</p>
+      <p v-if="importLoading" class="import-status">
+        Importing from {{ importSources.join(" and ") }}...
+        <span v-if="importSources.includes('MyAnimeList')" class="import-status-hint">
+          A large MyAnimeList list can take a few minutes.
+        </span>
+      </p>
       <p v-if="importAniListError" class="inline-error">AniList: {{ importAniListError }}</p>
       <p v-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
-      <CardImportListResults
-        v-if="importResults !== null"
-        :results="importResults"
-        :has-default-download-folder="hasDefaultDownloadFolder"
-        @refresh="loadFirstPage"
-        @preview="previewInInspector"
-      />
+      <template v-if="!importLoading && importResults !== null">
+        <p v-if="importResults.length" class="import-status">{{ importSummaryText }}</p>
+        <p v-else class="import-status">
+          No completed anime found. That list may be empty, or set to private.
+        </p>
+        <CardImportListResults
+          v-if="importResults.length"
+          :results="importResults"
+          :has-default-download-folder="hasDefaultDownloadFolder"
+          @refresh="loadFirstPage"
+          @preview="previewInInspector"
+        />
+      </template>
     </div>
 
     <div class="cards-body">
@@ -897,7 +943,7 @@ h1 {
 }
 
 .import-panel {
-  margin: 0 24px 16px;
+  margin: 16px 24px;
 }
 
 .import-toggle {
@@ -955,6 +1001,16 @@ h1 {
   margin: 8px 0 0;
   color: var(--fail);
   font-size: 13px;
+}
+
+.import-status {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.import-status-hint {
+  color: var(--faint);
 }
 
 .search-input {
