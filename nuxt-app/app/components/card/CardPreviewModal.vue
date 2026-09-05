@@ -238,26 +238,7 @@ watch(
         :audio-only="audioOnly"
         v-model:immersive="immersive"
         @local-path-updated="onLocalPathUpdated"
-      >
-        <template v-if="immersive" #immersive>
-          <div class="info-slot">
-            <StudyInfoPanel
-              :immersive="true"
-              :song-title="card.songTitle"
-              :song-title-native="card.songTitleNative"
-              :artist-name="card.artistName"
-              :artist-href="artistDeckPath(card.artistId)"
-              :anime-href="animeDeckPath(card.animeId)"
-              :anime-title-english="card.animeTitleEnglish"
-              :anime-title-romaji="card.animeTitleRomaji"
-              :anime-title-native="card.animeTitleNative"
-              :theme-slot="card.themeSlot"
-              :notes="card.notes"
-              :ambient="ambientMode"
-            />
-          </div>
-        </template>
-      </StudyMediaPlayer>
+      />
 
       <form v-if="editing" class="edit-form" @submit.prevent="saveEdit">
         <label class="field">
@@ -453,23 +434,6 @@ watch(
 .ambient-btn.active {
   border-color: var(--accent-secondary);
   box-shadow: 0 0 14px var(--accent-secondary-glow);
-}
-
-/* Rendered through StudyMediaPlayer.vue's "immersive" slot, so this is a
-   real DOM child of .player-frame (position: relative) - same offsets as
-   study/index.vue's own .info-slot, kept in sync deliberately so Preview's
-   immersive overlay looks and scales identically to /study's (both inherit
-   the same proportional cqw-based sizing from StudyInfoPanel.vue's
-   .info-card.overlay styles, since it's the same component). */
-.info-slot {
-  position: absolute;
-  top: 7.36%;
-  left: 1.1%;
-  max-width: 55%;
-  max-height: 67%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 10;
 }
 
 .edit-toggle-btn {
