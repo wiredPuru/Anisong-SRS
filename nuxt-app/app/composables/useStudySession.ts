@@ -44,6 +44,13 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
   const presentationKey = ref(0);
   const newCardsToday = ref<NewCardsToday | null>(null);
   const dueCount = ref(0);
+  // How many never-reviewed cards the daily cap is holding back right now.
+  // Drives whether Study offers "Study new cards" at all.
+  const withheldNewCount = ref(0);
+  // Session-only, like every other study toggle: released by studyNewCards()
+  // and reset on scope change below, never persisted. The daily limit setting
+  // itself is never written to - this only widens what this session asks for.
+  const includeNewBeyondLimit = ref(false);
 
   async function fetchNext() {
     if (!scope.value) return;
@@ -54,12 +61,19 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
         card: CardWithDetails | null;
         newCardsToday: NewCardsToday;
         dueCount: number;
+        withheldNewCount: number;
         upcoming: CardWithDetails[];
-      }>("/api/study/next", { query: scopeQuery(scope.value) });
+      }>("/api/study/next", {
+        query: {
+          ...scopeQuery(scope.value),
+          ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
+        },
+      });
       currentCard.value = result.card;
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
       dueCount.value = result.dueCount;
+      withheldNewCount.value = result.withheldNewCount;
       if (result.card) presentationKey.value += 1;
 
       // Best-effort: warm the cache for the next couple of due cards before
@@ -93,6 +107,13 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
     }
   }
 
+  // Releases the daily new-card cap for the rest of this session and pulls the
+  // first previously-withheld card straight away.
+  async function studyNewCards() {
+    includeNewBeyondLimit.value = true;
+    await fetchNext();
+  }
+
   watch(
     scope,
     (value) => {
@@ -100,6 +121,7 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
       sessionComplete.value = false;
       error.value = null;
       currentCard.value = null;
+      includeNewBeyondLimit.value = false;
       if (value) fetchNext();
     },
     { immediate: true },
@@ -115,7 +137,9 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
     presentationKey,
     newCardsToday,
     dueCount,
+    withheldNewCount,
     submit,
+    studyNewCards,
     refresh: fetchNext,
   };
 }

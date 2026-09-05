@@ -59,7 +59,9 @@ const {
   presentationKey,
   newCardsToday,
   dueCount,
+  withheldNewCount,
   submit,
+  studyNewCards,
   refresh: refreshStudySession,
 } = useStudySession(scope, effectiveAudioOnly);
 
@@ -571,6 +573,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="sessionComplete" class="state">
       All caught up! Nothing due right now.
       <button
+        v-if="withheldNewCount > 0"
+        type="button"
+        class="study-new-btn"
+        @click="studyNewCards"
+      >
+        Study new cards ({{ withheldNewCount }})
+        <span class="tooltip">Go past today's new-card limit for the rest of this session</span>
+      </button>
+      <button
         v-if="sessionHistory.length > 0"
         type="button"
         class="previous-card-btn"
@@ -951,6 +962,48 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .study-overlay-anchor {
   position: relative;
+}
+
+/* The primary action on the completion screen, so it takes the accent fill
+   rather than the outlined treatment "Previous card" below it uses - the two
+   sit together there and should not read as equal-weight choices. */
+.study-new-btn {
+  position: relative;
+  align-self: center;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.study-new-btn:hover .tooltip,
+.study-new-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.study-new-btn .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .previous-card-btn {

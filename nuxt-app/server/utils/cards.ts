@@ -210,11 +210,15 @@ export function getNewCardsTodayInfo(): { introduced: number; limit: number | nu
 // filter - grouped due-count queries (e.g. one deck per grid tile) apply this
 // once and group by artist/anime id, rather than calling dueCardCondition
 // per scope and recomputing the daily-limit lookup for every group.
-export function baseDueCondition() {
+// includeNewBeyondLimit releases the daily new-card cap for one caller only
+// (Study's "Study new cards" action). It defaults to false so every other
+// caller - deck-tile due counts, the Home dashboard - keeps honouring the
+// limit without opting out.
+export function baseDueCondition(includeNewBeyondLimit = false) {
   const dueCondition = lte(card.nextReviewAt, new Date());
 
   const { introduced, limit } = getNewCardsTodayInfo();
-  if (limit !== null && introduced >= limit) {
+  if (!includeNewBeyondLimit && limit !== null && introduced >= limit) {
     const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
     return and(dueCondition, inArray(card.id, reviewedCardIds));
   }
@@ -222,33 +226,58 @@ export function baseDueCondition() {
   return dueCondition;
 }
 
-function dueCardCondition(scope: StudyScope) {
+function dueCardCondition(scope: StudyScope, includeNewBeyondLimit = false) {
   const scopeCondition =
     scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
-  const base = baseDueCondition();
+  const base = baseDueCondition(includeNewBeyondLimit);
   return scopeCondition ? and(base, scopeCondition) : base;
 }
 
-export function getNextDueCard(scope: StudyScope): CardWithDetails | undefined {
-  return cardQuery().where(dueCardCondition(scope)).orderBy(asc(card.nextReviewAt)).get();
+export function getNextDueCard(scope: StudyScope, includeNewBeyondLimit = false): CardWithDetails | undefined {
+  return cardQuery().where(dueCardCondition(scope, includeNewBeyondLimit)).orderBy(asc(card.nextReviewAt)).get();
 }
 
 // A best-effort snapshot of the next `limit` due cards after `excludeCardId`,
 // for prefetching - not a guarantee, since the real due order can shift once
 // the excluded card is actually reviewed (see current-feature.md notes).
-export function getUpcomingDueCards(scope: StudyScope, excludeCardId: number | undefined, limit: number): CardWithDetails[] {
-  const condition = excludeCardId !== undefined ? and(dueCardCondition(scope), ne(card.id, excludeCardId)) : dueCardCondition(scope);
+export function getUpcomingDueCards(
+  scope: StudyScope,
+  excludeCardId: number | undefined,
+  limit: number,
+  includeNewBeyondLimit = false,
+): CardWithDetails[] {
+  const base = dueCardCondition(scope, includeNewBeyondLimit);
+  const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
   return cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).limit(limit).all();
 }
 
-export function getDueCardCount(scope: StudyScope): number {
+export function getDueCardCount(scope: StudyScope, includeNewBeyondLimit = false): number {
   return db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(dueCardCondition(scope))
+    .where(dueCardCondition(scope, includeNewBeyondLimit))
+    .get()!.count;
+}
+
+// How many never-reviewed cards the daily cap is currently holding back, which
+// is what decides whether Study offers its "Study new cards" action at all.
+// Zero when no limit is set or the limit is not yet spent: in both of those
+// cases new cards are already being served normally, so nothing is withheld.
+export function getWithheldNewCount(scope: StudyScope): number {
+  const { introduced, limit } = getNewCardsTodayInfo();
+  if (limit === null || introduced < limit) return 0;
+
+  const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+  return db
+    .select({ count: count(card.id) })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(and(dueCardCondition(scope, true), notInArray(card.id, reviewedCardIds)))
     .get()!.count;
 }
 

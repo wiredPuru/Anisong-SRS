@@ -1,9 +1,18 @@
 import type { StudyScope } from "../../utils/cards.ts";
-import { getDueCardCount, getNewCardsTodayInfo, getNextDueCard, getUpcomingDueCards } from "../../utils/cards.ts";
+import {
+  getDueCardCount,
+  getNewCardsTodayInfo,
+  getNextDueCard,
+  getUpcomingDueCards,
+  getWithheldNewCount,
+} from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel } from "../../utils/decks.ts";
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw } = getQuery(event);
+  const { type, id: idRaw, includeNew } = getQuery(event);
+  // Session-only opt-in from Study's "Study new cards" action; anything other
+  // than the literal "true" leaves the daily cap in force.
+  const includeNewBeyondLimit = includeNew === "true";
 
   if (type !== "all" && type !== "artist" && type !== "anime") {
     throw createError({ statusCode: 400, statusMessage: "type must be 'all', 'artist', or 'anime'" });
@@ -30,12 +39,13 @@ export default defineEventHandler((event) => {
     scope = type === "artist" ? { type: "artist", id } : { type: "anime", id };
   }
 
-  const nextCard = getNextDueCard(scope);
+  const nextCard = getNextDueCard(scope, includeNewBeyondLimit);
 
   return {
     card: nextCard ?? null,
     newCardsToday: getNewCardsTodayInfo(),
-    dueCount: getDueCardCount(scope),
-    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2),
+    dueCount: getDueCardCount(scope, includeNewBeyondLimit),
+    withheldNewCount: getWithheldNewCount(scope),
+    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2, includeNewBeyondLimit),
   };
 });
