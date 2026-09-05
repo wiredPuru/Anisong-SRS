@@ -919,7 +919,8 @@ App layout bullet to record the exception.
 54. **Update checker** - done. Added to `build-plan.md` and built on
     2026-09-04. Nothing in the app carried a version before it -
     `nuxt-app/package.json` had no `version` field - so it added one
-    (`1.2.0`, matching the published release), read at build time into
+    (`1.2.0` then, `1.3.0` as of the feature-57 release; always matching the
+    published release), read at build time into
     `runtimeConfig.public.appVersion` in `nuxt.config.ts` so a compiled
     binary, which has no `package.json` beside it, still knows what it is.
     `GET /api/version` (`server/api/version.get.ts`, backed by
