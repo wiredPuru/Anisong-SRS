@@ -91,24 +91,13 @@ interface SessionHistoryEntry {
 // start/Ambient mode; resets on scope change below.
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
 
-// True once a grade has been posted for the current card but Info was still
-// hidden at that moment - the reveal happens immediately, but advancing to
-// the next card waits for an explicit Continue (see submitReview/confirmAdvance
-// below). Session-only, like sessionHistory; resets on scope change.
-const pendingAdvance = ref(false);
-
 watch(scope, () => {
   sessionHistory.value = [];
-  pendingAdvance.value = false;
 });
 
 async function submitReview(result: "pass" | "fail") {
   const reviewedCard = currentCard.value;
   const countBefore = reviewedCount.value;
-  // Read before submit() - nothing else changes these refs during the await,
-  // but reading them at the wrong point would break the "Info already
-  // visible -> advance immediately" case below.
-  const needsReveal = hideInfo.value && !autoRevealedThisCard.value;
   await submit(result);
   // reviewedCount only increments after a *successful* POST
   // /api/study/review, inside submit() - comparing it (not presentationKey,
@@ -117,25 +106,19 @@ async function submitReview(result: "pass" | "fail") {
   // `reviewing`) or a failed request.
   if (reviewedCard && reviewedCount.value !== countBefore) {
     sessionHistory.value.push({ card: reviewedCard, result });
-    if (needsReveal) {
-      // Same finalize-reveal path the `i` hotkey / Auto Reveal already use
-      // (onHideToggleChanged below) - grading while Info is still hidden
-      // reveals it immediately, but holds off fetching the next card until
-      // the user confirms via Continue.
-      autoRevealedThisCard.value = true;
-      stopAutoRevealTimeout();
-      autoRevealRemainingMs = null;
-      pendingAdvance.value = true;
-    } else {
-      await refreshStudySession();
-    }
+    await refreshStudySession();
   }
 }
 
-async function confirmAdvance() {
-  if (!pendingAdvance.value) return;
-  pendingAdvance.value = false;
-  await refreshStudySession();
+// Reveals the current card only (Hide Info stays on for the next one) without
+// grading or advancing - same finalize-reveal path the `i` hotkey / Auto
+// Reveal already use (onHideToggleChanged below). Fail/Pass only render once
+// this (or one of those other paths) has already run, so submitReview() above
+// never has to reveal-then-grade in one step anymore.
+function revealCurrentCard() {
+  autoRevealedThisCard.value = true;
+  stopAutoRevealTimeout();
+  autoRevealRemainingMs = null;
 }
 
 const mediaPlayerRef = ref<{ pause: () => void } | null>(null);
@@ -742,10 +725,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
           <StudyAnswerControls
             :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog"
-            :pending-advance="pendingAdvance"
+            :awaiting-reveal="hideInfo && !autoRevealedThisCard"
             @pass="submitReview('pass')"
             @fail="submitReview('fail')"
-            @continue="confirmAdvance"
+            @reveal="revealCurrentCard"
           />
           <!-- Every key here is checked against a real handler: S in
                StudyMediaPlayer's onKeydown, I in this page's own. The

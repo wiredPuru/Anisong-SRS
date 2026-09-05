@@ -1,17 +1,17 @@
 <script setup lang="ts">
-const props = defineProps<{ disabled: boolean; pendingAdvance: boolean }>();
-const emit = defineEmits<{ pass: []; fail: []; continue: [] }>();
+const props = defineProps<{ disabled: boolean; awaitingReveal: boolean }>();
+const emit = defineEmits<{ pass: []; fail: []; reveal: [] }>();
 
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
   if (props.disabled || isTypingTarget(event)) return;
-  // Once a grade is locked in and awaiting confirmation to advance, Fail/Pass
-  // are inert - only Enter (Continue) does anything.
-  if (props.pendingAdvance) {
+  // Nothing to grade yet while the answer is still hidden - only Enter
+  // (Reveal) does anything.
+  if (props.awaitingReveal) {
     if (event.key === "Enter") {
       event.preventDefault();
-      emit("continue");
+      emit("reveal");
     }
     return;
   }
@@ -31,13 +31,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 <template>
   <div class="answer-bar">
     <button
-      v-if="pendingAdvance"
+      v-if="awaitingReveal"
       type="button"
-      class="continue-btn"
+      class="reveal-btn"
       :disabled="disabled"
-      @click="emit('continue')"
+      @click="emit('reveal')"
     >
-      <span class="answer-label">Continue</span>
+      <span class="answer-label">Reveal</span>
       <span class="key">Enter</span>
     </button>
     <template v-else>
@@ -139,7 +139,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   opacity: 0.75;
 }
 
-.continue-btn {
+.reveal-btn {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -159,17 +159,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     box-shadow 0.15s ease;
 }
 
-.continue-btn:hover:not(:disabled) {
+.reveal-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
 }
 
-.continue-btn:active:not(:disabled) {
+.reveal-btn:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
 }
 
-.continue-btn:disabled {
+.reveal-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
