@@ -16,7 +16,6 @@ const props = withDefaults(
     streakRequired?: number;
     blurred?: boolean;
     ambient?: boolean;
-    hideToggles?: boolean;
     immersive?: boolean;
     presentationKey?: number;
   }>(),
@@ -148,7 +147,7 @@ watch(
     }"
   >
     <div class="panel-top">
-      <div v-if="!hideToggles" class="lang-toggles" role="group" aria-label="Title languages">
+      <div class="lang-toggles" role="group" aria-label="Title languages">
         <button
           type="button"
           class="lang-btn"
@@ -395,9 +394,10 @@ watch(
 }
 
 /* Language control and the learning counter share one row at the top of the
-   panel, per the artboard. margin-left: auto on .learning rather than
-   space-between, so it stays right-aligned when hideToggles drops the
-   language control entirely. */
+   panel, per the artboard. margin-left: auto on .learning (rather than
+   space-between on the row) pushes it to the far right when it's present -
+   it's conditional on box === 1, unlike the language control, which always
+   renders. */
 .panel-top {
   display: flex;
   align-items: center;

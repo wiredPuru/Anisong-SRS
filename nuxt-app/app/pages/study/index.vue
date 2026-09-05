@@ -262,7 +262,6 @@ const hideInfo = ref(true);
 const hideCover = ref(false);
 const randomStart = ref(false);
 const ambientMode = ref(false);
-const showControls = ref(true);
 type AutoRevealMode = "off" | "video" | "info" | "both";
 const AUTO_REVEAL_MODES: readonly AutoRevealMode[] = ["off", "video", "info", "both"];
 function isAutoRevealMode(value: string | null): value is AutoRevealMode {
@@ -549,8 +548,6 @@ function onKeydown(event: KeyboardEvent) {
     hideCover.value = !hideCover.value;
   } else if (key === "a") {
     ambientMode.value = !ambientMode.value;
-  } else if (key === "h") {
-    showControls.value = !showControls.value;
   } else if (key === "p") {
     openPreviousCard();
   } else if (key === "l") {
@@ -620,7 +617,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
         <div class="header-right">
           <StudyDisplayToggles
-            v-if="showControls"
             :hide-video="hideVideo"
             :hide-info="hideInfo"
             :hide-cover="hideCover"
@@ -637,15 +633,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
           />
-          <button
-            type="button"
-            class="controls-toggle-btn"
-            :aria-label="showControls ? 'Hide controls' : 'Show controls'"
-            @click="showControls = !showControls"
-          >
-            <span aria-hidden="true">{{ showControls ? "👁" : "🙈" }}</span>
-            <span class="tooltip">{{ showControls ? "Hide controls" : "Show controls" }} &middot; Hotkey: H</span>
-          </button>
           <button
             type="button"
             class="controls-toggle-btn"
@@ -687,7 +674,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :blurred="hideInfo && !autoRevealedThisCard"
               :presentation-key="presentationKey"
               :ambient="ambientMode"
-              :hide-toggles="!showControls"
               :immersive="false"
               :song-title="currentCard.songTitle"
               :song-title-native="currentCard.songTitleNative"
