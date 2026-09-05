@@ -49,6 +49,12 @@
   --rail-width: 82px;
   --surface-sunken: #0c0c16;
 
+  /* Comfortably above the common 1920/2560 desktop range the full-bleed
+     split-pane layout already targets, so below this nothing changes. Used
+     by layouts/default.vue's own ultrawide breakpoint - see its comment for
+     why an upper bound exists at all. */
+  --content-max-width: 2400px;
+
   /* Stacking order, in one place so a new overlay can be slotted in without
      re-deriving the whole scale. The rail sits above page content but below
      overlays: it is chrome, and a modal backdrop is meant to cover it. */

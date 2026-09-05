@@ -99,6 +99,10 @@ Non-profit. No monetization planned.
   earlier direction, made deliberately in build 50.
 - App layout: a persistent left rail for navigation, with content in split
   panes that use the full window width, rather than a centered single column.
+  Past roughly 2560px of viewport width, the main content column caps and
+  centers itself instead of continuing to stretch - full-bleed below that
+  width is unchanged; the cap only prevents unbounded dead space on
+  ultrawide/super-ultrawide monitors (build 57).
 - Study layout: video centered, song/title info panel on the right. Unchanged
   by build 50 - the redesign keeps this arrangement and only collapses the
   display-toggle row into a single icon strip.

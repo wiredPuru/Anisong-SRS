@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash bbc62c93d058917c64a625bba42dbf16b66ad86d69e0c3213daef043a600089e -->
+<!-- blueprint:source-hash 88c14cbe603c43eb71244458fd9bd86a4055327431b2614c94cd1df6abe4fa71 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -113,7 +113,19 @@ the way 18/25/32 were retired, is an open roadmap decision. Feature 54 (a
 version stamp plus a GitHub release check) was added and built on
 2026-09-04, and is the point at which the project gained a unit test runner:
 Vitest was installed the same day, so the logic-test gate in
-`coding-standards.md` is now on rather than opt-in.
+`coding-standards.md` is now on rather than opt-in. Feature 55 (bulk
+add-all + download-all parity for the Anime add-candidate group, and
+extending both groups' bulk download to cover audio as well as video) was
+added and built the same day. Feature 56 (free-text per-card notes,
+Migaku-style, editable from every existing card-edit surface and shown in
+`StudyInfoPanel` during Study and Preview) was also added and built
+2026-09-04. Feature 57 (an ultrawide/large-screen layout cap) was added to
+`build-plan.md` the same day after Study's aspect-locked video pane and
+fixed-width info column were found to grow into unbounded dead space past
+roughly 2560px of viewport width; it caps and centers the app's main
+content column above that width, leaving every screen's existing
+full-bleed look unchanged below it, and amended `project-plan.md` §7's
+App layout bullet to record the exception.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -952,6 +964,29 @@ Vitest was installed the same day, so the logic-test gate in
     both groups' bulk actions are client-side loops over the same
     per-card `/api/cards` and `/api/cards/download` endpoints each
     already called one row at a time.
+56. **Card notes (Migaku-style memory notes)** - done. Added and built
+    2026-09-04. A free-text `notes` field per card, editable from every
+    existing Edit surface - `CardPreviewModal`, `/study`'s
+    `StudyCardEditPanel`, and `/cards`' inspector edit form - and shown in
+    `StudyInfoPanel` during both Study and Preview as a personal mnemonic
+    aid. Subject to the same Hide Info blur as the rest of the panel, and
+    absent entirely (no empty "Notes" row) for a card with no notes set.
+57. **Ultrawide/large-screen layout cap** - not yet built. Added to
+    `build-plan.md` 2026-09-04 after a report that `/study`'s layout grows
+    unbounded dead space on ultrawide monitors: `.study-grid` is
+    `1fr 480px`, so the video pane takes all remaining width, but
+    `.player-frame` is height-capped at a locked 16:9 aspect ratio and
+    simply stops growing past a certain window width - past that point,
+    extra monitor width becomes growing empty margin rather than more
+    usable layout. No breakpoint above 820px exists anywhere in
+    `main.css` today (feature 50h's narrow-window pass only handles the
+    small end). The fix caps and centers the app's shared
+    `.app-content` wrapper (`nuxt-app/app/layouts/default.vue`) above
+    roughly 2560px of viewport width, which bounds every page uniformly
+    since each page renders inside that one wrapper - no per-page changes
+    needed. Below that width, every screen's existing full-bleed look
+    (feature 50) is completely unchanged. Amended `project-plan.md` §7's
+    App layout bullet to record the exception.
 
 ## Data model
 
@@ -1172,7 +1207,11 @@ neon storefronts and game-centre panels rather than soft cartoon shapes.
 Dark blue-black ground, sakura pink primary accent, cyan secondary; tight
 radii on panels and controls, with full pills kept for buttons and badges.
 A persistent left rail navigates, and content sits in split panes using the
-full window width instead of a centered single column. Japanese text renders
+full window width instead of a centered single column. Past roughly 2560px
+of viewport width, the main content column caps and centers itself instead
+of continuing to stretch (feature 57, not yet built) - full-bleed below that
+width is unchanged; the cap only prevents unbounded dead space on
+ultrawide/super-ultrawide monitors. Japanese text renders
 as real, selectable DOM text (never baked into an image or video) so the
 Migaku browser extension can attach to it. Theme tokens (colors, fonts,
 radii) live in `nuxt-app/app/assets/css/main.css`.

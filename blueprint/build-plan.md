@@ -474,6 +474,12 @@ cleaned-up checkbox version before generating the project overview.
   inspector edit form), shown in `StudyInfoPanel` during Study and Preview
   as a personal mnemonic aid (subject to the same Hide Info blur as the
   rest of the panel).
+- [x] 57. **Ultrawide/large-screen layout cap** - past roughly 2560px of
+  viewport width, aspect-locked and fixed-width surfaces (Study's video
+  pane, its 480px info column) grow into unbounded dead space instead of
+  more usable layout. Caps and centers the app's main content column above
+  that width; every screen's existing full-bleed look stays completely
+  unchanged below it.
 
 ## Plan maintenance
 

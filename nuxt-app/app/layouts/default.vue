@@ -53,4 +53,21 @@
     min-height: 100vh;
   }
 }
+
+/* Nothing here caps width, so a full-bleed page's fixed-width or
+   aspect-locked surfaces (study/index.vue's 480px .side, StudyMediaPlayer's
+   height-capped 16:9 .player-frame) simply stop growing on a very wide
+   monitor and leave the rest as dead space instead of more usable layout.
+   Centering a capped column past this point turns that into one deliberate,
+   symmetric margin instead - every page renders through this one wrapper,
+   so the bound applies everywhere with no per-page change. Immersive/expanded
+   surfaces (StudyMediaPlayer's .player-card.expanded, CardPreviewModal) are
+   position: fixed against the viewport, not this element, so they stay
+   unbounded by design. */
+@media (min-width: 2600px) {
+  .app-content {
+    max-width: var(--content-max-width);
+    margin-inline: auto;
+  }
+}
 </style>
