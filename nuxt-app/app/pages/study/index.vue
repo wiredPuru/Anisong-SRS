@@ -211,13 +211,12 @@ async function toggleDeckMembership(cardId: number, deckId: number, checked: boo
   }
 }
 
-function onCardEdited(updated: { id: number; localVideoPath: string | null; localAudioPath: string | null }) {
+// StudyCardEditPanel declares a narrow card shape but emits the whole card the
+// PATCH returned, so every edited field is applied rather than a named few -
+// listing them by hand silently dropped notes when that field was added.
+function onCardEdited(updated: { id: number } & Partial<CardWithDetails>) {
   if (!currentCard.value || currentCard.value.id !== updated.id) return;
-  currentCard.value = {
-    ...currentCard.value,
-    localVideoPath: updated.localVideoPath,
-    localAudioPath: updated.localAudioPath,
-  };
+  currentCard.value = { ...currentCard.value, ...updated };
 }
 
 const showNewCardLimitPopover = ref(false);

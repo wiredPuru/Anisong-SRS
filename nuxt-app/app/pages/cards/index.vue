@@ -478,6 +478,11 @@ async function removeCard(id: number) {
               </div>
             </div>
 
+            <div v-if="selectedCard.notes" class="inspector-block">
+              <span class="block-label">Notes</span>
+              <span class="notes-row">{{ selectedCard.notes }}</span>
+            </div>
+
             <div class="inspector-block">
               <span class="block-label">Sources</span>
               <span v-for="badge in sourceBadges(selectedCard)" :key="badge" class="source-row">{{ badge }}</span>
@@ -794,6 +799,18 @@ h1 {
 .source-row-none {
   color: var(--fail);
   border-color: var(--fail);
+}
+
+/* Free text rather than a badge, so it wraps and keeps the line breaks the
+   user typed instead of the single-line treatment .source-row gets. */
+.notes-row {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .inspector-actions {
