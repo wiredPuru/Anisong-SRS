@@ -97,6 +97,29 @@ watch(scope, () => {
   sessionHistory.value = [];
 });
 
+// Session-only visual feedback for the moment a grade lands - never persisted,
+// cleared on its own after the CSS animation finishes.
+const gradeFlash = ref<"pass" | "fail" | null>(null);
+let gradeFlashTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function flashGrade(result: "pass" | "fail") {
+  if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
+  gradeFlash.value = null;
+  // Restart the CSS animation even on the same result back-to-back (e.g. two
+  // quick fails): re-add the class on the next tick rather than relying on
+  // the class staying set, which wouldn't retrigger the animation at all.
+  nextTick(() => {
+    gradeFlash.value = result;
+    gradeFlashTimeout = setTimeout(() => {
+      gradeFlash.value = null;
+    }, 500);
+  });
+}
+
+onUnmounted(() => {
+  if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
+});
+
 async function submitReview(result: "pass" | "fail") {
   const reviewedCard = currentCard.value;
   const countBefore = reviewedCount.value;
@@ -107,6 +130,7 @@ async function submitReview(result: "pass" | "fail") {
   // review apart from a no-op double-submit (submit() guards on
   // `reviewing`) or a failed request.
   if (reviewedCard && reviewedCount.value !== countBefore) {
+    flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result });
     await refreshStudySession();
   }
@@ -672,6 +696,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
         />
+        <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
           <div class="info-panel-wrap">
@@ -1074,12 +1099,45 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    width instead. Column direction leaves align-items at stretch, so the
    player fills the pane, and justify-content centres it vertically. */
 .player-pane {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 24px;
+}
+
+/* A glow, not a fill - matches feature 24's border/glow convention for
+   "on" states rather than a solid color wash over the video. Sits above the
+   player (no z-index needed, later in DOM order) but never intercepts
+   clicks meant for it. */
+.grade-flash {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  border-radius: var(--radius);
+  animation: grade-flash-pulse 500ms ease-out forwards;
+}
+
+.grade-flash.pass {
+  box-shadow: 0 0 0 2px var(--pass), 0 0 32px 4px var(--pass);
+}
+
+.grade-flash.fail {
+  box-shadow: 0 0 0 2px var(--fail), 0 0 32px 4px var(--fail);
+}
+
+@keyframes grade-flash-pulse {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Lets the card shrink to the pane instead of stopping at its content's
