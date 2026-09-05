@@ -28,6 +28,50 @@ interface ManualDeck {
   cardCount: number;
 }
 
+interface AniListResult {
+  aniListId: number;
+  titleRomaji: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+}
+
+const importPanelOpen = ref(false);
+const importAniListUsername = ref("");
+const importMalUsername = ref("");
+const importLoading = ref(false);
+const importAniListError = ref<string | null>(null);
+const importMalError = ref<string | null>(null);
+const importResults = ref<AniListResult[] | null>(null);
+
+async function runImport() {
+  const aniListUsername = importAniListUsername.value.trim();
+  const malUsername = importMalUsername.value.trim();
+  if (!aniListUsername && !malUsername) return;
+
+  importLoading.value = true;
+  importAniListError.value = null;
+  importMalError.value = null;
+
+  const [aniListOutcome, malOutcome] = await Promise.allSettled([
+    aniListUsername
+      ? $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-list", { query: { username: aniListUsername } })
+      : Promise.resolve({ results: [] as AniListResult[] }),
+    malUsername
+      ? $fetch<{ results: AniListResult[] }>("/api/lookup/mal-list", { query: { username: malUsername } })
+      : Promise.resolve({ results: [] as AniListResult[] }),
+  ]);
+
+  const lists: AniListResult[][] = [];
+  if (aniListOutcome.status === "fulfilled") lists.push(aniListOutcome.value.results);
+  else importAniListError.value = extractErrorMessage(aniListOutcome.reason, "AniList import failed.");
+
+  if (malOutcome.status === "fulfilled") lists.push(malOutcome.value.results);
+  else importMalError.value = extractErrorMessage(malOutcome.reason, "MyAnimeList import failed.");
+
+  importResults.value = mergeImportCandidates(lists);
+  importLoading.value = false;
+}
+
 const searchInput = ref("");
 const searchQuery = ref("");
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -372,6 +416,28 @@ async function removeCard(id: number) {
         @input="onSearchInput"
       />
     </header>
+
+    <div class="import-panel">
+      <button type="button" class="import-toggle" @click="importPanelOpen = !importPanelOpen">
+        {{ importPanelOpen ? "Hide import" : "Import from AniList / MyAnimeList" }}
+      </button>
+      <div v-if="importPanelOpen" class="import-form">
+        <input v-model="importAniListUsername" type="text" placeholder="AniList username" class="import-input" />
+        <input v-model="importMalUsername" type="text" placeholder="MyAnimeList username" class="import-input" />
+        <button type="button" class="import-btn" :disabled="importLoading" @click="runImport">
+          {{ importLoading ? "Importing..." : "Import" }}
+        </button>
+      </div>
+      <p v-if="importAniListError" class="inline-error">AniList: {{ importAniListError }}</p>
+      <p v-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
+      <CardImportListResults
+        v-if="importResults !== null"
+        :results="importResults"
+        :has-default-download-folder="hasDefaultDownloadFolder"
+        @refresh="loadFirstPage"
+        @preview="previewInInspector"
+      />
+    </div>
 
     <div class="cards-body">
       <div class="list-pane">
@@ -828,6 +894,67 @@ h1 {
 .inspector-actions .preview-btn,
 .inspector-actions .edit-btn {
   flex: 1;
+}
+
+.import-panel {
+  margin: 0 24px 16px;
+}
+
+.import-toggle {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.import-input {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.import-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent);
+}
+
+.import-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inline-error {
+  margin: 8px 0 0;
+  color: var(--fail);
+  font-size: 13px;
 }
 
 .search-input {

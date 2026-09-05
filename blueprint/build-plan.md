@@ -480,6 +480,13 @@ cleaned-up checkbox version before generating the project overview.
   more usable layout. Caps and centers the app's main content column above
   that width; every screen's existing full-bleed look stays completely
   unchanged below it.
+- [x] 58. **Import from AniList/MyAnimeList (Completed list)** - enter a
+  username; fetches the public Completed-status anime list from AniList
+  and/or MyAnimeList (via the unofficial Jikan API, since MAL's official
+  API requires OAuth even for public-list reads) and surfaces each anime as
+  a browsable add-candidate (title, cover, already-added check) in the same
+  picking flow as the existing Anime search group on `/cards` - no
+  automatic bulk card creation, no OAuth, no stored account link.
 
 ## Plan maintenance
 

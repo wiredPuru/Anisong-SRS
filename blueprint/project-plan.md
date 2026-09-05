@@ -56,6 +56,10 @@ instance against their own local media and database.
   bundled in the export; video files are never bundled (size). On import, any
   card missing local media can be re-linked by pulling from animethemes.moe
   when a remote reference exists.
+- **Import from AniList/MyAnimeList** - enter a username (no account linking,
+  no OAuth) and browse that user's public Completed-status anime list as
+  add-candidates, same picking flow as the existing anime search - not
+  automatic bulk card creation.
 
 ## 4. Data - What are we storing?
 
@@ -79,6 +83,10 @@ instance against their own local media and database.
 - GraphQL client against AniList's public API for anime/song metadata.
 - GraphQL client against animethemes.moe (https://api-docs.animethemes.moe)
   for theme (OP/ED) video/audio and metadata.
+- Jikan (https://jikan.moe), an unofficial, no-key REST wrapper over
+  MyAnimeList's public data - used only to read a public username's
+  Completed anime list, since MAL's official API requires OAuth even for
+  public-list reads.
 - Japanese morphological analyzer (e.g. kuroshiro/kuromoji) for furigana
   generation.
 - Local filesystem access (Node `fs`) for the user-configured media library.

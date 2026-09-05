@@ -103,3 +103,75 @@ export async function fetchAnimeFromAniList(aniListId: number): Promise<AniListA
 
   return body.data.Media ? toAniListAnime(body.data.Media) : null;
 }
+
+const COMPLETED_LIST_QUERY = `
+  query ($userName: String, $status: MediaListStatus) {
+    MediaListCollection(userName: $userName, type: ANIME, status: $status) {
+      lists {
+        entries {
+          media {
+            id
+            title { romaji english native }
+            coverImage { large }
+          }
+        }
+      }
+    }
+  }
+`;
+
+interface AniListMediaListCollection {
+  MediaListCollection: {
+    lists: { entries: { media: AniListMedia }[] }[];
+  } | null;
+}
+
+export class AniListUserNotFoundError extends Error {}
+
+export async function fetchAniListCompletedList(userName: string): Promise<AniListAnime[]> {
+  const { status, body } = await postToAniList<AniListMediaListCollection>(COMPLETED_LIST_QUERY, {
+    userName,
+    status: "COMPLETED",
+  });
+
+  if (status === 404) {
+    throw new AniListUserNotFoundError(`AniList user "${userName}" not found`);
+  }
+
+  if (status !== 200 || !body.data) {
+    throw new Error(`AniList completed-list lookup failed with status ${status}`);
+  }
+
+  const lists = body.data.MediaListCollection?.lists ?? [];
+  return lists.flatMap((list) => list.entries.map((entry) => toAniListAnime(entry.media)));
+}
+
+const BY_MAL_ID_QUERY = `
+  query ($idMal: Int) {
+    Media(idMal: $idMal, type: ANIME) {
+      id
+      title { romaji english native }
+      coverImage { large }
+    }
+  }
+`;
+
+// Used to resolve a MyAnimeList id (from the Jikan-backed MAL import) to its
+// AniList counterpart, since every Anime row in this app is keyed by
+// aniListId, not a MAL id. type: ANIME disambiguates idMal, which is not
+// unique across AniList's anime/manga media pool on its own.
+export async function fetchAnimeFromAniListByMalId(malId: number): Promise<AniListAnime | null> {
+  const { status, body } = await postToAniList<{ Media: AniListMedia | null }>(BY_MAL_ID_QUERY, {
+    idMal: malId,
+  });
+
+  if (status === 404) {
+    return null;
+  }
+
+  if (status !== 200 || !body.data) {
+    throw new Error(`AniList idMal lookup failed with status ${status}`);
+  }
+
+  return body.data.Media ? toAniListAnime(body.data.Media) : null;
+}

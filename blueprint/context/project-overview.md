@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 88c14cbe603c43eb71244458fd9bd86a4055327431b2614c94cd1df6abe4fa71 -->
+<!-- blueprint:source-hash 29bc97382d1c0c1bb94da1c8e1c0750fd25877567f5a1b211d71192c99aab58 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -125,7 +125,12 @@ fixed-width info column were found to grow into unbounded dead space past
 roughly 2560px of viewport width; it caps and centers the app's main
 content column above that width, leaving every screen's existing
 full-bleed look unchanged below it, and amended `project-plan.md` §7's
-App layout bullet to record the exception.
+App layout bullet to record the exception. Feature 58 (importing a user's
+public AniList/MyAnimeList Completed list as browsable anime add-candidates)
+was added to `build-plan.md` on 2026-09-05 and is not yet built; it added a
+new §3 Features bullet and a §5 Tech line to `project-plan.md` for Jikan,
+the unofficial no-key MyAnimeList API it uses (MAL's official API requires
+OAuth even to read a public list).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -988,6 +993,19 @@ App layout bullet to record the exception.
     needed. Below that width, every screen's existing full-bleed look
     (feature 50) is completely unchanged. Amended `project-plan.md` §7's
     App layout bullet to record the exception.
+58. **Import from AniList/MyAnimeList (Completed list)** - not yet built.
+    Added to `build-plan.md` 2026-09-05. Enter a public username (no OAuth,
+    no stored account link) and browse that user's Completed-status anime
+    list as add-candidates - title, cover, already-added check - in the
+    same picking flow as the existing Anime search group on `/cards`
+    (feature 49a): expands inline into a theme picker, no automatic bulk
+    card creation. AniList's `MediaListCollection` query is public and
+    unauthenticated for a public list, reusing the same GraphQL client
+    features 3/37a/49a already use. MyAnimeList's official API requires an
+    OAuth2 token even to read a public list, so MAL support instead goes
+    through Jikan (https://jikan.moe), an unofficial, no-key REST wrapper
+    over MAL's public data - a new, less durable external dependency than
+    AniList's own API, called only for this feature.
 
 ## Data model
 
@@ -1188,6 +1206,10 @@ stored session queue.
   metadata, and the files feature 8 downloads. Requires a non-default
   `User-Agent` header (blocks Node's bare default with a `403`) - see
   feature 3's archive.
+- **Jikan REST API** (`api.jikan.moe`) - not yet used, planned for feature
+  58. Unofficial, no-key wrapper over MyAnimeList's public data, used only
+  to read a public username's Completed anime list - MAL's official API
+  requires OAuth even for that.
 - **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - added in
   feature 6c for furigana generation
 - **Node `fs`** - reads the user-configured local media library and writes
