@@ -12,7 +12,9 @@ interface CardWithDetails {
   createdAt: string;
   songTitle: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -461,8 +463,12 @@ async function removeCard(id: number) {
           <div class="inspector-body">
             <div class="inspector-titles">
               <span class="inspector-song">{{ selectedCard.songTitle }}</span>
-              <span class="inspector-meta">{{ selectedCard.artistName }}</span>
-              <span class="inspector-meta">{{ selectedCard.animeTitleEnglish }}</span>
+              <NuxtLink :to="artistDeckPath(selectedCard.artistId)" class="inspector-meta deck-link">{{
+                selectedCard.artistName
+              }}</NuxtLink>
+              <NuxtLink :to="animeDeckPath(selectedCard.animeId)" class="inspector-meta deck-link">{{
+                selectedCard.animeTitleEnglish
+              }}</NuxtLink>
             </div>
 
             <div class="inspector-tiles">

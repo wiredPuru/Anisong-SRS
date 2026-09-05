@@ -10,6 +10,11 @@ const props = withDefaults(
     // Optional so the Theme row is simply absent for any caller that doesn't
     // pass it, rather than this being a breaking addition.
     themeSlot?: string;
+    // Deck detail links for the anime title block and the Artist row. Absent
+    // on /study, where following one mid-session would abandon the queue, so
+    // both render as today's plain text unless a caller opts in.
+    animeHref?: string;
+    artistHref?: string;
     notes?: string | null;
     box?: number;
     streak?: number;
@@ -23,6 +28,13 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-change": [boolean] }>();
+
+// Resolved once so the title block and the Artist row can swap between a
+// link and their original plain element without duplicating their contents
+// across a v-if/v-else pair.
+const NuxtLinkComponent = resolveComponent("NuxtLink");
+const animeTitleTag = computed(() => (props.animeHref ? NuxtLinkComponent : "div"));
+const artistNameTag = computed(() => (props.artistHref ? NuxtLinkComponent : "span"));
 
 // This panel deliberately isn't remounted per card (it would reset the
 // language toggles below), so the same element carries the CSS blur
@@ -211,12 +223,17 @@ watch(
       </div>
     </div>
 
-    <div class="title-block">
+    <component
+      :is="animeTitleTag"
+      v-bind="animeHref ? { to: animeHref } : {}"
+      class="title-block"
+      :class="{ 'deck-link': animeHref }"
+    >
       <span v-if="showEn" class="en">{{ animeTitleEnglish }}</span>
       <span v-if="showRomaji" class="romaji">{{ animeTitleRomaji }}</span>
       <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji && animeJpIsHtml" class="jp" v-html="animeJpHtml" />
       <span v-else-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp">{{ animeJpHtml }}</span>
-    </div>
+    </component>
 
     <div class="divider" />
 
@@ -229,7 +246,13 @@ watch(
       </div>
       <div class="detail-row">
         <span class="label">Artist</span>
-        <span class="value">{{ artistName }}</span>
+        <component
+          :is="artistNameTag"
+          v-bind="artistHref ? { to: artistHref } : {}"
+          class="value"
+          :class="{ 'deck-link': artistHref }"
+          >{{ artistName }}</component
+        >
       </div>
       <div v-if="themeSlot" class="detail-row">
         <span class="label">Theme</span>

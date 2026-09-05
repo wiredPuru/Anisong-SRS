@@ -20,7 +20,9 @@ export interface CardWithDetails {
   songTitle: string;
   songTitleNative: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;

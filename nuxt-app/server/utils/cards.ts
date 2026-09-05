@@ -27,7 +27,9 @@ export interface CardWithDetails {
   songTitle: string;
   songTitleNative: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -49,7 +51,9 @@ const cardSelection = {
   songTitle: song.title,
   songTitleNative: sql<string>`coalesce(${song.titleNative}, ${song.title})`,
   themeSlot: song.themeSlot,
+  artistId: artist.id,
   artistName: artist.name,
+  animeId: anime.id,
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,

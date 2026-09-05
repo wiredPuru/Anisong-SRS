@@ -13,7 +13,9 @@ interface CardWithDetails {
   songTitle: string;
   songTitleNative: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -244,6 +246,8 @@ watch(
               :song-title="card.songTitle"
               :song-title-native="card.songTitleNative"
               :artist-name="card.artistName"
+              :artist-href="artistDeckPath(card.artistId)"
+              :anime-href="animeDeckPath(card.animeId)"
               :anime-title-english="card.animeTitleEnglish"
               :anime-title-romaji="card.animeTitleRomaji"
               :anime-title-native="card.animeTitleNative"
@@ -345,6 +349,8 @@ watch(
           :song-title="card.songTitle"
           :song-title-native="card.songTitleNative"
           :artist-name="card.artistName"
+          :artist-href="artistDeckPath(card.artistId)"
+          :anime-href="animeDeckPath(card.animeId)"
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"

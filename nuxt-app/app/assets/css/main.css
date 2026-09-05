@@ -149,6 +149,25 @@
   background: var(--glass-surface-panel) !important;
 }
 
+/* Artist and anime names that link to that deck's detail page (/cards'
+   inspector, CardPreviewModal's info panel, /decks' card rows). Global
+   because three separately scoped components share one look, and the name
+   must keep whatever size and color its surrounding block already gives it -
+   hence color: inherit rather than a link color of its own. The element tag
+   in the hover selector is what outranks each component's own scoped color
+   rule, so no !important is needed here. */
+.deck-link {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+a.deck-link:hover,
+a.deck-link:focus-visible {
+  color: var(--accent-secondary);
+  text-decoration: underline;
+}
+
 body {
   margin: 0;
   min-height: 100vh;

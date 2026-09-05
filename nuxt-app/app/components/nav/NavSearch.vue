@@ -11,7 +11,9 @@ interface CardWithDetails {
   createdAt: string;
   songTitle: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;

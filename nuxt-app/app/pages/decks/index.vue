@@ -49,7 +49,9 @@ interface DeckCard {
   createdAt: string;
   songTitle: string;
   themeSlot: string;
+  artistId: number;
   artistName: string;
+  animeId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -78,6 +80,13 @@ const selectedId = computed<number | null>(() => {
   const id = Number(raw);
   return Number.isFinite(id) ? id : null;
 });
+
+// Every row in an artist deck names that same artist, so linking it back to
+// the page you are already on is noise - those names stay plain text and only
+// the cross-link to the other grouping is clickable.
+function isCurrentDeck(type: "artist" | "anime", id: number): boolean {
+  return activeType.value === type && selectedId.value === id;
+}
 
 const searchInput = ref("");
 const searchQuery = ref("");
@@ -854,7 +863,21 @@ function backToDecks() {
               />
               <div class="deck-card-row-text">
                 <span class="song-title">{{ c.songTitle }}</span>
-                <span class="deck-sublabel">{{ c.artistName }} - {{ c.animeTitleEnglish }} ({{ c.themeSlot }})</span>
+                <span class="deck-sublabel">
+                  <NuxtLink
+                    v-if="!isCurrentDeck('artist', c.artistId)"
+                    :to="artistDeckPath(c.artistId)"
+                    class="deck-link"
+                    >{{ c.artistName }}</NuxtLink
+                  >
+                  <template v-else>{{ c.artistName }}</template>
+                  -
+                  <NuxtLink v-if="!isCurrentDeck('anime', c.animeId)" :to="animeDeckPath(c.animeId)" class="deck-link">{{
+                    c.animeTitleEnglish
+                  }}</NuxtLink>
+                  <template v-else>{{ c.animeTitleEnglish }}</template>
+                  ({{ c.themeSlot }})
+                </span>
                 <div class="badges">
                   <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
                 </div>
