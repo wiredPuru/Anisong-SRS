@@ -32,10 +32,8 @@ folders it ships with - it reads all three from disk at startup.
 
 The builds are not code-signed, so you get a warning the first time:
 
-- **macOS** - right-click the executable and choose Open, then confirm. On
-  v1.1.0 and earlier you may instead see `"gaq-srs" is damaged and can't be
-  opened`, which is misleading; the file is fine. Either download v1.3.0 or
-  later, or clear the quarantine flag:
+- **macOS** - right-click the executable and choose Open, then confirm. If it
+  still refuses, clear the quarantine flag:
   `xattr -dr com.apple.quarantine /path/to/folder`
 - **Windows** - SmartScreen shows "Windows protected your PC". Choose More
   info, then Run anyway.
