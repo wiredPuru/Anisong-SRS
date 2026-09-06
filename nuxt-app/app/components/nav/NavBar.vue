@@ -83,11 +83,19 @@ function isActive(to: string): boolean {
   line-height: 1;
 }
 
+/* flex: 1 + min-height: 0 + overflow-y: auto, rather than plain flow, so a
+   rail taller than the viewport scrolls its own links instead of overflowing
+   into the page - which previously left the sticky rail almost no room to
+   stay stuck before it released and scrolled away with the page. */
 .nav-links {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  overflow-y: auto;
 }
 
 .nav-link {

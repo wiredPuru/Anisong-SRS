@@ -83,6 +83,35 @@
   box-sizing: border-box;
 }
 
+/* Themed scrollbar everywhere, so a scrolling pane (list-pane, inspector,
+   settings-body, the rail's own nav-links, modals, ...) never falls back to
+   the OS default - one global rule instead of one per component. Firefox
+   reads the standard properties; Chrome/Safari/Edge read the WebKit
+   pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--surface-sunken);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--surface-sunken);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid var(--surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary);
+}
+
 /* For headings the redesign drops visually but the document still needs.
    The Akiba Neon screens name themselves through the rail's active item
    rather than a page title, so the <h1> stays for structure and screen
