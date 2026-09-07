@@ -237,13 +237,41 @@ function dueCardCondition(scope: StudyScope, includeNewBeyondLimit = false) {
   return scopeCondition ? and(base, scopeCondition) : base;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Cards due together (e.g. a bulk import) share the same nextReviewAt, which
+// would otherwise always break ties by row insertion order - the same fixed
+// order on every study session. Picks randomly among the earliest due
+// calendar-day bucket instead, so a genuinely more-overdue card (an earlier
+// day) still wins, but which card comes first within a tied/same-day batch
+// varies each call. `pool` must already be sorted ascending by nextReviewAt.
+export function pickRandomDueOrder<T extends { nextReviewAt: Date }>(pool: readonly T[], count: number): T[] {
+  const remaining = [...pool];
+  const picks: T[] = [];
+
+  while (remaining.length > 0 && picks.length < count) {
+    const earliestDay = Math.floor(remaining[0].nextReviewAt.getTime() / DAY_MS);
+    const frontierIndices = remaining
+      .map((_, index) => index)
+      .filter((index) => Math.floor(remaining[index].nextReviewAt.getTime() / DAY_MS) === earliestDay);
+    const chosenIndex = frontierIndices[Math.floor(Math.random() * frontierIndices.length)];
+    picks.push(remaining[chosenIndex]);
+    remaining.splice(chosenIndex, 1);
+  }
+
+  return picks;
+}
+
 export function getNextDueCard(scope: StudyScope, includeNewBeyondLimit = false): CardWithDetails | undefined {
-  return cardQuery().where(dueCardCondition(scope, includeNewBeyondLimit)).orderBy(asc(card.nextReviewAt)).get();
+  const pool = cardQuery().where(dueCardCondition(scope, includeNewBeyondLimit)).orderBy(asc(card.nextReviewAt)).all();
+  return pickRandomDueOrder(pool, 1)[0];
 }
 
 // A best-effort snapshot of the next `limit` due cards after `excludeCardId`,
 // for prefetching - not a guarantee, since the real due order can shift once
-// the excluded card is actually reviewed (see current-feature.md notes).
+// the excluded card is actually reviewed (see current-feature.md notes), and
+// now also shuffled the same way getNextDueCard is so the prefetch list stays
+// consistent with what tends to actually get served next.
 export function getUpcomingDueCards(
   scope: StudyScope,
   excludeCardId: number | undefined,
@@ -252,7 +280,8 @@ export function getUpcomingDueCards(
 ): CardWithDetails[] {
   const base = dueCardCondition(scope, includeNewBeyondLimit);
   const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
-  return cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).limit(limit).all();
+  const pool = cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).all();
+  return pickRandomDueOrder(pool, limit);
 }
 
 export function getDueCardCount(scope: StudyScope, includeNewBeyondLimit = false): number {
