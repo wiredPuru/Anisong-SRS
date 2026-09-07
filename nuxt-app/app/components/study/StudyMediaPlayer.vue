@@ -230,15 +230,24 @@ function onLoadedMetadata() {
   // workaround for this browser quirk. A 0-duration loadedmetadata used to
   // slip past the check above (Number.isFinite(0) is true) and freeze the
   // scrub bar's total at "0:00" forever - see the fix's history entry.
-  el.addEventListener(
-    "durationchange",
-    () => {
-      const resolved = Number.isFinite(el.duration) ? el.duration : 0;
-      duration.value = resolved;
-      el.currentTime = props.randomStart && resolved > 0 ? randomStartTime(resolved) : 0;
-    },
-    { once: true },
-  );
+  //
+  // durationchange can itself fire more than once with a still-invalid
+  // value before the real one lands, so this keeps listening (rather than
+  // consuming a single { once: true } event) until a genuinely resolved
+  // (> 0) duration shows up - capped at a few attempts so a clip that truly
+  // never resolves settles into a safe state instead of listening forever.
+  const MAX_DURATION_ATTEMPTS = 5;
+  let durationAttempts = 0;
+  const onDurationChange = () => {
+    durationAttempts += 1;
+    const resolved = el.duration;
+    const isResolved = Number.isFinite(resolved) && resolved > 0;
+    if (!isResolved && durationAttempts < MAX_DURATION_ATTEMPTS) return;
+    el.removeEventListener("durationchange", onDurationChange);
+    duration.value = isResolved ? resolved : 0;
+    el.currentTime = props.randomStart && isResolved ? randomStartTime(resolved) : 0;
+  };
+  el.addEventListener("durationchange", onDurationChange);
   el.currentTime = 1e101;
 }
 
