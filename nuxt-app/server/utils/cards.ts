@@ -504,15 +504,7 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
       if (collision) {
         return { error: "Another artist already has that name - use the reassign mode instead." };
       }
-      db.update(artist).set({ name: trimmedName }).where(eq(artist.id, songRow.artistId)).run();
-    } else {
-      const targetArtist = getOrCreateArtist(trimmedName);
-      db.update(song).set({ artistId: targetArtist.id }).where(eq(song.id, songRow.id)).run();
     }
-  }
-
-  if (Object.keys(songUpdates).length > 0) {
-    db.update(song).set(songUpdates).where(eq(song.id, songRow.id)).run();
   }
 
   const updates: { localVideoPath?: string | null; localAudioPath?: string | null; notes?: string | null } = {};
@@ -559,9 +551,23 @@ export function updateCard(input: UpdateCardInput): UpdateCardResult {
     return { error: "Card needs at least one video or audio source." };
   }
 
-  if (Object.keys(updates).length > 0) {
-    db.update(card).set(updates).where(eq(card.id, input.id)).run();
-  }
+  db.transaction(() => {
+    if (input.artistMode !== undefined) {
+      const name = input.artistName!.trim();
+      if (input.artistMode === "rename") {
+        db.update(artist).set({ name }).where(eq(artist.id, songRow.artistId)).run();
+      } else {
+        const targetArtist = getOrCreateArtist(name);
+        db.update(song).set({ artistId: targetArtist.id }).where(eq(song.id, songRow.id)).run();
+      }
+    }
+    if (Object.keys(songUpdates).length > 0) {
+      db.update(song).set(songUpdates).where(eq(song.id, songRow.id)).run();
+    }
+    if (Object.keys(updates).length > 0) {
+      db.update(card).set(updates).where(eq(card.id, input.id)).run();
+    }
+  });
 
   for (const path of clearedLocalPaths) {
     deleteFileIfUnreferenced(path);

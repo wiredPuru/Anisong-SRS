@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { extname, isAbsolute, join, relative } from "node:path";
 import { cardExistsForSong, createCard } from "./cards.ts";
 import type { DeckBundleManifest } from "./deckExport.ts";
-import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
+import { findAnimeByAniListId, findSongByAnimeAndSlot, getArtistById, getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import { getDefaultDownloadFolder } from "./mediaLibrary.ts";
 import { resolveUniquePath, sanitizeSegment } from "./mediaDownload.ts";
 
@@ -51,29 +51,44 @@ export function importBundle(sourcePath: string): ImportBundleResult {
   for (const entry of manifest.cards) {
     const label = `${entry?.anime?.titleRomaji ?? "unknown anime"} - ${entry?.song?.themeSlot ?? "?"}`;
     try {
-      const animeRow = upsertAnime({
-        aniListId: entry.anime.aniListId,
-        animethemesId: entry.anime.animethemesId,
-        titleEnglish: entry.anime.titleEnglish,
-        titleRomaji: entry.anime.titleRomaji,
-        titleNative: entry.anime.titleNative,
-      });
-      const artistRow = getOrCreateArtist(entry.artistName);
-      const songRow = upsertSong({
-        animeId: animeRow.id,
-        artistId: artistRow.id,
-        title: entry.song.title,
-        themeSlot: entry.song.themeSlot,
-        animethemesThemeId: entry.song.animethemesThemeId,
-      });
+      // A bundle is stale, non-authoritative data (unlike a live AniList/
+      // animethemes.moe lookup): resolve an existing anime/song by identity
+      // first and leave it untouched, only inserting when genuinely new, so
+      // reimporting an old bundle can never overwrite metadata edited since.
+      const animeRow = findAnimeByAniListId(entry.anime.aniListId) ??
+        upsertAnime({
+          aniListId: entry.anime.aniListId,
+          animethemesId: entry.anime.animethemesId,
+          titleEnglish: entry.anime.titleEnglish,
+          titleRomaji: entry.anime.titleRomaji,
+          titleNative: entry.anime.titleNative,
+        });
+      let songRow = findSongByAnimeAndSlot(animeRow.id, entry.song.themeSlot);
+      if (!songRow) {
+        // Only get-or-create the artist when a song row actually needs one -
+        // an existing (soon to be skipped) song must not spawn a stray
+        // artist row from a bundle's stale name.
+        const artistRow = getOrCreateArtist(entry.artistName);
+        songRow = upsertSong({
+          animeId: animeRow.id,
+          artistId: artistRow.id,
+          title: entry.song.title,
+          themeSlot: entry.song.themeSlot,
+          animethemesThemeId: entry.song.animethemesThemeId,
+        });
+      }
 
       if (cardExistsForSong(songRow.id)) {
         skipped += 1;
         continue;
       }
 
+      // Use the song's actual current artist (it may have been reassigned
+      // since export - feature 16), not the bundle's possibly-stale name.
+      const artistRow = getArtistById(songRow.artistId);
+
       let localAudioPath: string | null = null;
-      if (entry.audioFile && defaultFolder) {
+      if (entry.audioFile && defaultFolder && artistRow) {
         const bundledPath = join(sourcePath, entry.audioFile);
         if (isWithinDir(sourcePath, bundledPath) && existsSync(bundledPath)) {
           const baseName = `${sanitizeSegment(animeRow.titleRomaji)} - ${sanitizeSegment(songRow.themeSlot)} - ${sanitizeSegment(artistRow.name)}`;

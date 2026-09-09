@@ -698,31 +698,44 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
-          <div class="info-panel-wrap">
-            <StudyAutoRevealCountdown
-              v-if="autoRevealCountdownActive"
-              :key="presentationKey"
-              :seconds="currentAutoRevealRemainingSeconds()"
-              :ambient="ambientMode"
-            />
-            <StudyInfoPanel
-              :blurred="hideInfo && !autoRevealedThisCard"
-              :presentation-key="presentationKey"
-              :ambient="ambientMode"
-              :immersive="false"
-              :song-title="currentCard.songTitle"
-              :song-title-native="currentCard.songTitleNative"
-              :artist-name="currentCard.artistName"
-              :anime-title-english="currentCard.animeTitleEnglish"
-              :anime-title-romaji="currentCard.animeTitleRomaji"
-              :anime-title-native="currentCard.animeTitleNative"
-              :theme-slot="currentCard.themeSlot"
-              :notes="currentCard.notes"
-              :box="currentCard.box"
-              :streak="currentCard.streak"
-              :streak-required="studySettings?.boxOneStreakRequired"
-              @streak-required-saved="onSettingsSaved"
-            />
+          <div>
+            <div class="info-panel-wrap">
+              <StudyAutoRevealCountdown
+                v-if="autoRevealCountdownActive"
+                :key="presentationKey"
+                :seconds="currentAutoRevealRemainingSeconds()"
+                :ambient="ambientMode"
+              />
+              <StudyInfoPanel
+                :blurred="hideInfo && !autoRevealedThisCard"
+                :inert="hideInfo && !autoRevealedThisCard"
+                :presentation-key="presentationKey"
+                :ambient="ambientMode"
+                :immersive="false"
+                :song-title="currentCard.songTitle"
+                :song-title-native="currentCard.songTitleNative"
+                :artist-name="currentCard.artistName"
+                :anime-title-english="currentCard.animeTitleEnglish"
+                :anime-title-romaji="currentCard.animeTitleRomaji"
+                :anime-title-native="currentCard.animeTitleNative"
+                :theme-slot="currentCard.themeSlot"
+                :notes="currentCard.notes"
+                :box="currentCard.box"
+                :streak="currentCard.streak"
+                :streak-required="studySettings?.boxOneStreakRequired"
+                @streak-required-saved="onSettingsSaved"
+              />
+              <button
+                v-if="hideInfo && !autoRevealedThisCard"
+                type="button"
+                class="info-reveal-target"
+                aria-label="Reveal card information"
+                :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog"
+                @click="revealCurrentCard"
+                @keydown.enter.stop
+                @keydown.space.stop
+              />
+            </div>
             <StudyCardEditPanel
               :key="presentationKey"
               :card="currentCard"
@@ -1165,6 +1178,29 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    the pass/fail buttons below. */
 .info-panel-wrap {
   position: relative;
+}
+
+.info-panel-wrap :deep(.auto-reveal-countdown) {
+  pointer-events: none;
+}
+
+.info-reveal-target {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.info-reveal-target:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+}
+
+.info-reveal-target:disabled {
+  cursor: default;
 }
 
 .hotkey-legend {

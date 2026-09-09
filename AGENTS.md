@@ -194,7 +194,7 @@ checks do not make the Blueprint unusable.
 - Install: `bun install` (run in `nuxt-app/`)
 - Dev server: `bun run dev` (http://localhost:3000)
 - Build: `bun run build`
-- Preview production build: `bun run preview`
+- Preview production build: `bun run preview` (binds to `127.0.0.1`)
 - Generate (static): `bun run generate`
 - Launch standalone (after `bun run build`): `bun run launch` - starts the
   built server and opens the default browser, using an OS-appropriate

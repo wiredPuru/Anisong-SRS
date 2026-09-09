@@ -1,7 +1,27 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, song } from "../db/schema.ts";
 import type { Anime, Artist, Song } from "../db/schema.ts";
+
+// Read-only lookups by natural key, for callers (deck import) that must not
+// clobber existing metadata with stale bundled values - see upsertAnime/
+// upsertSong below, which do overwrite on conflict and are for callers with
+// fresh authoritative data (live AniList/animethemes.moe lookups).
+export function findAnimeByAniListId(aniListId: number): Anime | undefined {
+  return db.select().from(anime).where(eq(anime.aniListId, aniListId)).get();
+}
+
+export function findSongByAnimeAndSlot(animeId: number, themeSlot: string): Song | undefined {
+  return db
+    .select()
+    .from(song)
+    .where(and(eq(song.animeId, animeId), eq(song.themeSlot, themeSlot)))
+    .get();
+}
+
+export function getArtistById(id: number): Artist | undefined {
+  return db.select().from(artist).where(eq(artist.id, id)).get();
+}
 
 export function upsertAnime(data: {
   aniListId: number;

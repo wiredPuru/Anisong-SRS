@@ -50,7 +50,10 @@ if (isCompiled) {
 }
 
 process.env.PORT ??= "3000";
-const url = `http://localhost:${process.env.PORT}/`;
+// This unauthenticated app must never inherit a public listener address.
+process.env.NITRO_HOST = "127.0.0.1";
+process.env.HOST = "127.0.0.1";
+const url = `http://127.0.0.1:${process.env.NITRO_PORT || process.env.PORT}/`;
 
 // Literal relative path so Bun's bundler can trace and embed this import
 // when the launcher itself gets compiled. A compiled binary resolves it
