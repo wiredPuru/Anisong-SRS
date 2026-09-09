@@ -1,4 +1,4 @@
-import { fetchAnimeFromAniList } from "../../lib/anilist.ts";
+import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { fetchAnimeThemesByAniListId } from "../../lib/animethemes.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 
@@ -9,16 +9,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "aniListId is required and must be a number" });
   }
 
-  const aniListAnime = await fetchAnimeFromAniList(body.aniListId);
+  const metadata = createAnimeMetadataResolver();
+  const aniListAnime = await metadata.byAniListId(body.aniListId);
   if (!aniListAnime) {
-    throw createError({ statusCode: 404, statusMessage: "Anime not found on AniList" });
+    throw createError({ statusCode: 404, statusMessage: "Anime has no matching metadata" });
   }
 
   const animethemesResult = await fetchAnimeThemesByAniListId(body.aniListId);
 
   const animeRow = upsertAnime({
     aniListId: aniListAnime.aniListId,
-    animethemesId: animethemesResult?.animethemesId ?? null,
+    animethemesId: animethemesResult?.animethemesId ?? aniListAnime.animethemesId ?? null,
     titleEnglish: aniListAnime.titleEnglish,
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,

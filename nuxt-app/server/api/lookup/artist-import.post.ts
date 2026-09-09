@@ -1,4 +1,5 @@
-import { fetchAnimeFromAniList } from "../../lib/anilist.ts";
+import { AnimeLookupUnavailableError, createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
+import { ProviderUnavailableError } from "../../lib/graphql.ts";
 import { fetchArtistThemesBySlug } from "../../lib/animethemes.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 
@@ -44,14 +45,15 @@ export default defineEventHandler(async (event) => {
     }[];
   }[] = [];
 
+  const metadata = createAnimeMetadataResolver();
+  let unavailableAnimeCount = 0;
   for (const [aniListId, entries] of entriesByAniListId) {
     let aniListAnime;
     try {
-      aniListAnime = await fetchAnimeFromAniList(aniListId);
-    } catch {
-      // AniList lookup failed for this one anime (404, rate limit, network
-      // error) - skip just this group rather than aborting the whole
-      // artist's import over one anime out of potentially dozens.
+      aniListAnime = await metadata.byAniListId(aniListId);
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+      unavailableAnimeCount += 1;
       continue;
     }
     if (!aniListAnime) {
@@ -60,7 +62,7 @@ export default defineEventHandler(async (event) => {
 
     const animeRow = upsertAnime({
       aniListId: aniListAnime.aniListId,
-      animethemesId: entries[0]!.animeAnimethemesId,
+      animethemesId: aniListAnime.animethemesId ?? entries[0]!.animeAnimethemesId,
       titleEnglish: aniListAnime.titleEnglish,
       titleRomaji: aniListAnime.titleRomaji,
       titleNative: aniListAnime.titleNative,
@@ -99,5 +101,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  return { artistName: artistThemes.artistName, animeGroups };
+  if (!animeGroups.length && unavailableAnimeCount) throw new AnimeLookupUnavailableError();
+  return { artistName: artistThemes.artistName, animeGroups, unavailableAnimeCount };
 });

@@ -1,7 +1,6 @@
+import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
+
 const ANIMETHEMES_ENDPOINT = "https://graphql.animethemes.moe";
-// animethemes.moe blocks Node's default fetch User-Agent with a bare 403;
-// an identifying UA (not a spoofed browser string) passes fine.
-const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
 
 export interface AnimeThemeLookup {
   animethemesThemeId: number;
@@ -54,9 +53,8 @@ interface RawAnime {
   animethemes: RawAnimeTheme[];
 }
 
-interface GraphQLResponse<T> {
-  data?: T;
-  errors?: unknown[];
+async function requestAnimeThemes<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+  return await postGraphQL(ANIMETHEMES_ENDPOINT, "AnimeThemes", query, variables) as T;
 }
 
 const FIND_BY_ANILIST_QUERY = `
@@ -131,26 +129,9 @@ const ARTIST_SEARCH_QUERY = `
 `;
 
 export async function searchArtistsOnAnimeThemes(query: string): Promise<AnimeThemesArtistCandidate[]> {
-  const response = await fetch(ANIMETHEMES_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-    body: JSON.stringify({
-      query: ARTIST_SEARCH_QUERY,
-      variables: { search: query, first: 10 },
-    }),
-  });
+  const data = await requestAnimeThemes<{ artistPagination: { data: RawArtistCandidate[] } }>(ARTIST_SEARCH_QUERY, { search: query, first: 10 });
 
-  if (!response.ok) {
-    throw new Error(`animethemes.moe request failed with status ${response.status}`);
-  }
-
-  const body = (await response.json()) as GraphQLResponse<{ artistPagination: { data: RawArtistCandidate[] } }>;
-
-  if (!body.data) {
-    throw new Error("animethemes.moe response missing data");
-  }
-
-  return body.data.artistPagination.data.map((artist) => ({
+  return data.artistPagination.data.map((artist) => ({
     id: artist.id,
     name: artist.name.main,
     slug: artist.slug,
@@ -234,36 +215,18 @@ const ARTIST_THEMES_QUERY = `
 `;
 
 export async function fetchArtistThemesBySlug(slug: string): Promise<ArtistThemesResult | null> {
-  const response = await fetch(ANIMETHEMES_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-    body: JSON.stringify({
-      query: ARTIST_THEMES_QUERY,
-      variables: { slug },
-    }),
-  });
+  const data = await requestAnimeThemes<{ artist: RawArtistThemes | null }>(ARTIST_THEMES_QUERY, { slug });
 
-  if (!response.ok) {
-    throw new Error(`animethemes.moe request failed with status ${response.status}`);
-  }
-
-  const body = (await response.json()) as GraphQLResponse<{ artist: RawArtistThemes | null }>;
-
-  if (!body.data) {
-    throw new Error("animethemes.moe response missing data");
-  }
-
-  const artist = body.data.artist;
-  if (!artist) {
-    return null;
-  }
+  const artist = data.artist;
+  if (artist === null) return null;
+  if (!artist || !Array.isArray(artist.performances)) throw new ProviderUnavailableError("AnimeThemes");
 
   const entries: ArtistThemeEntry[] = [];
 
   for (const performance of artist.performances) {
     for (const theme of performance.song.animethemes) {
       const aniListId = theme.anime.resources.nodes[0]?.externalId;
-      if (aniListId === null || aniListId === undefined) {
+      if (!isPositiveId(aniListId)) {
         continue;
       }
 
@@ -336,33 +299,16 @@ const SONG_SEARCH_QUERY = `
 `;
 
 export async function searchSongsOnAnimeThemes(query: string): Promise<SongSearchEntry[]> {
-  const response = await fetch(ANIMETHEMES_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-    body: JSON.stringify({
-      query: SONG_SEARCH_QUERY,
-      variables: { search: query, first: 10 },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`animethemes.moe request failed with status ${response.status}`);
-  }
-
-  const body = (await response.json()) as GraphQLResponse<{ search: { songs: RawSongSearchSong[] } }>;
-
-  if (!body.data) {
-    throw new Error("animethemes.moe response missing data");
-  }
+  const data = await requestAnimeThemes<{ search: { songs: RawSongSearchSong[] } }>(SONG_SEARCH_QUERY, { search: query, first: 10 });
 
   const entries: SongSearchEntry[] = [];
 
-  for (const songResult of body.data.search.songs) {
+  for (const songResult of data.search.songs) {
     const artistName = songResult.performances[0]?.artist.name.main ?? null;
 
     for (const theme of songResult.animethemes) {
       const aniListId = theme.anime.resources.nodes[0]?.externalId;
-      if (aniListId === null || aniListId === undefined) {
+      if (!isPositiveId(aniListId)) {
         continue;
       }
 
@@ -387,26 +333,10 @@ export async function searchSongsOnAnimeThemes(query: string): Promise<SongSearc
 }
 
 export async function fetchAnimeThemesByAniListId(aniListId: number): Promise<AnimeThemesResult | null> {
-  const response = await fetch(ANIMETHEMES_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-    body: JSON.stringify({
-      query: FIND_BY_ANILIST_QUERY,
-      variables: { anilistId: [aniListId] },
-    }),
-  });
+  const data = await requestAnimeThemes<{ findAnimeByExternalSite: RawAnime[] }>(FIND_BY_ANILIST_QUERY, { anilistId: [aniListId] });
 
-  if (!response.ok) {
-    throw new Error(`animethemes.moe request failed with status ${response.status}`);
-  }
-
-  const body = (await response.json()) as GraphQLResponse<{ findAnimeByExternalSite: RawAnime[] }>;
-
-  if (!body.data) {
-    throw new Error("animethemes.moe response missing data");
-  }
-
-  const match = body.data.findAnimeByExternalSite[0];
+  if (!Array.isArray(data.findAnimeByExternalSite)) throw new ProviderUnavailableError("AnimeThemes");
+  const match = data.findAnimeByExternalSite[0];
   if (!match) {
     return null;
   }
@@ -416,4 +346,74 @@ export async function fetchAnimeThemesByAniListId(aniListId: number): Promise<An
     .filter((theme): theme is AnimeThemeLookup => theme !== null);
 
   return { animethemesId: match.id, themes };
+}
+
+export interface AnimeThemesMetadata {
+  aniListId: number;
+  animethemesId: number;
+  titleRomaji: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+}
+
+function isPositiveId(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+const METADATA_FIELDS = `
+  id
+  title { romaji english native }
+  resources(site: ANILIST, first: 1) { nodes { externalId } }
+`;
+
+function mapMetadata(value: unknown): AnimeThemesMetadata | null {
+  if (!isRecord(value) || !isPositiveId(value.id) || !isRecord(value.title) ||
+    !isRecord(value.resources) || !Array.isArray(value.resources.nodes)) return null;
+  const ids = value.resources.nodes.map((node: unknown) => isRecord(node) ? node.externalId : undefined);
+  if (!ids.length || !ids.every(isPositiveId) || new Set(ids).size !== 1) return null;
+  const title = value.title;
+  const romaji = [title.romaji, title.english, title.native].find((text) => typeof text === "string" && text.trim());
+  if (typeof romaji !== "string") return null;
+  return {
+    aniListId: ids[0]!,
+    animethemesId: value.id,
+    titleRomaji: romaji,
+    titleEnglish: typeof title.english === "string" && title.english.trim() ? title.english : null,
+    titleNative: typeof title.native === "string" && title.native.trim() ? title.native : null,
+  };
+}
+
+function distinctMetadata(records: unknown[]): AnimeThemesMetadata[] {
+  const mapped = records.map(mapMetadata).filter((anime): anime is AnimeThemesMetadata => anime !== null);
+  const conflicts = new Set(mapped.filter((anime) => mapped.some((other) =>
+    other.aniListId === anime.aniListId && other.animethemesId !== anime.animethemesId)).map((anime) => anime.aniListId));
+  return [...new Map(mapped.filter((anime) => !conflicts.has(anime.aniListId)).map((anime) => [anime.aniListId, anime])).values()];
+}
+
+export async function searchAnimeOnAnimeThemes(search: string): Promise<AnimeThemesMetadata[]> {
+  const data = await requestAnimeThemes<Record<string, unknown>>(`
+    query ($search: String, $first: Int) {
+      animePagination(search: $search, first: $first) { data { ${METADATA_FIELDS} } }
+    }
+  `, { search, first: 10 });
+  if (!isRecord(data.animePagination) || !Array.isArray(data.animePagination.data)) throw new ProviderUnavailableError("AnimeThemes");
+  return distinctMetadata(data.animePagination.data).slice(0, 10);
+}
+
+export async function fetchAnimeMetadataFromAnimeThemes(id: number, site: "ANILIST" | "MAL"): Promise<AnimeThemesMetadata | null> {
+  const data = await requestAnimeThemes<Record<string, unknown>>(`
+    query ($id: [Int!]) {
+      findAnimeByExternalSite(site: ${site}, id: $id) { ${METADATA_FIELDS} }
+    }
+  `, { id: [id] });
+  const records = data.findAnimeByExternalSite;
+  if (!Array.isArray(records)) throw new ProviderUnavailableError("AnimeThemes");
+  if (!records.length) return null;
+  const mapped = records.map(mapMetadata);
+  if (mapped.some((anime) => anime === null)) return null;
+  const distinct = distinctMetadata(records);
+  if (distinct.length !== 1 || (site === "ANILIST" && distinct[0]!.aniListId !== id)) {
+    throw new ProviderUnavailableError("AnimeThemes");
+  }
+  return distinct[0]!;
 }

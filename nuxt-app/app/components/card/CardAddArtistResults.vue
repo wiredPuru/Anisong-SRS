@@ -26,6 +26,7 @@ interface ArtistImportResult {
     };
     themes: ArtistThemeResult[];
   }[];
+  unavailableAnimeCount: number;
 }
 
 interface CardWithDetails {
@@ -303,6 +304,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <p v-else-if="importError" class="inline-error">{{ importError }}</p>
 
       <template v-else-if="artistImport">
+        <p v-if="artistImport.unavailableAnimeCount" class="inline-error">
+          Metadata is temporarily unavailable for {{ artistImport.unavailableAnimeCount }} anime. Available results are shown below. Please try again later.
+        </p>
         <p v-if="!artistImport.animeGroups.length" class="state">No importable anime found for this artist.</p>
         <div v-else class="anime-groups">
           <div class="bulk-actions">

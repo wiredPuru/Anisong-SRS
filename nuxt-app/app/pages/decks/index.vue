@@ -517,6 +517,7 @@ let addCardSearchGeneration = 0;
 async function runAddCardSearch() {
   const q = addCardQuery.value.trim();
   const generation = ++addCardSearchGeneration;
+  addCardError.value = null;
 
   if (q.length < 2) {
     addCardResults.value = [];
@@ -543,9 +544,10 @@ async function runAddCardSearch() {
     try {
       const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
       if (generation === addCardSearchGeneration) addAnimeResults.value = res.results;
-    } catch {
-      // AniList unreachable folds into the plain "no matching cards" state below,
-      // same as the nav bar's global search fallback.
+    } catch (err) {
+      if (generation === addCardSearchGeneration) {
+        addCardError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
+      }
     }
   }
   if (generation === addCardSearchGeneration) addCardPending.value = false;
@@ -557,6 +559,9 @@ function onAddCardInput() {
 }
 
 function resetAddCardSearch() {
+  if (addCardDebounce) clearTimeout(addCardDebounce);
+  addCardSearchGeneration += 1;
+  addCardPending.value = false;
   addCardQuery.value = "";
   addCardResults.value = [];
   addAnimeResults.value = null;

@@ -1,4 +1,4 @@
-import { USER_AGENT } from "../utils/mediaDownload.ts";
+import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
@@ -10,25 +10,33 @@ export interface AniListAnime {
   coverImageUrl: string | null;
 }
 
-interface AniListMediaTitle {
-  romaji: string;
-  english: string | null;
-  native: string | null;
-}
+let unavailableUntil = 0;
+let recoveryInFlight = false;
 
-interface AniListMediaCoverImage {
-  large: string | null;
-}
-
-interface AniListMedia {
-  id: number;
-  title: AniListMediaTitle;
-  coverImage?: AniListMediaCoverImage;
-}
-
-interface GraphQLResponse<T> {
-  data?: T;
-  errors?: unknown[];
+async function requestAniList<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  parse: (data: Record<string, unknown> | null) => T,
+  allowNotFound = false,
+): Promise<T> {
+  if (Date.now() < unavailableUntil || recoveryInFlight) {
+    throw new ProviderUnavailableError("AniList", Math.max(0, unavailableUntil - Date.now()));
+  }
+  const availabilityAtStart = unavailableUntil;
+  const recovering = unavailableUntil > 0;
+  if (recovering) recoveryInFlight = true;
+  try {
+    const result = parse(await postGraphQL(ANILIST_ENDPOINT, "AniList", query, variables, allowNotFound));
+    if (unavailableUntil === availabilityAtStart) unavailableUntil = 0;
+    return result;
+  } catch (error) {
+    if (error instanceof ProviderUnavailableError) {
+      unavailableUntil = Math.max(unavailableUntil, Date.now() + Math.max(60_000, error.retryAfterMs));
+    }
+    throw error;
+  } finally {
+    if (recovering) recoveryInFlight = false;
+  }
 }
 
 const SEARCH_QUERY = `
@@ -52,56 +60,41 @@ const BY_ID_QUERY = `
   }
 `;
 
-async function postToAniList<T>(
-  query: string,
-  variables: Record<string, unknown>,
-): Promise<{ status: number; body: GraphQLResponse<T> }> {
-  const response = await fetch(ANILIST_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = (await response.json()) as GraphQLResponse<T>;
-  return { status: response.status, body };
-}
-
-function toAniListAnime(media: AniListMedia): AniListAnime {
+function toAniListAnime(media: unknown): AniListAnime {
+  if (!isRecord(media) || !Number.isSafeInteger(media.id) || Number(media.id) <= 0 ||
+    !isRecord(media.title) || typeof media.title.romaji !== "string" || !media.title.romaji.trim() ||
+    ![media.title.english, media.title.native].every((title) => title == null || typeof title === "string") ||
+    (media.coverImage != null && (!isRecord(media.coverImage) ||
+      (media.coverImage.large != null && typeof media.coverImage.large !== "string")))) {
+    throw new ProviderUnavailableError("AniList");
+  }
   return {
-    aniListId: media.id,
+    aniListId: Number(media.id),
     titleRomaji: media.title.romaji,
-    titleEnglish: media.title.english,
-    titleNative: media.title.native,
-    coverImageUrl: media.coverImage?.large ?? null,
+    titleEnglish: typeof media.title.english === "string" ? media.title.english : null,
+    titleNative: typeof media.title.native === "string" ? media.title.native : null,
+    coverImageUrl: isRecord(media.coverImage) && typeof media.coverImage.large === "string" ? media.coverImage.large : null,
   };
 }
 
 export async function searchAnimeOnAniList(query: string): Promise<AniListAnime[]> {
-  const { status, body } = await postToAniList<{ Page: { media: AniListMedia[] } }>(SEARCH_QUERY, {
-    search: query,
-    perPage: 10,
+  return requestAniList(SEARCH_QUERY, { search: query, perPage: 10 }, (data) => {
+    if (!isRecord(data?.Page) || !Array.isArray(data.Page.media)) throw new ProviderUnavailableError("AniList");
+    return data.Page.media.map(toAniListAnime);
   });
+}
 
-  if (status !== 200 || !body.data) {
-    throw new Error(`AniList search failed with status ${status}`);
-  }
-
-  return body.data.Page.media.map(toAniListAnime);
+function parseAnime(data: Record<string, unknown> | null): AniListAnime | null {
+  if (data === null || data.Media === null) return null;
+  return toAniListAnime(data.Media);
 }
 
 export async function fetchAnimeFromAniList(aniListId: number): Promise<AniListAnime | null> {
-  const { status, body } = await postToAniList<{ Media: AniListMedia | null }>(BY_ID_QUERY, {
-    id: aniListId,
-  });
-
-  if (status === 404) {
-    return null;
-  }
-
-  if (status !== 200 || !body.data) {
-    throw new Error(`AniList lookup failed with status ${status}`);
-  }
-
-  return body.data.Media ? toAniListAnime(body.data.Media) : null;
+  return requestAniList(BY_ID_QUERY, { id: aniListId }, (data) => {
+    const anime = parseAnime(data);
+    if (anime && anime.aniListId !== aniListId) throw new ProviderUnavailableError("AniList");
+    return anime;
+  }, true);
 }
 
 const COMPLETED_LIST_QUERY = `
@@ -120,30 +113,18 @@ const COMPLETED_LIST_QUERY = `
   }
 `;
 
-interface AniListMediaListCollection {
-  MediaListCollection: {
-    lists: { entries: { media: AniListMedia }[] }[];
-  } | null;
-}
-
 export class AniListUserNotFoundError extends Error {}
 
 export async function fetchAniListCompletedList(userName: string): Promise<AniListAnime[]> {
-  const { status, body } = await postToAniList<AniListMediaListCollection>(COMPLETED_LIST_QUERY, {
-    userName,
-    status: "COMPLETED",
-  });
-
-  if (status === 404) {
-    throw new AniListUserNotFoundError(`AniList user "${userName}" not found`);
-  }
-
-  if (status !== 200 || !body.data) {
-    throw new Error(`AniList completed-list lookup failed with status ${status}`);
-  }
-
-  const lists = body.data.MediaListCollection?.lists ?? [];
-  return lists.flatMap((list) => list.entries.map((entry) => toAniListAnime(entry.media)));
+  return requestAniList(COMPLETED_LIST_QUERY, { userName, status: "COMPLETED" }, (data) => {
+    if (data === null) throw new AniListUserNotFoundError(`AniList user "${userName}" not found`);
+    const collection = data.MediaListCollection;
+    if (!isRecord(collection) || !Array.isArray(collection.lists)) throw new ProviderUnavailableError("AniList");
+    return collection.lists.flatMap((list: unknown) => {
+      if (!isRecord(list) || !Array.isArray(list.entries)) throw new ProviderUnavailableError("AniList");
+      return list.entries.map((entry: unknown) => toAniListAnime(isRecord(entry) ? entry.media : undefined));
+    });
+  }, true);
 }
 
 const BY_MAL_ID_QUERY = `
@@ -161,17 +142,5 @@ const BY_MAL_ID_QUERY = `
 // aniListId, not a MAL id. type: ANIME disambiguates idMal, which is not
 // unique across AniList's anime/manga media pool on its own.
 export async function fetchAnimeFromAniListByMalId(malId: number): Promise<AniListAnime | null> {
-  const { status, body } = await postToAniList<{ Media: AniListMedia | null }>(BY_MAL_ID_QUERY, {
-    idMal: malId,
-  });
-
-  if (status === 404) {
-    return null;
-  }
-
-  if (status !== 200 || !body.data) {
-    throw new Error(`AniList idMal lookup failed with status ${status}`);
-  }
-
-  return body.data.Media ? toAniListAnime(body.data.Media) : null;
+  return requestAniList(BY_MAL_ID_QUERY, { idMal: malId }, parseAnime, true);
 }

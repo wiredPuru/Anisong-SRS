@@ -40,7 +40,12 @@ export function upsertAnime(data: {
     titleRomaji: data.titleRomaji,
     titleNative: data.titleNative ?? data.titleRomaji,
   };
-  const set: typeof values = { ...values };
+  const set: Partial<typeof values> = { ...values };
+  // Sparse provider metadata supplies defaults on insert, but cannot erase
+  // richer titles or the external mapping on an existing row.
+  if (data.titleEnglish === null) delete set.titleEnglish;
+  if (data.titleNative === null) delete set.titleNative;
+  if (data.animethemesId === null) delete set.animethemesId;
   if (data.coverImageUrl !== undefined) {
     values.coverImageUrl = data.coverImageUrl;
     set.coverImageUrl = data.coverImageUrl;

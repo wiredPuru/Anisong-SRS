@@ -1,4 +1,4 @@
-import { searchAnimeOnAniList } from "../../lib/anilist.ts";
+import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -8,6 +8,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "q is required" });
   }
 
-  const results = await searchAnimeOnAniList(q);
+  const results = await createAnimeMetadataResolver().search(q);
   return { results };
 });

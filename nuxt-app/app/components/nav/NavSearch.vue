@@ -50,9 +50,11 @@ const searchContainerRef = ref<HTMLElement | null>(null);
 
 const externalAnime = ref<AniListResult[] | null>(null);
 const externalPending = ref(false);
+const externalError = ref<string | null>(null);
 
 const externalArtists = ref<ArtistCandidate[] | null>(null);
 const externalArtistsPending = ref(false);
+const externalArtistsError = ref<string | null>(null);
 
 const hasResults = computed(() => results.value.cards.length > 0);
 const hasExternalResults = computed(() => Boolean(externalAnime.value && externalAnime.value.length));
@@ -62,6 +64,8 @@ const showNoResults = computed(
     !searchPending.value &&
     !searchError.value &&
     !externalPending.value &&
+    !externalError.value &&
+    !externalArtistsError.value &&
     !externalArtistsPending.value &&
     !hasResults.value &&
     !hasExternalResults.value &&
@@ -86,10 +90,8 @@ async function runAnimeSearch(q: string, gen: number) {
   try {
     const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
     if (gen === searchGeneration) externalAnime.value = res.results;
-  } catch {
-    // AniList unreachable folds into the generic "No results" state below,
-    // not a separate error message - the dropdown never shows two
-    // different "nothing here" states at once.
+  } catch (err) {
+    if (gen === searchGeneration) externalError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
   } finally {
     if (gen === searchGeneration) externalPending.value = false;
   }
@@ -99,8 +101,8 @@ async function runArtistSearch(q: string, gen: number) {
   try {
     const res = await $fetch<{ results: ArtistCandidate[] }>("/api/lookup/artist-search", { query: { q } });
     if (gen === searchGeneration) externalArtists.value = res.results;
-  } catch {
-    // Same fold-into-empty-group behavior as the anime fallback above.
+  } catch (err) {
+    if (gen === searchGeneration) externalArtistsError.value = extractErrorMessage(err, "Artist search failed. Please try again.");
   } finally {
     if (gen === searchGeneration) externalArtistsPending.value = false;
   }
@@ -109,6 +111,8 @@ async function runArtistSearch(q: string, gen: number) {
 async function runSearch() {
   const q = searchQuery.value.trim();
   const gen = ++searchGeneration;
+  externalError.value = null;
+  externalArtistsError.value = null;
 
   if (q.length < 2) {
     results.value = emptyResults();
@@ -153,6 +157,10 @@ function closeDropdown() {
 }
 
 function resetSearch() {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  searchGeneration += 1;
+  externalError.value = null;
+  externalArtistsError.value = null;
   searchQuery.value = "";
   results.value = emptyResults();
   externalAnime.value = null;
@@ -220,6 +228,7 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
       </div>
 
       <p v-if="externalArtistsPending" class="search-status">Searching for artists...</p>
+      <p v-else-if="externalArtistsError" class="search-status search-status-error">{{ externalArtistsError }}</p>
       <div v-else-if="hasExternalArtistResults" class="search-group">
         <span class="search-group-label">Artists</span>
         <button
@@ -234,6 +243,7 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
       </div>
 
       <p v-if="externalPending" class="search-status">Searching for shows...</p>
+      <p v-else-if="externalError" class="search-status search-status-error">{{ externalError }}</p>
       <div v-else-if="hasExternalResults" class="search-group">
         <span class="search-group-label">Anime</span>
         <button

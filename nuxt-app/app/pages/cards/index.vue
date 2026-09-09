@@ -472,7 +472,7 @@ async function removeCard(id: number) {
       <p v-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
       <template v-if="!importLoading && importResults !== null">
         <p v-if="importResults.length" class="import-status">{{ importSummaryText }}</p>
-        <p v-else class="import-status">
+        <p v-else-if="!importAniListError && !importMalError" class="import-status">
           No completed anime found. That list may be empty, or set to private.
         </p>
         <CardImportListResults
