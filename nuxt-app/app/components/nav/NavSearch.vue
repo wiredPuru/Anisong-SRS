@@ -136,6 +136,13 @@ async function runSearch() {
 }
 
 function onSearchInput() {
+  searchGeneration += 1;
+  results.value = emptyResults();
+  externalAnime.value = null;
+  externalArtists.value = null;
+  searchPending.value = false;
+  externalPending.value = false;
+  externalArtistsPending.value = false;
   dropdownOpen.value = true;
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(runSearch, 250);
@@ -162,6 +169,7 @@ function resetSearch() {
   externalError.value = null;
   externalArtistsError.value = null;
   searchQuery.value = "";
+  searchPending.value = false;
   results.value = emptyResults();
   externalAnime.value = null;
   externalPending.value = false;
@@ -195,7 +203,11 @@ function onClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => window.addEventListener("mousedown", onClickOutside));
-onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  searchGeneration += 1;
+  window.removeEventListener("mousedown", onClickOutside);
+});
 </script>
 
 <template>
@@ -211,7 +223,9 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
       @keydown.enter="onSearchEnter"
     />
     <div v-if="dropdownOpen" class="search-dropdown">
-      <p v-if="searchPending" class="search-status">Searching...</p>
+      <p v-if="searchPending" class="search-status">
+        <ActivityStatus :request-key="searchQuery" label="Searching your cards" />
+      </p>
       <p v-else-if="searchError" class="search-status search-status-error">Search failed.</p>
       <div v-else-if="results.cards.length" class="search-group">
         <span class="search-group-label">Cards</span>
@@ -227,7 +241,11 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
         </button>
       </div>
 
-      <p v-if="externalArtistsPending" class="search-status">Searching for artists...</p>
+      <p v-if="externalArtistsPending" class="search-status">
+
+        <ActivityStatus :request-key="searchQuery" label="Searching for artists" />
+
+      </p>
       <p v-else-if="externalArtistsError" class="search-status search-status-error">{{ externalArtistsError }}</p>
       <div v-else-if="hasExternalArtistResults" class="search-group">
         <span class="search-group-label">Artists</span>
@@ -242,7 +260,11 @@ onUnmounted(() => window.removeEventListener("mousedown", onClickOutside));
         </button>
       </div>
 
-      <p v-if="externalPending" class="search-status">Searching for shows...</p>
+      <p v-if="externalPending" class="search-status">
+
+        <ActivityStatus :request-key="searchQuery" label="Searching for anime" />
+
+      </p>
       <p v-else-if="externalError" class="search-status search-status-error">{{ externalError }}</p>
       <div v-else-if="hasExternalResults" class="search-group">
         <span class="search-group-label">Anime</span>

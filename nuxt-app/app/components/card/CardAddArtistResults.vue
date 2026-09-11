@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { BulkStep } from "../../composables/useBulkMediaProgress";
+
 interface ArtistCandidate {
   id: number;
   name: string;
@@ -70,6 +72,9 @@ const modalOpen = ref(false);
 const selectedArtist = ref<ArtistCandidate | null>(null);
 const artistImport = ref<ArtistImportResult | null>(null);
 const importing = ref(false);
+const importRequests = createLatestRequest();
+const catalogActivity = useImportProgress();
+onScopeDispose(importRequests.invalidate);
 const importError = ref<string | null>(null);
 
 const addedCards = reactive<Record<number, CardWithDetails>>({});
@@ -114,12 +119,13 @@ async function runSearch(query: string) {
 
 watch(() => props.query, runSearch, { immediate: true });
 
-async function preloadAddedCards(songIds: number[]) {
+async function preloadAddedCards(songIds: number[], isCurrent: () => boolean) {
   if (!songIds.length) return;
   try {
     const res = await $fetch<{ cards: CardWithDetails[] }>("/api/cards/by-songs", {
       query: { songIds: songIds.join(",") },
     });
+    if (!isCurrent()) return;
     for (const c of res.cards) addedCards[c.songId] = c;
   } catch {
     // Best-effort UX nicety; the server-side duplicate check still applies on Add.
@@ -127,6 +133,7 @@ async function preloadAddedCards(songIds: number[]) {
 }
 
 async function openArtist(candidate: ArtistCandidate) {
+  const isCurrent = importRequests.start();
   selectedArtist.value = candidate;
   modalOpen.value = true;
   artistImport.value = null;
@@ -134,23 +141,15 @@ async function openArtist(candidate: ArtistCandidate) {
   importing.value = true;
 
   try {
-    const res = await $fetch<ArtistImportResult>("/api/lookup/artist-import", {
-      method: "POST",
-      body: { artistSlug: candidate.slug },
-    });
+    const res = await catalogActivity.run<ArtistImportResult>("/api/lookup/artist-import", { artistSlug: candidate.slug });
+    if (!isCurrent()) return;
     artistImport.value = res;
-    await preloadAddedCards(res.animeGroups.flatMap((group) => group.themes.map((theme) => theme.songId)));
+    await preloadAddedCards(res.animeGroups.flatMap((group) => group.themes.map((theme) => theme.songId)), isCurrent);
   } catch (err) {
-    importError.value = extractErrorMessage(err, "Import failed.");
+    if (isCurrent()) importError.value = extractErrorMessage(err, "Import failed.");
   } finally {
-    importing.value = false;
+    if (isCurrent()) importing.value = false;
   }
-}
-
-function progressPercent(songId: number, kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(songId, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
 }
 
 async function downloadMedia(songId: number, kind: "video" | "audio") {
@@ -183,25 +182,28 @@ async function addTheme(theme: ArtistThemeResult) {
   }
 }
 
-const addingAll = ref(false);
+const addAllProgress = useBulkMediaProgress();
 
 async function addAllThemes() {
   if (!artistImport.value) return;
 
-  addingAll.value = true;
-  try {
-    for (const group of artistImport.value.animeGroups) {
-      for (const theme of group.themes) {
-        if (addedCards[theme.songId]) continue;
-        await addTheme(theme);
-      }
+  const steps: BulkStep[] = [];
+  for (const group of artistImport.value.animeGroups) {
+    for (const theme of group.themes) {
+      if (addedCards[theme.songId]) continue;
+      steps.push({
+        label: theme.songTitle,
+        run: async () => {
+          await addTheme(theme);
+          return !addError[theme.songId];
+        },
+      });
     }
-  } finally {
-    addingAll.value = false;
   }
+  await addAllProgress.runSteps(steps);
 }
 
-const downloadingAll = ref(false);
+const downloadAllProgress = useBulkMediaProgress();
 
 function hasDownloadableAdded(): boolean {
   if (!artistImport.value) return false;
@@ -216,19 +218,32 @@ function hasDownloadableAdded(): boolean {
 async function downloadAllMedia() {
   if (!artistImport.value) return;
 
-  downloadingAll.value = true;
-  try {
-    for (const group of artistImport.value.animeGroups) {
-      for (const theme of group.themes) {
-        const card = addedCards[theme.songId];
-        if (!card) continue;
-        if (canDownload(card, "video")) await downloadMedia(theme.songId, "video");
-        if (canDownload(addedCards[theme.songId]!, "audio")) await downloadMedia(theme.songId, "audio");
+  const steps: BulkStep[] = [];
+  for (const group of artistImport.value.animeGroups) {
+    for (const theme of group.themes) {
+      const card = addedCards[theme.songId];
+      if (!card) continue;
+      if (canDownload(card, "video")) {
+        steps.push({
+          label: `${theme.songTitle} (video)`,
+          run: async () => {
+            await downloadMedia(theme.songId, "video");
+            return !downloadError[theme.songId];
+          },
+        });
+      }
+      if (canDownload(card, "audio")) {
+        steps.push({
+          label: `${theme.songTitle} (audio)`,
+          run: async () => {
+            await downloadMedia(theme.songId, "audio");
+            return !downloadError[theme.songId];
+          },
+        });
       }
     }
-  } finally {
-    downloadingAll.value = false;
   }
+  await downloadAllProgress.runSteps(steps);
 }
 
 async function removeCard(songId: number) {
@@ -246,10 +261,14 @@ async function removeCard(songId: number) {
 }
 
 function resetModalState() {
+  importRequests.invalidate();
+  catalogActivity.cancel();
   selectedArtist.value = null;
   artistImport.value = null;
   importError.value = null;
   importing.value = false;
+  addAllProgress.reset();
+  downloadAllProgress.reset();
   for (const key of Object.keys(adding)) delete adding[Number(key)];
   for (const key of Object.keys(addError)) delete addError[Number(key)];
   for (const key of Object.keys(addedCards)) delete addedCards[Number(key)];
@@ -280,7 +299,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 <template>
   <div v-if="props.query.trim().length >= 2" class="add-artist-group">
     <h2 class="group-title">Artists</h2>
-    <div v-if="searching" class="state">Searching...</div>
+    <div v-if="searching" class="state">
+      <ActivityStatus :request-key="props.query" label="Searching for artists" />
+    </div>
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="result-list">
@@ -300,7 +321,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
       <h2>{{ selectedArtist?.name }}</h2>
 
-      <div v-if="importing" class="state">Loading catalog...</div>
+      <div v-if="importing" class="state">
+        <ActivityStatus
+          :label="`Fetching catalog for ${selectedArtist?.name ?? 'artist'}`"
+          :request-key="selectedArtist?.id"
+          :progress="catalogActivity.progress.value"
+          :revision="catalogActivity.revision.value"
+        />
+      </div>
       <p v-else-if="importError" class="inline-error">{{ importError }}</p>
 
       <template v-else-if="artistImport">
@@ -310,19 +338,31 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <p v-if="!artistImport.animeGroups.length" class="state">No importable anime found for this artist.</p>
         <div v-else class="anime-groups">
           <div class="bulk-actions">
-            <button type="button" class="add-btn" :disabled="addingAll" @click="addAllThemes">
-              {{ addingAll ? "Adding..." : "Add all" }}
+            <button type="button" class="add-btn" :disabled="addAllProgress.running.value" @click="addAllThemes">
+              {{ addAllProgress.running.value ? "Adding..." : "Add all" }}
             </button>
             <button
               v-if="hasDefaultDownloadFolder && hasDownloadableAdded()"
               type="button"
               class="download-btn"
-              :disabled="downloadingAll"
+              :disabled="downloadAllProgress.running.value"
               @click="downloadAllMedia"
             >
-              {{ downloadingAll ? "Downloading..." : "Download all" }}
+              {{ downloadAllProgress.running.value ? "Downloading..." : "Download all" }}
             </button>
           </div>
+          <p v-if="addAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
+            Adding {{ addAllProgress.progress.completed }} of {{ addAllProgress.progress.total }}<template v-if="addAllProgress.progress.current"> - {{ addAllProgress.progress.current }}</template>
+          </p>
+          <p v-else-if="addAllProgress.summary.value" class="bulk-summary">
+            Added {{ addAllProgress.summary.value.total - addAllProgress.summary.value.failed }} of {{ addAllProgress.summary.value.total }}<template v-if="addAllProgress.summary.value.failed"> ({{ addAllProgress.summary.value.failed }} failed)</template>
+          </p>
+          <p v-if="downloadAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
+            Downloading {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.progress.total }}<template v-if="downloadAllProgress.progress.current"> - {{ downloadAllProgress.progress.current }}</template>
+          </p>
+          <p v-else-if="downloadAllProgress.summary.value" class="bulk-summary">
+            Downloaded {{ downloadAllProgress.summary.value.total - downloadAllProgress.summary.value.failed }} of {{ downloadAllProgress.summary.value.total }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
+          </p>
           <div v-for="group in artistImport.animeGroups" :key="group.anime.id" class="anime-group">
             <h3 class="anime-group-title">{{ group.anime.titleRomaji }}</h3>
             <p v-if="group.anime.titleEnglish && group.anime.titleEnglish !== group.anime.titleRomaji" class="subtitle">
@@ -348,14 +388,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                     <div v-if="hasAnyDownloadableSource(addedCards[theme.songId]!)" class="download-section">
                       <div v-if="hasDefaultDownloadFolder" class="download-actions">
                         <template v-if="canDownload(addedCards[theme.songId]!, 'video')">
-                          <div v-if="downloading[downloadKey(theme.songId, 'video')]" class="download-progress">
-                            <div class="download-progress-bar">
-                              <span :style="{ width: progressPercent(theme.songId, 'video') + '%' }" />
-                            </div>
-                            <span class="download-progress-label">{{
-                              formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "video")])
-                            }}</span>
-                          </div>
+                          <DownloadProgress
+                            v-if="downloading[downloadKey(theme.songId, 'video')]"
+                            label="Downloading video"
+                            :request-key="downloadKey(theme.songId, 'video')"
+                            :progress="downloadProgress[downloadKey(theme.songId, 'video')]"
+                          />
                           <button
                             v-else
                             type="button"
@@ -366,14 +404,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                           </button>
                         </template>
                         <template v-if="canDownload(addedCards[theme.songId]!, 'audio')">
-                          <div v-if="downloading[downloadKey(theme.songId, 'audio')]" class="download-progress">
-                            <div class="download-progress-bar">
-                              <span :style="{ width: progressPercent(theme.songId, 'audio') + '%' }" />
-                            </div>
-                            <span class="download-progress-label">{{
-                              formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "audio")])
-                            }}</span>
-                          </div>
+                          <DownloadProgress
+                            v-if="downloading[downloadKey(theme.songId, 'audio')]"
+                            label="Downloading audio"
+                            :request-key="downloadKey(theme.songId, 'audio')"
+                            :progress="downloadProgress[downloadKey(theme.songId, 'audio')]"
+                          />
                           <button
                             v-else
                             type="button"
@@ -539,6 +575,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   gap: 10px;
 }
 
+.bulk-progress,
+.bulk-summary {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .anime-group-title {
   margin: 0;
   font-size: 16px;
@@ -678,38 +721,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .download-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
 }
 
 .modal-actions {

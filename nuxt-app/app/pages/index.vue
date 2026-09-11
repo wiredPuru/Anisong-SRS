@@ -87,7 +87,9 @@ function formatRelativeTime(iso: string): string {
     </header>
 
     <div class="home-body">
-      <div v-if="pending" class="state">Loading...</div>
+      <div v-if="pending" class="state">
+        <ActivityStatus label="Loading your dashboard" />
+      </div>
       <div v-else-if="error" class="state state-error">Couldn't load your dashboard. Try refreshing.</div>
       <div v-else-if="data" class="dashboard-grid">
         <div class="hero-panel">

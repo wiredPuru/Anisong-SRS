@@ -227,7 +227,11 @@ function setType(type: StatsType) {
     <div class="stats-body">
     <p v-if="clearError" class="inline-error">{{ clearError }}</p>
 
-    <div v-if="overallPending" class="state">Loading...</div>
+    <div v-if="overallPending" class="state">
+
+      <ActivityStatus label="Loading overall statistics" />
+
+    </div>
     <div v-else-if="overallError" class="state state-error">Couldn't load stats. Try refreshing.</div>
     <div v-else-if="overall" class="kpi-row">
       <div class="kpi-tile">
@@ -256,7 +260,9 @@ function setType(type: StatsType) {
           <span class="legend-item"><span class="legend-swatch legend-swatch-rate" /> pass rate</span>
         </div>
       </div>
-      <div v-if="timelinePending" class="state">Loading...</div>
+      <div v-if="timelinePending" class="state">
+        <ActivityStatus label="Loading review history" />
+      </div>
       <div v-else-if="timelineError" class="state state-error">Couldn't load the chart. Try refreshing.</div>
       <p v-else-if="!timelineEntries.length" class="state">No reviews in this range yet.</p>
       <template v-else>
@@ -302,7 +308,11 @@ function setType(type: StatsType) {
         </div>
       </div>
 
-      <div v-if="pending" class="state">Loading...</div>
+      <div v-if="pending" class="state">
+
+        <ActivityStatus label="Loading statistics breakdown" />
+
+      </div>
       <div v-else-if="error" class="state state-error">Couldn't load stats. Try refreshing.</div>
       <template v-else>
         <div v-if="rows.length" class="breakdown-list">

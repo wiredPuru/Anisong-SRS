@@ -1,3 +1,5 @@
+import { reactive } from "vue";
+
 export interface DownloadableCard {
   localVideoPath: string | null;
   localAudioPath: string | null;
@@ -10,12 +12,26 @@ export interface DownloadProgress {
   total: number;
 }
 
+// "waiting": no bytes received yet (nothing to show but that a request is in flight).
+// "transferring": bytes are arriving; total may be unknown (an unknown-size response).
+// "finishing": every expected byte has arrived but the server hasn't confirmed
+// completion yet (still writing the file / updating the card).
+export type DownloadPhase = "waiting" | "transferring" | "finishing";
+
+export function downloadPhase(progress: DownloadProgress | undefined): DownloadPhase {
+  if (!progress) return "waiting";
+  if (progress.total > 0 && progress.loaded >= progress.total) return "finishing";
+  return "transferring";
+}
+
 export function formatDownloadProgress(progress: DownloadProgress | undefined): string {
-  if (!progress) return "Downloading...";
-  if (progress.total > 0) {
-    return `${Math.round((progress.loaded / progress.total) * 100)}%`;
+  const phase = downloadPhase(progress);
+  if (phase === "waiting") return "Waiting for data...";
+  if (phase === "finishing") return "Finishing...";
+  if (progress!.total > 0) {
+    return `${Math.round((progress!.loaded / progress!.total) * 100)}%`;
   }
-  return `${(progress.loaded / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(progress!.loaded / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function useCardDownloads() {
@@ -41,7 +57,7 @@ export function useCardDownloads() {
     const progressKey = downloadKey(key, kind);
     downloadError[key] = null;
     downloading[progressKey] = true;
-    downloadProgress[progressKey] = { loaded: 0, total: 0 };
+    delete downloadProgress[progressKey];
 
     try {
       const response = await fetch("/api/cards/download", {
@@ -88,6 +104,7 @@ export function useCardDownloads() {
       return null;
     } finally {
       downloading[progressKey] = false;
+      delete downloadProgress[progressKey];
     }
   }
 

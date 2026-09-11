@@ -101,12 +101,6 @@ function addedSongCard(animethemesThemeId: number): CardWithDetails | undefined 
   return songId !== undefined ? addedCards[songId] : undefined;
 }
 
-function progressPercent(songId: number, kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(songId, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
-}
-
 async function downloadMedia(songId: number, kind: "video" | "audio") {
   const card = addedCards[songId];
   if (!card) return;
@@ -171,7 +165,9 @@ async function removeCard(animethemesThemeId: number) {
 <template>
   <div v-if="props.query.trim().length >= 2" class="add-song-group">
     <h2 class="group-title">Songs</h2>
-    <div v-if="searching" class="state">Searching...</div>
+    <div v-if="searching" class="state">
+      <ActivityStatus :request-key="props.query" label="Searching for songs" />
+    </div>
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="theme-list">
@@ -195,21 +191,12 @@ async function removeCard(animethemesThemeId: number) {
               <div v-if="hasAnyDownloadableSource(addedSongCard(result.animethemesThemeId)!)" class="download-section">
                 <div v-if="hasDefaultDownloadFolder" class="download-actions">
                   <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'video')">
-                    <div
+                    <DownloadProgress
                       v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')]"
-                      class="download-progress"
-                    >
-                      <div class="download-progress-bar">
-                        <span
-                          :style="{ width: progressPercent(resolvedSongId(result.animethemesThemeId)!, 'video') + '%' }"
-                        />
-                      </div>
-                      <span class="download-progress-label">{{
-                        formatDownloadProgress(
-                          downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')],
-                        )
-                      }}</span>
-                    </div>
+                      label="Downloading video"
+                      :request-key="downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')"
+                      :progress="downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')]"
+                    />
                     <button
                       v-else
                       type="button"
@@ -220,21 +207,12 @@ async function removeCard(animethemesThemeId: number) {
                     </button>
                   </template>
                   <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'audio')">
-                    <div
+                    <DownloadProgress
                       v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')]"
-                      class="download-progress"
-                    >
-                      <div class="download-progress-bar">
-                        <span
-                          :style="{ width: progressPercent(resolvedSongId(result.animethemesThemeId)!, 'audio') + '%' }"
-                        />
-                      </div>
-                      <span class="download-progress-label">{{
-                        formatDownloadProgress(
-                          downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')],
-                        )
-                      }}</span>
-                    </div>
+                      label="Downloading audio"
+                      :request-key="downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')"
+                      :progress="downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')]"
+                    />
                     <button
                       v-else
                       type="button"
@@ -435,35 +413,4 @@ async function removeCard(animethemesThemeId: number) {
   cursor: pointer;
 }
 
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
-}
 </style>

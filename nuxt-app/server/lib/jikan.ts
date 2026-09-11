@@ -22,7 +22,7 @@ interface JikanAnimeListResponse {
   pagination?: { has_next_page: boolean };
 }
 
-export async function fetchMalCompletedList(username: string): Promise<JikanCompletedEntry[]> {
+export async function fetchMalCompletedList(username: string, onPage?: (page: number, animeCount: number) => void): Promise<JikanCompletedEntry[]> {
   const entries: JikanCompletedEntry[] = [];
 
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -43,6 +43,7 @@ export async function fetchMalCompletedList(username: string): Promise<JikanComp
       entries.push({ malId: item.anime.mal_id, title: item.anime.title });
     }
 
+    onPage?.(page, entries.length);
     if (!body.pagination?.has_next_page) break;
   }
 

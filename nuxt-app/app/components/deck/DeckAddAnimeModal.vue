@@ -49,6 +49,8 @@ const emit = defineEmits<{ close: [] }>();
 
 const importResult = ref<ImportResult | null>(null);
 const importing = ref(false);
+const importRequests = createLatestRequest();
+onScopeDispose(importRequests.invalidate);
 const importError = ref<string | null>(null);
 
 const adding = reactive<Record<number, boolean>>({});
@@ -71,12 +73,6 @@ const {
   downloadMedia: downloadMediaBase,
 } = useCardDownloads();
 
-function progressPercent(songId: number, kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(songId, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
-}
-
 async function downloadMedia(songId: number, kind: "video" | "audio") {
   const card = addedCards[songId];
   if (!card) return;
@@ -88,25 +84,29 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
 }
 
 async function runImport(aniListId: number) {
+  const isCurrent = importRequests.start();
   importResult.value = null;
   importError.value = null;
   importing.value = true;
   try {
-    importResult.value = await $fetch<ImportResult>("/api/lookup/import", {
+    const result = await $fetch<ImportResult>("/api/lookup/import", {
       method: "POST",
       body: { aniListId },
     });
+    if (isCurrent()) importResult.value = result;
   } catch (err) {
-    importError.value = extractErrorMessage(err, "Import failed.");
+    if (isCurrent()) importError.value = extractErrorMessage(err, "Import failed.");
   } finally {
-    importing.value = false;
+    if (isCurrent()) importing.value = false;
   }
 }
 
 watch(
-  () => props.target,
-  (target) => {
-    if (target) runImport(target.aniListId);
+  () => [props.target, props.open] as const,
+  ([target, open]) => {
+    importRequests.invalidate();
+    importing.value = false;
+    if (target && open) runImport(target.aniListId);
   },
   { immediate: true },
 );
@@ -185,7 +185,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         {{ target.titleEnglish }}
       </p>
 
-      <div v-if="importing" class="state">Loading themes...</div>
+      <div v-if="importing" class="state">
+
+        <ActivityStatus :label="`Fetching themes for ${target?.titleRomaji ?? 'anime'}`" :request-key="target?.aniListId" />
+
+      </div>
       <p v-if="importError" class="inline-error">{{ importError }}</p>
 
       <ul v-if="importResult" class="theme-list">
@@ -204,27 +208,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <div v-if="hasAnyDownloadableSource(addedCards[theme.songId])" class="download-section">
                 <div v-if="hasDefaultDownloadFolder" class="download-actions">
                   <template v-if="canDownload(addedCards[theme.songId], 'video')">
-                    <div v-if="downloading[downloadKey(theme.songId, 'video')]" class="download-progress">
-                      <div class="download-progress-bar">
-                        <span :style="{ width: progressPercent(theme.songId, 'video') + '%' }" />
-                      </div>
-                      <span class="download-progress-label">{{
-                        formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "video")])
-                      }}</span>
-                    </div>
+                    <DownloadProgress
+                      v-if="downloading[downloadKey(theme.songId, 'video')]"
+                      label="Downloading video"
+                      :request-key="downloadKey(theme.songId, 'video')"
+                      :progress="downloadProgress[downloadKey(theme.songId, 'video')]"
+                    />
                     <button v-else type="button" class="download-btn" @click="downloadMedia(theme.songId, 'video')">
                       Download video
                     </button>
                   </template>
                   <template v-if="canDownload(addedCards[theme.songId], 'audio')">
-                    <div v-if="downloading[downloadKey(theme.songId, 'audio')]" class="download-progress">
-                      <div class="download-progress-bar">
-                        <span :style="{ width: progressPercent(theme.songId, 'audio') + '%' }" />
-                      </div>
-                      <span class="download-progress-label">{{
-                        formatDownloadProgress(downloadProgress[downloadKey(theme.songId, "audio")])
-                      }}</span>
-                    </div>
+                    <DownloadProgress
+                      v-if="downloading[downloadKey(theme.songId, 'audio')]"
+                      label="Downloading audio"
+                      :request-key="downloadKey(theme.songId, 'audio')"
+                      :progress="downloadProgress[downloadKey(theme.songId, 'audio')]"
+                    />
                     <button v-else type="button" class="download-btn" @click="downloadMedia(theme.songId, 'audio')">
                       Download audio
                     </button>
@@ -431,38 +431,6 @@ h2 {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
 }
 
 .download-hint {

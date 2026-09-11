@@ -28,68 +28,29 @@ interface ManualDeck {
   cardCount: number;
 }
 
-interface AniListResult {
-  aniListId: number;
-  titleRomaji: string;
-  titleEnglish: string | null;
-  titleNative: string | null;
-}
-
 const importPanelOpen = ref(false);
 const importAniListUsername = ref("");
 const importMalUsername = ref("");
-const importLoading = ref(false);
-const importAniListError = ref<string | null>(null);
-const importMalError = ref<string | null>(null);
-const importResults = ref<AniListResult[] | null>(null);
+const listImport = useCompletedListImport();
+const { loading: importLoading, results: importResults } = listImport;
 const importBlankHint = ref(false);
-const importSources = ref<string[]>([]);
-const importSummary = ref<{ aniList: number | null; mal: number | null; total: number } | null>(null);
+const importAniListError = computed(() => listImport.sources.aniList.error);
+const importMalError = computed(() => listImport.sources.mal.error);
+const importSummary = computed(() => {
+  if (importResults.value === null) return null;
+  return {
+    aniList: listImport.sources.aniList.status === "done" ? listImport.sources.aniList.results.length : null,
+    mal: listImport.sources.mal.status === "done" ? listImport.sources.mal.results.length : null,
+    total: importResults.value.length,
+  };
+});
 
 async function runImport() {
-  const aniListUsername = importAniListUsername.value.trim();
-  const malUsername = importMalUsername.value.trim();
-  if (!aniListUsername && !malUsername) {
-    importBlankHint.value = true;
-    return;
-  }
-
-  importBlankHint.value = false;
-  importLoading.value = true;
-  importAniListError.value = null;
-  importMalError.value = null;
-  importSummary.value = null;
-  importSources.value = [
-    ...(aniListUsername ? ["AniList"] : []),
-    ...(malUsername ? ["MyAnimeList"] : []),
-  ];
-
-  const [aniListOutcome, malOutcome] = await Promise.allSettled([
-    aniListUsername
-      ? $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-list", { query: { username: aniListUsername } })
-      : Promise.resolve({ results: [] as AniListResult[] }),
-    malUsername
-      ? $fetch<{ results: AniListResult[] }>("/api/lookup/mal-list", { query: { username: malUsername } })
-      : Promise.resolve({ results: [] as AniListResult[] }),
-  ]);
-
-  const lists: AniListResult[][] = [];
-  if (aniListOutcome.status === "fulfilled") lists.push(aniListOutcome.value.results);
-  else importAniListError.value = extractErrorMessage(aniListOutcome.reason, "AniList import failed.");
-
-  if (malOutcome.status === "fulfilled") lists.push(malOutcome.value.results);
-  else importMalError.value = extractErrorMessage(malOutcome.reason, "MyAnimeList import failed.");
-
-  const merged = mergeImportCandidates(lists);
-  // Counted per source rather than from the merged list so the summary can
-  // show what each source contributed before dedupe collapsed the overlap.
-  importSummary.value = {
-    aniList: aniListUsername && aniListOutcome.status === "fulfilled" ? aniListOutcome.value.results.length : null,
-    mal: malUsername && malOutcome.status === "fulfilled" ? malOutcome.value.results.length : null,
-    total: merged.length,
-  };
-  importResults.value = merged;
-  importLoading.value = false;
+  const aniList = importAniListUsername.value.trim();
+  const mal = importMalUsername.value.trim();
+  importBlankHint.value = !aniList && !mal;
+  if (importBlankHint.value) return;
+  await listImport.run({ aniList, mal });
 }
 
 const importSummaryText = computed(() => {
@@ -143,21 +104,26 @@ const loadingMore = ref(false);
 const sentinelRef = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
+const loadFirstPageRequests = createLatestRequest();
+onScopeDispose(loadFirstPageRequests.invalidate);
+
 async function loadFirstPage() {
+  const isCurrent = loadFirstPageRequests.start();
   initialPending.value = true;
   initialError.value = false;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
       query: { page: 1, q: searchQuery.value || undefined },
     });
+    if (!isCurrent()) return;
     cards.value = res.cards;
     nextPage.value = 2;
     totalPages.value = res.totalPages;
     totalCards.value = res.total;
   } catch {
-    initialError.value = true;
+    if (isCurrent()) initialError.value = true;
   } finally {
-    initialPending.value = false;
+    if (isCurrent()) initialPending.value = false;
   }
 }
 
@@ -352,12 +318,6 @@ async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
   }
 }
 
-function progressPercent(cardId: number, kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(cardId, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
-}
-
 function sourceBadges(c: CardWithDetails): string[] {
   const badges: string[] = [];
   if (c.localVideoPath) badges.push("Local video");
@@ -462,17 +422,24 @@ async function removeCard(id: number) {
         </button>
       </div>
       <p v-if="importBlankHint" class="import-status">Enter an AniList or MyAnimeList username first.</p>
-      <p v-if="importLoading" class="import-status">
-        Importing from {{ importSources.join(" and ") }}...
-        <span v-if="importSources.includes('MyAnimeList')" class="import-status-hint">
-          A large MyAnimeList list can take a few minutes.
-        </span>
-      </p>
+      <template v-for="(source, provider) in listImport.sources" :key="provider">
+        <p v-if="source.status === 'pending'" class="import-status">
+          <ActivityStatus
+            :label="`Fetching your ${source.label} Completed list`"
+            :request-key="provider"
+            :progress="listImport.activities[provider].progress.value"
+            :revision="listImport.activities[provider].revision.value"
+          />
+        </p>
+        <p v-else-if="source.status === 'done'" class="import-status" role="status">
+          {{ source.label }} complete: {{ source.results.length }} anime found.
+        </p>
+      </template>
       <p v-if="importAniListError" class="inline-error">AniList: {{ importAniListError }}</p>
       <p v-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
-      <template v-if="!importLoading && importResults !== null">
+      <template v-if="importResults !== null">
         <p v-if="importResults.length" class="import-status">{{ importSummaryText }}</p>
-        <p v-else-if="!importAniListError && !importMalError" class="import-status">
+        <p v-else-if="!importLoading && !importAniListError && !importMalError" class="import-status">
           No completed anime found. That list may be empty, or set to private.
         </p>
         <CardImportListResults
@@ -487,7 +454,9 @@ async function removeCard(id: number) {
 
     <div class="cards-body">
       <div class="list-pane">
-        <div v-if="initialPending" class="state">Loading...</div>
+        <div v-if="initialPending" class="state">
+          <ActivityStatus :request-key="searchQuery" label="Loading your cards" />
+        </div>
         <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
         <template v-else>
           <div v-if="cards.length" class="card-table">
@@ -526,7 +495,9 @@ async function removeCard(id: number) {
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
           <p v-else class="state">No cards yet. Search above to find and add one.</p>
           <div v-if="cards.length" ref="sentinelRef" class="scroll-sentinel">
-            <span v-if="loadingMore" class="loading-more">Loading more...</span>
+            <span v-if="loadingMore" class="loading-more">
+              <ActivityStatus label="Loading more cards" />
+            </span>
           </div>
         </template>
 
@@ -611,14 +582,12 @@ async function removeCard(id: number) {
               <div v-if="hasDefaultDownloadFolder" class="download-actions">
                 <template v-for="kind in (['video', 'audio'] as const)" :key="kind">
                   <template v-if="canDownload(selectedCard, kind)">
-                    <div v-if="downloading[downloadKey(selectedCard.id, kind)]" class="download-progress">
-                      <div class="download-progress-bar">
-                        <span :style="{ width: progressPercent(selectedCard.id, kind) + '%' }" />
-                      </div>
-                      <span class="download-progress-label">{{
-                        formatDownloadProgress(downloadProgress[downloadKey(selectedCard.id, kind)])
-                      }}</span>
-                    </div>
+                    <DownloadProgress
+                      v-if="downloading[downloadKey(selectedCard.id, kind)]"
+                      :label="`Downloading ${kind}`"
+                      :request-key="downloadKey(selectedCard.id, kind)"
+                      :progress="downloadProgress[downloadKey(selectedCard.id, kind)]"
+                    />
                     <button v-else type="button" class="download-btn" @click="downloadMedia(selectedCard, kind)">
                       Download {{ kind }}
                     </button>
@@ -1292,38 +1261,6 @@ textarea.path-input {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
 }
 
 .download-hint {

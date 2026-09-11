@@ -181,7 +181,9 @@ async function importDeck() {
         </div>
 
         <template v-else>
-        <div v-if="pending" class="state">Loading...</div>
+        <div v-if="pending" class="state">
+          <ActivityStatus label="Loading your settings" />
+        </div>
         <div v-else-if="error" class="state state-error">Couldn't load settings. Try refreshing.</div>
         <template v-else-if="data">
           <div class="section-panels">

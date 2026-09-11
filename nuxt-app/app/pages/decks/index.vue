@@ -114,7 +114,11 @@ const loadingMore = ref(false);
 const sentinelRef = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
+const loadFirstPageRequests = createLatestRequest();
+onScopeDispose(loadFirstPageRequests.invalidate);
+
 async function loadFirstPage() {
+  const isCurrent = loadFirstPageRequests.start();
   initialPending.value = true;
   initialError.value = false;
   try {
@@ -123,13 +127,14 @@ async function loadFirstPage() {
       page: number;
       totalPages: number;
     }>("/api/decks", { query: { type: activeType.value, page: 1, q: searchQuery.value || undefined } });
+    if (!isCurrent()) return;
     rawDecks.value = res.decks;
     nextPage.value = 2;
     totalPages.value = res.totalPages;
   } catch {
-    initialError.value = true;
+    if (isCurrent()) initialError.value = true;
   } finally {
-    initialPending.value = false;
+    if (isCurrent()) initialPending.value = false;
   }
 }
 
@@ -260,7 +265,11 @@ const cardsLoadingMore = ref(false);
 const cardsSentinelRef = ref<HTMLElement | null>(null);
 let cardsObserver: IntersectionObserver | null = null;
 
+const deckCardRequests = createLatestRequest();
+onScopeDispose(deckCardRequests.invalidate);
+
 async function loadFirstDeckCardsPage() {
+  const isCurrent = deckCardRequests.start();
   if (selectedId.value === null) return;
   cardsInitialPending.value = true;
   cardsInitialError.value = false;
@@ -276,14 +285,15 @@ async function loadFirstDeckCardsPage() {
         },
       },
     );
+    if (!isCurrent()) return;
     deckLabel.value = res.deckLabel;
     deckCards.value = res.cards;
     cardsNextPage.value = 2;
     cardsTotalPages.value = res.totalPages;
   } catch {
-    cardsInitialError.value = true;
+    if (isCurrent()) cardsInitialError.value = true;
   } finally {
-    cardsInitialPending.value = false;
+    if (isCurrent()) cardsInitialPending.value = false;
   }
 }
 
@@ -354,12 +364,6 @@ const {
   hasAnyDownloadableSource,
   downloadMedia: downloadMediaBase,
 } = useCardDownloads();
-
-function progressPercent(cardId: number, kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(cardId, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
-}
 
 async function downloadMedia(c: DeckCard, kind: "video" | "audio") {
   const updated = await downloadMediaBase<DeckCard>(c.id, c.id, kind);
@@ -554,6 +558,10 @@ async function runAddCardSearch() {
 }
 
 function onAddCardInput() {
+  addCardSearchGeneration += 1;
+  addCardPending.value = false;
+  addCardResults.value = [];
+  addAnimeResults.value = null;
   if (addCardDebounce) clearTimeout(addCardDebounce);
   addCardDebounce = setTimeout(runAddCardSearch, 250);
 }
@@ -676,7 +684,9 @@ function backToDecks() {
       </header>
 
       <div class="decks-body">
-      <div v-if="initialPending" class="state">Loading...</div>
+      <div v-if="initialPending" class="state">
+        <ActivityStatus :request-key="`${activeType}:${searchQuery}`" label="Loading your decks" />
+      </div>
       <div v-else-if="initialError" class="state state-error">Couldn't load decks. Try refreshing.</div>
       <template v-else>
         <div v-if="deckItems.length || (activeType === 'created' && !searchQuery)" class="deck-grid">
@@ -775,7 +785,9 @@ function backToDecks() {
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
         <div v-if="deckItems.length" ref="sentinelRef" class="scroll-sentinel">
-          <span v-if="loadingMore" class="loading-more">Loading more...</span>
+          <span v-if="loadingMore" class="loading-more">
+            <ActivityStatus label="Loading more decks" />
+          </span>
         </div>
       </template>
       </div>
@@ -805,7 +817,9 @@ function backToDecks() {
       </header>
 
       <div class="decks-body">
-      <div v-if="cardsInitialPending" class="state">Loading...</div>
+      <div v-if="cardsInitialPending" class="state">
+        <ActivityStatus :request-key="`${selectedId}:${cardSearchQuery}`" label="Loading deck cards" />
+      </div>
       <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
       <template v-else>
         <div class="deck-detail-title">
@@ -822,7 +836,9 @@ function backToDecks() {
             class="path-input"
             @input="onAddCardInput"
           />
-          <p v-if="addCardPending" class="state">Searching...</p>
+          <p v-if="addCardPending" class="state">
+            <ActivityStatus :request-key="addCardQuery" label="Searching cards and anime" />
+          </p>
           <p v-else-if="addCardError" class="export-error">{{ addCardError }}</p>
           <ul v-else-if="addCardResults.length" class="add-card-results">
             <li v-for="r in addCardResults" :key="r.id" class="add-card-result-row">
@@ -909,27 +925,23 @@ function backToDecks() {
             <div v-if="hasAnyDownloadableSource(c)" class="download-section">
               <div v-if="hasDefaultDownloadFolder" class="download-actions">
                 <template v-if="canDownload(c, 'video')">
-                  <div v-if="downloading[downloadKey(c.id, 'video')]" class="download-progress">
-                    <div class="download-progress-bar">
-                      <span :style="{ width: progressPercent(c.id, 'video') + '%' }" />
-                    </div>
-                    <span class="download-progress-label">{{
-                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "video")])
-                    }}</span>
-                  </div>
+                  <DownloadProgress
+                    v-if="downloading[downloadKey(c.id, 'video')]"
+                    label="Downloading video"
+                    :request-key="downloadKey(c.id, 'video')"
+                    :progress="downloadProgress[downloadKey(c.id, 'video')]"
+                  />
                   <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'video')">
                     Download video
                   </button>
                 </template>
                 <template v-if="canDownload(c, 'audio')">
-                  <div v-if="downloading[downloadKey(c.id, 'audio')]" class="download-progress">
-                    <div class="download-progress-bar">
-                      <span :style="{ width: progressPercent(c.id, 'audio') + '%' }" />
-                    </div>
-                    <span class="download-progress-label">{{
-                      formatDownloadProgress(downloadProgress[downloadKey(c.id, "audio")])
-                    }}</span>
-                  </div>
+                  <DownloadProgress
+                    v-if="downloading[downloadKey(c.id, 'audio')]"
+                    label="Downloading audio"
+                    :request-key="downloadKey(c.id, 'audio')"
+                    :progress="downloadProgress[downloadKey(c.id, 'audio')]"
+                  />
                   <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'audio')">
                     Download audio
                   </button>
@@ -946,7 +958,9 @@ function backToDecks() {
         <p v-else class="state">No cards in this deck.</p>
         <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
         <div v-if="deckCards.length" ref="cardsSentinelRef" class="scroll-sentinel">
-          <span v-if="cardsLoadingMore" class="loading-more">Loading more...</span>
+          <span v-if="cardsLoadingMore" class="loading-more">
+            <ActivityStatus label="Loading more deck cards" />
+          </span>
         </div>
 
         <div v-if="activeType !== 'created'" class="export-block">
@@ -1381,38 +1395,6 @@ h2 {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
 }
 
 .download-hint {

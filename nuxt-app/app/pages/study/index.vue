@@ -591,7 +591,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-if="!scopeResult.valid" class="state state-error">
       This study link isn't valid. Go back to <NuxtLink to="/decks">Decks</NuxtLink> and pick a deck.
     </div>
-    <div v-else-if="loading && !currentCard" class="state">Loading...</div>
+    <div v-else-if="loading && !currentCard" class="state">
+      <ActivityStatus label="Loading your study queue" />
+    </div>
     <div v-else-if="error" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">
       All caught up! Nothing due right now.

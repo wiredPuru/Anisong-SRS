@@ -266,12 +266,6 @@ watch(src, () => {
 const { downloading, downloadProgress, downloadError, downloadKey, canDownload, hasAnyDownloadableSource, downloadMedia } =
   useCardDownloads();
 
-function downloadProgressPercent(kind: "video" | "audio"): number {
-  const progress = downloadProgress[downloadKey(props.card.id, kind)];
-  if (!progress || progress.total <= 0) return 0;
-  return Math.min(100, Math.round((progress.loaded / progress.total) * 100));
-}
-
 async function retryDownload(kind: "video" | "audio") {
   const result = await downloadMedia<{ localVideoPath: string | null; localAudioPath: string | null }>(
     props.card.id,
@@ -728,25 +722,21 @@ onUnmounted(() => stopDrag?.());
         <div v-if="hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
             <template v-if="canDownload(card, 'video')">
-              <div v-if="downloading[downloadKey(card.id, 'video')]" class="download-progress">
-                <div class="download-progress-bar">
-                  <span :style="{ width: downloadProgressPercent('video') + '%' }" />
-                </div>
-                <span class="download-progress-label">{{
-                  formatDownloadProgress(downloadProgress[downloadKey(card.id, "video")])
-                }}</span>
-              </div>
+              <DownloadProgress
+                v-if="downloading[downloadKey(card.id, 'video')]"
+                label="Downloading video"
+                :request-key="downloadKey(card.id, 'video')"
+                :progress="downloadProgress[downloadKey(card.id, 'video')]"
+              />
               <button v-else type="button" class="download-btn" @click="retryDownload('video')">Download video</button>
             </template>
             <template v-if="canDownload(card, 'audio')">
-              <div v-if="downloading[downloadKey(card.id, 'audio')]" class="download-progress">
-                <div class="download-progress-bar">
-                  <span :style="{ width: downloadProgressPercent('audio') + '%' }" />
-                </div>
-                <span class="download-progress-label">{{
-                  formatDownloadProgress(downloadProgress[downloadKey(card.id, "audio")])
-                }}</span>
-              </div>
+              <DownloadProgress
+                v-if="downloading[downloadKey(card.id, 'audio')]"
+                label="Downloading audio"
+                :request-key="downloadKey(card.id, 'audio')"
+                :progress="downloadProgress[downloadKey(card.id, 'audio')]"
+              />
               <button v-else type="button" class="download-btn" @click="retryDownload('audio')">Download audio</button>
             </template>
           </div>
@@ -1123,38 +1113,6 @@ onUnmounted(() => stopDrag?.());
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.download-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 140px;
-}
-
-.download-progress-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.download-progress-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent-secondary);
-  transition: width 0.15s ease;
-}
-
-.download-progress-label {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  min-width: 34px;
-  text-align: right;
 }
 
 .download-hint {
