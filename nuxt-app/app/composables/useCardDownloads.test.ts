@@ -43,6 +43,56 @@ describe("formatDownloadProgress", () => {
   });
 });
 
+describe("useCardDownloads.canRetryDownload / hasAnyDownloadableSource", () => {
+  it("canRetryDownload is true only when a local path is stale but a remote reference still exists", () => {
+    const { canRetryDownload } = useCardDownloads();
+    const staleVideo = {
+      localVideoPath: "videos/a.mp4",
+      localAudioPath: null,
+      animethemesVideoUrl: "https://v.animethemes.moe/a.webm",
+      animethemesAudioUrl: null,
+    };
+    expect(canRetryDownload(staleVideo, "video")).toBe(true);
+    expect(canRetryDownload(staleVideo, "audio")).toBe(false);
+
+    const noRemoteFallback = {
+      localVideoPath: "videos/a.mp4",
+      localAudioPath: null,
+      animethemesVideoUrl: null,
+      animethemesAudioUrl: null,
+    };
+    expect(canRetryDownload(noRemoteFallback, "video")).toBe(false);
+
+    const notYetDownloaded = {
+      localVideoPath: null,
+      localAudioPath: null,
+      animethemesVideoUrl: "https://v.animethemes.moe/a.webm",
+      animethemesAudioUrl: null,
+    };
+    expect(canRetryDownload(notYetDownloaded, "video")).toBe(false);
+  });
+
+  it("hasAnyDownloadableSource counts a retryable stale local file, not just a fresh download", () => {
+    const { canDownload, hasAnyDownloadableSource } = useCardDownloads();
+    const staleVideoOnly = {
+      localVideoPath: "videos/a.mp4",
+      localAudioPath: null,
+      animethemesVideoUrl: "https://v.animethemes.moe/a.webm",
+      animethemesAudioUrl: null,
+    };
+    expect(canDownload(staleVideoOnly, "video")).toBe(false);
+    expect(hasAnyDownloadableSource(staleVideoOnly)).toBe(true);
+
+    const fullyLocalNoRemote = {
+      localVideoPath: "videos/a.mp4",
+      localAudioPath: "audio/a.mp3",
+      animethemesVideoUrl: null,
+      animethemesAudioUrl: null,
+    };
+    expect(hasAnyDownloadableSource(fullyLocalNoRemote)).toBe(false);
+  });
+});
+
 describe("useCardDownloads.downloadMedia", () => {
   it("reports waiting, then transferring, then finishing before resolving, and clears progress after", async () => {
     vi.stubGlobal(

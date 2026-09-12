@@ -49,8 +49,22 @@ export function useCardDownloads() {
       : Boolean(card.animethemesAudioUrl) && !card.localAudioPath;
   }
 
+  // The mirror image of canDownload: a local path is already set, but it's
+  // gone stale (the file was moved/deleted from the media library folder)
+  // while a remote reference still exists to recover it from.
+  function canRetryDownload(card: DownloadableCard, kind: "video" | "audio"): boolean {
+    return kind === "video"
+      ? Boolean(card.animethemesVideoUrl) && Boolean(card.localVideoPath)
+      : Boolean(card.animethemesAudioUrl) && Boolean(card.localAudioPath);
+  }
+
   function hasAnyDownloadableSource(card: DownloadableCard): boolean {
-    return canDownload(card, "video") || canDownload(card, "audio");
+    return (
+      canDownload(card, "video") ||
+      canDownload(card, "audio") ||
+      canRetryDownload(card, "video") ||
+      canRetryDownload(card, "audio")
+    );
   }
 
   async function downloadMedia<T>(key: string | number, cardId: number, kind: "video" | "audio"): Promise<T | null> {
@@ -108,5 +122,14 @@ export function useCardDownloads() {
     }
   }
 
-  return { downloading, downloadProgress, downloadError, downloadKey, canDownload, hasAnyDownloadableSource, downloadMedia };
+  return {
+    downloading,
+    downloadProgress,
+    downloadError,
+    downloadKey,
+    canDownload,
+    canRetryDownload,
+    hasAnyDownloadableSource,
+    downloadMedia,
+  };
 }

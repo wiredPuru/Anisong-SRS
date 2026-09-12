@@ -44,6 +44,14 @@ function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; loca
   });
 }
 
+function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
+  if (!props.card) return;
+  emit("updated", {
+    ...props.card,
+    ...(kind === "video" ? { localVideoPath: null } : { localAudioPath: null }),
+  });
+}
+
 const { isTypingTarget } = useHotkeyGuard();
 
 const immersive = ref(false);
@@ -240,6 +248,7 @@ watch(
         :auto-download="autoDownload"
         v-model:immersive="immersive"
         @local-path-updated="onLocalPathUpdated"
+        @local-path-cleared="onLocalPathCleared"
       />
 
       <form v-if="editing" class="edit-form" @submit.prevent="saveEdit">

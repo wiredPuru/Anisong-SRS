@@ -244,6 +244,15 @@ function onInspectorLocalPathUpdated({ kind, localPath }: { kind: "video" | "aud
   });
 }
 
+function onInspectorLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
+  const current = selectedCard.value;
+  if (!current) return;
+  replaceCard({
+    ...current,
+    ...(kind === "video" ? { localVideoPath: null } : { localAudioPath: null }),
+  });
+}
+
 function selectCard(id: number) {
   selectedId.value = selectedId.value === id ? null : id;
 }
@@ -554,6 +563,7 @@ async function removeCard(id: number) {
             :allow-expand="true"
             v-model:immersive="inspectorImmersive"
             @local-path-updated="onInspectorLocalPathUpdated"
+            @local-path-cleared="onInspectorLocalPathCleared"
           />
           <div v-else class="inspector-cover">
             <img v-if="selectedCard.animeCoverImageUrl" :src="selectedCard.animeCoverImageUrl" alt="" />

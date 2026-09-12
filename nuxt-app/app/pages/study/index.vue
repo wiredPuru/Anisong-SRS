@@ -84,6 +84,14 @@ function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; loca
   };
 }
 
+function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
+  if (!currentCard.value) return;
+  currentCard.value = {
+    ...currentCard.value,
+    ...(kind === "video" ? { localVideoPath: null } : { localAudioPath: null }),
+  };
+}
+
 interface SessionHistoryEntry {
   card: CardWithDetails;
   result: "pass" | "fail";
@@ -699,6 +707,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
+          @local-path-cleared="onLocalPathCleared"
         />
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
