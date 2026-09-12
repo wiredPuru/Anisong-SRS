@@ -22,6 +22,7 @@ const props = defineProps<{
   audioOnly?: boolean;
   hideCover?: boolean;
   hideListeningLabel?: boolean;
+  autoDownload?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -276,6 +277,26 @@ async function retryDownload(kind: "video" | "audio") {
   const localPath = kind === "video" ? result.localVideoPath : result.localAudioPath;
   if (localPath) emit("local-path-updated", { kind, localPath });
 }
+
+// Silently downloads the currently-resolved media kind in the background -
+// same trigger shape as the stream-cache prefetch above (computed ->
+// onMounted + watch, no `immediate`), and the same download call the manual
+// "Download video/audio" fallback buttons below use. `canDownload` already
+// covers "nothing to download" (no remote source, or already local), so
+// this settles to null on its own once the download lands.
+const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
+  props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
+    ? mediaKind.value
+    : null,
+);
+
+function triggerAutoDownload(kind: "video" | "audio" | null) {
+  if (!kind) return;
+  retryDownload(kind);
+}
+
+onMounted(() => triggerAutoDownload(autoDownloadTarget.value));
+watch(autoDownloadTarget, (kind) => triggerAutoDownload(kind));
 
 function togglePlay() {
   const el = activeEl.value;

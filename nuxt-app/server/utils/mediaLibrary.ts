@@ -140,6 +140,28 @@ export function setStreamCacheMaxBytes(maxBytes: number): { error: string } | { 
   return { streamCacheMaxBytes: maxBytes };
 }
 
+export function getAutoDownload(): boolean {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.autoDownload ?? false;
+}
+
+export function setAutoDownload(enabled: boolean): { error: string } | { autoDownload: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "Auto download must be a boolean." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, autoDownload: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { autoDownload: enabled } })
+    .run();
+
+  return { autoDownload: enabled };
+}
+
 export function getPlaybackMode(): "auto" | "audioOnly" {
   const row = db
     .select()

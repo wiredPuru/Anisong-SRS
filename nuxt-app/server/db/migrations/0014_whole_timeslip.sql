@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `auto_download` integer DEFAULT false NOT NULL;

@@ -34,10 +34,12 @@ const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
   boxOneStreakRequired: number;
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
+  autoDownload: boolean;
 }>("/api/media-library");
 
 const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
 const persistedAudioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
+const autoDownload = computed(() => studySettings.value?.autoDownload ?? false);
 
 // A session-only override of the persisted Playback mode setting, toggled
 // from the display-toggles row below. `null` means "follow /settings".
@@ -692,6 +694,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :hide-theme-badge="hideInfo && !autoRevealedThisCard"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="playerAudioOnly"
+          :auto-download="autoDownload"
           :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"

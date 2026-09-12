@@ -177,9 +177,11 @@ const { data: mediaLibraryData } = await useFetch<{
   libraryPaths: string[];
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
+  autoDownload: boolean;
 }>("/api/media-library");
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
 const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audioOnly");
+const autoDownload = computed(() => mediaLibraryData.value?.autoDownload ?? false);
 
 const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
   query: { type: "created" },
@@ -548,6 +550,7 @@ async function removeCard(id: number) {
             :card="selectedCard"
             :audio-only="audioOnly"
             :has-default-download-folder="hasDefaultDownloadFolder"
+            :auto-download="autoDownload"
             :allow-expand="true"
             v-model:immersive="inspectorImmersive"
             @local-path-updated="onInspectorLocalPathUpdated"

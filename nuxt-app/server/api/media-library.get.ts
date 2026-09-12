@@ -1,4 +1,5 @@
 import {
+  getAutoDownload,
   getBoxOneStreakRequired,
   getDailyNewCardLimit,
   getDefaultDownloadFolder,
@@ -17,5 +18,6 @@ export default defineEventHandler(() => {
     streamCacheMaxBytes: getStreamCacheMaxBytes(),
     streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
+    autoDownload: getAutoDownload(),
   };
 });

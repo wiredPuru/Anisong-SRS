@@ -487,6 +487,14 @@ cleaned-up checkbox version before generating the project overview.
   a browsable add-candidate (title, cover, already-added check) in the same
   picking flow as the existing Anime search group on `/cards` - no
   automatic bulk card creation, no OAuth, no stored account link.
+- [x] 59. **Auto Download setting** - a persistent Settings toggle (default
+  off) that, while a card is loaded in Study or Preview, automatically
+  downloads its clip into the local media library - video when Playback
+  mode (feature 43) is Auto and the card has a video source, audio
+  otherwise - instead of relying on the manual per-card Download button or
+  feature 41's streamed/cached playback. A no-op, with no error surfaced,
+  when no default download folder is configured or the card already has a
+  local file for the chosen kind.
 
 ## Plan maintenance
 

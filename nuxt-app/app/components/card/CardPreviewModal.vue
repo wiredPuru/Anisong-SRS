@@ -32,6 +32,7 @@ const props = defineProps<{
   open: boolean;
   hasDefaultDownloadFolder?: boolean;
   audioOnly?: boolean;
+  autoDownload?: boolean;
 }>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
@@ -236,6 +237,7 @@ watch(
         :allow-expand="!editing"
         :has-default-download-folder="hasDefaultDownloadFolder"
         :audio-only="audioOnly"
+        :auto-download="autoDownload"
         v-model:immersive="immersive"
         @local-path-updated="onLocalPathUpdated"
       />

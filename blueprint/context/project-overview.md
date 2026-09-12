@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 29bc97382d1c0c1bb94da1c8e1c0750fd25877567f5a1b211d71192c99aab58 -->
+<!-- blueprint:source-hash 838e2e8f79d0f1d94a8733321a74baa2ec6ad6aaffe03d528b562bf904d9ae16 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -130,7 +130,10 @@ public AniList/MyAnimeList Completed list as browsable anime add-candidates)
 was added to `build-plan.md` on 2026-09-05 and is not yet built; it added a
 new §3 Features bullet and a §5 Tech line to `project-plan.md` for Jikan,
 the unofficial no-key MyAnimeList API it uses (MAL's official API requires
-OAuth even to read a public list).
+OAuth even to read a public list). Feature 59 (a persistent Auto Download
+setting) was added to `build-plan.md` on 2026-09-12 and is now built and
+merged; it did not change `project-plan.md`, the same way feature 43's
+Playback mode setting did not.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1006,6 +1009,22 @@ OAuth even to read a public list).
     through Jikan (https://jikan.moe), an unofficial, no-key REST wrapper
     over MAL's public data - a new, less durable external dependency than
     AniList's own API, called only for this feature.
+59. **Auto Download setting** - done. Added to `build-plan.md` 2026-09-12.
+    A persistent Settings toggle (default off, in the existing Playback
+    section) that, while a card is loaded in Study or Preview, automatically
+    downloads its clip into the local media library instead of relying on
+    the manual per-card Download button (feature 8) or feature 41's
+    streamed/cached playback - video when Playback mode (feature 43) is
+    Auto and the card has a video source, audio otherwise, using the same
+    `mediaKind` resolution the player already uses for playback. A no-op,
+    with no error surfaced, when no default download folder is configured
+    or the card already has a local file for the chosen kind. Implemented
+    as a single trigger inside `StudyMediaPlayer.vue` (the component shared
+    by `/study` and `CardPreviewModal`), reusing feature 42's existing
+    `retryDownload` mechanism rather than a new download code path - so it
+    also transparently benefits from feature 41's stream cache (an
+    already-cached clip is copied locally instead of re-fetched) and from
+    the `recreate-missing-download-folder` fix.
 
 ## Data model
 
@@ -1284,7 +1303,8 @@ Routes:
   control (MB input, default 1024) for the local disk cache of remote
   animethemes.moe clips. Feature 43 added a Playback mode control (Auto /
   Audio only) - the only place this setting can be changed, deliberately
-  not exposed on `/study` itself.
+  not exposed on `/study` itself. Feature 59 added an Auto Download toggle
+  in the same Playback section.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal

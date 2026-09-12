@@ -7,6 +7,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCacheMaxBytes: number;
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
+  autoDownload: boolean;
 }>("/api/media-library");
 
 type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "about";
@@ -256,6 +257,11 @@ async function importDeck() {
                 card; changing it here never affects a card already playing.
               </p>
               <SettingsPlaybackModeControl :mode="data.playbackMode" @saved="refresh" />
+              <p class="section-hint">
+                Automatically downloads each card's clip - video or audio, per Playback mode above - into your media
+                library as you study or preview it, instead of relying on the manual Download button.
+              </p>
+              <SettingsAutoDownloadControl :enabled="data.autoDownload" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'cache'">
