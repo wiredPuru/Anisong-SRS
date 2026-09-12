@@ -49,20 +49,25 @@ const hasAudioSource = computed(() => Boolean(props.card.localAudioPath || props
 // earlier per-scope forced-mode feature swapped this mid-playback and caused
 // overlapping audio, which is exactly what that constraint avoids. A card
 // with no audio source at all still falls back to video even when audioOnly
-// is on. videoBroken (set on a real video playback error, below) is the one
-// other legitimate after-mount trigger - safe because video never actually
-// played before it fires, so there's no outgoing audio to overlap, and the
-// watch(mediaKind, ...) below already pauses/resets both elements first.
+// is on. audioFallbackChosen is the one other after-mount trigger, and only
+// an explicit "Use audio for this card" click sets it: a failed video is
+// reported rather than silently swapped, so this fires on a deliberate click
+// against a video that never played, and watch(mediaKind, ...) below pauses
+// and resets both elements before the DOM swaps anyway. Both refs are
+// per-card (reset below), so the choice never carries to the next card -
+// only the Audio Only setting switches playback for a whole session.
 const videoBroken = ref(false);
+const audioFallbackChosen = ref(false);
 watch(
   () => props.card.id,
   () => {
     videoBroken.value = false;
+    audioFallbackChosen.value = false;
   },
 );
 const mediaKind = computed<"video" | "audio">(() => {
   if (props.audioOnly && hasAudioSource.value) return "audio";
-  if (videoBroken.value && hasAudioSource.value) return "audio";
+  if (audioFallbackChosen.value && hasAudioSource.value) return "audio";
   return hasVideoSource.value ? "video" : "audio";
 });
 
@@ -265,19 +270,31 @@ function onLoadedMetadata() {
 }
 
 function onError() {
-  errorMessage.value = "Couldn't load this clip.";
-  if (mediaKind.value === "video") {
-    videoBroken.value = true;
-  }
+  const failedVideo = mediaKind.value === "video";
+  errorMessage.value = failedVideo ? "Video failed to load." : "Couldn't load this clip.";
+  videoBroken.value = failedVideo;
 }
 
 // Clears a stale error the moment the media source actually changes - covers
-// both a successful fallback download below (the new local path recomputes
-// `src`) and `card` changing while this component stays mounted (it doesn't
-// remount per card inside CardPreviewModal, unlike /study).
+// a successful fallback download below (the new local path recomputes `src`),
+// switching this card to audio, and `card` changing while this component
+// stays mounted (it doesn't remount per card inside CardPreviewModal, unlike
+// /study). The failure state goes with it: whatever failed is no longer what
+// is loaded.
 watch(src, () => {
   errorMessage.value = null;
+  videoBroken.value = false;
 });
+
+// Re-attempts the source already loaded, without touching the card's stored
+// paths. The cheapest recovery for a video that streams from the CDN, where
+// a transient failure is the likely cause - a full redownload below is the
+// heavier answer, and only applies to a card with a local path to replace.
+function retryVideoLoad() {
+  errorMessage.value = null;
+  videoBroken.value = false;
+  videoRef.value?.load();
+}
 
 const {
   downloading,
@@ -306,8 +323,8 @@ async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
 // that still has a remote reference: clear the stored local path first - the
 // download route refuses to download over an existing one, the same
 // constraint feature 27's Clear button works around - then redownload fresh.
-// A successful video redownload clears videoBroken so mediaKind prefers video
-// again instead of staying pinned on the audio fallback above.
+// A successful redownload's new local path recomputes `src`, which is what
+// clears the failure state above.
 async function redownload(kind: "video" | "audio") {
   try {
     const body =
@@ -318,10 +335,7 @@ async function redownload(kind: "video" | "audio") {
     downloadError[props.card.id] = `Failed to clear the stale local ${kind} file.`;
     return;
   }
-  const localPath = await retryDownload(kind);
-  if (kind === "video" && localPath) {
-    videoBroken.value = false;
-  }
+  await retryDownload(kind);
 }
 
 // Silently downloads the currently-resolved media kind in the background -
@@ -786,6 +800,17 @@ onUnmounted(() => stopDrag?.());
 
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
+        <div v-if="videoBroken" class="failure-actions">
+          <button type="button" class="download-btn" @click="retryVideoLoad">Try again</button>
+          <button
+            v-if="hasAudioSource"
+            type="button"
+            class="download-btn"
+            @click="audioFallbackChosen = true"
+          >
+            Use audio for this card
+          </button>
+        </div>
         <div v-if="hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
             <template v-if="canDownload(card, 'video')">
@@ -804,7 +829,7 @@ onUnmounted(() => stopDrag?.());
                 :request-key="downloadKey(card.id, 'video')"
                 :progress="downloadProgress[downloadKey(card.id, 'video')]"
               />
-              <button v-else type="button" class="download-btn" @click="redownload('video')">Retry video</button>
+              <button v-else type="button" class="download-btn" @click="redownload('video')">Redownload video</button>
             </template>
             <template v-if="canDownload(card, 'audio')">
               <DownloadProgress
@@ -822,7 +847,7 @@ onUnmounted(() => stopDrag?.());
                 :request-key="downloadKey(card.id, 'audio')"
                 :progress="downloadProgress[downloadKey(card.id, 'audio')]"
               />
-              <button v-else type="button" class="download-btn" @click="redownload('audio')">Retry audio</button>
+              <button v-else type="button" class="download-btn" @click="redownload('audio')">Redownload audio</button>
             </template>
           </div>
           <p v-else class="download-hint">
@@ -1181,7 +1206,8 @@ onUnmounted(() => stopDrag?.());
   gap: 6px;
 }
 
-.download-actions {
+.download-actions,
+.failure-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
