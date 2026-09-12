@@ -1,4 +1,4 @@
-import { existsSync, statSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, statSync, unlinkSync } from "node:fs";
 import { Readable } from "node:stream";
 import { getCardWithDetails, updateCard } from "../../utils/cards.ts";
 import { buildDownloadBaseName, downloadMediaFile } from "../../utils/mediaDownload.ts";
@@ -73,11 +73,15 @@ export default defineEventHandler(async (event) => {
       statusMessage: "No default download folder is configured. Set one in Settings.",
     });
   }
-  if (!existsSync(destDir) || !statSync(destDir).isDirectory()) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Default download folder no longer exists on disk. Set a valid folder in Settings.",
-    });
+  if (existsSync(destDir)) {
+    if (!statSync(destDir).isDirectory()) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Default download folder path is not a directory. Set a valid folder in Settings.",
+      });
+    }
+  } else {
+    mkdirSync(destDir, { recursive: true });
   }
 
   const { baseName, ext } = buildDownloadBaseName({
