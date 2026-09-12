@@ -7,7 +7,7 @@ export interface AniListResult {
 
 // An anime can appear on both a user's AniList and MyAnimeList Completed
 // lists; first occurrence wins so the AniList-sourced entry (queried first
-// on /cards) takes priority over the Jikan-crosswalked one when both exist.
+// on /cards) takes priority over the MAL-crosswalked one when both exist.
 export function mergeImportCandidates(lists: AniListResult[][]): AniListResult[] {
   const seen = new Set<number>();
   const merged: AniListResult[] = [];

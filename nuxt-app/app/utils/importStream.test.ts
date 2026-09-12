@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { readImportStream } from "./importStream";
+import { isUnavailable, readImportStream } from "./importStream";
 
 function response(text: string, chunkSize = 3) {
   const bytes = new TextEncoder().encode(text);
@@ -50,5 +50,36 @@ describe("import event reader", () => {
   it("preserves a validation error sent before streaming starts", async () => {
     await expect(readImportStream(Response.json({ statusMessage: "username is required" }, { status: 400 }), () => {}))
       .rejects.toThrow("username is required");
+  });
+});
+
+describe("upstream outage flag", () => {
+  it("marks a streamed error the server flagged as an outage", async () => {
+    const failure = await readImportStream(
+      response('{"type":"error","message":"AniList is temporarily unavailable.","unavailable":true}\n'), () => {},
+    ).catch((error: unknown) => error);
+    expect(isUnavailable(failure)).toBe(true);
+  });
+
+  it("leaves an error the user can act on unflagged", async () => {
+    const failure = await readImportStream(
+      response('{"type":"error","message":"MyAnimeList user not found"}\n'), () => {},
+    ).catch((error: unknown) => error);
+    expect(isUnavailable(failure)).toBe(false);
+  });
+
+  it("reads the flag from a 503 sent before streaming starts", async () => {
+    const failure = await readImportStream(
+      Response.json({ statusCode: 503, statusMessage: "AniList is temporarily unavailable." }, { status: 503 }), () => {},
+    ).catch((error: unknown) => error);
+    expect(isUnavailable(failure)).toBe(true);
+    expect((failure as Error).message).toBe("AniList is temporarily unavailable.");
+  });
+
+  it("does not flag a 404 the user can correct", async () => {
+    const failure = await readImportStream(
+      Response.json({ statusCode: 404, statusMessage: "not found" }, { status: 404 }), () => {},
+    ).catch((error: unknown) => error);
+    expect(isUnavailable(failure)).toBe(false);
   });
 });

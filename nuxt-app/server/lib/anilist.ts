@@ -137,7 +137,7 @@ const BY_MAL_ID_QUERY = `
   }
 `;
 
-// Used to resolve a MyAnimeList id (from the Jikan-backed MAL import) to its
+// Used to resolve a MyAnimeList id (from the MAL Completed-list import) to its
 // AniList counterpart, since every Anime row in this app is keyed by
 // aniListId, not a MAL id. type: ANIME disambiguates idMal, which is not
 // unique across AniList's anime/manga media pool on its own.

@@ -61,3 +61,33 @@ describe("independent Completed-list sources", () => {
     scope.stop();
   });
 });
+
+describe("outage reporting", () => {
+  it("flags an AniList outage while keeping the MyAnimeList results from the same run", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: string) => url.includes("anilist-list")
+      ? Promise.resolve(new Response('{"type":"error","message":"AniList is temporarily unavailable.","unavailable":true}\n'))
+      : Promise.resolve(done([anime(1, "MAL title")]))));
+    const scope = effectScope();
+    const state = scope.run(useCompletedListImport)!;
+    await state.run({ aniList: "alice", mal: "bob" });
+    expect(state.sources.aniList.unavailable).toBe(true);
+    expect(state.sources.mal.unavailable).toBe(false);
+    expect(state.results.value).toEqual([anime(1, "MAL title")]);
+    scope.stop();
+  });
+
+  it("does not flag a failure the user can correct, and clears the flag on the next run", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{"type":"error","message":"AniList is temporarily unavailable.","unavailable":true}\n'))
+      .mockResolvedValueOnce(new Response('{"type":"error","message":"AniList user not found"}\n'));
+    vi.stubGlobal("fetch", fetchMock);
+    const scope = effectScope();
+    const state = scope.run(useCompletedListImport)!;
+    await state.run({ aniList: "alice", mal: "" });
+    expect(state.sources.aniList.unavailable).toBe(true);
+    await state.run({ aniList: "nobody", mal: "" });
+    expect(state.sources.aniList.unavailable).toBe(false);
+    expect(state.sources.aniList.error).toBe("AniList user not found");
+    scope.stop();
+  });
+});

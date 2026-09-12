@@ -1,5 +1,6 @@
 import { PassThrough } from "node:stream";
 import { getRequestHeader, sendStream, setResponseHeader, type H3Event } from "h3";
+import { ProviderUnavailableError } from "../lib/graphql.ts";
 
 export interface ImportProgress {
   label: string;
@@ -26,7 +27,9 @@ export function createImportStream<T>(run: (report: ReportImportProgress) => Pro
     if (stream.destroyed) return;
     const message = error instanceof Error && "statusMessage" in error && typeof error.statusMessage === "string"
       ? error.statusMessage : "Import failed. Please try again.";
-    write({ type: "error", message });
+    // Flagged so the client can tell an upstream outage, which no retry or
+    // corrected input will fix, from a failure the user can act on.
+    write({ type: "error", message, unavailable: error instanceof ProviderUnavailableError });
   }).finally(() => stream.end());
 
   return stream;

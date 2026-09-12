@@ -1,7 +1,7 @@
 import { respondWithImportProgress } from "../../utils/importProgress.ts";
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import type { AniListAnime } from "../../lib/anilist.ts";
-import { fetchMalCompletedList, JikanUserNotFoundError } from "../../lib/jikan.ts";
+import { fetchMalCompletedList, MalUserNotFoundError } from "../../lib/mal.ts";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
         report({ label: `Fetched MyAnimeList page ${page} (${animeCount} anime)` });
       });
     } catch (err) {
-      if (err instanceof JikanUserNotFoundError) {
+      if (err instanceof MalUserNotFoundError) {
         throw createError({ statusCode: 404, statusMessage: err.message });
       }
       throw err;

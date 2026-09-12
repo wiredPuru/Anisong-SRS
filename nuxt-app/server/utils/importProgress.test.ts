@@ -31,7 +31,7 @@ describe("import response transport", () => {
     const stream = createImportStream(async () => { throw new Error("SQLITE internal detail"); });
     let text = "";
     for await (const chunk of stream) text += chunk;
-    expect(JSON.parse(text)).toEqual({ type: "error", message: "Import failed. Please try again." });
+    expect(JSON.parse(text)).toEqual({ type: "error", message: "Import failed. Please try again.", unavailable: false });
   });
 
   it("preserves actionable public errors", async () => {

@@ -10,6 +10,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// An upstream provider outage, as opposed to a failure the user can act on by
+// retrying or correcting what they typed.
+export function isUnavailable(error: unknown): boolean {
+  return error instanceof Error && "unavailable" in error && error.unavailable === true;
+}
+
+function importError(message: string, unavailable: unknown): Error {
+  return Object.assign(new Error(message), { unavailable: unavailable === true });
+}
+
 function parseProgress(value: Record<string, unknown>): ImportProgress {
   if (typeof value.label !== "string" || !value.label.trim()) throw new Error("Invalid import progress.");
   for (const key of ["completed", "total", "skipped", "unavailable"]) {
@@ -30,7 +40,10 @@ export async function readImportStream<T>(
 ): Promise<T> {
   if (!response.ok || !response.body) {
     const body: unknown = await response.json().catch(() => null);
-    throw new Error(isRecord(body) && typeof body.statusMessage === "string" ? body.statusMessage : "Import failed. Please try again.");
+    throw importError(
+      isRecord(body) && typeof body.statusMessage === "string" ? body.statusMessage : "Import failed. Please try again.",
+      isRecord(body) && body.statusCode === 503,
+    );
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -46,7 +59,7 @@ export async function readImportStream<T>(
     const event: unknown = JSON.parse(line);
     if (!isRecord(event)) throw new Error("Invalid import response.");
     if (event.type === "error") {
-      throw new Error(typeof event.message === "string" ? event.message : "Import failed. Please try again.");
+      throw importError(typeof event.message === "string" ? event.message : "Import failed. Please try again.", event.unavailable);
     } else if (event.type === "done" && isRecord(event.result)) {
       result = event.result as T;
       finished = true;

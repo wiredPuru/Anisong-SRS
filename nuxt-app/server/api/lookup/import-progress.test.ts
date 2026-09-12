@@ -18,8 +18,8 @@ vi.mock("../../lib/animethemes.ts", () => ({
     animeAniListId: id, animeAnimethemesId: id, songTitle: `Song ${id}`, themeSlot: "OP1", animethemesThemeId: id,
   })) }),
 }));
-vi.mock("../../lib/jikan.ts", () => ({
-  JikanUserNotFoundError: class extends Error {},
+vi.mock("../../lib/mal.ts", () => ({
+  MalUserNotFoundError: class extends Error {},
   fetchMalCompletedList: async (_username: string, onPage: (page: number, count: number) => void) => {
     onPage(1, 3);
     return [1, 2, 3].map((malId) => ({ malId, title: `Anime ${malId}` }));

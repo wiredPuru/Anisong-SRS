@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, reactive, ref } from "vue";
 import { mergeImportCandidates, type AniListResult } from "../utils/importCandidates";
 import { useImportProgress } from "./useImportProgress";
+import { isUnavailable } from "../utils/importStream";
 
 type Provider = "aniList" | "mal";
 interface ListSource {
@@ -8,6 +9,7 @@ interface ListSource {
   status: "idle" | "pending" | "done" | "error";
   results: AniListResult[];
   error: string | null;
+  unavailable: boolean;
 }
 
 export function useCompletedListImport() {
@@ -15,8 +17,8 @@ export function useCompletedListImport() {
   const malActivity = useImportProgress();
   const activities = { aniList: aniListActivity, mal: malActivity };
   const sources = reactive<Record<Provider, ListSource>>({
-    aniList: { label: "AniList", status: "idle", results: [], error: null },
-    mal: { label: "MyAnimeList", status: "idle", results: [], error: null },
+    aniList: { label: "AniList", status: "idle", results: [], error: null, unavailable: false },
+    mal: { label: "MyAnimeList", status: "idle", results: [], error: null, unavailable: false },
   });
   const started = ref(false);
   let generation = 0;
@@ -37,6 +39,7 @@ export function useCompletedListImport() {
     } catch (error) {
       if (current !== generation) return;
       source.error = error instanceof Error ? error.message : "List import failed. Please try again.";
+      source.unavailable = isUnavailable(error);
       source.status = "error";
     }
   }
@@ -47,7 +50,7 @@ export function useCompletedListImport() {
     for (const provider of ["aniList", "mal"] as const) {
       activities[provider].cancel();
       Object.assign(sources[provider], {
-        status: usernames[provider].trim() ? "pending" : "idle", results: [], error: null,
+        status: usernames[provider].trim() ? "pending" : "idle", results: [], error: null, unavailable: false,
       });
     }
     await Promise.all((["aniList", "mal"] as const).map((provider) =>

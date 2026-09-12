@@ -36,6 +36,11 @@ const { loading: importLoading, results: importResults } = listImport;
 const importBlankHint = ref(false);
 const importAniListError = computed(() => listImport.sources.aniList.error);
 const importMalError = computed(() => listImport.sources.mal.error);
+// An upstream outage gets its own line: the provider's own message ("... is
+// temporarily unavailable") reads like an app fault and leaves the user with
+// nothing to do next.
+const importAniListOutage = computed(() => listImport.sources.aniList.unavailable);
+const importMalOutage = computed(() => listImport.sources.mal.unavailable);
 const importSummary = computed(() => {
   if (importResults.value === null) return null;
   return {
@@ -435,8 +440,16 @@ async function removeCard(id: number) {
           {{ source.label }} complete: {{ source.results.length }} anime found.
         </p>
       </template>
-      <p v-if="importAniListError" class="inline-error">AniList: {{ importAniListError }}</p>
-      <p v-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
+      <p v-if="importAniListOutage" class="inline-error">
+        AniList's API is down at their end, so Completed lists can't be fetched right now.
+        Import from MyAnimeList instead - searching and adding anime are unaffected.
+      </p>
+      <p v-else-if="importAniListError" class="inline-error">AniList: {{ importAniListError }}</p>
+      <p v-if="importMalOutage" class="inline-error">
+        MyAnimeList isn't responding right now, so Completed lists can't be fetched.
+        Searching and adding anime are unaffected.
+      </p>
+      <p v-else-if="importMalError" class="inline-error">MyAnimeList: {{ importMalError }}</p>
       <template v-if="importResults !== null">
         <p v-if="importResults.length" class="import-status">{{ importSummaryText }}</p>
         <p v-else-if="!importLoading && !importAniListError && !importMalError" class="import-status">
