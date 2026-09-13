@@ -159,6 +159,20 @@ export function cachedFilePathIfPresent(url: string): string | null {
   return destPath;
 }
 
+// Best-effort, like local file cleanup on card delete: a file mid-stream that
+// the OS refuses to unlink just waits for quota eviction instead.
+export function removeCachedStream(url: string): boolean {
+  if (!parseAllowedStreamUrl(url)) return false;
+  const path = cachedPathFor(url);
+  try {
+    if (!existsSync(path)) return false;
+    unlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function enforceStreamCacheQuota(): void {
   ensureCacheDir();
   const maxBytes = getStreamCacheMaxBytes();

@@ -1,5 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pickRandomDueOrder } from "./cards.ts";
+import { pathsToRemove, pickRandomDueOrder } from "./cards.ts";
+
+describe("pathsToRemove", () => {
+  it("returns nothing for empty input", () => {
+    expect(pathsToRemove([], [])).toEqual([]);
+  });
+
+  it("drops nulls and collapses duplicates", () => {
+    expect(pathsToRemove(["/a.webm", null, "/a.webm", "/b.mp3"], [])).toEqual(["/a.webm", "/b.mp3"]);
+  });
+
+  it("keeps a path a remaining card still references", () => {
+    expect(pathsToRemove(["/a.webm", "/b.mp3"], [null, "/b.mp3"])).toEqual(["/a.webm"]);
+  });
+});
 
 interface Pooled {
   id: number;

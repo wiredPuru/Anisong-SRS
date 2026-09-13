@@ -138,11 +138,13 @@ setting) was added to `build-plan.md` on 2026-09-12 and is now built and
 merged; it did not change `project-plan.md`, the same way feature 43's
 Playback mode setting did not. Feature 60 (AnisongDB as the preferred OP/ED
 metadata and clip-URL source, in three sub-features 60a-60c) was added to
-`build-plan.md` on 2026-09-13; 60a is built and merged, 60b and 60c are not
-yet built. It amended
+`build-plan.md` on 2026-09-13 and is now built and merged in full. It amended
 `project-plan.md`'s §3 "Anime & song lookup" bullet and added a §5 Tech line,
 since it introduces a new external provider that outranks animethemes.moe
-rather than merely extending it.
+rather than merely extending it. Feature 61 (card deletion and bulk delete,
+in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13;
+61a is built and merged, 61b and 61c are not yet built; it amended `project-plan.md`'s §3 "Flashcard CRUD"
+bullet.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1050,7 +1052,7 @@ rather than merely extending it.
     already-cached clip is copied locally instead of re-fetched) and from
     the `recreate-missing-download-folder` fix.
 60. **AnisongDB as the primary lookup and media source** - in three
-    sub-features; 60a is done, 60b and 60c are not yet built. Added to
+    sub-features, all done. Added to
     `build-plan.md` 2026-09-13 after
     animethemes.moe was measured answering with 1-3s media TTFB and roughly
     0.75s GraphQL search, which is what makes adding a card and first-playing
@@ -1088,13 +1090,36 @@ rather than merely extending it.
       `animethemesThemeId` unconditionally on conflict, unlike `upsertAnime`,
       so a re-import through the sparser provider would have wiped both; it now
       drops null keys from its update set the same way.
-    - **60b. Song and artist search** - not yet built. Repoints
+    - **60b. Song and artist search** - done 2026-09-13. Repoints
       `/api/lookup/song-search`, `/api/lookup/artist-search`, and
       `/api/lookup/artist-import` at AnisongDB with the same fallback.
-    - **60c. Re-source existing remote-only cards** - not yet built. A
+    - **60c. Re-source existing remote-only cards** - done 2026-09-13. A
       Settings action that re-resolves cards still holding animethemes.moe
       URLs and no local file, swapping in the faster host where a confident
-      match exists. Without it, only newly added cards get faster.
+      match exists.
+61. **Card deletion and bulk delete** - in three sub-features; 61a is
+    done, 61b and 61c are not yet built. Added to `build-plan.md` 2026-09-13 after a report that
+    cards could not be deleted. `DELETE /api/cards` and feature 17's file
+    cleanup already worked; the gap was that since feature 50c, Delete
+    lives only in `/cards`' inspector rail, one card at a time, with no
+    confirm, no bulk action, and nothing on `/decks` detail rows. Deleting
+    also left the card's feature-41 stream-cache files behind until quota
+    eviction. `ReviewLog` and `DeckCard` rows already cascade (foreign keys
+    are on). **Decision:** orphaned `Song`/`Artist`/`Anime` rows are kept
+    as a local metadata cache, not pruned, so re-adding an anime later
+    skips a fresh provider lookup.
+    - **61a. Stream-cache cleanup + bulk delete endpoint** - done 2026-09-13.
+      `deleteCards(ids)` (`server/utils/cards.ts`) deletes rows in one
+      statement, then removes local files and cached stream files
+      (`removeCachedStream`, `server/utils/streamCache.ts`) that no remaining
+      card references - checked after the delete, so cards deleted together
+      that share a file still free it. `DELETE /api/cards` accepts `{ ids }`
+      (1-500, `parseDeleteBody` in `server/utils/cardDelete.ts`) returning
+      `{ deleted, notFound }`, alongside the unchanged `{ id }` form. Single
+      delete was confirmed working first; the original report was that its
+      only button sits at the bottom of `/cards`' inspector.
+    - **61b. Multi-select + bulk delete UI on /cards** - not yet built.
+    - **61c. Delete-all-matching + deck-detail parity** - not yet built.
 
 ## Data model
 
@@ -1297,7 +1322,8 @@ stored session queue.
   feature 3's archive.
 - **AnisongDB REST API** (`anisongdb.com`) plus **AMQ media hosts**
   (`naedist.animemusicquiz.com`, `eudist.animemusicquiz.com`) - in use as of
-  feature 60a for the anime import path; 60b and 60c extend it. Unofficial,
+  feature 60 for anime import (60a), song and artist search (60b), and
+  re-sourcing existing remote-only cards (60c). Unofficial,
   no-key public API behind Anime Music
   Quiz; preferred over animethemes.moe for OP/ED metadata and clip URLs on
   latency grounds, with animethemes.moe kept as the fallback. OpenAPI spec at

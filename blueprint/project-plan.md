@@ -31,6 +31,11 @@ instance against their own local media and database.
   references a song/theme and either a local media file or a direct
   animethemes.moe reference (or both). Should be able to auto import whole artists for example Kotoko
   This will create cards for each of her songs that Animethemes.moe has and include an option to download the video. 
+  Deletion works one card at a time or in bulk: cards can be multi-selected,
+  selected all at once, or deleted as a whole search result, always behind a
+  confirm. Deleting a card removes its local media files and its cached
+  stream files, but keeps the anime/song/artist metadata rows as a local
+  lookup cache.
 
 - **Card quiz type** - not chosen manually; derived from whichever media is
   attached. Video-backed cards can play video; audio-only cards play MP3 only.

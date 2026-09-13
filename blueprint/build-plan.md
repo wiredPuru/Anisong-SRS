@@ -513,6 +513,23 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 60c. **Re-source existing remote-only cards** - a Settings action
     that re-resolves cards still holding animethemes.moe URLs and no local
     file, swapping in the faster host where a confident match exists.
+- [ ] 61. **Card deletion and bulk delete** - multi-select on `/cards` with
+  select-all, a bulk Delete action and a Delete-all-matching action, both
+  behind a confirm, plus a Delete action on `/decks` detail rows. Deleting
+  also clears the card's cached stream files, which today outlive the card
+  they were fetched for. Orphaned `Song`/`Artist`/`Anime` rows are
+  deliberately kept as a local metadata cache, so re-adding an anime later
+  does not pay for a fresh AniList/AnisongDB lookup.
+  - [x] 61a. **Stream-cache cleanup + bulk delete endpoint** - extend
+    `deleteCard()` to remove the card's cached stream files alongside the
+    local files it already cleans up, and add a batched delete accepting
+    many ids in one request.
+  - [ ] 61b. **Multi-select + bulk delete UI on /cards** - per-row
+    checkboxes, a select-all control, a selection action bar, and a
+    two-step confirm.
+  - [ ] 61c. **Delete-all-matching + deck-detail parity** - delete every
+    card matching the active search, and a Delete action on `/decks`
+    detail rows.
 
 ## Plan maintenance
 

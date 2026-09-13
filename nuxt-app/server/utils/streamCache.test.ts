@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseAllowedStreamUrl } from "./streamCache.ts";
 
@@ -27,5 +31,38 @@ describe("stream URL allowlist", () => {
     ["an empty string", ""],
   ])("rejects %s", (_label, url) => {
     expect(parseAllowedStreamUrl(url)).toBeNull();
+  });
+});
+
+describe("removeCachedStream", () => {
+  const url = "https://naedist.animemusicquiz.com/byvisp.webm";
+
+  // CACHE_DIR is fixed at module load, so each test points GAQ_SRS_DATA_DIR at
+  // a fresh temp dir and re-imports rather than touching the real cache.
+  async function loadWithTempCache() {
+    vi.stubEnv("GAQ_SRS_DATA_DIR", mkdtempSync(join(tmpdir(), "gaq-cache-")));
+    vi.resetModules();
+    return import("./streamCache.ts");
+  }
+
+  it("removes a cached file that exists", async () => {
+    const cache = await loadWithTempCache();
+    const dir = cache.getStreamCacheDir();
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, `${createHash("sha256").update(url).digest("hex")}.webm`);
+    writeFileSync(file, "clip");
+
+    expect(cache.removeCachedStream(url)).toBe(true);
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it("is a no-op when nothing is cached", async () => {
+    const cache = await loadWithTempCache();
+    expect(cache.removeCachedStream(url)).toBe(false);
+  });
+
+  it("refuses a non-allowlisted URL", async () => {
+    const cache = await loadWithTempCache();
+    expect(cache.removeCachedStream("https://example.test/byvisp.webm")).toBe(false);
   });
 });

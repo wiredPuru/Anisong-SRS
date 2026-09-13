@@ -6,6 +6,7 @@ import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts"
 import { getDailyNewCardLimit, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
+import { removeCachedStream } from "./streamCache.ts";
 
 export interface Paginated<T> {
   items: T[];
@@ -583,7 +584,10 @@ function deleteFileIfUnreferenced(path: string): void {
     .where(or(eq(card.localVideoPath, path), eq(card.localAudioPath, path)))
     .get();
   if (stillReferenced) return;
+  removeFileQuietly(path);
+}
 
+function removeFileQuietly(path: string): void {
   try {
     if (existsSync(path)) {
       unlinkSync(path);
@@ -594,21 +598,63 @@ function deleteFileIfUnreferenced(path: string): void {
   }
 }
 
+export function pathsToRemove(
+  candidates: readonly (string | null)[],
+  stillReferenced: readonly (string | null)[],
+): string[] {
+  const kept = new Set(stillReferenced);
+  const unique = new Set(candidates.filter((path): path is string => path !== null));
+  return [...unique].filter((path) => !kept.has(path));
+}
+
+function unreferencedAfterDelete(
+  candidates: (string | null)[],
+  videoColumn: typeof card.localVideoPath | typeof card.animethemesVideoUrl,
+  audioColumn: typeof card.localAudioPath | typeof card.animethemesAudioUrl,
+): string[] {
+  const values = candidates.filter((value): value is string => value !== null);
+  if (values.length === 0) return [];
+  const stillReferenced = db
+    .select({ video: videoColumn, audio: audioColumn })
+    .from(card)
+    .where(or(inArray(videoColumn, values), inArray(audioColumn, values)))
+    .all()
+    .flatMap((row) => [row.video, row.audio]);
+  return pathsToRemove(candidates, stillReferenced);
+}
+
+export interface DeleteCardsResult {
+  deleted: number[];
+  notFound: number[];
+}
+
+export function deleteCards(ids: readonly number[]): DeleteCardsResult {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return { deleted: [], notFound: [] };
+
+  const existing = db.select().from(card).where(inArray(card.id, uniqueIds)).all();
+  const deleted = existing.map((row) => row.id);
+  const found = new Set(deleted);
+  const notFound = uniqueIds.filter((id) => !found.has(id));
+  if (deleted.length === 0) return { deleted, notFound };
+
+  db.delete(card).where(inArray(card.id, deleted)).run();
+
+  // Checked only after every row is gone, so two cards deleted together that
+  // share one file or URL don't each see the other as still referencing it.
+  const paths = existing.flatMap((row) => [row.localVideoPath, row.localAudioPath]);
+  for (const path of unreferencedAfterDelete(paths, card.localVideoPath, card.localAudioPath)) {
+    removeFileQuietly(path);
+  }
+
+  const urls = existing.flatMap((row) => [row.animethemesVideoUrl, row.animethemesAudioUrl]);
+  for (const url of unreferencedAfterDelete(urls, card.animethemesVideoUrl, card.animethemesAudioUrl)) {
+    removeCachedStream(url);
+  }
+
+  return { deleted, notFound };
+}
+
 export function deleteCard(id: number): boolean {
-  const existing = db.select().from(card).where(eq(card.id, id)).get();
-  if (!existing) {
-    return false;
-  }
-
-  const localPaths = [existing.localVideoPath, existing.localAudioPath].filter(
-    (path): path is string => path !== null,
-  );
-
-  db.delete(card).where(eq(card.id, id)).run();
-
-  for (const path of localPaths) {
-    deleteFileIfUnreferenced(path);
-  }
-
-  return true;
+  return deleteCards([id]).deleted.length > 0;
 }
