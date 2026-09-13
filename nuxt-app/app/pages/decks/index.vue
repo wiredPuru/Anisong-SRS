@@ -647,6 +647,13 @@ function backToDecks() {
     <template v-if="selectedId === null">
       <header class="decks-header">
         <h1>Decks</h1>
+        <input
+          v-model="searchInput"
+          type="text"
+          :placeholder="searchPlaceholder"
+          class="search-input"
+          @input="onSearchInput"
+        />
         <div class="header-controls">
           <div class="tab-seg" role="tablist">
             <button
@@ -674,13 +681,6 @@ function backToDecks() {
               Created
             </button>
           </div>
-          <input
-            v-model="searchInput"
-            type="text"
-            :placeholder="searchPlaceholder"
-            class="search-input"
-            @input="onSearchInput"
-          />
           <NuxtLink to="/study?type=all" class="study-all-btn">Study all</NuxtLink>
         </div>
       </header>
@@ -800,14 +800,14 @@ function backToDecks() {
         <div class="header-title">
           <button type="button" class="back-btn" @click="backToDecks">&larr; Back to decks</button>
         </div>
+        <input
+          v-model="cardSearchInput"
+          type="text"
+          placeholder="Search this deck's cards..."
+          class="search-input"
+          @input="onCardSearchInput"
+        />
         <div class="header-controls">
-          <input
-            v-model="cardSearchInput"
-            type="text"
-            placeholder="Search this deck's cards..."
-            class="search-input"
-            @input="onCardSearchInput"
-          />
           <NuxtLink
             v-if="activeType !== 'created' && deckLabel"
             :to="`/study?type=${activeType}&id=${selectedId}`"
@@ -1020,9 +1020,9 @@ function backToDecks() {
 
 .decks-header {
   flex: none;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 520px) 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
   padding: 16px 28px;
   background: var(--surface-sunken);
@@ -1040,6 +1040,7 @@ function backToDecks() {
 .header-controls {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -1075,7 +1076,6 @@ function backToDecks() {
 }
 
 .decks-header .search-input {
-  width: 230px;
   margin: 0;
 }
 
@@ -1627,9 +1627,13 @@ h2 {
    and detail share .decks-header/.header-controls) need to wrap here.
    Placed last so it wins the source-order tiebreak. */
 @media (max-width: 820px) {
-  .decks-header,
+  .decks-header {
+    grid-template-columns: 1fr;
+  }
+
   .header-controls {
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 </style>

@@ -41,6 +41,14 @@ const importMalError = computed(() => listImport.sources.mal.error);
 // nothing to do next.
 const importAniListOutage = computed(() => listImport.sources.aniList.unavailable);
 const importMalOutage = computed(() => listImport.sources.mal.unavailable);
+// Results and errors outlive the form, so the panel stays while any are showing.
+const showImportPanel = computed(
+  () =>
+    importPanelOpen.value ||
+    importBlankHint.value ||
+    importResults.value !== null ||
+    Object.values(listImport.sources).some((source) => source.status !== "idle"),
+);
 const importSummary = computed(() => {
   if (importResults.value === null) return null;
   return {
@@ -220,6 +228,14 @@ const editSaving = ref(false);
 const editError = ref<string | null>(null);
 const clearingField = reactive<Record<string, boolean>>({});
 const removeCardError = reactive<Record<number, string | null>>({});
+
+const {
+  containerRef: cardsBodyRef,
+  width: inspectorWidth,
+  dragging: inspectorDragging,
+  onPointerDown: onResizerPointerDown,
+  reset: resetInspectorWidth,
+} = useResizablePane();
 
 // The inspector rail's subject. Held as an id rather than the card object so
 // a list refresh (edit, download, delete) re-resolves to the fresh row
@@ -424,12 +440,18 @@ async function removeCard(id: number) {
         class="search-input"
         @input="onSearchInput"
       />
+      <button
+        type="button"
+        class="import-toggle"
+        :class="{ active: importPanelOpen }"
+        :aria-expanded="importPanelOpen"
+        @click="importPanelOpen = !importPanelOpen"
+      >
+        Import list
+      </button>
     </header>
 
-    <div class="import-panel">
-      <button type="button" class="import-toggle" @click="importPanelOpen = !importPanelOpen">
-        {{ importPanelOpen ? "Hide import" : "Import from AniList / MyAnimeList" }}
-      </button>
+    <div v-if="showImportPanel" class="import-panel">
       <div v-if="importPanelOpen" class="import-form">
         <input v-model="importAniListUsername" type="text" placeholder="AniList username" class="import-input" />
         <input v-model="importMalUsername" type="text" placeholder="MyAnimeList username" class="import-input" />
@@ -476,7 +498,12 @@ async function removeCard(id: number) {
       </template>
     </div>
 
-    <div class="cards-body">
+    <div
+      ref="cardsBodyRef"
+      class="cards-body"
+      :class="{ resizing: inspectorDragging }"
+      :style="{ '--inspector-width': `${inspectorWidth}px` }"
+    >
       <div class="list-pane">
         <div v-if="initialPending" class="state">
           <ActivityStatus :request-key="searchQuery" label="Loading your cards" />
@@ -546,6 +573,16 @@ async function removeCard(id: number) {
           @preview="previewInInspector"
         />
       </div>
+
+      <div
+        class="pane-resizer"
+        :class="{ dragging: inspectorDragging }"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize card details panel"
+        @pointerdown="onResizerPointerDown"
+        @dblclick="resetInspectorWidth"
+      />
 
       <aside class="inspector">
         <p v-if="!selectedCard" class="inspector-empty">Select a card to see its details.</p>
@@ -715,9 +752,9 @@ async function removeCard(id: number) {
 
 .cards-header {
   flex: none;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 520px) 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
   padding: 16px 28px;
   background: var(--surface-sunken);
@@ -751,8 +788,37 @@ h1 {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: minmax(0, 1fr) 0 var(--inspector-width, 400px);
   align-items: stretch;
+}
+
+.cards-body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Zero-width grid column; the hit area straddles the inspector's border so
+   the layout doesn't shift by the handle's width. */
+.pane-resizer {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pane-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.pane-resizer:hover::after,
+.pane-resizer.dragging::after {
+  background: var(--accent);
 }
 
 .list-pane {
@@ -942,15 +1008,24 @@ h1 {
 }
 
 .import-toggle {
-  padding: 6px 14px;
+  justify-self: end;
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-secondary);
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--accent-secondary);
+  color: var(--muted);
   font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
+}
+
+.import-toggle:hover,
+.import-toggle:focus-visible,
+.import-toggle.active {
+  outline: none;
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .import-form {
@@ -1010,7 +1085,7 @@ h1 {
 
 .search-input {
   display: block;
-  width: 300px;
+  width: 100%;
   max-width: 100%;
   margin: 0;
   padding: 9px 14px;
@@ -1304,11 +1379,19 @@ textarea.path-input {
    rules above. */
 @media (max-width: 820px) {
   .cards-header {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr;
+  }
+
+  .import-toggle {
+    justify-self: start;
   }
 
   .cards-body {
     grid-template-columns: 1fr;
+  }
+
+  .pane-resizer {
+    display: none;
   }
 
   .inspector {
