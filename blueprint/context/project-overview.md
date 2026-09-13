@@ -133,7 +133,12 @@ the unofficial no-key MyAnimeList API it uses (MAL's official API requires
 OAuth even to read a public list). Feature 59 (a persistent Auto Download
 setting) was added to `build-plan.md` on 2026-09-12 and is now built and
 merged; it did not change `project-plan.md`, the same way feature 43's
-Playback mode setting did not.
+Playback mode setting did not. Feature 60 (AnisongDB as the preferred OP/ED
+metadata and clip-URL source, in three sub-features 60a-60c) was added to
+`build-plan.md` on 2026-09-13 and is not yet built; it amended
+`project-plan.md`'s §3 "Anime & song lookup" bullet and added a §5 Tech line,
+since it introduces a new external provider that outranks animethemes.moe
+rather than merely extending it.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1025,6 +1030,52 @@ Playback mode setting did not.
     also transparently benefits from feature 41's stream cache (an
     already-cached clip is copied locally instead of re-fetched) and from
     the `recreate-missing-download-folder` fix.
+60. **AnisongDB as the primary lookup and media source** - in three
+    sub-features; 60a is done, 60b and 60c are not yet built. Added to
+    `build-plan.md` 2026-09-13 after
+    animethemes.moe was measured answering with 1-3s media TTFB and roughly
+    0.75s GraphQL search, which is what makes adding a card and first-playing
+    a clip feel slow (its REST API measured slower still, at 1.4-2.2s, so
+    there is no win available inside animethemes.moe itself). Adds AnisongDB
+    (https://anisongdb.com, the public REST API behind Anime Music Quiz) as
+    the preferred source for OP/ED metadata and clip URLs, keeping
+    animethemes.moe as the fallback for anything it does not cover.
+    Automatic with silent fallback, deliberately not a `/settings` choice -
+    the only difference between sources is speed, so there is nothing for the
+    user to decide and no setting that can be left on the slow option by
+    accident. Every AnisongDB entry carries `linked_ids.anilist`, so it maps
+    onto the existing AniList-keyed schema with no new ID system; a random
+    15-anime sample drawn from animethemes.moe resolved 14 of 15 through
+    AnisongDB by MAL id. Clip files are served from AMQ's own distribution
+    hosts (`naedist`/`eudist.animemusicquiz.com`), which unlike
+    animethemes.moe send `Access-Control-Allow-Origin: *` and answer a bare
+    `HEAD`. Added a §3 Features amendment and a §5 Tech line to
+    `project-plan.md`.
+    - **60a. AnisongDB client + anime theme import** - done 2026-09-13. The
+      API client (`server/lib/anisongdb.ts`, `POST /api/mal_ids_request`),
+      theme-slot mapping (`"Opening 1"` -> `"OP1"`, insert songs dropped), the
+      stream/download host allowlist, AniList's `idMal` carried through so an
+      AniList-keyed import can address a MAL-keyed provider, a resolver
+      (`server/utils/themeSource.ts`) that queries both providers in parallel,
+      and `/api/lookup/import` wired to it. Two things were learned in the
+      build and are load-bearing for 60b/60c. First, the providers **number
+      slots differently** - BanG Dream! Ave Mujica's ED1 on animethemes.moe is
+      AnisongDB's `Ending 2` - so the merge pairs on normalized **song title**,
+      not slot; a 12-anime probe found 7 of 29 slots disagreeing on title, 2 of
+      them genuinely different songs, which a slot merge would have turned into
+      a card titled one song that plays another. A real romanization
+      difference deliberately fails to match and stays on animethemes.moe
+      rather than guessing. Second, `upsertSong` overwrote `titleNative` and
+      `animethemesThemeId` unconditionally on conflict, unlike `upsertAnime`,
+      so a re-import through the sparser provider would have wiped both; it now
+      drops null keys from its update set the same way.
+    - **60b. Song and artist search** - not yet built. Repoints
+      `/api/lookup/song-search`, `/api/lookup/artist-search`, and
+      `/api/lookup/artist-import` at AnisongDB with the same fallback.
+    - **60c. Re-source existing remote-only cards** - not yet built. A
+      Settings action that re-resolves cards still holding animethemes.moe
+      URLs and no local file, swapping in the faster host where a confident
+      match exists. Without it, only newly added cards get faster.
 
 ## Data model
 
@@ -1225,6 +1276,15 @@ stored session queue.
   metadata, and the files feature 8 downloads. Requires a non-default
   `User-Agent` header (blocks Node's bare default with a `403`) - see
   feature 3's archive.
+- **AnisongDB REST API** (`anisongdb.com`) plus **AMQ media hosts**
+  (`naedist.animemusicquiz.com`, `eudist.animemusicquiz.com`) - in use as of
+  feature 60a for the anime import path; 60b and 60c extend it. Unofficial,
+  no-key public API behind Anime Music
+  Quiz; preferred over animethemes.moe for OP/ED metadata and clip URLs on
+  latency grounds, with animethemes.moe kept as the fallback. OpenAPI spec at
+  `https://anisongdb.com/openapi.json`. Media entries are bare filenames
+  (`byvisp.webm`, `qi299l.mp3`) resolved against a distribution host, so the
+  client owns host selection and fallback.
 - **Jikan REST API** (`api.jikan.moe`) - not yet used, planned for feature
   58. Unofficial, no-key wrapper over MyAnimeList's public data, used only
   to read a public username's Completed anime list - MAL's official API

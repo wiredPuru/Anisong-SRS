@@ -81,18 +81,23 @@ export function upsertSong(data: {
   themeSlot: string;
   animethemesThemeId: number | null;
 }): Song {
+  const set: Partial<typeof song.$inferInsert> = {
+    artistId: data.artistId,
+    title: data.title,
+    titleNative: data.titleNative,
+    animethemesThemeId: data.animethemesThemeId,
+  };
+  // Same rule as upsertAnime above: a provider that does not carry a field
+  // supplies a default on insert but must not erase a richer value an earlier
+  // import stored. AnisongDB has neither a native song title nor an AnimeThemes
+  // theme id, so without this a re-import through it would clear both.
+  if (data.titleNative == null) delete set.titleNative;
+  if (data.animethemesThemeId === null) delete set.animethemesThemeId;
+
   return db
     .insert(song)
     .values(data)
-    .onConflictDoUpdate({
-      target: [song.animeId, song.themeSlot],
-      set: {
-        artistId: data.artistId,
-        title: data.title,
-        titleNative: data.titleNative,
-        animethemesThemeId: data.animethemesThemeId,
-      },
-    })
+    .onConflictDoUpdate({ target: [song.animeId, song.themeSlot], set })
     .returning()
     .get();
 }

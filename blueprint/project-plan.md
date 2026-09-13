@@ -23,7 +23,10 @@ instance against their own local media and database.
 - **Anime & song lookup** - search and pull metadata from AniList (GraphQL) and
   animethemes.moe (GraphQL, see https://api-docs.animethemes.moe) when
   creating a card: titles in English, Romaji, and Japanese, artist, and
-  available OP/ED themes.
+  available OP/ED themes. Theme data and clip URLs come from AnisongDB first
+  (the database behind Anime Music Quiz), falling back to animethemes.moe for
+  anything it does not cover. AniList stays the source of anime titles and
+  cover art.
 - **Flashcard CRUD** - create, read, update, delete cards at any time. A card
   references a song/theme and either a local media file or a direct
   animethemes.moe reference (or both). Should be able to auto import whole artists for example Kotoko
@@ -83,6 +86,14 @@ instance against their own local media and database.
 - GraphQL client against AniList's public API for anime/song metadata.
 - GraphQL client against animethemes.moe (https://api-docs.animethemes.moe)
   for theme (OP/ED) video/audio and metadata.
+- AnisongDB (https://anisongdb.com), the public REST API behind Anime Music
+  Quiz - preferred source for OP/ED metadata and clip URLs, chosen for
+  latency (sub-second lookups, roughly 0.3s media TTFB against
+  animethemes.moe's 1-3s). Clip files are served from AMQ's own distribution
+  hosts (`naedist`/`eudist.animemusicquiz.com`), which send permissive CORS
+  and support byte ranges. Unofficial and undocumented for third-party use;
+  the existing stream cache and local downloads mean each file is fetched
+  about once.
 - Jikan (https://jikan.moe), an unofficial, no-key REST wrapper over
   MyAnimeList's public data - used only to read a public username's
   Completed anime list, since MAL's official API requires OAuth even for

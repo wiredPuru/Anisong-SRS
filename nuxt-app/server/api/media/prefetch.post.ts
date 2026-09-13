@@ -1,11 +1,11 @@
-import { parseAllowedStreamUrl, resolveCachedPath } from "../../utils/streamCache.ts";
+import { ALLOWED_MEDIA_DOMAINS, parseAllowedStreamUrl, resolveCachedPath } from "../../utils/streamCache.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const url = typeof body?.url === "string" ? body.url : "";
 
   if (!url || !parseAllowedStreamUrl(url)) {
-    throw createError({ statusCode: 400, statusMessage: "url must be an https animethemes.moe URL" });
+    throw createError({ statusCode: 400, statusMessage: `url must be an https URL on ${ALLOWED_MEDIA_DOMAINS.join(" or ")}` });
   }
 
   const result = await resolveCachedPath(url);

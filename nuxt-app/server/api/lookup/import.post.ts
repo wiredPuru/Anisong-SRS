@@ -1,6 +1,6 @@
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
-import { fetchAnimeThemesByAniListId } from "../../lib/animethemes.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { resolveThemes } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -15,18 +15,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Anime has no matching metadata" });
   }
 
-  const animethemesResult = await fetchAnimeThemesByAniListId(body.aniListId);
+  const resolved = await resolveThemes({ aniListId: body.aniListId, malId: aniListAnime.malId ?? null });
 
   const animeRow = upsertAnime({
     aniListId: aniListAnime.aniListId,
-    animethemesId: animethemesResult?.animethemesId ?? aniListAnime.animethemesId ?? null,
+    animethemesId: resolved.animethemesId ?? aniListAnime.animethemesId ?? null,
     titleEnglish: aniListAnime.titleEnglish,
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,
     coverImageUrl: aniListAnime.coverImageUrl,
   });
 
-  const themes = (animethemesResult?.themes ?? []).map((theme) => {
+  const themes = resolved.themes.map((theme) => {
     // A theme with a title but no credited artist still needs a Song.artistId
     // (NOT NULL). Not hit in real testing (Kessoku Band was always present).
     const artistRow = getOrCreateArtist(theme.artistName ?? "Unknown Artist");

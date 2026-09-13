@@ -4,6 +4,7 @@ const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
 export interface AniListAnime {
   aniListId: number;
+  malId: number | null;
   titleRomaji: string;
   titleEnglish: string | null;
   titleNative: string | null;
@@ -54,6 +55,7 @@ const BY_ID_QUERY = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
       id
+      idMal
       title { romaji english native }
       coverImage { large }
     }
@@ -64,12 +66,16 @@ function toAniListAnime(media: unknown): AniListAnime {
   if (!isRecord(media) || !Number.isSafeInteger(media.id) || Number(media.id) <= 0 ||
     !isRecord(media.title) || typeof media.title.romaji !== "string" || !media.title.romaji.trim() ||
     ![media.title.english, media.title.native].every((title) => title == null || typeof title === "string") ||
+    (media.idMal != null && (typeof media.idMal !== "number" || !Number.isSafeInteger(media.idMal) || media.idMal <= 0)) ||
     (media.coverImage != null && (!isRecord(media.coverImage) ||
       (media.coverImage.large != null && typeof media.coverImage.large !== "string")))) {
     throw new ProviderUnavailableError("AniList");
   }
   return {
     aniListId: Number(media.id),
+    // Only the two by-id queries select idMal; the search and Completed-list
+    // queries feed candidate pickers that re-fetch by id before importing.
+    malId: typeof media.idMal === "number" ? media.idMal : null,
     titleRomaji: media.title.romaji,
     titleEnglish: typeof media.title.english === "string" ? media.title.english : null,
     titleNative: typeof media.title.native === "string" ? media.title.native : null,
@@ -131,6 +137,7 @@ const BY_MAL_ID_QUERY = `
   query ($idMal: Int) {
     Media(idMal: $idMal, type: ANIME) {
       id
+      idMal
       title { romaji english native }
       coverImage { large }
     }

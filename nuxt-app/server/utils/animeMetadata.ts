@@ -3,8 +3,11 @@ import { fetchAnimeMetadataFromAnimeThemes, searchAnimeOnAnimeThemes } from "../
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { findAnimeByAniListId } from "./lookup.ts";
 
-export interface AnimeMetadata extends Omit<AniListAnime, "coverImageUrl"> {
+// malId and coverImageUrl are optional because the fallback paths below return
+// a stored Anime row or AnimeThemes metadata, neither of which carries them.
+export interface AnimeMetadata extends Omit<AniListAnime, "coverImageUrl" | "malId"> {
   coverImageUrl?: string | null;
+  malId?: number | null;
   animethemesId?: number | null;
 }
 
@@ -63,6 +66,7 @@ export function createAnimeMetadataResolver() {
       const metadata = findAnimeByAniListId(candidate.aniListId) ?? candidate;
       return {
         aniListId: metadata.aniListId,
+        malId: "malId" in metadata ? metadata.malId ?? null : null,
         titleRomaji: metadata.titleRomaji,
         titleEnglish: metadata.titleEnglish,
         titleNative: metadata.titleNative,

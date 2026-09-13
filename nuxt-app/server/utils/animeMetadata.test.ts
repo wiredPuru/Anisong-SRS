@@ -83,6 +83,15 @@ describe("metadata resolver during AniList downtime", () => {
     expect(findAnimeByAniListId(1)).toMatchObject({ id: stored.id, titleEnglish: "Better English", titleNative: "更新", coverImageUrl: "new-cover.jpg" });
   });
 
+  it("keeps a song's native title and AnimeThemes id when a sparser provider re-imports it", () => {
+    const stored = upsertAnime({ aniListId: 2, animethemesId: 502, titleRomaji: "Anime", titleEnglish: null, titleNative: null });
+    const base = { animeId: stored.id, artistId: getOrCreateArtist("Seatbelts").id, themeSlot: "OP1", title: "Tank!" };
+    const original = upsertSong({ ...base, titleNative: "タンク!", animethemesThemeId: 900 });
+    // A slot only AnisongDB knows about carries neither field.
+    expect(upsertSong({ ...base, titleNative: null, animethemesThemeId: null }))
+      .toMatchObject({ id: original.id, titleNative: "タンク!", animethemesThemeId: 900 });
+  });
+
   it("uses title defaults and no cover for a fresh sparse row", () => {
     expect(upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Romaji", titleEnglish: null, titleNative: null })).toMatchObject({ titleEnglish: "Romaji", titleNative: "Romaji", coverImageUrl: null });
   });
@@ -93,7 +102,7 @@ describe("fallback anime search", () => {
   it("uses primary results and treats a successful empty search normally", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [{ id: 1, title: { romaji: "Primary", english: null, native: null } }] } } }))
       .mockResolvedValueOnce(Response.json({ data: { Page: { media: [] } } }));
-    expect(await createResolver().search("primary")).toEqual([{ aniListId: 1, titleRomaji: "Primary", titleEnglish: null, titleNative: null, coverImageUrl: null }]);
+    expect(await createResolver().search("primary")).toEqual([{ aniListId: 1, malId: null, titleRomaji: "Primary", titleEnglish: null, titleNative: null, coverImageUrl: null }]);
     expect(await createResolver().search("empty")).toEqual([]);
     expect(fetch).toHaveBeenCalledTimes(2);
   });
@@ -103,8 +112,8 @@ describe("fallback anime search", () => {
     fetch.mockResolvedValueOnce(new Response("", { status: 403 }))
       .mockResolvedValueOnce(Response.json({ data: { animePagination: { data: [raw(1), raw(2), raw(2)] } } }));
     expect(await createResolver().search("anime")).toEqual([
-      { aniListId: 1, titleRomaji: "Stored", titleEnglish: "English", titleNative: "日本語", coverImageUrl: "cover.jpg" },
-      { aniListId: 2, titleRomaji: "Anime 2", titleEnglish: null, titleNative: null, coverImageUrl: null },
+      { aniListId: 1, malId: null, titleRomaji: "Stored", titleEnglish: "English", titleNative: "日本語", coverImageUrl: "cover.jpg" },
+      { aniListId: 2, malId: null, titleRomaji: "Anime 2", titleEnglish: null, titleNative: null, coverImageUrl: null },
     ]);
   });
 

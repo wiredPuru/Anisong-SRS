@@ -88,6 +88,23 @@ describe("AniList availability and recovery", () => {
     await expect(client.fetchAnimeFromAniList(1)).resolves.toMatchObject({ aniListId: 1 });
   });
 
+  it("carries idMal through both by-id queries, treating a missing one as null", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, idMal: 1 } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, idMal: null } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Media: media } }));
+    expect(await client.fetchAnimeFromAniList(1)).toMatchObject({ malId: 1 });
+    expect(await client.fetchAnimeFromAniList(1)).toMatchObject({ malId: null });
+    expect(await client.fetchAnimeFromAniListByMalId(1)).toMatchObject({ malId: null });
+    const byId = JSON.parse(fetch.mock.calls[0]![1].body).query;
+    expect(byId).toContain("Media(id: $id");
+    expect(byId).toContain("idMal");
+  });
+
+  it.each(["1", 0, -5, 1.5])("refuses %s as an idMal rather than passing on a bad mapping", async (idMal) => {
+    fetch.mockResolvedValue(Response.json({ data: { Media: { ...media, idMal } } }));
+    await expect(client.fetchAnimeFromAniList(1)).rejects.toMatchObject({ statusCode: 503 });
+  });
+
   it("distinguishes a missing list user from an empty completed list", async () => {
     fetch.mockResolvedValueOnce(new Response("", { status: 404 }))
       .mockResolvedValueOnce(Response.json({ data: { MediaListCollection: { lists: [] } } }));

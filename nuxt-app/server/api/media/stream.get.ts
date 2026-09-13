@@ -1,5 +1,5 @@
 import { getMimeType, serveRangedFile } from "../../utils/rangedFile.ts";
-import { parseAllowedStreamUrl, resolveCachedPath } from "../../utils/streamCache.ts";
+import { ALLOWED_MEDIA_DOMAINS, parseAllowedStreamUrl, resolveCachedPath } from "../../utils/streamCache.ts";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
   const parsed = parseAllowedStreamUrl(url);
   if (!parsed) {
-    throw createError({ statusCode: 400, statusMessage: "url must be an https animethemes.moe URL" });
+    throw createError({ statusCode: 400, statusMessage: `url must be an https URL on ${ALLOWED_MEDIA_DOMAINS.join(" or ")}` });
   }
 
   const result = await resolveCachedPath(url);

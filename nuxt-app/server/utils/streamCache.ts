@@ -40,6 +40,11 @@ function cachedPathFor(url: string): string {
   return join(CACHE_DIR, `${cacheKey(url)}${extensionFromUrl(url)}`);
 }
 
+// The two providers whose clips a card can reference remotely. Keeping this a
+// strict allowlist is what stops /api/media/stream and /api/media/prefetch from
+// working as an open URL proxy for anything a request names.
+export const ALLOWED_MEDIA_DOMAINS = ["animethemes.moe", "animemusicquiz.com"];
+
 export function parseAllowedStreamUrl(url: string): URL | null {
   let parsed: URL;
   try {
@@ -47,8 +52,9 @@ export function parseAllowedStreamUrl(url: string): URL | null {
   } catch {
     return null;
   }
-  const isAnimethemesHost = parsed.hostname === "animethemes.moe" || parsed.hostname.endsWith(".animethemes.moe");
-  return parsed.protocol === "https:" && isAnimethemesHost ? parsed : null;
+  const isAllowedHost = ALLOWED_MEDIA_DOMAINS.some((domain) =>
+    parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`));
+  return parsed.protocol === "https:" && isAllowedHost ? parsed : null;
 }
 
 function touchAccess(path: string): void {

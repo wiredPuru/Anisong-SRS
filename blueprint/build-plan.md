@@ -495,6 +495,24 @@ cleaned-up checkbox version before generating the project overview.
   feature 41's streamed/cached playback. A no-op, with no error surfaced,
   when no default download folder is configured or the card already has a
   local file for the chosen kind.
+- [ ] 60. **AnisongDB as the primary lookup and media source** - adding a
+  card and first-playing a clip are slow because animethemes.moe answers
+  with 1-3s media TTFB and roughly 0.75s GraphQL search. Adds AnisongDB
+  (https://anisongdb.com, the public API behind Anime Music Quiz) as the
+  preferred source for OP/ED metadata and clip URLs, keeping
+  animethemes.moe as the fallback for anything it does not cover. Every
+  AnisongDB entry carries a `linked_ids.anilist`, so it maps onto the
+  existing AniList-keyed schema with no new ID system. No new setting: the
+  preference is automatic, with silent fallback.
+  - [x] 60a. **AnisongDB client + anime theme import** - the API client,
+    theme-slot mapping, the media host allowlist for AMQ's distribution
+    servers, and `/api/lookup/import` preferring AnisongDB themes.
+  - [ ] 60b. **Song and artist search** - repoints
+    `/api/lookup/song-search`, `/api/lookup/artist-search`, and
+    `/api/lookup/artist-import` at AnisongDB with the same fallback.
+  - [ ] 60c. **Re-source existing remote-only cards** - a Settings action
+    that re-resolves cards still holding animethemes.moe URLs and no local
+    file, swapping in the faster host where a confident match exists.
 
 ## Plan maintenance
 
