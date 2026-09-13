@@ -57,13 +57,14 @@ const hasAudioSource = computed(() => Boolean(props.card.localAudioPath || props
 // and resets both elements before the DOM swaps anyway. Both refs are
 // per-card (reset below), so the choice never carries to the next card -
 // only the Audio Only setting switches playback for a whole session.
-const videoBroken = ref(false);
+const failedKind = ref<"video" | "audio" | null>(null);
 const audioFallbackChosen = ref(false);
 watch(
   () => props.card.id,
   () => {
-    videoBroken.value = false;
+    failedKind.value = null;
     audioFallbackChosen.value = false;
+    loadedSrc.value = null;
   },
 );
 const mediaKind = computed<"video" | "audio">(() => {
@@ -106,11 +107,26 @@ const showCoverArt = computed(
     !coverImageFailed.value,
 );
 
-const src = computed(() =>
+// What the card's stored paths point at right now. The elements bind `src`
+// below, not this, so a path that changes mid-card cannot re-point a source
+// that is already working.
+const cardSrc = computed(() =>
   mediaKind.value === "video"
     ? mediaUrl(props.card.localVideoPath, props.card.animethemesVideoUrl)
     : mediaUrl(props.card.localAudioPath, props.card.animethemesAudioUrl),
 );
+
+// A background Auto Download (feature 59) finishing mid-card writes a local
+// path onto the card, which used to re-point the live element from the
+// stream URL to the new file: the browser tore down a load that was working,
+// and the abort surfaced as a failure over a clip that then played fine.
+// Once a source has produced real data it stays for the rest of this
+// presentation, and the downloaded file is picked up the next time the card
+// comes up. Released only where the current source is no longer the one to
+// keep - a card change, a media-kind swap, or a user-initiated retry or
+// redownload - so feature 42's recovery from the failure veil still works.
+const loadedSrc = ref<string | null>(null);
+const src = computed(() => loadedSrc.value ?? cardSrc.value);
 
 // 3D parallax: the record tilts toward the cursor like a physical disk
 // viewed from a shifting angle, and the visualizer ring (sitting "behind"
@@ -271,6 +287,7 @@ watch(mediaKind, () => {
   isPlaying.value = false;
   currentTime.value = 0;
   duration.value = 0;
+  loadedSrc.value = null;
   settleBuffering();
 });
 
@@ -332,11 +349,41 @@ function onLoadedMetadata() {
   el.currentTime = 1e101;
 }
 
-function onError() {
+// Only the element that is mounted right now can report a failure, and only
+// for a reason that is actually about the clip. An error from any other
+// element is about a source we already moved off: the <video> immediately
+// after "Use audio for this card", or the previous card's load inside
+// CardPreviewModal, which keeps one player mounted across cards. And
+// MEDIA_ERR_ABORTED means the load was torn down at our own request (a
+// source swapped in by a background download, a card advance), not that the
+// clip is broken - reporting that as a failure is what put the veil over a
+// clip that then played perfectly.
+const MEDIA_ERR_ABORTED = 1;
+
+function onError(event: Event) {
+  const el = event.target as HTMLMediaElement | null;
+  if (!el || el !== activeEl.value) return;
+  if (el.error?.code === MEDIA_ERR_ABORTED) return;
+
   settleBuffering();
-  const failedVideo = mediaKind.value === "video";
-  errorMessage.value = failedVideo ? "Video failed to load." : "Couldn't load this clip.";
-  videoBroken.value = failedVideo;
+  const kind = mediaKind.value;
+  failedKind.value = kind;
+  errorMessage.value = kind === "video" ? "Video failed to load." : "Couldn't load this clip.";
+}
+
+// The browser reaching a playable state retracts whatever failure is on
+// screen: a verdict must never outlive the element it was about. Nothing
+// else could clear one before, so a stale error sat over a clip that was
+// already loaded and playing until the card changed.
+function markPlayable() {
+  settleBuffering();
+  clearFailure();
+  if (loadedSrc.value === null) loadedSrc.value = cardSrc.value;
+}
+
+function clearFailure() {
+  errorMessage.value = null;
+  failedKind.value = null;
 }
 
 // Clears a stale error the moment the media source actually changes - covers
@@ -346,8 +393,7 @@ function onError() {
 // /study). The failure state goes with it: whatever failed is no longer what
 // is loaded.
 watch(src, () => {
-  errorMessage.value = null;
-  videoBroken.value = false;
+  clearFailure();
   settleBuffering();
 });
 
@@ -358,8 +404,8 @@ watch(src, () => {
 // Goes through activeEl, not videoRef: a stalled load offers this too, and
 // that can be the <audio> element.
 function retryLoad() {
-  errorMessage.value = null;
-  videoBroken.value = false;
+  clearFailure();
+  loadedSrc.value = null;
   activeEl.value?.load();
 }
 
@@ -374,7 +420,7 @@ const {
   downloadMedia,
 } = useCardDownloads();
 
-async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
+async function runDownload(kind: "video" | "audio"): Promise<string | null> {
   const result = await downloadMedia<{ localVideoPath: string | null; localAudioPath: string | null }>(
     props.card.id,
     props.card.id,
@@ -383,6 +429,15 @@ async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
   if (!result) return null;
   const localPath = kind === "video" ? result.localVideoPath : result.localAudioPath;
   if (localPath) emit("local-path-updated", { kind, localPath });
+  return localPath;
+}
+
+// The failure veil's own download action: the point of this one is to replace
+// what is loaded right now, so it releases the pin above. The background
+// auto-download below deliberately does not.
+async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
+  const localPath = await runDownload(kind);
+  if (localPath) loadedSrc.value = null;
   return localPath;
 }
 
@@ -408,9 +463,11 @@ async function redownload(kind: "video" | "audio") {
 // Silently downloads the currently-resolved media kind in the background -
 // same trigger shape as the stream-cache prefetch above (computed ->
 // onMounted + watch, no `immediate`), and the same download call the manual
-// "Download video/audio" fallback buttons below use. `canDownload` already
-// covers "nothing to download" (no remote source, or already local), so
-// this settles to null on its own once the download lands.
+// "Download video/audio" fallback buttons below use, minus that one's pin
+// release: this is filling the library for next time, not fixing what is on
+// screen, so it must not disturb playback. `canDownload` already covers
+// "nothing to download" (no remote source, or already local), so this
+// settles to null on its own once the download lands.
 const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
   props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
     ? mediaKind.value
@@ -419,7 +476,7 @@ const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
 
 function triggerAutoDownload(kind: "video" | "audio" | null) {
   if (!kind) return;
-  retryDownload(kind);
+  runDownload(kind);
 }
 
 onMounted(() => triggerAutoDownload(autoDownloadTarget.value));
@@ -429,11 +486,22 @@ function togglePlay() {
   const el = activeEl.value;
   if (!el) return;
   if (el.paused) {
+    // A veil can outlive a source that never finished loading, so pressing
+    // play reloads first. The S hotkey always reached this function, while
+    // the button itself was disabled by the veil - this is what made a
+    // working clip look dead behind a button that did nothing.
+    if (errorMessage.value) retryLoad();
     // AudioContext starts suspended under autoplay policy; resuming here,
     // inside a real click/keypress handler, is what actually unlocks it.
     audioContext?.resume();
-    el.play().catch(() => {
+    el.play().catch((error: DOMException) => {
+      // The reload above tears down an in-flight play request. That abort is
+      // ours, the same way MEDIA_ERR_ABORTED is in onError.
+      if (error?.name === "AbortError") return;
       errorMessage.value = "Couldn't play this clip.";
+      // Without a kind the veil below renders its message and no actions at
+      // all, which is the dead end this fix exists to remove.
+      failedKind.value = mediaKind.value;
     });
   } else {
     el.pause();
@@ -682,7 +750,7 @@ function onPlay() {
 // (not just a card's first start), which is exactly what the auto-reveal
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
-  settleBuffering();
+  markPlayable();
   emit("playback-started");
 }
 
@@ -698,6 +766,7 @@ function onSeeked() {
 }
 
 function onLoadedData() {
+  markPlayable();
   retryAmbientPreload(4);
 }
 
@@ -825,7 +894,7 @@ onUnmounted(() => stopDrag?.());
         @loadstart="onLoadStart"
         @waiting="markBuffering"
         @stalled="markBuffering"
-        @canplay="settleBuffering"
+        @canplay="markPlayable"
         @suspend="settleBuffering"
         @seeked="onSeeked"
         @error="onError"
@@ -842,10 +911,11 @@ onUnmounted(() => stopDrag?.());
         @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
+        @loadeddata="onLoadedData"
         @loadstart="onLoadStart"
         @waiting="markBuffering"
         @stalled="markBuffering"
-        @canplay="settleBuffering"
+        @canplay="markPlayable"
         @suspend="settleBuffering"
         @error="onError"
       />
@@ -878,10 +948,10 @@ onUnmounted(() => stopDrag?.());
 
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
-        <div v-if="videoBroken" class="failure-actions">
+        <div class="failure-actions">
           <button type="button" class="download-btn" @click="retryLoad">Try again</button>
           <button
-            v-if="hasAudioSource"
+            v-if="failedKind === 'video' && hasAudioSource"
             type="button"
             class="download-btn"
             @click="audioFallbackChosen = true"
@@ -889,43 +959,32 @@ onUnmounted(() => stopDrag?.());
             Use audio for this card
           </button>
         </div>
-        <div v-if="hasAnyDownloadableSource(card)" class="download-section">
+        <!-- Only the kind that actually failed is offered here. Rendering both
+             is what put "Download audio" under a video failure whose audio was
+             never the problem. -->
+        <div v-if="failedKind && hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
-            <template v-if="canDownload(card, 'video')">
+            <template v-if="canDownload(card, failedKind)">
               <DownloadProgress
-                v-if="downloading[downloadKey(card.id, 'video')]"
-                label="Downloading video"
-                :request-key="downloadKey(card.id, 'video')"
-                :progress="downloadProgress[downloadKey(card.id, 'video')]"
+                v-if="downloading[downloadKey(card.id, failedKind)]"
+                :label="`Downloading ${failedKind}`"
+                :request-key="downloadKey(card.id, failedKind)"
+                :progress="downloadProgress[downloadKey(card.id, failedKind)]"
               />
-              <button v-else type="button" class="download-btn" @click="retryDownload('video')">Download video</button>
+              <button v-else type="button" class="download-btn" @click="retryDownload(failedKind)">
+                Download {{ failedKind }}
+              </button>
             </template>
-            <template v-else-if="canRetryDownload(card, 'video')">
+            <template v-else-if="canRetryDownload(card, failedKind)">
               <DownloadProgress
-                v-if="downloading[downloadKey(card.id, 'video')]"
-                label="Downloading video"
-                :request-key="downloadKey(card.id, 'video')"
-                :progress="downloadProgress[downloadKey(card.id, 'video')]"
+                v-if="downloading[downloadKey(card.id, failedKind)]"
+                :label="`Downloading ${failedKind}`"
+                :request-key="downloadKey(card.id, failedKind)"
+                :progress="downloadProgress[downloadKey(card.id, failedKind)]"
               />
-              <button v-else type="button" class="download-btn" @click="redownload('video')">Redownload video</button>
-            </template>
-            <template v-if="canDownload(card, 'audio')">
-              <DownloadProgress
-                v-if="downloading[downloadKey(card.id, 'audio')]"
-                label="Downloading audio"
-                :request-key="downloadKey(card.id, 'audio')"
-                :progress="downloadProgress[downloadKey(card.id, 'audio')]"
-              />
-              <button v-else type="button" class="download-btn" @click="retryDownload('audio')">Download audio</button>
-            </template>
-            <template v-else-if="canRetryDownload(card, 'audio')">
-              <DownloadProgress
-                v-if="downloading[downloadKey(card.id, 'audio')]"
-                label="Downloading audio"
-                :request-key="downloadKey(card.id, 'audio')"
-                :progress="downloadProgress[downloadKey(card.id, 'audio')]"
-              />
-              <button v-else type="button" class="download-btn" @click="redownload('audio')">Redownload audio</button>
+              <button v-else type="button" class="download-btn" @click="redownload(failedKind)">
+                Redownload {{ failedKind }}
+              </button>
             </template>
           </div>
           <p v-else class="download-hint">
@@ -966,7 +1025,7 @@ onUnmounted(() => stopDrag?.());
       </div>
 
       <div class="player-controls">
-        <button type="button" class="play-btn" :disabled="!!errorMessage" @click="togglePlay">
+        <button type="button" class="play-btn" @click="togglePlay">
           {{ isPlaying ? "⏸" : "▶" }}
           <span class="tooltip">Hotkey: S</span>
         </button>
