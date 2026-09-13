@@ -1,21 +1,24 @@
 import { respondWithImportProgress } from "../../utils/importProgress.ts";
 import { AnimeLookupUnavailableError, createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { ProviderUnavailableError } from "../../lib/graphql.ts";
-import { fetchArtistThemesBySlug } from "../../lib/animethemes.ts";
+import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
-  if (!body || typeof body.artistSlug !== "string" || !body.artistSlug.trim()) {
-    throw createError({ statusCode: 400, statusMessage: "artistSlug is required and must be a string" });
+  // The whole candidate, not just a slug: it names the provider to ask and the
+  // id or slug to ask with.
+  if (!isArtistCandidate(body?.candidate)) {
+    throw createError({ statusCode: 400, statusMessage: "candidate is required and must be an artist search result" });
   }
+  const candidate = body.candidate;
 
   return respondWithImportProgress(event, async (report) => {
-    report({ label: "Fetching artist catalog from AnimeThemes" });
-    const artistThemes = await fetchArtistThemesBySlug(body.artistSlug.trim());
+    report({ label: `Fetching artist catalog from ${candidate.source === "anisongdb" ? "AnisongDB" : "AnimeThemes"}` });
+    const artistThemes = await resolveArtistThemes(candidate);
     if (!artistThemes) {
-      throw createError({ statusCode: 404, statusMessage: "Artist not found on animethemes.moe" });
+      throw createError({ statusCode: 404, statusMessage: "Artist not found" });
     }
 
     const artistRow = getOrCreateArtist(artistThemes.artistName);

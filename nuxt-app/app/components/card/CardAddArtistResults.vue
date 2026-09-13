@@ -2,9 +2,10 @@
 import type { BulkStep } from "../../composables/useBulkMediaProgress";
 
 interface ArtistCandidate {
+  source: "anisongdb" | "animethemes";
   id: number;
   name: string;
-  slug: string;
+  slug: string | null;
 }
 
 interface ArtistThemeResult {
@@ -141,7 +142,7 @@ async function openArtist(candidate: ArtistCandidate) {
   importing.value = true;
 
   try {
-    const res = await catalogActivity.run<ArtistImportResult>("/api/lookup/artist-import", { artistSlug: candidate.slug });
+    const res = await catalogActivity.run<ArtistImportResult>("/api/lookup/artist-import", { candidate });
     if (!isCurrent()) return;
     artistImport.value = res;
     await preloadAddedCards(res.animeGroups.flatMap((group) => group.themes.map((theme) => theme.songId)), isCurrent);

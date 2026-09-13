@@ -507,7 +507,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 60a. **AnisongDB client + anime theme import** - the API client,
     theme-slot mapping, the media host allowlist for AMQ's distribution
     servers, and `/api/lookup/import` preferring AnisongDB themes.
-  - [ ] 60b. **Song and artist search** - repoints
+  - [x] 60b. **Song and artist search** - repoints
     `/api/lookup/song-search`, `/api/lookup/artist-search`, and
     `/api/lookup/artist-import` at AnisongDB with the same fallback.
   - [ ] 60c. **Re-source existing remote-only cards** - a Settings action

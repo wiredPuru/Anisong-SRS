@@ -28,9 +28,10 @@ interface AniListResult {
 }
 
 interface ArtistCandidate {
+  source: "anisongdb" | "animethemes";
   id: number;
   name: string;
-  slug: string;
+  slug: string | null;
 }
 
 interface SearchResults {

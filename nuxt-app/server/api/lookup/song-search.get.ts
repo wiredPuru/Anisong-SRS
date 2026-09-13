@@ -1,4 +1,4 @@
-import { searchSongsOnAnimeThemes } from "../../lib/animethemes.ts";
+import { searchSongEntries } from "../../utils/songSource.ts";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -8,6 +8,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "q is required" });
   }
 
-  const results = await searchSongsOnAnimeThemes(q);
+  const results = await searchSongEntries(q);
   return { results };
 });

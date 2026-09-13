@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchThemesByMalId, toThemeSlot } from "./anisongdb.ts";
+import { fetchArtistCatalog, fetchThemesByMalId, relevance, searchArtists, searchSongs, toThemeSlot } from "./anisongdb.ts";
 
 const HOST = "https://naedist.animemusicquiz.com";
 
@@ -131,5 +131,212 @@ describe("AnisongDB theme resolution", () => {
   it.each([0, -1, 1.5])("rejects %s as an anime id", async (id) => {
     await expect(fetchThemesByMalId(id, 1)).rejects.toThrow("positive integer");
     await expect(fetchThemesByMalId(1, id)).rejects.toThrow("positive integer");
+  });
+});
+
+const songEntry = (overrides: Record<string, unknown> = {}) => ({
+  ...entry(),
+  annSongId: 500,
+  songName: "Gurenge",
+  songArtist: "LiSA",
+  animeENName: "Demon Slayer: Kimetsu no Yaiba",
+  animeJPName: "Kimetsu no Yaiba",
+  ...overrides,
+});
+
+describe("AnisongDB song search", () => {
+  it("maps a match onto the app's shape and asks only for openings and endings", async () => {
+    respond([songEntry()]);
+    expect(await searchSongs("Gurenge")).toEqual([{
+      annSongId: 500,
+      themeSlot: "OP1",
+      songTitle: "Gurenge",
+      artistName: "LiSA",
+      animeAniListId: 1,
+      animeTitleRomaji: "Kimetsu no Yaiba",
+      videoUrl: `${HOST}/byvisp.webm`,
+      audioUrl: `${HOST}/qi299l.mp3`,
+    }]);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({
+      song_name_search_filter: { search: "Gurenge", partial_match: true },
+      filters: { song_types: ["opening", "ending"] },
+      ignore_duplicate: true,
+    });
+    expect(fetch.mock.calls[0]![0]).toBe("https://anisongdb.com/api/search_request");
+  });
+
+  it("ranks exact, then prefix, then substring, then everything else", async () => {
+    respond([
+      songEntry({ annSongId: 1, songName: "Not Related", linked_ids: { anilist: 11 } }),
+      songEntry({ annSongId: 2, songName: "My Love Song", linked_ids: { anilist: 12 } }),
+      songEntry({ annSongId: 3, songName: "Love Story", linked_ids: { anilist: 13 } }),
+      songEntry({ annSongId: 4, songName: "Love", linked_ids: { anilist: 14 } }),
+    ]);
+    expect((await searchSongs("love")).map((r) => r.songTitle))
+      .toEqual(["Love", "Love Story", "My Love Song", "Not Related"]);
+  });
+
+  it("breaks a relevance tie on the lowest annSongId", async () => {
+    respond([
+      songEntry({ annSongId: 90, songName: "Love", linked_ids: { anilist: 11 } }),
+      songEntry({ annSongId: 20, songName: "Love", linked_ids: { anilist: 12 } }),
+    ]);
+    expect((await searchSongs("love")).map((r) => r.annSongId)).toEqual([20, 90]);
+  });
+
+  it("ignores punctuation, case and accents when ranking", async () => {
+    respond([songEntry({ songName: "Déjà Vu" })]);
+    expect(await searchSongs("deja-vu")).toEqual([expect.objectContaining({ songTitle: "Déjà Vu" })]);
+    expect(relevance("Déjà Vu", "deja-vu")).toBe(0);
+  });
+
+  it("caps a broad query at ten results", async () => {
+    respond(Array.from({ length: 40 }, (_, i) => songEntry({ annSongId: i, linked_ids: { anilist: 100 + i } })));
+    expect(await searchSongs("Gurenge")).toHaveLength(10);
+  });
+
+  it("collapses a rebroadcast onto the same anime and slot, keeping the richer copy", async () => {
+    respond([
+      songEntry({ annSongId: 10, isRebroadcast: true, HQ: "rerun.webm" }),
+      songEntry({ annSongId: 99, HQ: "original.webm" }),
+    ]);
+    expect(await searchSongs("Gurenge")).toEqual([expect.objectContaining({ videoUrl: `${HOST}/original.webm` })]);
+  });
+
+  it("keeps the same song in a different anime as its own result", async () => {
+    respond([songEntry({ annSongId: 1 }), songEntry({ annSongId: 2, linked_ids: { anilist: 77 } })]);
+    expect((await searchSongs("Gurenge")).map((r) => r.animeAniListId)).toEqual([1, 77]);
+  });
+
+  it("falls back to the English anime title when the romanized one is missing", async () => {
+    respond([songEntry({ animeJPName: "  " })]);
+    expect(await searchSongs("Gurenge"))
+      .toEqual([expect.objectContaining({ animeTitleRomaji: "Demon Slayer: Kimetsu no Yaiba" })]);
+  });
+
+  it.each([
+    ["a dub", { isDub: true }],
+    ["an insert song", { songType: "Insert Song" }],
+    ["an entry with no AniList mapping", { linked_ids: { myanimelist: 1 } }],
+    ["an entry with no playable media", { HQ: null, MQ: null, audio: null }],
+    ["an entry with no annSongId", { annSongId: null }],
+    ["an entry with no song name", { songName: "  " }],
+    ["an entry with no anime title at all", { animeJPName: null, animeENName: null }],
+  ])("drops %s", async (_label, overrides) => {
+    respond([songEntry(overrides)]);
+    expect(await searchSongs("Gurenge")).toEqual([]);
+  });
+
+  it.each([
+    ["a network failure", () => fetch.mockRejectedValue(new Error("boom"))],
+    ["a 503", () => fetch.mockResolvedValue(new Response("", { status: 503 }))],
+    ["a non-array body", () => fetch.mockResolvedValue(Response.json({ detail: "nope" }))],
+  ])("shares the theme lookup's failure classification for %s", async (_label, arrange) => {
+    arrange();
+    await expect(searchSongs("Gurenge")).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it("treats a rejected search as a request error, not an outage", async () => {
+    fetch.mockResolvedValue(new Response("", { status: 422 }));
+    await expect(searchSongs("Gurenge")).rejects.not.toMatchObject({ statusCode: 503 });
+  });
+});
+
+const performed = (artists: unknown[], overrides: Record<string, unknown> = {}) =>
+  songEntry({ artists, ...overrides });
+
+const artist = (id: number, ...names: string[]) => ({ id, names, line_up_id: 0, groups: null, members: null });
+
+describe("AnisongDB artist search", () => {
+  it("reduces matching entries to distinct artists and asks only for openings and endings", async () => {
+    respond([
+      performed([artist(8355, "YOASOBI")], { linked_ids: { anilist: 1 } }),
+      performed([artist(8355, "YOASOBI")], { linked_ids: { anilist: 2 } }),
+    ]);
+    expect(await searchArtists("YOASOBI")).toEqual([{ id: 8355, name: "YOASOBI" }]);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({
+      artist_search_filter: { search: "YOASOBI", partial_match: true },
+      filters: { song_types: ["opening", "ending"] },
+      ignore_duplicate: true,
+    });
+  });
+
+  it("drops a collaborator whose own name does not match the query", async () => {
+    respond([performed([artist(4885, "LiSA"), artist(2537, "m-flo"), artist(5173, "Hyadain")])]);
+    expect(await searchArtists("LiSA")).toEqual([{ id: 4885, name: "LiSA" }]);
+  });
+
+  it("keeps a near-miss that genuinely contains the query", async () => {
+    respond([performed([artist(806, "ELISA")]), performed([artist(4885, "LiSA")], { linked_ids: { anilist: 2 } })]);
+    expect(await searchArtists("LiSA")).toEqual([{ id: 4885, name: "LiSA" }, { id: 806, name: "ELISA" }]);
+  });
+
+  it("matches on any of an artist's romanizations but reports the primary name", async () => {
+    respond([performed([artist(8798, "ano", "Ano (You'll Melt More!)")])]);
+    expect(await searchArtists("you'll melt more")).toEqual([{ id: 8798, name: "ano" }]);
+  });
+
+  it("ranks a more prolific artist first when relevance ties", async () => {
+    respond([
+      performed([artist(2, "LiSA Two")], { linked_ids: { anilist: 1 } }),
+      performed([artist(1, "LiSA One")], { linked_ids: { anilist: 2 } }),
+      performed([artist(1, "LiSA One")], { linked_ids: { anilist: 3 } }),
+    ]);
+    expect((await searchArtists("LiSA")).map((a) => a.id)).toEqual([1, 2]);
+  });
+
+  it("caps a broad query at ten artists", async () => {
+    respond(Array.from({ length: 25 }, (_, i) =>
+      performed([artist(i + 1, `LiSA ${i}`)], { linked_ids: { anilist: i + 1 } })));
+    expect(await searchArtists("LiSA")).toHaveLength(10);
+  });
+
+  it.each([
+    ["a dub entry", { isDub: true }],
+    ["an entry with no artists array", { artists: null }],
+  ])("ignores %s", async (_label, overrides) => {
+    respond([songEntry({ artists: [artist(4885, "LiSA")], ...overrides })]);
+    expect(await searchArtists("LiSA")).toEqual([]);
+  });
+
+  it.each([
+    ["an artist with no id", { names: ["LiSA"] }],
+    ["an artist with no usable names", { id: 4885, names: ["  "] }],
+  ])("skips %s", async (_label, broken) => {
+    respond([performed([broken])]);
+    expect(await searchArtists("LiSA")).toEqual([]);
+  });
+
+  it("shares the theme lookup's failure classification", async () => {
+    fetch.mockRejectedValue(new Error("boom"));
+    await expect(searchArtists("LiSA")).rejects.toMatchObject({ statusCode: 503 });
+  });
+});
+
+describe("AnisongDB artist catalog", () => {
+  it("returns every theme without ranking or capping them", async () => {
+    respond(Array.from({ length: 25 }, (_, i) => songEntry({ annSongId: i, linked_ids: { anilist: i + 1 } })));
+    expect(await fetchArtistCatalog(8355)).toHaveLength(25);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body)).toEqual({
+      artist_ids: [8355],
+      filters: { song_types: ["opening", "ending"] },
+      ignore_duplicate: true,
+    });
+    expect(fetch.mock.calls[0]![0]).toBe("https://anisongdb.com/api/artist_ids_request");
+  });
+
+  it("applies the same rejection and de-duplication rules as song search", async () => {
+    respond([
+      songEntry({ annSongId: 1, isDub: true }),
+      songEntry({ annSongId: 2, songType: "Insert Song", linked_ids: { anilist: 2 } }),
+      songEntry({ annSongId: 3, linked_ids: { myanimelist: 1 } }),
+      songEntry({ annSongId: 4, isRebroadcast: true, HQ: "rerun.webm" }),
+      songEntry({ annSongId: 5, HQ: "original.webm" }),
+    ]);
+    expect(await fetchArtistCatalog(8355)).toEqual([expect.objectContaining({ videoUrl: `${HOST}/original.webm` })]);
+  });
+
+  it.each([0, -1, 1.5])("rejects %s as an artist id", async (id) => {
+    await expect(fetchArtistCatalog(id)).rejects.toThrow("positive integer");
   });
 });

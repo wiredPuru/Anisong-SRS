@@ -1,12 +1,13 @@
 <script setup lang="ts">
 interface SongSearchResult {
-  animethemesThemeId: number;
+  resultKey: string;
+  animethemesThemeId: number | null;
   themeSlot: string;
   songTitle: string | null;
   songTitleNative: string | null;
   artistName: string | null;
   animeAniListId: number;
-  animeAnimethemesId: number;
+  animeAnimethemesId: number | null;
   animeTitleRomaji: string;
   videoUrl: string | null;
   audioUrl: string | null;
@@ -50,9 +51,9 @@ const searchError = ref<string | null>(null);
 let generation = 0;
 
 const addedCards = reactive<Record<number, CardWithDetails>>({});
-const adding = reactive<Record<number, boolean>>({});
-const addError = reactive<Record<number, string | null>>({});
-const resultSongId = reactive<Record<number, number>>({});
+const adding = reactive<Record<string, boolean>>({});
+const addError = reactive<Record<string, string | null>>({});
+const resultSongId = reactive<Record<string, number>>({});
 
 const {
   downloading,
@@ -92,12 +93,12 @@ async function runSearch(query: string) {
 
 watch(() => props.query, runSearch, { immediate: true });
 
-function resolvedSongId(animethemesThemeId: number): number | undefined {
-  return resultSongId[animethemesThemeId];
+function resolvedSongId(resultKey: string): number | undefined {
+  return resultSongId[resultKey];
 }
 
-function addedSongCard(animethemesThemeId: number): CardWithDetails | undefined {
-  const songId = resultSongId[animethemesThemeId];
+function addedSongCard(resultKey: string): CardWithDetails | undefined {
+  const songId = resultSongId[resultKey];
   return songId !== undefined ? addedCards[songId] : undefined;
 }
 
@@ -110,7 +111,7 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
 }
 
 async function addSongResult(result: SongSearchResult) {
-  const key = result.animethemesThemeId;
+  const key = result.resultKey;
   addError[key] = null;
   adding[key] = true;
 
@@ -146,18 +147,18 @@ async function addSongResult(result: SongSearchResult) {
   }
 }
 
-async function removeCard(animethemesThemeId: number) {
-  const songId = resultSongId[animethemesThemeId];
+async function removeCard(resultKey: string) {
+  const songId = resultSongId[resultKey];
   const card = songId !== undefined ? addedCards[songId] : undefined;
   if (!card || songId === undefined) return;
 
-  addError[animethemesThemeId] = null;
+  addError[resultKey] = null;
   try {
     await $fetch("/api/cards", { method: "DELETE", body: { id: card.id } });
     delete addedCards[songId];
     emit("refresh");
   } catch (err) {
-    addError[animethemesThemeId] = extractErrorMessage(err, "Failed to delete card.");
+    addError[resultKey] = extractErrorMessage(err, "Failed to delete card.");
   }
 }
 </script>
@@ -171,7 +172,7 @@ async function removeCard(animethemesThemeId: number) {
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="theme-list">
-        <li v-for="result in results" :key="result.animethemesThemeId" class="theme-row">
+        <li v-for="result in results" :key="result.resultKey" class="theme-row">
           <div class="theme-info">
             <span class="theme-title">{{ result.songTitle ?? result.themeSlot }}</span>
             <span class="result-meta">
@@ -179,45 +180,45 @@ async function removeCard(animethemesThemeId: number) {
             </span>
           </div>
 
-          <template v-if="addedSongCard(result.animethemesThemeId)">
+          <template v-if="addedSongCard(result.resultKey)">
             <div class="added-info">
               <div class="added-actions">
                 <span class="added-badge">Added</span>
-                <button type="button" class="preview-btn" @click="emit('preview', addedSongCard(result.animethemesThemeId)!)">
+                <button type="button" class="preview-btn" @click="emit('preview', addedSongCard(result.resultKey)!)">
                   Preview
                 </button>
-                <button type="button" class="remove-btn" @click="removeCard(result.animethemesThemeId)">Delete</button>
+                <button type="button" class="remove-btn" @click="removeCard(result.resultKey)">Delete</button>
               </div>
-              <div v-if="hasAnyDownloadableSource(addedSongCard(result.animethemesThemeId)!)" class="download-section">
+              <div v-if="hasAnyDownloadableSource(addedSongCard(result.resultKey)!)" class="download-section">
                 <div v-if="hasDefaultDownloadFolder" class="download-actions">
-                  <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'video')">
+                  <template v-if="canDownload(addedSongCard(result.resultKey)!, 'video')">
                     <DownloadProgress
-                      v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')]"
+                      v-if="downloading[downloadKey(resolvedSongId(result.resultKey)!, 'video')]"
                       label="Downloading video"
-                      :request-key="downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')"
-                      :progress="downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'video')]"
+                      :request-key="downloadKey(resolvedSongId(result.resultKey)!, 'video')"
+                      :progress="downloadProgress[downloadKey(resolvedSongId(result.resultKey)!, 'video')]"
                     />
                     <button
                       v-else
                       type="button"
                       class="download-btn"
-                      @click="downloadMedia(resolvedSongId(result.animethemesThemeId)!, 'video')"
+                      @click="downloadMedia(resolvedSongId(result.resultKey)!, 'video')"
                     >
                       Download video
                     </button>
                   </template>
-                  <template v-if="canDownload(addedSongCard(result.animethemesThemeId)!, 'audio')">
+                  <template v-if="canDownload(addedSongCard(result.resultKey)!, 'audio')">
                     <DownloadProgress
-                      v-if="downloading[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')]"
+                      v-if="downloading[downloadKey(resolvedSongId(result.resultKey)!, 'audio')]"
                       label="Downloading audio"
-                      :request-key="downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')"
-                      :progress="downloadProgress[downloadKey(resolvedSongId(result.animethemesThemeId)!, 'audio')]"
+                      :request-key="downloadKey(resolvedSongId(result.resultKey)!, 'audio')"
+                      :progress="downloadProgress[downloadKey(resolvedSongId(result.resultKey)!, 'audio')]"
                     />
                     <button
                       v-else
                       type="button"
                       class="download-btn"
-                      @click="downloadMedia(resolvedSongId(result.animethemesThemeId)!, 'audio')"
+                      @click="downloadMedia(resolvedSongId(result.resultKey)!, 'audio')"
                     >
                       Download audio
                     </button>
@@ -226,12 +227,12 @@ async function removeCard(animethemesThemeId: number) {
                 <p v-else class="download-hint">
                   Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
                 </p>
-                <p v-if="downloadError[resolvedSongId(result.animethemesThemeId)!]" class="inline-error">
-                  {{ downloadError[resolvedSongId(result.animethemesThemeId)!] }}
+                <p v-if="downloadError[resolvedSongId(result.resultKey)!]" class="inline-error">
+                  {{ downloadError[resolvedSongId(result.resultKey)!] }}
                 </p>
               </div>
-              <p v-if="addError[result.animethemesThemeId]" class="inline-error">
-                {{ addError[result.animethemesThemeId] }}
+              <p v-if="addError[result.resultKey]" class="inline-error">
+                {{ addError[result.resultKey] }}
               </p>
             </div>
           </template>
@@ -240,14 +241,14 @@ async function removeCard(animethemesThemeId: number) {
               <button
                 type="button"
                 class="add-btn"
-                :disabled="adding[result.animethemesThemeId]"
+                :disabled="adding[result.resultKey]"
                 @click="addSongResult(result)"
               >
-                {{ adding[result.animethemesThemeId] ? "Adding..." : "Add" }}
+                {{ adding[result.resultKey] ? "Adding..." : "Add" }}
               </button>
             </div>
-            <p v-if="addError[result.animethemesThemeId]" class="inline-error">
-              {{ addError[result.animethemesThemeId] }}
+            <p v-if="addError[result.resultKey]" class="inline-error">
+              {{ addError[result.resultKey] }}
             </p>
           </template>
         </li>

@@ -5,15 +5,15 @@ import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.t
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
-  if (
-    !body ||
-    typeof body.animeAniListId !== "number" ||
-    typeof body.animeAnimethemesId !== "number" ||
-    typeof body.themeSlot !== "string" ||
-    typeof body.animethemesThemeId !== "number"
-  ) {
+  if (!body || typeof body.animeAniListId !== "number" || typeof body.themeSlot !== "string" || !body.themeSlot.trim()) {
     throw createError({ statusCode: 400, statusMessage: "Invalid song import request" });
   }
+
+  // An AnisongDB result carries neither id. Both columns tolerate null, and
+  // upsertAnime/upsertSong drop a null from their update set rather than
+  // erasing what an earlier AnimeThemes import stored.
+  const animethemesThemeId = typeof body.animethemesThemeId === "number" ? body.animethemesThemeId : null;
+  const animeAnimethemesId = typeof body.animeAnimethemesId === "number" ? body.animeAnimethemesId : null;
 
   const metadata = createAnimeMetadataResolver();
   const aniListAnime = await metadata.byAniListId(body.animeAniListId);
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
   const animeRow = upsertAnime({
     aniListId: aniListAnime.aniListId,
-    animethemesId: aniListAnime.animethemesId ?? body.animeAnimethemesId,
+    animethemesId: aniListAnime.animethemesId ?? animeAnimethemesId,
     titleEnglish: aniListAnime.titleEnglish,
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
     title: body.songTitle ?? body.themeSlot,
     titleNative: body.songTitleNative,
     themeSlot: body.themeSlot,
-    animethemesThemeId: body.animethemesThemeId,
+    animethemesThemeId,
   });
 
   return {

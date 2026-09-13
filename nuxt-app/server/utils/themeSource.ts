@@ -1,6 +1,7 @@
 import { fetchAnimeThemesByAniListId } from "../lib/animethemes.ts";
 import { fetchThemesByMalId, type AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
+import { titleKey } from "./textMatch.ts";
 
 export interface ResolvedTheme {
   themeSlot: string;
@@ -16,15 +17,6 @@ export interface ResolvedTheme {
 export interface ResolvedThemes {
   animethemesId: number | null;
   themes: ResolvedTheme[];
-}
-
-// The two providers romanize independently, so this only has to survive
-// punctuation, case, spacing and accents ("Déjà Vu" against "Deja Vu"). A real
-// spelling difference ("Kagami Hyoushi" against "Kagamiutsushi") deliberately
-// fails to match and leaves that theme on AnimeThemes rather than guessing.
-function titleKey(title: string | null): string | null {
-  const key = (title ?? "").normalize("NFD").replace(/\p{Mark}/gu, "").toLowerCase().replace(/[^\p{Letter}\p{Number}]/gu, "");
-  return key || null;
 }
 
 // A provider being down degrades the import to the other one; anything else

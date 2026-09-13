@@ -29,7 +29,9 @@ vi.mock("../../lib/mal.ts", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
-  vi.stubGlobal("readBody", async () => ({ artistSlug: "artist" }));
+  vi.stubGlobal("readBody", async () => ({
+    candidate: { source: "animethemes", id: 1, name: "Artist", slug: "artist" },
+  }));
   vi.stubGlobal("getQuery", () => ({ username: "test" }));
   vi.stubGlobal("createError", (input: { statusMessage: string }) => Object.assign(new Error(input.statusMessage), input));
   mocks.upsertAnime.mockImplementation((anime) => ({ id: anime.aniListId, ...anime }));

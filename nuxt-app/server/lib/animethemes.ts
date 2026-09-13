@@ -250,13 +250,16 @@ export async function fetchArtistThemesBySlug(slug: string): Promise<ArtistTheme
 }
 
 export interface SongSearchEntry {
-  animethemesThemeId: number;
+  // Stable row identity for the client, provider-prefixed because a result can
+  // come from either provider and only AnimeThemes has a theme id.
+  resultKey: string;
+  animethemesThemeId: number | null;
   themeSlot: string;
   songTitle: string | null;
   songTitleNative: string | null;
   artistName: string | null;
   animeAniListId: number;
-  animeAnimethemesId: number;
+  animeAnimethemesId: number | null;
   animeTitleRomaji: string;
   videoUrl: string | null;
   audioUrl: string | null;
@@ -315,6 +318,7 @@ export async function searchSongsOnAnimeThemes(query: string): Promise<SongSearc
       const video = theme.animethemeentries[0]?.videos.nodes[0] ?? null;
 
       entries.push({
+        resultKey: `at:${theme.id}`,
         animethemesThemeId: theme.id,
         themeSlot: theme.slug,
         songTitle: songResult.title.romaji,
