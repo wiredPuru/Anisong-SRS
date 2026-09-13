@@ -8,6 +8,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  missingCoverCount: number;
 }>("/api/media-library");
 
 type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "about";
@@ -239,6 +240,8 @@ async function importDeck() {
                 </div>
                 <p v-else class="state">Add a folder to configure downloads.</p>
               </div>
+
+              <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'study'">

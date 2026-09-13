@@ -54,6 +54,16 @@ export function upsertAnime(data: {
   return db.insert(anime).values(values).onConflictDoUpdate({ target: anime.aniListId, set }).returning().get();
 }
 
+// Fills in only the cover column, for a row inserted without one. An AniList
+// outage falls back to AnimeThemes metadata, which carries no cover art at all
+// (see METADATA_FIELDS in lib/animethemes.ts), and nothing re-resolves an anime
+// once it exists - so those rows stay coverless until something backfills them.
+// Deliberately not upsertAnime: that wants a full title set, and this caller
+// has no fresh copy of the titles to supply.
+export function setAnimeCoverImage(animeId: number, coverImageUrl: string): void {
+  db.update(anime).set({ coverImageUrl }).where(eq(anime.id, animeId)).run();
+}
+
 export function getOrCreateArtist(name: string): Artist {
   const existing = db.select().from(artist).where(eq(artist.name, name)).get();
   if (existing) {

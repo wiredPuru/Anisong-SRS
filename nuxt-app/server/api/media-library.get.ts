@@ -1,3 +1,4 @@
+import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
   getBoxOneStreakRequired,
@@ -19,5 +20,6 @@ export default defineEventHandler(() => {
     streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
+    missingCoverCount: countAnimeMissingCover(),
   };
 });
