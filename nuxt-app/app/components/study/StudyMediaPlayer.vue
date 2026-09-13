@@ -168,6 +168,62 @@ const duration = ref(0);
 const errorMessage = ref<string | null>(null);
 const isDragging = ref(false);
 
+// Whether the active element is waiting on data rather than playing it.
+// `isPlaying` cannot answer that: it is set from the `play` event, which
+// fires when playback is *requested*, so the veil used to drop the instant
+// the button was pressed and expose a <video> with no decoded frames - a
+// black rectangle for however long the fetch took. That is not a brief
+// window here: a remote clip goes through /api/media/stream, which caches
+// the whole file before writing a single byte, so the request stays pending
+// for the entire download (up to DOWNLOAD_TIMEOUT_MS) before anything, error
+// included, reaches the element.
+//
+// `suspend` is in the cleared set alongside `canplay`: with the default
+// preload the browser stops after metadata and never reaches canplay until
+// play is pressed, so suspend is the only signal that it stopped fetching on
+// purpose rather than being stuck.
+const isBuffering = ref(false);
+const loadAttempt = ref(0);
+
+function markBuffering() {
+  isBuffering.value = true;
+}
+
+function onLoadStart() {
+  loadAttempt.value += 1;
+  markBuffering();
+}
+
+function settleBuffering() {
+  isBuffering.value = false;
+}
+
+// The veil itself stays up for every buffering moment (dropping it even
+// briefly is the black flash this fix exists to remove), but the loading
+// message waits out a short grace period so a local file, which resolves in
+// a few milliseconds, never flashes one on its way to playing.
+const LOADING_MESSAGE_DELAY_MS = 400;
+const showLoadingMessage = ref(false);
+let loadingMessageTimer: ReturnType<typeof setTimeout> | undefined;
+watch(isBuffering, (buffering) => {
+  clearTimeout(loadingMessageTimer);
+  if (!buffering) {
+    showLoadingMessage.value = false;
+    return;
+  }
+  loadingMessageTimer = setTimeout(() => {
+    showLoadingMessage.value = true;
+  }, LOADING_MESSAGE_DELAY_MS);
+});
+onUnmounted(() => clearTimeout(loadingMessageTimer));
+
+// Reuses the timer behind ActivityStatus's own "Still waiting" line rather
+// than picking a second threshold, so the recovery actions below appear on
+// the same 15s the message already admits something is wrong. Without them
+// the only other way out is the stream route's 30s fetch timeout, which is a
+// long time to sit on a clip that is never going to arrive.
+const { isSlow: loadIsSlow } = useActivityTimer(loadAttempt, isBuffering);
+
 const VOLUME_STORAGE_KEY = "gaqSrs:playerVolume";
 const volume = ref(1);
 
@@ -209,9 +265,10 @@ watch(mediaKind, () => {
   isPlaying.value = false;
   currentTime.value = 0;
   duration.value = 0;
+  settleBuffering();
 });
 
-const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value);
+const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value || isBuffering.value);
 const progressPercent = computed(() => (duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0));
 
 function formatTime(seconds: number): string {
@@ -270,6 +327,7 @@ function onLoadedMetadata() {
 }
 
 function onError() {
+  settleBuffering();
   const failedVideo = mediaKind.value === "video";
   errorMessage.value = failedVideo ? "Video failed to load." : "Couldn't load this clip.";
   videoBroken.value = failedVideo;
@@ -284,16 +342,19 @@ function onError() {
 watch(src, () => {
   errorMessage.value = null;
   videoBroken.value = false;
+  settleBuffering();
 });
 
 // Re-attempts the source already loaded, without touching the card's stored
-// paths. The cheapest recovery for a video that streams from the CDN, where
+// paths. The cheapest recovery for a clip that streams from the CDN, where
 // a transient failure is the likely cause - a full redownload below is the
 // heavier answer, and only applies to a card with a local path to replace.
-function retryVideoLoad() {
+// Goes through activeEl, not videoRef: a stalled load offers this too, and
+// that can be the <audio> element.
+function retryLoad() {
   errorMessage.value = null;
   videoBroken.value = false;
-  videoRef.value?.load();
+  activeEl.value?.load();
 }
 
 const {
@@ -615,6 +676,7 @@ function onPlay() {
 // (not just a card's first start), which is exactly what the auto-reveal
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
+  settleBuffering();
   emit("playback-started");
 }
 
@@ -754,6 +816,11 @@ onUnmounted(() => stopDrag?.());
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @loadeddata="onLoadedData"
+        @loadstart="onLoadStart"
+        @waiting="markBuffering"
+        @stalled="markBuffering"
+        @canplay="settleBuffering"
+        @suspend="settleBuffering"
         @seeked="onSeeked"
         @error="onError"
         @click="togglePlay"
@@ -769,6 +836,11 @@ onUnmounted(() => stopDrag?.());
         @pause="onPause"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
+        @loadstart="onLoadStart"
+        @waiting="markBuffering"
+        @stalled="markBuffering"
+        @canplay="settleBuffering"
+        @suspend="settleBuffering"
         @error="onError"
       />
 
@@ -777,7 +849,7 @@ onUnmounted(() => stopDrag?.());
         class="record"
         :style="{ transform: `perspective(700px) rotateX(${recordTiltY}deg) rotateY(${recordTiltX}deg)` }"
       >
-        <div class="record-disk" :class="{ spinning: isPlaying }">
+        <div class="record-disk" :class="{ spinning: isPlaying && !isBuffering }">
           <img
             ref="coverImageRef"
             :src="card.animeCoverImageUrl!"
@@ -801,7 +873,7 @@ onUnmounted(() => stopDrag?.());
       <div v-if="errorMessage" class="veil error-veil">
         <p>{{ errorMessage }}</p>
         <div v-if="videoBroken" class="failure-actions">
-          <button type="button" class="download-btn" @click="retryVideoLoad">Try again</button>
+          <button type="button" class="download-btn" @click="retryLoad">Try again</button>
           <button
             v-if="hasAudioSource"
             type="button"
@@ -862,13 +934,29 @@ onUnmounted(() => stopDrag?.());
         :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
         @click="togglePlay"
       >
-        <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-          <span class="eq-bar" />
-        </div>
-        <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
+        <template v-if="showLoadingMessage">
+          <ActivityStatus class="loading-status" :label="`Loading ${mediaKind}`" :request-key="loadAttempt" />
+          <div v-if="loadIsSlow" class="failure-actions">
+            <button type="button" class="download-btn" @click.stop="retryLoad">Try again</button>
+            <button
+              v-if="mediaKind === 'video' && hasAudioSource"
+              type="button"
+              class="download-btn"
+              @click.stop="audioFallbackChosen = true"
+            >
+              Use audio for this card
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+            <span class="eq-bar" />
+          </div>
+          <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
+        </template>
       </div>
 
       <div class="player-controls">
@@ -1241,6 +1329,20 @@ onUnmounted(() => stopDrag?.());
   margin: 0;
   color: var(--fail);
   font-size: 13px;
+  text-align: center;
+}
+
+.loading-status {
+  /* The cover-art veil is fully transparent (.audio-veil.has-cover), so this
+     carries its own readable ground rather than relying on the veil's. */
+  max-width: 80%;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  background: rgba(7, 7, 13, 0.72);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
   text-align: center;
 }
 
