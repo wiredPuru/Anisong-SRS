@@ -94,10 +94,14 @@ instance against their own local media and database.
   and support byte ranges. Unofficial and undocumented for third-party use;
   the existing stream cache and local downloads mean each file is fetched
   about once.
-- Jikan (https://jikan.moe), an unofficial, no-key REST wrapper over
-  MyAnimeList's public data - used only to read a public username's
-  Completed anime list, since MAL's official API requires OAuth even for
-  public-list reads.
+- MyAnimeList's own public list endpoint
+  (`myanimelist.net/animelist/<user>/load.json?status=2`) - used only to read
+  a public username's Completed anime list, since MAL's official API requires
+  OAuth even for public-list reads. Feature 58 originally went through Jikan
+  (https://jikan.moe), an unofficial no-key REST wrapper over the same data;
+  that was dropped on 2026-09-12 once MAL started refusing Jikan's scrape with
+  a permanent 504. This calls the page Jikan was scraping directly, with no
+  key and no cookie.
 - Japanese morphological analyzer (e.g. kuroshiro/kuromoji) for furigana
   generation.
 - Local filesystem access (Node `fs`) for the user-configured media library.

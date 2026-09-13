@@ -127,15 +127,19 @@ content column above that width, leaving every screen's existing
 full-bleed look unchanged below it, and amended `project-plan.md` §7's
 App layout bullet to record the exception. Feature 58 (importing a user's
 public AniList/MyAnimeList Completed list as browsable anime add-candidates)
-was added to `build-plan.md` on 2026-09-05 and is not yet built; it added a
-new §3 Features bullet and a §5 Tech line to `project-plan.md` for Jikan,
-the unofficial no-key MyAnimeList API it uses (MAL's official API requires
-OAuth even to read a public list). Feature 59 (a persistent Auto Download
+was added to `build-plan.md` on 2026-09-05 and is now built and merged; it
+added a new §3 Features bullet and a §5 Tech line to `project-plan.md`. That
+Tech line named Jikan, the unofficial no-key MyAnimeList wrapper it was built
+on, and was rewritten on 2026-09-13 to name MyAnimeList's own public list
+endpoint instead, after the `mal-list-direct-lookup` fix (2026-09-12)
+dropped Jikan: MAL had begun refusing its scrape with a permanent `504`. See
+feature 58's entry below. Feature 59 (a persistent Auto Download
 setting) was added to `build-plan.md` on 2026-09-12 and is now built and
 merged; it did not change `project-plan.md`, the same way feature 43's
 Playback mode setting did not. Feature 60 (AnisongDB as the preferred OP/ED
 metadata and clip-URL source, in three sub-features 60a-60c) was added to
-`build-plan.md` on 2026-09-13 and is not yet built; it amended
+`build-plan.md` on 2026-09-13; 60a is built and merged, 60b and 60c are not
+yet built. It amended
 `project-plan.md`'s §3 "Anime & song lookup" bullet and added a §5 Tech line,
 since it introduces a new external provider that outranks animethemes.moe
 rather than merely extending it.
@@ -985,7 +989,7 @@ rather than merely extending it.
     `StudyInfoPanel` during both Study and Preview as a personal mnemonic
     aid. Subject to the same Hide Info blur as the rest of the panel, and
     absent entirely (no empty "Notes" row) for a card with no notes set.
-57. **Ultrawide/large-screen layout cap** - not yet built. Added to
+57. **Ultrawide/large-screen layout cap** - done. Added to
     `build-plan.md` 2026-09-04 after a report that `/study`'s layout grows
     unbounded dead space on ultrawide monitors: `.study-grid` is
     `1fr 480px`, so the video pane takes all remaining width, but
@@ -1001,19 +1005,34 @@ rather than merely extending it.
     needed. Below that width, every screen's existing full-bleed look
     (feature 50) is completely unchanged. Amended `project-plan.md` §7's
     App layout bullet to record the exception.
-58. **Import from AniList/MyAnimeList (Completed list)** - not yet built.
-    Added to `build-plan.md` 2026-09-05. Enter a public username (no OAuth,
+58. **Import from AniList/MyAnimeList (Completed list)** - done. Added to
+    `build-plan.md` 2026-09-05. Enter a public username (no OAuth,
     no stored account link) and browse that user's Completed-status anime
     list as add-candidates - title, cover, already-added check - in the
     same picking flow as the existing Anime search group on `/cards`
     (feature 49a): expands inline into a theme picker, no automatic bulk
-    card creation. AniList's `MediaListCollection` query is public and
-    unauthenticated for a public list, reusing the same GraphQL client
-    features 3/37a/49a already use. MyAnimeList's official API requires an
-    OAuth2 token even to read a public list, so MAL support instead goes
-    through Jikan (https://jikan.moe), an unofficial, no-key REST wrapper
-    over MAL's public data - a new, less durable external dependency than
-    AniList's own API, called only for this feature.
+    card creation. Reached from an "Import from AniList / MyAnimeList"
+    button on `/cards`, backed by `GET /api/lookup/anilist-list` and
+    `GET /api/lookup/mal-list`. AniList's `MediaListCollection` query is
+    public and unauthenticated for a public list, reusing the same GraphQL
+    client features 3/37a/49a already use.
+
+    **MAL support does not use Jikan, despite what this feature was spec'd
+    with.** It was built against Jikan (https://jikan.moe), the unofficial
+    no-key REST wrapper over MAL's public data, because MyAnimeList's
+    official API requires an OAuth2 token even to read a public list. Live
+    testing on 2026-09-11 found Jikan's animelist endpoint returning HTTP
+    504 "Jikan failed to connect to MyAnimeList" on every attempt, on both
+    URL shapes, while Jikan's other endpoints were healthy - MAL refusing
+    Jikan's scrape, not an outage to wait out. The
+    `mal-list-direct-lookup` fix (2026-09-12) replaced it with a direct
+    call to MyAnimeList's own public list endpoint
+    (`myanimelist.net/animelist/<user>/load.json?status=2`), which is the
+    page Jikan was scraping and needs no key, no cookie, and no
+    browser-spoofed header. `server/lib/jikan.ts` was deleted;
+    `server/lib/mal.ts` replaces it. MAL answers `400` both for a username
+    that does not exist and for one whose list is private, with no way to
+    tell them apart, so `MalUserNotFoundError` covers both.
 59. **Auto Download setting** - done. Added to `build-plan.md` 2026-09-12.
     A persistent Settings toggle (default off, in the existing Playback
     section) that, while a card is loaded in Study or Preview, automatically
@@ -1285,10 +1304,15 @@ stored session queue.
   `https://anisongdb.com/openapi.json`. Media entries are bare filenames
   (`byvisp.webm`, `qi299l.mp3`) resolved against a distribution host, so the
   client owns host selection and fallback.
-- **Jikan REST API** (`api.jikan.moe`) - not yet used, planned for feature
-  58. Unofficial, no-key wrapper over MyAnimeList's public data, used only
-  to read a public username's Completed anime list - MAL's official API
-  requires OAuth even for that.
+- **MyAnimeList public list endpoint**
+  (`myanimelist.net/animelist/<user>/load.json?status=2`) - added in feature
+  58, used only to read a public username's Completed anime list. Not an
+  official API: MAL's official one requires OAuth even for a public list,
+  and Jikan (`api.jikan.moe`), the unofficial wrapper feature 58 was
+  originally built on, was dropped on 2026-09-12 after MAL began refusing
+  its scrape with a permanent `504`. This is the same page Jikan was
+  scraping, called directly. Requires the project's `User-Agent`; returns
+  `400` for both a missing user and a private list.
 - **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - added in
   feature 6c for furigana generation
 - **Node `fs`** - reads the user-configured local media library and writes
@@ -1313,7 +1337,7 @@ radii on panels and controls, with full pills kept for buttons and badges.
 A persistent left rail navigates, and content sits in split panes using the
 full window width instead of a centered single column. Past roughly 2560px
 of viewport width, the main content column caps and centers itself instead
-of continuing to stretch (feature 57, not yet built) - full-bleed below that
+of continuing to stretch (feature 57) - full-bleed below that
 width is unchanged; the cap only prevents unbounded dead space on
 ultrawide/super-ultrawide monitors. Japanese text renders
 as real, selectable DOM text (never baked into an image or video) so the

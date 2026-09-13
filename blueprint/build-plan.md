@@ -530,6 +530,15 @@ never checkboxes, so `/feature` can't mistake one for the next item to build.
   Corrected 2026-09-04. Build 53 was rolled back and a follow-on fix removed
   `/study`'s immersive and expand modes entirely; the mechanism survives only
   in `CardPreviewModal`. Both docs now say so.
+- ~~`project-overview.md` described builds 57 and 58 as "not yet built" though
+  both were checked off here and archived, and both it and `project-plan.md`
+  §5 named Jikan as the MyAnimeList list source.~~ Corrected 2026-09-13. The
+  `mal-list-direct-lookup` fix (2026-09-12) replaced Jikan with MyAnimeList's
+  own public list endpoint after MAL began refusing Jikan's scrape with a
+  permanent 504, and `server/lib/jikan.ts` was deleted; both docs now say so.
+  Item 58's own line below still describes the Jikan plan as approved at the
+  time and is deliberately left as written, since the checklist records what
+  was planned, not what the shipped code does.
 - Build 53's checkbox is unchecked but it is not a pending build target: the
   feature was built, rolled back, and the surface it replaced no longer
   exists. Retiring the number (as 18, 25, and 32 were retired) or rebuilding
