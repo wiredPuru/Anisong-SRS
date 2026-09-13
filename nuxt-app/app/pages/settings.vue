@@ -9,6 +9,7 @@ const { data, pending, error, refresh } = await useFetch<{
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
   missingCoverCount: number;
+  animethemesSourcedCardCount: number;
 }>("/api/media-library");
 
 type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "about";
@@ -242,6 +243,8 @@ async function importDeck() {
               </div>
 
               <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
+
+              <SettingsCardSourceControl :count="data.animethemesSourcedCardCount" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'study'">

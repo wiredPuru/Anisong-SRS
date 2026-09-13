@@ -1,3 +1,4 @@
+import { countCardsToRefresh } from "../utils/cardSourceRefresh.ts";
 import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
@@ -21,5 +22,6 @@ export default defineEventHandler(() => {
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
     missingCoverCount: countAnimeMissingCover(),
+    animethemesSourcedCardCount: countCardsToRefresh(),
   };
 });
