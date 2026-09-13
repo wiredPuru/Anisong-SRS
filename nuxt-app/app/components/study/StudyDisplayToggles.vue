@@ -5,6 +5,7 @@ defineProps<{
   hideVideo: boolean;
   hideInfo: boolean;
   hideCover: boolean;
+  mediaKind: "video" | "audio";
   randomStart: boolean;
   ambientMode: boolean;
   audioOnly: boolean;
@@ -30,9 +31,14 @@ const showAutoRevealSettings = ref(false);
     <!-- Labels read positive ("Video" lit = video showing) while the state
          stays negative: the props are still hideVideo/hideCover/hideInfo, so
          feature 46's Auto Reveal keeps forcing and reverting exactly the
-         booleans it always did. Only the presentation is inverted. -->
+         booleans it always did. Only the presentation is inverted. Video and
+         Cover are mutually exclusive by mediaKind (StudyMediaPlayer never
+         shows both at once), so only the one pill that actually applies to
+         the current card renders - showing both always lit read as if both
+         were on screen together. -->
     <div class="seg" role="group" aria-label="Show or hide parts of the card">
       <button
+        v-if="mediaKind === 'video'"
         type="button"
         class="seg-btn"
         :class="{ on: !hideVideo }"
@@ -43,6 +49,7 @@ const showAutoRevealSettings = ref(false);
         <span class="tooltip">Hotkey: V</span>
       </button>
       <button
+        v-else
         type="button"
         class="seg-btn"
         :class="{ on: !hideCover }"

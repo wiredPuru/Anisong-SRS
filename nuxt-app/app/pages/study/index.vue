@@ -295,6 +295,10 @@ const scopeChipLabel = computed(() => {
 const hideVideo = ref(false);
 const hideInfo = ref(true);
 const hideCover = ref(false);
+// Set by StudyMediaPlayer's immediate `update:media-kind` emit as soon as it
+// mounts (before paint), so this default is only ever visible for the first
+// synchronous render tick.
+const currentMediaKind = ref<"video" | "audio">("video");
 const randomStart = ref(false);
 const ambientMode = ref(false);
 type AutoRevealMode = "off" | "video" | "info" | "both";
@@ -666,6 +670,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hide-video="hideVideo"
             :hide-info="hideInfo"
             :hide-cover="hideCover"
+            :media-kind="currentMediaKind"
             :random-start="randomStart"
             :ambient-mode="ambientMode"
             :audio-only="effectiveAudioOnly"
@@ -708,6 +713,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
           @local-path-cleared="onLocalPathCleared"
+          @update:media-kind="currentMediaKind = $event"
         />
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>

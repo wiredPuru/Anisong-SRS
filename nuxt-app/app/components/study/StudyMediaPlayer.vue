@@ -26,6 +26,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
+  "update:media-kind": ["video" | "audio"];
   "playback-started": [];
   "playback-paused": [];
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
@@ -70,6 +71,11 @@ const mediaKind = computed<"video" | "audio">(() => {
   if (audioFallbackChosen.value && hasAudioSource.value) return "audio";
   return hasVideoSource.value ? "video" : "audio";
 });
+
+// Lets the page's display-toggle strip show only the one Video/Cover pill
+// that actually applies to this card - it has no other way to know which of
+// the two is currently mounted (audioFallbackChosen included).
+watch(mediaKind, (kind) => emit("update:media-kind", kind), { immediate: true });
 
 // Whether the video frame is actually shown. Hiding video (or audioOnly)
 // always forces the audio-style veil, even when the video element keeps
