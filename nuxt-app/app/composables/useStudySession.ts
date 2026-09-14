@@ -1,4 +1,8 @@
-export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
+export type StudyScope =
+  | { type: "all" }
+  | { type: "artist"; id: number }
+  | { type: "anime"; id: number }
+  | { type: "created"; id: number };
 
 export interface NewCardsToday {
   introduced: number;

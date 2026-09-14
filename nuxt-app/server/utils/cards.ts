@@ -209,7 +209,11 @@ export function listCardsByManualDeck(deckId: number, page: number, query?: stri
   return { items, total };
 }
 
-export type StudyScope = { type: "all" } | { type: "artist"; id: number } | { type: "anime"; id: number };
+export type StudyScope =
+  | { type: "all" }
+  | { type: "artist"; id: number }
+  | { type: "anime"; id: number }
+  | { type: "created"; id: number };
 
 function countCardsIntroducedToday(): number {
   const startOfTodaySeconds = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000);
@@ -245,9 +249,19 @@ export function baseDueCondition(includeNewBeyondLimit = false) {
   return dueCondition;
 }
 
+function scopeFilter(scope: StudyScope) {
+  if (scope.type === "artist") return eq(artist.id, scope.id);
+  if (scope.type === "anime") return eq(anime.id, scope.id);
+  // A subquery rather than a join, so the due queries sharing this condition
+  // keep their existing join lists.
+  if (scope.type === "created") {
+    return inArray(card.id, db.select({ id: deckCard.cardId }).from(deckCard).where(eq(deckCard.deckId, scope.id)));
+  }
+  return undefined;
+}
+
 function dueCardCondition(scope: StudyScope, includeNewBeyondLimit = false) {
-  const scopeCondition =
-    scope.type === "artist" ? eq(artist.id, scope.id) : scope.type === "anime" ? eq(anime.id, scope.id) : undefined;
+  const scopeCondition = scopeFilter(scope);
   const base = baseDueCondition(includeNewBeyondLimit);
   return scopeCondition ? and(base, scopeCondition) : base;
 }

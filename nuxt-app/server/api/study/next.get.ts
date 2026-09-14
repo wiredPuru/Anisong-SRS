@@ -1,4 +1,3 @@
-import type { StudyScope } from "../../utils/cards.ts";
 import {
   getDueCardCount,
   getNewCardsTodayInfo,
@@ -6,7 +5,10 @@ import {
   getUpcomingDueCards,
   getWithheldNewCount,
 } from "../../utils/cards.ts";
-import { getAnimeLabel, getArtistLabel } from "../../utils/decks.ts";
+import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/decks.ts";
+import { parseStudyScope } from "../../utils/studyScope.ts";
+
+const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
 
 export default defineEventHandler((event) => {
   const { type, id: idRaw, includeNew } = getQuery(event);
@@ -14,29 +16,17 @@ export default defineEventHandler((event) => {
   // than the literal "true" leaves the daily cap in force.
   const includeNewBeyondLimit = includeNew === "true";
 
-  if (type !== "all" && type !== "artist" && type !== "anime") {
-    throw createError({ statusCode: 400, statusMessage: "type must be 'all', 'artist', or 'anime'" });
+  const parsed = parseStudyScope(type, idRaw);
+  if ("error" in parsed) {
+    throw createError({ statusCode: 400, statusMessage: parsed.error });
   }
+  const { scope } = parsed;
 
-  let scope: StudyScope;
-
-  if (type === "all") {
-    scope = { type: "all" };
-  } else {
-    const id = Number(idRaw);
-    if (typeof idRaw !== "string" || idRaw.trim() === "" || !Number.isFinite(id)) {
-      throw createError({ statusCode: 400, statusMessage: "id is required and must be a number" });
+  if (scope.type !== "all") {
+    const lookup = { artist: getArtistLabel, anime: getAnimeLabel, created: getManualDeckLabel }[scope.type];
+    if (lookup(scope.id) === undefined) {
+      throw createError({ statusCode: 404, statusMessage: NOT_FOUND[scope.type] });
     }
-
-    const label = type === "artist" ? getArtistLabel(id) : getAnimeLabel(id);
-    if (label === undefined) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: type === "artist" ? "Artist not found" : "Anime not found",
-      });
-    }
-
-    scope = type === "artist" ? { type: "artist", id } : { type: "anime", id };
   }
 
   const nextCard = getNextDueCard(scope, includeNewBeyondLimit);

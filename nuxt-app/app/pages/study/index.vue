@@ -12,7 +12,7 @@ const scopeResult = computed<ScopeResult>(() => {
     return { valid: true, scope: { type: "all" } };
   }
 
-  if (type === "artist" || type === "anime") {
+  if (type === "artist" || type === "anime" || type === "created") {
     const idRaw = route.query.id;
     const id = Number(idRaw);
     if (typeof idRaw === "string" && idRaw.trim() !== "" && Number.isFinite(id)) {

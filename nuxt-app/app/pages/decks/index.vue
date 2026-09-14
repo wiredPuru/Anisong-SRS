@@ -832,7 +832,7 @@ function backToDecks() {
         />
         <div class="header-controls">
           <NuxtLink
-            v-if="activeType !== 'created' && deckLabel"
+            v-if="deckLabel"
             :to="`/study?type=${activeType}&id=${selectedId}`"
             class="study-all-btn"
           >
