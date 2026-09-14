@@ -108,6 +108,20 @@ export function listCards(page: number, query?: string): Paginated<CardWithDetai
   return { items, total };
 }
 
+/** Every card id matching a non-empty search, newest first, unpaged. */
+export function listCardIds(query: string): number[] {
+  return db
+    .select({ id: card.id })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(cardSearchCondition(query))
+    .orderBy(desc(card.createdAt))
+    .all()
+    .map((row) => row.id);
+}
+
 export function getCardWithDetails(id: number): CardWithDetails | undefined {
   return cardQuery().where(eq(card.id, id)).get();
 }

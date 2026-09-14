@@ -163,6 +163,7 @@ function replaceCard(updated: CardWithDetails) {
 
 watch(searchQuery, () => {
   clearChecked();
+  confirmingDeleteMatching.value = false;
   loadFirstPage();
 });
 
@@ -349,6 +350,30 @@ async function deleteSelected(ids: readonly number[]) {
     bulkDeleting.value = false;
     await refreshMemberships();
   }
+  // Deleted rows shift every later page's offset, and an emptied list hides the
+  // infinite-scroll sentinel, so unloaded cards would otherwise read as "No cards".
+  if (totalCards.value > cards.value.length) await loadFirstPage();
+}
+
+const confirmingDeleteMatching = ref(false);
+
+// Ids are fetched at Confirm time so cards infinite scroll never loaded are
+// included.
+async function deleteAllMatching() {
+  const q = searchQuery.value;
+  bulkDeleteError.value = null;
+  bulkDeleting.value = true;
+  let ids: number[];
+  try {
+    ids = (await $fetch<{ ids: number[] }>("/api/cards/ids", { query: { q } })).ids;
+  } catch (err) {
+    bulkDeleteError.value = extractErrorMessage(err, "Failed to find matching cards.");
+    bulkDeleting.value = false;
+    confirmingDeleteMatching.value = false;
+    return;
+  }
+  await deleteSelected(ids);
+  confirmingDeleteMatching.value = false;
 }
 
 function selectCard(id: number) {
@@ -594,6 +619,38 @@ async function removeCard(id: number) {
         </div>
         <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
         <template v-else>
+          <div
+            v-if="searchQuery && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
+            class="selection-bar"
+          >
+            <span class="selection-count">{{ totalCards }} matching</span>
+            <button
+              v-if="!confirmingDeleteMatching"
+              type="button"
+              class="remove-btn"
+              :disabled="bulkDeleting"
+              @click="confirmingDeleteMatching = true"
+            >
+              Delete all {{ totalCards }} matching
+            </button>
+            <template v-else>
+              <span class="confirm-label">
+                Delete all {{ totalCards }} {{ totalCards === 1 ? "card" : "cards" }} matching "{{ searchQuery }}"?
+                This also removes their downloaded files.
+              </span>
+              <button type="button" class="confirm-btn" :disabled="bulkDeleting" @click="deleteAllMatching">
+                {{ bulkDeleting ? "Deleting..." : "Confirm" }}
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkDeleting"
+                @click="confirmingDeleteMatching = false"
+              >
+                Cancel
+              </button>
+            </template>
+          </div>
           <div v-if="checkedIds.size || bulkDeleteError" class="selection-bar">
             <span class="selection-count">{{ checkedIds.size }} selected</span>
             <template v-if="!confirmingBulkDelete">

@@ -326,6 +326,7 @@ function replaceDeckCard(updated: DeckCard) {
 }
 
 watch([selectedId, cardSearchQuery], ([id]) => {
+  confirmingDeleteCardId.value = null;
   if (id !== null) {
     loadFirstDeckCardsPage();
   }
@@ -506,6 +507,28 @@ async function removeCardFromManualDeck(cardId: number) {
     removeCardError.value = extractErrorMessage(err, "Failed to remove card from deck.");
   } finally {
     removingCardId.value = null;
+  }
+}
+
+const confirmingDeleteCardId = ref<number | null>(null);
+const deletingCardId = ref<number | null>(null);
+
+// Unlike Remove, this deletes the card from the library. The grid's count for
+// this deck is decremented in place, since going back to the grid does not refetch it.
+async function deleteDeckCard(cardId: number) {
+  removeCardError.value = null;
+  deletingCardId.value = cardId;
+  try {
+    await $fetch("/api/cards", { method: "DELETE", body: { id: cardId } });
+    deckCards.value = deckCards.value.filter((c) => c.id !== cardId);
+    if (previewCard.value?.id === cardId) previewCard.value = null;
+    const deck = (rawDecks.value as { id: number; cardCount: number }[]).find((d) => d.id === selectedId.value);
+    if (deck) deck.cardCount = Math.max(0, deck.cardCount - 1);
+    confirmingDeleteCardId.value = null;
+  } catch (err) {
+    removeCardError.value = extractErrorMessage(err, "Failed to delete card.");
+  } finally {
+    deletingCardId.value = null;
   }
 }
 
@@ -921,6 +944,39 @@ function backToDecks() {
                 @click="removeCardFromManualDeck(c.id)"
               >
                 {{ removingCardId === c.id ? "Removing..." : "Remove" }}
+              </button>
+              <button
+                v-if="confirmingDeleteCardId !== c.id"
+                type="button"
+                class="remove-btn deck-card-remove-btn"
+                @click="confirmingDeleteCardId = c.id"
+              >
+                Delete
+              </button>
+            </div>
+            <div v-if="confirmingDeleteCardId === c.id" class="delete-confirm">
+              <span class="confirm-label">
+                {{
+                  activeType === "created"
+                    ? "Delete this card from your library, not just this deck? This also removes its downloaded files."
+                    : "Delete this card? This also removes its downloaded files."
+                }}
+              </span>
+              <button
+                type="button"
+                class="confirm-btn"
+                :disabled="deletingCardId === c.id"
+                @click="deleteDeckCard(c.id)"
+              >
+                {{ deletingCardId === c.id ? "Deleting..." : "Confirm" }}
+              </button>
+              <button
+                type="button"
+                class="cancel-btn"
+                :disabled="deletingCardId === c.id"
+                @click="confirmingDeleteCardId = null"
+              >
+                Cancel
               </button>
             </div>
 
@@ -1350,6 +1406,48 @@ h2 {
 
 .deck-card-remove-btn {
   flex: none;
+}
+
+.delete-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-label {
+  color: var(--fail);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.confirm-btn,
+.cancel-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.confirm-btn {
+  border: none;
+  background: var(--fail);
+  color: var(--fail-ink);
+}
+
+.cancel-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.confirm-btn:disabled,
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .preview-btn {

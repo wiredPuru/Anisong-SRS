@@ -23,3 +23,10 @@ export function parseDeleteBody(body: unknown): DeleteCardsBody | { error: strin
   if (typeof id !== "number") return { error: "id is required and must be a number" };
   return { kind: "single", id };
 }
+
+/** The trimmed search for GET /api/cards/ids, or null when blank, so an empty search can never match the whole library. */
+export function parseMatchingQuery(q: unknown): string | null {
+  if (typeof q !== "string") return null;
+  const trimmed = q.trim();
+  return trimmed ? trimmed : null;
+}

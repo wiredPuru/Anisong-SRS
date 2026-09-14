@@ -513,7 +513,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 60c. **Re-source existing remote-only cards** - a Settings action
     that re-resolves cards still holding animethemes.moe URLs and no local
     file, swapping in the faster host where a confident match exists.
-- [ ] 61. **Card deletion and bulk delete** - multi-select on `/cards` with
+- [x] 61. **Card deletion and bulk delete** - multi-select on `/cards` with
   select-all, a bulk Delete action and a Delete-all-matching action, both
   behind a confirm, plus a Delete action on `/decks` detail rows. Deleting
   also clears the card's cached stream files, which today outlive the card
@@ -527,7 +527,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 61b. **Multi-select + bulk delete UI on /cards** - per-row
     checkboxes, a select-all control, a selection action bar, and a
     two-step confirm.
-  - [ ] 61c. **Delete-all-matching + deck-detail parity** - delete every
+  - [x] 61c. **Delete-all-matching + deck-detail parity** - delete every
     card matching the active search, and a Delete action on `/decks`
     detail rows.
 

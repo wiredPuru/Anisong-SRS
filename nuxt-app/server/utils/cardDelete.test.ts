@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BULK_DELETE_MAX, parseDeleteBody } from "./cardDelete.ts";
+import { BULK_DELETE_MAX, parseDeleteBody, parseMatchingQuery } from "./cardDelete.ts";
 
 describe("parseDeleteBody", () => {
   it("accepts a single id", () => {
@@ -26,5 +26,18 @@ describe("parseDeleteBody", () => {
 
   it.each([[{}], [null], ["7"], [{ id: "7" }]])("rejects a body with no usable id %j", (body) => {
     expect(parseDeleteBody(body)).toHaveProperty("error");
+  });
+});
+
+describe("parseMatchingQuery", () => {
+  it("trims a real search", () => {
+    expect(parseMatchingQuery("  lisa ")).toBe("lisa");
+  });
+
+  it("rejects a missing, blank, or non-string query", () => {
+    expect(parseMatchingQuery(undefined)).toBeNull();
+    expect(parseMatchingQuery("")).toBeNull();
+    expect(parseMatchingQuery("   ")).toBeNull();
+    expect(parseMatchingQuery(["a", "b"])).toBeNull();
   });
 });
