@@ -444,7 +444,7 @@ h1 {
   flex: none;
   width: 34px;
   height: 48px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
   object-fit: cover;
 }

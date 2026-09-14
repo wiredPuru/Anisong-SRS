@@ -1316,7 +1316,6 @@ h1 {
 .import-toggle:hover,
 .import-toggle:focus-visible,
 .import-toggle.active {
-  outline: none;
   border-color: var(--border);
   color: var(--text);
 }
@@ -1529,8 +1528,6 @@ h1 {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--accent);
-  color-scheme: dark;
   cursor: pointer;
 }
 
@@ -1579,7 +1576,7 @@ h1 {
 .cover-thumb {
   width: 34px;
   height: 48px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   object-fit: cover;
 }
 
@@ -1635,7 +1632,7 @@ h1 {
 
 .badge {
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   font-size: 11px;
   font-weight: 700;

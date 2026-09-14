@@ -94,9 +94,7 @@ onUnmounted(() => {
 
 .auto-reveal-countdown.immersive-glass .label,
 .auto-reveal-countdown.immersive-glass .count {
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
+  text-shadow: var(--text-shadow-overlay);
 }
 
 .label {

@@ -373,9 +373,7 @@ watch(
 }
 
 .info-card.overlay :is(.en, .romaji, .jp, .value, .label) {
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
+  text-shadow: var(--text-shadow-overlay);
 }
 
 /* Overlay-only font-size overrides - more specific than the base rules below

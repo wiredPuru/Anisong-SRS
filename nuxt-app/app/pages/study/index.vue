@@ -1214,11 +1214,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: pointer;
 }
 
-.info-reveal-target:focus-visible {
-  outline: 2px solid var(--accent-secondary);
-  outline-offset: 2px;
-}
-
 .info-reveal-target:disabled {
   cursor: default;
 }

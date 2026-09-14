@@ -614,6 +614,7 @@ const visualizerCanvasRef = ref<HTMLCanvasElement | null>(null);
 const visualizerActive = computed(() => showCoverArt.value && isPlaying.value);
 let visualizerRafId: number | null = null;
 let visualizerFrequencyData: Uint8Array | null = null;
+let visualizerMaskColor = "";
 
 // A single smooth closed loop around .record-disk's edge, not discrete bars -
 // the record is centered in the frame (flexbox) and the canvas matches the
@@ -689,10 +690,11 @@ function drawVisualizerFrame() {
   // always allowed regardless of CORS (only *reading* pixels back out via
   // getImageData is restricted), so this never needs the visible
   // record-label <img> to grant anything - it works or falls back to this
-  // solid mask color exactly the same way either way. The heavy CSS blur on
-  // .visualizer-canvas is what keeps this from reading as a tiny window
-  // into the art - the point is a wash of the cover's color, not the image.
-  ctx.strokeStyle = "rgba(200, 170, 255, 0.9)";
+  // solid mask color (--accent) exactly the same way either way. The heavy
+  // CSS blur on .visualizer-canvas is what keeps this from reading as a tiny
+  // window into the art - the point is a wash of the cover's color, not the
+  // image.
+  ctx.strokeStyle = visualizerMaskColor;
   ctx.lineWidth = VISUALIZER_LINE_WIDTH;
   ctx.lineJoin = "round";
   ctx.stroke();
@@ -712,6 +714,8 @@ function visualizerTick() {
 
 function startVisualizerLoop() {
   stopVisualizerLoop();
+  const canvas = visualizerCanvasRef.value;
+  if (canvas) visualizerMaskColor = getComputedStyle(canvas).getPropertyValue("--accent").trim();
   visualizerTick();
 }
 
@@ -1225,9 +1229,9 @@ onUnmounted(() => stopDrag?.());
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
-    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.06) 0, rgba(255, 255, 255, 0.06) 1px, transparent 1px, transparent 6px),
+    repeating-radial-gradient(circle, var(--record-groove) 0, var(--record-groove) 1px, transparent 1px, transparent 6px),
     var(--bg);
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--record-shadow);
   animation: record-spin 3.6s linear infinite;
   animation-play-state: paused;
 }
@@ -1256,7 +1260,7 @@ onUnmounted(() => stopDrag?.());
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--surface-sunken);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px var(--record-hole-ring);
 }
 
 @keyframes record-spin {
@@ -1319,7 +1323,7 @@ onUnmounted(() => stopDrag?.());
 
 .paused-veil {
   backdrop-filter: blur(18px);
-  background: rgba(10, 6, 15, 0.45);
+  background: var(--veil-paused);
   cursor: pointer;
 }
 
@@ -1343,7 +1347,7 @@ onUnmounted(() => stopDrag?.());
 }
 
 .error-veil {
-  background: rgba(53, 15, 15, 0.6);
+  background: var(--veil-error);
 }
 
 .error-veil p {
@@ -1403,7 +1407,7 @@ onUnmounted(() => stopDrag?.());
   max-width: 80%;
   padding: 10px 18px;
   border-radius: var(--radius-pill);
-  background: rgba(7, 7, 13, 0.72);
+  background: var(--veil-status);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 14px;

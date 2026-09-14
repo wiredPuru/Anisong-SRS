@@ -122,7 +122,7 @@ function isActive(to: string): boolean {
   right: 10px;
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-secondary);
   box-shadow: 0 0 6px var(--accent-secondary);
 }

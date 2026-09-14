@@ -58,7 +58,6 @@ async function setEnabled(next: boolean) {
 .auto-download-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--accent);
   cursor: pointer;
 }
 

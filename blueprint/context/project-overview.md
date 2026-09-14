@@ -145,13 +145,12 @@ rather than merely extending it. Feature 61 (card deletion and bulk delete,
 in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13
 and is now built and merged in full; it amended `project-plan.md`'s §3
 "Flashcard CRUD" bullet. Feature 62 (a cute/moe soft retheme, in two
-sub-features 62a-62b) was added to `build-plan.md` on 2026-09-14; 62a is
-built and merged, 62b is not started. It replaces feature 50's Akiba Neon
+sub-features 62a-62b) was added to `build-plan.md` on 2026-09-14 and is now
+built and merged in full. It replaces feature 50's Akiba Neon
 look with a gruvbox-inspired soft dark palette (rose and light sky blue
 accents), playful handwritten Japanese-capable fonts, and rounder corners, and
 rewrote the first two bullets of `project-plan.md` §7 to put cute/moe ahead
-of the Akihabara arcade style. The token-driven retheme is live; colors still
-hard-coded inside components wait on 62b (see UI/UX below).
+of the Akihabara arcade style.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1150,8 +1149,7 @@ hard-coded inside components wait on 62b (see UI/UX below).
       page whenever cards remain unloaded, since deleted rows shift later
       page offsets and an emptied list hid the infinite-scroll sentinel,
       showing "No cards yet" while cards remained.
-62. **Cute/moe soft retheme** - in progress, in two sub-features (62a
-    done, 62b not started). Added to `build-plan.md` 2026-09-14. Replaces
+62. **Cute/moe soft retheme** - done, in two sub-features. Added to `build-plan.md` 2026-09-14. Replaces
     feature 50's Akiba Neon arcade look with a cute, moe, lo-fi one: a
     gruvbox-inspired soft dark palette (warm charcoal-brown ground, cream
     text, muted pastel accents with rose primary and light sky blue
@@ -1183,12 +1181,21 @@ hard-coded inside components wait on 62b (see UI/UX below).
       browser blue/grey, seven hard-coded `border-radius` pixel values
       (`/cards`' 3px VID/AUD `.badge`), and `--faint` on `--surface-raised`
       at 3.9:1.
-    - **62b. Hard-coded color sweep + contrast pass** - not started.
-      Replace the literal colors still inside components (modal backdrops,
-      `StudyMediaPlayer`'s error and loading veils, the visualizer ring
-      stroke, the record texture) with tokens, then check text, badges,
-      focus rings, active tabs, and pass/fail on every screen for
-      legibility on the new ground.
+    - **62b. Hard-coded color sweep + contrast pass** - done 2026-09-14.
+      Every color literal left in components moved onto new `main.css`
+      tokens: `--scrim` (all five modal backdrops), `--veil-paused`,
+      `--veil-error`, `--veil-status`, `--record-groove`,
+      `--record-hole-ring`, `--record-shadow`, and `--text-shadow-overlay`,
+      all in the palette's warm brown-black or cream rather than violet or
+      pure black. The visualizer ring's canvas mask reads `--accent` through
+      `getComputedStyle` once per loop start. `body` sets `accent-color:
+      var(--accent)` and `color-scheme: dark`, so native checkboxes are rose
+      and never white; `--radius-xs` (6px) rounds cover thumbnails, and VID/AUD
+      badges are pills. `--faint` rose to `#b0a08d` (4.56:1 on
+      `--surface-raised`, every text token now 4.5:1+ on every surface), and
+      one global `:focus-visible` ring uses `--focus-ring` (sky). The only
+      follow-up left open: the active segment in segmented controls (Decks,
+      Stats) is marked by a fill 1.13:1 against its surface.
 
 ## Data model
 
@@ -1430,17 +1437,16 @@ Non-profit. No monetization planned.
 
 ## UI/UX
 
-**Current look (feature 62a, 2026-09-14):** cute and moe first - soft,
+**Current look (feature 62, 2026-09-14):** cute and moe first - soft,
 playful, a little cartoony, read through a lo-fi gruvbox-inspired palette: a
 warm charcoal-brown ground, cream text, and muted pastel accents (rose
 primary, light sky blue secondary) in place of neon, with playful handwritten
 Japanese-capable type (Yusei Magic display, Klee One body) and rounded
 corners on panels and controls, full pills kept for buttons and badges. The
 rail has no logo tile. Cute/moe takes priority over the Akihabara arcade
-signage style feature 50 introduced. 62a changed token values only, so a few
-colors and corner sizes still hard-coded inside components (modal backdrops,
-`StudyMediaPlayer`'s veils and visualizer ring, native checkboxes, the Cards
-source badges) keep the old look until 62b.
+signage style feature 50 introduced. Every color a component uses comes from a
+`main.css` token, including modal scrims, the player's veils and record, and
+native form controls; keyboard focus shows one sky-blue ring everywhere.
 
 **Before 62a (feature 50):** Akihabara arcade signage - the same
 otaku-culture reference, read through neon storefronts and game-centre

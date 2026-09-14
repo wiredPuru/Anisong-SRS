@@ -360,7 +360,7 @@ watch(
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 6, 15, 0.7);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;

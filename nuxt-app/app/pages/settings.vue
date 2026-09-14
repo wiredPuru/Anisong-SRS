@@ -464,7 +464,7 @@ async function importDeck() {
 .update-link {
   align-self: flex-start;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--accent);
   color: var(--accent);
   font-size: 13px;
