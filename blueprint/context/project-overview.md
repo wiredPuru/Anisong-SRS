@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 838e2e8f79d0f1d94a8733321a74baa2ec6ad6aaffe03d528b562bf904d9ae16 -->
+<!-- blueprint:source-hash 4f35898f04599f94413c1f6d159e7d4b89a646b2f9b8eb08163d251488b4157a -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -142,9 +142,9 @@ metadata and clip-URL source, in three sub-features 60a-60c) was added to
 `project-plan.md`'s §3 "Anime & song lookup" bullet and added a §5 Tech line,
 since it introduces a new external provider that outranks animethemes.moe
 rather than merely extending it. Feature 61 (card deletion and bulk delete,
-in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13;
-61a and 61b are built and merged, 61c is not yet built; it amended `project-plan.md`'s §3 "Flashcard CRUD"
-bullet.
+in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13
+and is now built and merged in full; it amended `project-plan.md`'s §3
+"Flashcard CRUD" bullet.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1097,8 +1097,7 @@ bullet.
       Settings action that re-resolves cards still holding animethemes.moe
       URLs and no local file, swapping in the faster host where a confident
       match exists.
-61. **Card deletion and bulk delete** - in three sub-features; 61a and
-    61b are done, 61c is not yet built. Added to `build-plan.md` 2026-09-13 after a report that
+61. **Card deletion and bulk delete** - done, in three sub-features. Added to `build-plan.md` 2026-09-13 after a report that
     cards could not be deleted. `DELETE /api/cards` and feature 17's file
     cleanup already worked; the gap was that since feature 50c, Delete
     lives only in `/cards`' inspector rail, one card at a time, with no
@@ -1128,7 +1127,20 @@ bullet.
       new search. The inspector's single Delete gained the same confirm. Known
       pre-existing issue, not addressed: between the 820px breakpoint and
       about 1100px the table's Song column measures 0px wide.
-    - **61c. Delete-all-matching + deck-detail parity** - not yet built.
+    - **61c. Delete-all-matching + deck-detail parity** - done 2026-09-13.
+      `GET /api/cards/ids?q=` (`listCardIds`, `server/utils/cards.ts`)
+      returns every card id matching `cardSearchCondition`, unpaged, and
+      rejects a blank query with `400` (`parseMatchingQuery`), so it can
+      never match the whole library. `/cards` shows a "Delete all N
+      matching" bar with an inline confirm only while a search is active;
+      Confirm fetches the ids and runs them through 61b's
+      `deleteSelected`. `/decks` detail rows on all three deck types gained
+      a per-row Delete with a one-row inline confirm; on created decks it
+      sits beside Remove and its copy says it deletes from the library, not
+      just the deck. A review fix made `deleteSelected` reload the first
+      page whenever cards remain unloaded, since deleted rows shift later
+      page offsets and an emptied list hid the infinite-scroll sentinel,
+      showing "No cards yet" while cards remained.
 
 ## Data model
 
