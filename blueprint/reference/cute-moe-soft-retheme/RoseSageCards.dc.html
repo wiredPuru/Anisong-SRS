@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&amp;family=Zen+Maru+Gothic:wght@500;700;900&amp;family=Klee+One:wght@400;600&amp;family=Yusei+Magic&amp;family=Hachi+Maru+Pop&amp;family=Yomogi&amp;display=swap">
+  <style>
+    body { margin: 0; background: #2a2826; font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; color: #ebdbb2; }
+    a { color: #e0a1b5; } a:hover { color: #eab4c4; }
+    rt { font-size: 11px; color: #a39381; font-weight: 400; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #2a2826; overflow: hidden;">
+  <nav style="flex: none; width: 82px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 0; background: #252321; border-right: 1px solid #4a4542;">
+    <div style="width: 40px; height: 40px; margin-bottom: 14px; border-radius: 14px; background: #e0a1b5; color: #2a2826; display: flex; align-items: center; justify-content: center; font-family: 'Zen Maru Gothic', 'M PLUS Rounded 1c', system-ui, sans-serif; font-size: 19px; font-weight: 700;">歌</div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5l6.5 6.5L9 15.5 2.5 9z"></path></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Home</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5v11l9-5.5z"></path></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Study</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: #473a3c; color: #e0a1b5;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#e0a1b5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="3"></rect><path d="M6 7h6M6 11h6"></path></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Cards</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="6" height="12" rx="2"></rect><rect x="9.5" y="3" width="6" height="12" rx="2"></rect></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Decks</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15V9M9 15V4M14.5 15v-4"></path></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Stats</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="2.6"></circle><path d="M9 2.5v2M9 13.5v2M2.5 9h2M13.5 9h2M4.4 4.4l1.4 1.4M12.2 12.2l1.4 1.4M4.4 13.6l1.4-1.4M12.2 5.8l1.4-1.4"></path></svg>
+      <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Settings</span>
+    </div>
+  </nav>
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+    <header style="flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px) minmax(0, 1fr); align-items: center; gap: 20px; padding: 16px 28px; background: #252321; border-bottom: 1px solid #4a4542;">
+      <div style="display: flex; align-items: baseline; gap: 10px;"><span style="font-family: 'Zen Maru Gothic', 'M PLUS Rounded 1c', system-ui, sans-serif; font-size: 24px; font-weight: 700;">Cards</span><span style="font-size: 13px; color: #a39381;">55 total</span></div>
+      <span style="display: block; padding: 11px 16px; border-radius: 999px; border: 1px solid #4a4542; background: #32302f; color: #a39381; font-size: 15px;">Search to find or add a card...</span>
+      <span style="justify-self: end; font-size: 13px; font-weight: 700; color: #bdae93;">Import list</span>
+    </header>
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 400px;">
+      <div style="min-width: 0; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: #2a2826; border-bottom: 1px solid #4a4542;">
+          <span style="margin-right: auto; font-weight: 800; color: #a7c79a;">2 selected</span>
+          <span style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; border: 1px solid #4a4542; background: #3c3836; font-size: 13px; font-weight: 700;">KEY <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5l3 3 3-3"></path></svg></span>
+          <span style="padding: 6px 14px; border-radius: 999px; border: 1px solid #4a4542; font-size: 13px; font-weight: 700;">Add to deck</span>
+          <span style="padding: 6px 14px; border-radius: 999px; border: 1px solid #4a4542; font-size: 13px; font-weight: 700;">Clear selection</span>
+          <span style="padding: 6px 14px; border-radius: 999px; border: 1px solid #ec8f86; color: #ec8f86; font-size: 13px; font-weight: 700;">Delete</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 20px 24px;">
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="width: 18px; height: 18px; border-radius: 6px; background: #e0a1b5; display: flex; align-items: center; justify-content: center;"><span style="width: 9px; height: 2px; border-radius: 2px; background: #2a2826;"></span></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; padding: 0 14px 4px;"><span></span><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Song</span><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Anime</span><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Sources</span><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Due</span></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #5a4b4d;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Kimi ga Yume wo Tsuretekita</span><span style="font-size: 13px; color: #bdae93;">Ai Kayano</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">The Pet Girl of Sakurasou <span style="color: #a39381;">OP1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e0a1b5;">Today</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #5a4b4d;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Yume no Tsuzuki</span><span style="font-size: 13px; color: #bdae93;">Konomi Suzuki</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">The Pet Girl of Sakurasou <span style="color: #a39381;">OP2</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e0a1b5;">Today</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; border-radius: 6px; background: #e0a1b5; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#2a2826" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #403737; border: 1px solid #e0a1b5;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #51554a;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Toki wo Kizamu Uta</span><span style="font-size: 13px; color: #bdae93;">Lia</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Clannad: After Story <span style="color: #a39381;">OP1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e0a1b5;">Today</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; border-radius: 6px; background: #e0a1b5; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#2a2826" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #51554a;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">TORCH</span><span style="font-size: 13px; color: #bdae93;">Lia</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Clannad: After Story <span style="color: #a39381;">ED1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e0a1b5;">Today</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #574e41;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Megumeru ~cuckool mix 2007~</span><span style="font-size: 13px; color: #bdae93;">eufonius</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Clannad <span style="color: #a39381;">OP1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #bdae93;">in 2d</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #4f4f41;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Undine</span><span style="font-size: 13px; color: #bdae93;">Yui Makino</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ARIA The ANIMATION <span style="color: #a39381;">OP1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #bdae93;">in 3d</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #5a4b4d;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Ame nochi Hare</span><span style="font-size: 13px; color: #bdae93;">Rita</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Little Busters! <span style="color: #a39381;">ED3</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e6c07b;">new</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #5a4b4d;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Little Busters! ~TV animation ver.~</span><span style="font-size: 13px; color: #bdae93;">Rita</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Little Busters! <span style="color: #a39381;">ED4</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #e6c07b;">new</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;">
+            <span style="flex: none; width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #a39381;"></span>
+            <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 200px 140px 92px; gap: 14px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #32302f; border: 1px solid transparent;">
+              <span style="width: 34px; height: 48px; border-radius: 8px; background: #5a4b4d;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Alicemagic ~TV animation ver.~</span><span style="font-size: 13px; color: #bdae93;">Rita</span></span>
+              <span style="font-size: 13px; color: #bdae93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Little Busters! <span style="color: #a39381;">ED1</span></span>
+              <span style="display: flex; gap: 5px;"><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">VID</span><span style="padding: 2px 9px; border-radius: 999px; border: 1px solid #4a4542; color: #a7c79a; font-size: 11px; font-weight: 800;">AUD</span></span>
+              <span style="font-size: 13px; font-weight: 800; color: #bdae93;">in 7d</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <aside style="min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 26px; background: #252321; border-left: 1px solid #4a4542;">
+        <div style="display: flex; gap: 16px; align-items: flex-start;">
+          <span style="flex: none; width: 96px; height: 136px; box-sizing: border-box; padding: 8px; border-radius: 14px; background: #51554a; display: flex; align-items: flex-end;"><span style="padding: 2px 9px; border-radius: 999px; background: #2a2826; color: #ebdbb2; font-size: 11px; font-weight: 800;">OP1</span></span>
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <span style="font-family: 'Zen Maru Gothic', 'M PLUS Rounded 1c', system-ui, sans-serif; font-size: 24px; font-weight: 700; line-height: 1.25;">Toki wo Kizamu Uta</span>
+            <span style="font-size: 14px; color: #bdae93;">Lia</span>
+            <span style="font-size: 14px; color: #bdae93;">Clannad: After Story</span>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #32302f; border: 1px solid #4a4542;"><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Due</span><span style="font-family: 'Zen Maru Gothic', 'M PLUS Rounded 1c', system-ui, sans-serif; font-size: 21px; font-weight: 700; color: #e0a1b5;">Today</span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #32302f; border: 1px solid #4a4542;"><span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Box</span><span style="font-family: 'Zen Maru Gothic', 'M PLUS Rounded 1c', system-ui, sans-serif; font-size: 21px; font-weight: 700; color: #bdae93;">Box 1</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Sources</span>
+          <span style="font-size: 13px; color: #bdae93;">Remote video</span><span style="font-size: 13px; color: #bdae93;">Remote audio</span>
+          <div style="display: flex; gap: 8px;"><span style="padding: 6px 14px; border-radius: 999px; border: 1px solid #a7c79a; color: #a7c79a; font-size: 13px; font-weight: 700; white-space: nowrap;">Download video</span><span style="padding: 6px 14px; border-radius: 999px; border: 1px solid #a7c79a; color: #a7c79a; font-size: 13px; font-weight: 700; white-space: nowrap;">Download audio</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Decks</span>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: #3c3836; border: 1px solid #4a4542;">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 14px;"><span style="flex: none; width: 18px; height: 18px; border-radius: 6px; background: #e0a1b5; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#2a2826" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></span> KEY</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px;"><span style="padding: 7px 16px; border-radius: 999px; border: 1px solid #e0a1b5; color: #e0a1b5; font-size: 13px; font-weight: 700; white-space: nowrap;">Edit card</span><span style="padding: 7px 16px; border-radius: 999px; border: 1px solid #ec8f86; color: #ec8f86; font-size: 13px; font-weight: 700; white-space: nowrap;">Delete</span></div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

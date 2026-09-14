@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 4f35898f04599f94413c1f6d159e7d4b89a646b2f9b8eb08163d251488b4157a -->
+<!-- blueprint:source-hash c1f8362aa021629f945ea6b870a76bbb73e2149dd7f772c05271ef2ab214eadf -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -144,7 +144,14 @@ since it introduces a new external provider that outranks animethemes.moe
 rather than merely extending it. Feature 61 (card deletion and bulk delete,
 in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13
 and is now built and merged in full; it amended `project-plan.md`'s §3
-"Flashcard CRUD" bullet.
+"Flashcard CRUD" bullet. Feature 62 (a cute/moe soft retheme, in two
+sub-features 62a-62b) was added to `build-plan.md` on 2026-09-14; 62a is
+built and merged, 62b is not started. It replaces feature 50's Akiba Neon
+look with a gruvbox-inspired soft dark palette (rose and light sky blue
+accents), playful handwritten Japanese-capable fonts, and rounder corners, and
+rewrote the first two bullets of `project-plan.md` §7 to put cute/moe ahead
+of the Akihabara arcade style. The token-driven retheme is live; colors still
+hard-coded inside components wait on 62b (see UI/UX below).
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -216,8 +223,10 @@ and is now built and merged in full; it amended `project-plan.md`'s §3
       /api/decks` create/rename/delete a manual deck (name trimmed,
       duplicate-checked); a third "Created" toggle on `/decks` lists them
       with inline rename/delete. A manual deck's detail view suppresses
-      "Study this deck" and the export block - `StudyScope` and export both
-      still only cover artist/anime, deliberately not extended here.
+      the export block, which still only covers artist/anime. It also hid
+      "Study this deck" until the `study-manual-deck` fix (2026-09-14)
+      added `{ type: "created"; id }` to `StudyScope`, so a created deck
+      can be studied on its own.
     - **13b. Card assignment** - done. `deck_card` join table (own `id` PK
       plus a `(deckId, cardId)` unique, cascading both ways); `POST`/`DELETE
       /api/decks/cards` add/remove a card from a deck (idempotent both
@@ -1141,6 +1150,45 @@ and is now built and merged in full; it amended `project-plan.md`'s §3
       page whenever cards remain unloaded, since deleted rows shift later
       page offsets and an emptied list hid the infinite-scroll sentinel,
       showing "No cards yet" while cards remained.
+62. **Cute/moe soft retheme** - in progress, in two sub-features (62a
+    done, 62b not started). Added to `build-plan.md` 2026-09-14. Replaces
+    feature 50's Akiba Neon arcade look with a cute, moe, lo-fi one: a
+    gruvbox-inspired soft dark palette (warm charcoal-brown ground, cream
+    text, muted pastel accents with rose primary and light sky blue
+    secondary), playful handwritten Japanese-capable fonts (Yusei Magic for
+    display, Klee One for body), and rounder corners. A retheme only, like
+    feature 50: no data model, route, or behaviour changes, and no layout
+    change beyond removing the rail's logo tile. Cute/moe takes priority over
+    the Akihabara arcade style; decorative art or mascots are not part of it.
+    The look was locked on a design canvas
+    (https://claude.ai/code/artifact/5b66c1b4-df8d-40c3-af72-8125b93dd267),
+    whose artboards are saved under
+    `blueprint/reference/cute-moe-soft-retheme/`: the user picked Option B
+    "Rose & sky" (`RoseSky*` files, `Main.dc.html` is its Study) with the
+    Yusei Magic + Klee One pairing; Option A (rose and sage, rounded fonts)
+    and Option C "Twilight" are kept there unchosen. Rewrote
+    `project-plan.md` §7's first two bullets.
+    - **62a. Palette, fonts, and radii tokens** - done 2026-09-14. Every
+      color token in `main.css` took Option B's value under its existing
+      name (ground `#2a2826`, text `#ebdbb2`, `--accent` `#e8a4bd`,
+      `--accent-secondary` `#a3c9e2`, `--pass` `#b3c98a`, `--fail`
+      `#e98a72`; glows, `--shadow-soft`, and glass colors re-derived), the
+      Google Fonts link loads Yusei Magic and Klee One (400, 600),
+      `--radius`/`--radius-sm` went from 6px/4px to 14px/10px, and
+      `NavBar.vue`'s `歌` logo tile was removed. Klee One's heaviest face is
+      600, so the app's 700-900 weights render with it. Google splits both
+      families into ~120 unicode-range subsets loaded on demand, so
+      `document.fonts.check()` stays false and cannot verify them - measure
+      rendered width instead. Left for 62b: native checkboxes still in
+      browser blue/grey, seven hard-coded `border-radius` pixel values
+      (`/cards`' 3px VID/AUD `.badge`), and `--faint` on `--surface-raised`
+      at 3.9:1.
+    - **62b. Hard-coded color sweep + contrast pass** - not started.
+      Replace the literal colors still inside components (modal backdrops,
+      `StudyMediaPlayer`'s error and loading veils, the visualizer ring
+      stroke, the record texture) with tokens, then check text, badges,
+      focus rings, active tabs, and pass/fail on every screen for
+      legibility on the new ground.
 
 ## Data model
 
@@ -1296,8 +1344,13 @@ and 6b):
 
 ```ts
 type DeckRef = { type: "artist"; id: number } | { type: "anime"; id: number };
-type StudyScope = { type: "all" } | DeckRef;
+type StudyScope = { type: "all" } | DeckRef | { type: "created"; id: number };
 ```
+
+`created` is a manual deck (feature 13), added to `StudyScope` by the
+`study-manual-deck` fix (2026-09-14) and filtered through `DeckCard`
+membership in `dueCardCondition`. It is deliberately not part of `DeckRef`,
+which deck export still uses and which still covers only artist/anime.
 
 ### Study scope playback preference (abandoned, feature 18)
 
@@ -1377,11 +1430,25 @@ Non-profit. No monetization planned.
 
 ## UI/UX
 
-Akihabara arcade signage - the same otaku-culture reference, read through
-neon storefronts and game-centre panels rather than soft cartoon shapes.
-Dark blue-black ground, sakura pink primary accent, cyan secondary; tight
-radii on panels and controls, with full pills kept for buttons and badges.
-A persistent left rail navigates, and content sits in split panes using the
+**Current look (feature 62a, 2026-09-14):** cute and moe first - soft,
+playful, a little cartoony, read through a lo-fi gruvbox-inspired palette: a
+warm charcoal-brown ground, cream text, and muted pastel accents (rose
+primary, light sky blue secondary) in place of neon, with playful handwritten
+Japanese-capable type (Yusei Magic display, Klee One body) and rounded
+corners on panels and controls, full pills kept for buttons and badges. The
+rail has no logo tile. Cute/moe takes priority over the Akihabara arcade
+signage style feature 50 introduced. 62a changed token values only, so a few
+colors and corner sizes still hard-coded inside components (modal backdrops,
+`StudyMediaPlayer`'s veils and visualizer ring, native checkboxes, the Cards
+source badges) keep the old look until 62b.
+
+**Before 62a (feature 50):** Akihabara arcade signage - the same
+otaku-culture reference, read through neon storefronts and game-centre
+panels. Dark blue-black ground, sakura pink primary accent, cyan secondary;
+tight radii on panels and controls, with full pills kept for buttons and
+badges.
+
+Unchanged by either: a persistent left rail navigates, and content sits in split panes using the
 full window width instead of a centered single column. Past roughly 2560px
 of viewport width, the main content column caps and centers itself instead
 of continuing to stretch (feature 57) - full-bleed below that
@@ -1391,7 +1458,7 @@ as real, selectable DOM text (never baked into an image or video) so the
 Migaku browser extension can attach to it. Theme tokens (colors, fonts,
 radii) live in `nuxt-app/app/assets/css/main.css`.
 
-**This is the current state**, shipped in full by feature 50 (2026-09-03):
+**Feature 50's shipped state** (2026-09-03), whose token values feature 62a replaced on 2026-09-14:
 tight radii, the blue-black ground, cyan `--accent-secondary`, RocknRoll One
 + Zen Kaku Gothic New, and the left rail replacing the earlier top nav bar
 (`NavBar.vue` is now the rail - same component, restyled by 50a, not
@@ -1409,6 +1476,10 @@ with no fullscreen surface.
 Established conventions across every page/route built so far: `useFetch` for
 the initial load (with explicit loading/error states, never just the happy
 path), `$fetch` for mutations, scoped `<style>` blocks using `var(--token)`.
+A list row whose only control is one button fires that action when the row
+itself is clicked (shared `.row-clickable` class in `main.css`, the button
+keeping `@click.stop`), and stops once the row has more than one action -
+the `click-single-action-rows` fix (2026-09-14).
 No dynamic route segments (`[id].ts`) exist anywhere yet - every route uses
 query-string parameters (`/decks`' `?type=&id=`, `/cards`' `?q=`) or a
 body-carried `id` for mutations, and that convention should continue rather
@@ -1456,14 +1527,21 @@ Routes:
   route param in the app besides `/decks`' existing `?type=&id=`.
   `/cards` has no separate "Add card" button: the search box itself is
   the add affordance, advertised by the hint line under the heading and
-  by the empty state.
+  by the empty state. Feature 61b's selection bar also carries a deck
+  picker and "Add to deck" (`bulk-add-cards-to-deck` fix, 2026-09-14),
+  backed by `POST /api/decks/cards` accepting `{ deckId, cardIds }`
+  alongside `{ deckId, cardId }`.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle
   for manual decks - create/rename/delete inline, real card counts and card
   list once 13b landed, with a per-card "Remove" action found only in the
-  manual-deck detail view. Neither "Study this deck" nor the export block
-  appears there. Feature 22 added a per-row "Preview" button to the detail
+  manual-deck detail view. The export block does not appear there;
+  "Study this deck" does, since the `study-manual-deck` fix (2026-09-14).
+  Both headers (the deck grid and a deck's detail view) group their search,
+  the By title / By artist / Created tabs, and the Study button into one
+  row centered in the top bar (`center-decks-header-controls` fix,
+  2026-09-14). Feature 22 added a per-row "Preview" button to the detail
   card list (all three deck types), reusing `CardPreviewModal` unchanged.
   Feature 35b replaced the top-level list's numbered pagination with a
   per-tab search box plus scroll-triggered "load more"; feature 35c did the

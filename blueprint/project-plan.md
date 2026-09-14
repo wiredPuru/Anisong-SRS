@@ -117,14 +117,16 @@ Non-profit. No monetization planned.
 
 ## 7. UI/UX - How should this look and feel?
 
-- Akihabara arcade signage, not cute/moe - the same otaku-culture reference
-  point, read through neon storefronts and game-centre panels rather than
-  soft cartoon shapes. Dark blue-black ground, sakura pink as the primary
-  accent, cyan as the secondary. Superseded an earlier "cute/moe, a little
-  cartoony" direction (build 50).
-- Tight corners, not rounded throughout - small radii on panels and controls,
-  with full pills reserved for buttons and badges. Also a reversal of the
-  earlier direction, made deliberately in build 50.
+- Cute and moe first: soft, playful, a little cartoony, read through a
+  lo-fi gruvbox-inspired palette - a warm charcoal-brown ground, cream text,
+  and muted pastel accents (rose primary, light sky blue secondary) in place
+  of neon. Playful, handwritten Japanese-capable type (Yusei Magic for
+  display, Klee One for body). Cute/moe takes priority over the
+  Akihabara arcade signage direction build 50 introduced, which this
+  supersedes (build 62).
+- Rounded corners on panels and controls, with full pills kept for buttons
+  and badges. Reverses build 50's tight radii back toward the earlier
+  rounded-throughout look (build 62).
 - App layout: a persistent left rail for navigation, with content in split
   panes that use the full window width, rather than a centered single column.
   Past roughly 2560px of viewport width, the main content column caps and

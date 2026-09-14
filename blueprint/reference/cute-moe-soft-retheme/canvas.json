@@ -1,0 +1,169 @@
+{
+  "pages": [
+    {
+      "id": "option-b",
+      "name": "Option B \u00b7 Rose & sky"
+    },
+    {
+      "id": "option-c",
+      "name": "Option C \u00b7 Twilight"
+    },
+    {
+      "id": "fonts",
+      "name": "Handwritten fonts"
+    },
+    {
+      "id": "option-a",
+      "name": "Option A \u00b7 Rose & sage (earlier)"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "RoseSageTokens.dc.html",
+      "title": "Tokens",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1180,
+      "page": "option-a"
+    },
+    {
+      "file": "RoseSageStudy.dc.html",
+      "title": "Study",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "option-a"
+    },
+    {
+      "file": "RoseSageCards.dc.html",
+      "title": "Cards",
+      "x": 0,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-a"
+    },
+    {
+      "file": "RoseSageDecks.dc.html",
+      "title": "Decks",
+      "x": 1560,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-a"
+    },
+    {
+      "file": "RoseSkyTokens.dc.html",
+      "title": "Tokens",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1180,
+      "page": "option-b"
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "Study",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "option-b"
+    },
+    {
+      "file": "RoseSkyCards.dc.html",
+      "title": "Cards",
+      "x": 0,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-b"
+    },
+    {
+      "file": "RoseSkyDecks.dc.html",
+      "title": "Decks",
+      "x": 1560,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-b"
+    },
+    {
+      "file": "TwilightTokens.dc.html",
+      "title": "Tokens",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1180,
+      "page": "option-c"
+    },
+    {
+      "file": "TwilightStudy.dc.html",
+      "title": "Study",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "option-c"
+    },
+    {
+      "file": "TwilightCards.dc.html",
+      "title": "Cards",
+      "x": 0,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-c"
+    },
+    {
+      "file": "TwilightDecks.dc.html",
+      "title": "Decks",
+      "x": 1560,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "option-c"
+    },
+    {
+      "file": "Fonts.dc.html",
+      "title": "Fonts",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "fonts"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief-b",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "page": "option-b",
+      "text": "Option B - Rose & sky. Same warm charcoal ground as A, sage swapped for a light sky blue. Fail moved toward orange so it no longer reads as the pink accent. Handwritten type, no rail logo."
+    },
+    {
+      "id": "brief-c",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "page": "option-c",
+      "text": "Option C - Twilight. A cooler plum-charcoal ground with sakura pink and baby blue: dreamier and more anime-night, but further from gruvbox's warm brown. Handwritten type, no rail logo."
+    },
+    {
+      "id": "brief-a",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "page": "option-a",
+      "text": "Option A - the first draft, kept for comparison: rose and sage, rounded (not handwritten) type, rail logo."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "option-b"
+  }
+}

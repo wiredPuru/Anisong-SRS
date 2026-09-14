@@ -530,6 +530,23 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 61c. **Delete-all-matching + deck-detail parity** - delete every
     card matching the active search, and a Delete action on `/decks`
     detail rows.
+- [ ] 62. **Cute/moe soft retheme** - replace Akiba Neon's harsh arcade look
+  with a cute, moe, lo-fi one: gruvbox-inspired soft dark palette (warm
+  charcoal ground, cream text, muted pastel accents), playful handwritten
+  Japanese-capable fonts, and rounder corners. Returns to the cute/moe
+  direction build 50 moved away from, now prioritized over the Akihabara
+  arcade style. A retheme only - no data model, route, layout, or behaviour
+  changes apart from removing the rail's logo tile. The look is locked first in a design mockup saved under
+  `blueprint/reference/`, then ported.
+  - [x] 62a. **Palette, fonts, and radii tokens** - port the approved
+    mockup's colors (including glow, glass, and shadow tokens), fonts, and
+    radii into `main.css` and the Google Fonts link, retheming every
+    token-driven surface at once, and removes the rail's logo tile.
+  - [ ] 62b. **Hard-coded color sweep + contrast pass** - replace the literal
+    colors still inside components (modal backdrops, the player's error and
+    loading veils, the visualizer ring stroke, the record texture) with
+    tokens, then check text, badges, focus rings, active tabs, and
+    pass/fail on every screen for legibility on the new ground.
 
 ## Plan maintenance
 

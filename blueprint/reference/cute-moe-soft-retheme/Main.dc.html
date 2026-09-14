@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&amp;family=Zen+Maru+Gothic:wght@500;700;900&amp;family=Klee+One:wght@400;600&amp;family=Yusei+Magic&amp;family=Hachi+Maru+Pop&amp;family=Yomogi&amp;display=swap">
+  <style>
+    body { margin: 0; background: #2a2826; font-family: 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; color: #ebdbb2; }
+    a { color: #e8a4bd; } a:hover { color: #f0b9cc; }
+    rt { font-size: 11px; color: #a39381; font-weight: 400; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #2a2826; overflow: hidden;">
+  <nav style="flex: none; width: 82px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 0; background: #252321; border-right: 1px solid #4a4542;">
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5l6.5 6.5L9 15.5 2.5 9z"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Home</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: #483a3d; color: #e8a4bd;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#e8a4bd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5v11l9-5.5z"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Study</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="3"></rect><path d="M6 7h6M6 11h6"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Cards</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="6" height="12" rx="2"></rect><rect x="9.5" y="3" width="6" height="12" rx="2"></rect></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Decks</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15V9M9 15V4M14.5 15v-4"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Stats</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #bdae93;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="2.6"></circle><path d="M9 2.5v2M9 13.5v2M2.5 9h2M13.5 9h2M4.4 4.4l1.4 1.4M12.2 12.2l1.4 1.4M4.4 13.6l1.4-1.4M12.2 5.8l1.4-1.4"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Settings</span>
+    </div>
+  </nav>
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+    <header style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; background: #252321; border-bottom: 1px solid #4a4542;">
+      <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+        <span style="padding: 6px 14px; border-radius: 999px; background: #3c3836; border: 1px solid #4a4542; font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; font-size: 14px; font-weight: 400;">KEY</span>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #bdae93;">Card 3 <span style="color: #a39381;">·</span> 6 left <span style="color: #a39381;">·</span> new 0</span>
+        <span style="width: 230px; height: 6px; border-radius: 999px; background: #3c3836; overflow: hidden; display: flex;"><span style="width: 30%; background: #e8a4bd; border-radius: 999px;"></span></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; border: 1px solid #4a4542; border-radius: 999px; overflow: hidden;"><span style="padding: 7px 14px;  background: #a3c9e2; color: #2a2826; font-size: 13px; font-weight: 600;">Video</span><span style="padding: 7px 14px; border-left: 1px solid #4a4542; color: #bdae93; font-size: 13px; font-weight: 600;">Info</span></div>
+        <span style="padding: 7px 14px; border-radius: 999px; border: 1px solid #4a4542; color: #bdae93; font-size: 13px; font-weight: 600; white-space: nowrap;">Auto reveal</span>
+        <span style="padding: 7px 14px; border-radius: 999px; border: 1px solid #4a4542; color: #bdae93; font-size: 13px; font-weight: 600; white-space: nowrap;">Random start</span>
+        <span style="padding: 7px 14px; border-radius: 999px; background: #413738; border: 1px solid #e8a4bd; color: #e8a4bd; font-size: 13px; font-weight: 600; white-space: nowrap;">Ambient</span>
+        <span style="padding: 7px 14px; border-radius: 999px; border: 1px solid #4a4542; color: #bdae93; font-size: 13px; font-weight: 600; white-space: nowrap;">Audio only</span>
+        <span style="width: 34px; height: 34px; border-radius: 999px; border: 1px solid #4a4542; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="2.5" width="10" height="11" rx="2.5"></rect><path d="M5.5 6h5M5.5 9h3.5"></path></svg></span>
+      </div>
+    </header>
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 480px;">
+      <div style="min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 24px;">
+        <div style="padding: 24px; background: #32302f; border: 1px solid #4a4542; border-radius: 14px; box-shadow: 0 8px 24px rgba(20, 16, 12, 0.35); display: flex; flex-direction: column; gap: 16px;">
+          <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 14px; border: 1px solid #4a4542; overflow: hidden; background: #3c3836; display: flex; align-items: center; justify-content: center;">
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="#a39381" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="16" width="52" height="40" rx="10"></rect><circle cx="27" cy="31" r="5"></circle><path d="M14 52l15-14 10 9 8-6 13 11"></path></svg>
+            <span style="position: absolute; left: 16px; bottom: 14px; padding: 4px 12px; border-radius: 999px; background: #252321; color: #bdae93; font-size: 12px;">video frame</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="flex: none; width: 48px; height: 48px; border-radius: 999px; background: #e8a4bd; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 18 18" fill="#2a2826"><rect x="4.5" y="3.5" width="3" height="11" rx="1.5"></rect><rect x="10.5" y="3.5" width="3" height="11" rx="1.5"></rect></svg></span>
+            <span style="flex: 1; height: 6px; border-radius: 999px; background: #3c3836; border: 1px solid #4a4542; overflow: hidden; display: flex;"><span style="width: 38%; background: #a3c9e2;"></span></span>
+            <span style="min-width: 76px; text-align: right; font-size: 13px; font-weight: 600; color: #bdae93;">0:31 / 1:22</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#bdae93" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v4h3l4 3V4L6 7z"></path><path d="M12.5 6.5a3.5 3.5 0 010 5"></path></svg>
+            <span style="width: 96px; height: 6px; border-radius: 999px; background: #3c3836; display: flex;"><span style="width: 70%; background: #bdae93; border-radius: 999px;"></span></span>
+          </div>
+        </div>
+      </div>
+      <aside style="min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 26px; background: #252321; border-left: 1px solid #4a4542;">
+        <div style="padding: 26px; display: flex; flex-direction: column; gap: 20px; background: #32302f; border: 1px solid #4a4542; border-radius: 14px; box-shadow: 0 8px 24px rgba(20, 16, 12, 0.35);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; border: 1px solid #4a4542; border-radius: 999px; overflow: hidden;"><span style="padding: 6px 12px;  background: #a3c9e2; color: #2a2826; font-size: 12px; font-weight: 600;">EN</span><span style="padding: 6px 12px; border-left: 1px solid #4a4542; background: #a3c9e2; color: #2a2826; font-size: 12px; font-weight: 600;">Romaji</span><span style="padding: 6px 12px; border-left: 1px solid #4a4542; background: #a3c9e2; color: #2a2826; font-size: 12px; font-weight: 600;">日本語</span><span style="padding: 6px 12px; border-left: 1px solid #4a4542; color: #bdae93; font-size: 12px; font-weight: 600;">ふりがな</span></div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;"><span style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Learning</span><span style="font-size: 15px; font-weight: 600; color: #e6c07b;">1/3</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; font-size: 26px; font-weight: 400; line-height: 1.25;">Clannad: After Story</span>
+            <span style="font-size: 14px; color: #bdae93;">Clannad: After Story</span>
+            <span style="font-size: 22px; font-weight: 600; color: #a3c9e2;">クラナド アフターストーリー</span>
+          </div>
+          <div style="height: 1px; background: #4a4542;"></div>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Song</span><span style="font-size: 19px; font-weight: 600;">Toki wo Kizamu Uta</span><ruby style="font-size: 22px; font-weight: 600; color: #a3c9e2;">時<rt>とき</rt>を<rt></rt>刻<rt>きざ</rt>む<rt></rt>唄<rt>うた</rt></ruby></div>
+            <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Artist</span><span style="font-size: 19px; font-weight: 600;">Lia</span></div>
+            <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: #a39381;">Theme</span><span style="font-size: 19px; font-weight: 600;">OP1</span></div>
+          </div>
+        </div>
+        <div style="align-self: flex-start;"><span style="padding: 7px 16px; border-radius: 999px; border: 1px solid #e8a4bd; color: #e8a4bd; font-size: 13px; font-weight: 600; white-space: nowrap;">Edit card</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px; border-radius: 14px; border: 1px solid #e98a72; background: #453631; color: #e98a72; box-shadow: 0 4px 0 #7a5146;"><span style="font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; font-size: 22px; font-weight: 400; line-height: 1;">Fail</span><span style="font-size: 11px; font-weight: 600; letter-spacing: 1px; opacity: 0.8;">LEFT ARROW</span></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px; border-radius: 14px; border: 1px solid #b3c98a; background: #3d3f34; color: #b3c98a; box-shadow: 0 4px 0 #646c50;"><span style="font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; font-size: 22px; font-weight: 400; line-height: 1;">Pass</span><span style="font-size: 11px; font-weight: 600; letter-spacing: 1px; opacity: 0.8;">RIGHT ARROW</span></div>
+        </div>
+        <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 18px; font-size: 12px; letter-spacing: 0.4px; color: #a39381;">
+          <span><span style="color: #bdae93; font-weight: 600;">S</span> play/pause</span><span><span style="color: #bdae93; font-weight: 600;">I</span> hide info</span><span><span style="color: #bdae93; font-weight: 600;">P</span> previous card</span><span><span style="color: #bdae93; font-weight: 600;">L</span> session log</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

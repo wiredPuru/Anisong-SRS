@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&amp;family=Zen+Maru+Gothic:wght@500;700;900&amp;family=Klee+One:wght@400;600&amp;family=Yusei+Magic&amp;family=Hachi+Maru+Pop&amp;family=Yomogi&amp;display=swap">
+  <style>
+    body { margin: 0; background: #2b2833; font-family: 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; color: #f1e6dc; }
+    a { color: #f2a7c3; } a:hover { color: #f6bdd2; }
+    rt { font-size: 11px; color: #a89cab; font-weight: 400; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #2b2833; overflow: hidden;">
+  <nav style="flex: none; width: 82px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 0; background: #26232d; border-right: 1px solid #4d475a;">
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #c3b6bf;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c3b6bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5l6.5 6.5L9 15.5 2.5 9z"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Home</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #c3b6bf;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c3b6bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5v11l9-5.5z"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Study</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #c3b6bf;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c3b6bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="3"></rect><path d="M6 7h6M6 11h6"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Cards</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: #4b3b48; color: #f2a7c3;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#f2a7c3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="6" height="12" rx="2"></rect><rect x="9.5" y="3" width="6" height="12" rx="2"></rect></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Decks</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #c3b6bf;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c3b6bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15V9M9 15V4M14.5 15v-4"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Stats</span>
+    </div>
+    <div style="width: 60px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 0; border-radius: 14px; background: transparent; color: #c3b6bf;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c3b6bf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="2.6"></circle><path d="M9 2.5v2M9 13.5v2M2.5 9h2M13.5 9h2M4.4 4.4l1.4 1.4M12.2 12.2l1.4 1.4M4.4 13.6l1.4-1.4M12.2 5.8l1.4-1.4"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Settings</span>
+    </div>
+  </nav>
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+    <header style="flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 20px; padding: 16px 28px; background: #26232d; border-bottom: 1px solid #4d475a;">
+      <span style="font-family: 'Yusei Magic', 'Klee One', 'Hiragino Maru Gothic ProN', system-ui, sans-serif; font-size: 24px; font-weight: 400;">Decks</span>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="display: block; width: 440px; box-sizing: border-box; padding: 11px 16px; border-radius: 999px; border: 1px solid #4d475a; background: #34303e; color: #a89cab; font-size: 15px;">Search anime titles...</span>
+        <div style="display: flex; border: 1px solid #4d475a; border-radius: 999px; overflow: hidden;"><span style="padding: 8px 16px;  background: #3e3949; color: #f1e6dc; font-size: 13px; font-weight: 600;">By title</span><span style="padding: 8px 16px; border-left: 1px solid #4d475a; color: #c3b6bf; font-size: 13px; font-weight: 600;">By artist</span><span style="padding: 8px 16px; border-left: 1px solid #4d475a; color: #c3b6bf; font-size: 13px; font-weight: 600;">Created</span></div>
+        <span style="padding: 8px 18px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 14px; font-weight: 600; white-space: nowrap;">Study all</span>
+      </div>
+      <span></span>
+    </header>
+    <div style="flex: 1; min-height: 0; overflow: hidden; padding: 20px 28px 28px;">
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #51576a; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">3 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ARGEVOLLEN</span><span style="font-size: 12px; color: #a89cab;">3 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #51576a; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">3 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ARIA The ANIMATION</span><span style="font-size: 12px; color: #a89cab;">3 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5e4d5f; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Accel World</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #51576a; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Accel World: Infinite Burst</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5a5053; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Aru Asa Dummy Head Mimi</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #4f5257; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Baldr Force EXE</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5e4d5f; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Clannad</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #51576a; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">2 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Clannad: After Story</span><span style="font-size: 12px; color: #a89cab;">2 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5e4d5f; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">2 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Destiny of the Shrine Maiden</span><span style="font-size: 12px; color: #a89cab;">2 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5a5053; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">2 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Hayate the Combat Butler</span><span style="font-size: 12px; color: #a89cab;">2 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #51576a; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Kanon</span><span style="font-size: 12px; color: #a89cab;">3 cards · 80%</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5e4d5f; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">4 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Little Busters!</span><span style="font-size: 12px; color: #a89cab;">5 cards · 100%</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #4f5257; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">2 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Maria Watches Over Us</span><span style="font-size: 12px; color: #a89cab;">2 cards</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+          <div style="position: relative; aspect-ratio: 2 / 3; border-radius: 14px; background: #5e4d5f; border: 1px solid #4d475a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#a89cab" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="32" height="26" rx="7"></rect><circle cx="16" cy="18" r="3.5"></circle><path d="M9 32l9-8 6 5 5-4 8 7"></path></svg>
+            <span style="position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #f2a7c3; color: #2b2833; font-size: 11px; font-weight: 600;">1 due</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">NEEDY GIRL OVERDOSE</span><span style="font-size: 12px; color: #a89cab;">1 card</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

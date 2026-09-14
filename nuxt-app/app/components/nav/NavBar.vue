@@ -27,8 +27,6 @@ function isActive(to: string): boolean {
 
 <template>
   <nav class="app-nav">
-    <div class="nav-logo" aria-hidden="true">歌</div>
-
     <div class="nav-links">
       <NuxtLink
         v-for="link in links"
@@ -65,22 +63,6 @@ function isActive(to: string): boolean {
   padding: 18px 0;
   background: var(--surface-sunken);
   border-right: 1px solid var(--border);
-}
-
-.nav-logo {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  margin-bottom: 14px;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: var(--accent-ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 19px;
-  line-height: 1;
 }
 
 /* flex: 1 + min-height: 0 + overflow-y: auto, rather than plain flow, so a
@@ -158,13 +140,6 @@ function isActive(to: string): boolean {
   .app-nav {
     padding: 14px 0;
     gap: 8px;
-  }
-
-  .nav-logo {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 8px;
-    font-size: 15px;
   }
 
   .nav-link {

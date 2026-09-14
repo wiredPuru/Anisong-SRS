@@ -1,53 +1,55 @@
-/* Akiba Neon. Values read off
-   blueprint/reference/design_handoff_anisong_srs_redesign/Redesign.dc.html;
-   open that file and search data-screen-label to find an artboard. */
+/* Cute/moe soft retheme (feature 62), Option B "Rose & sky". Values read off
+   blueprint/reference/cute-moe-soft-retheme/RoseSkyTokens.dc.html; the Study,
+   Cards and Decks artboards beside it show them in use. */
 
 :root {
   /* surfaces */
-  --bg: #07070d;
-  --surface: #12121f;
-  --surface-raised: #16162a;
-  --border: #23233c;
+  --bg: #2a2826;
+  --surface: #32302f;
+  --surface-raised: #3c3836;
+  --border: #4a4542;
 
   /* text */
-  --text: #f2f0ff;
-  --muted: #8c88b0;
-  --faint: #5b5880;
+  --text: #ebdbb2;
+  --muted: #bdae93;
+  --faint: #a39381;
 
-  /* accent - primary (sakura) */
-  --accent: #ff3e88;
-  --accent-strong: #ff5470;
-  --accent-ink: #07070d;
-  --accent-glow: rgba(255, 62, 136, 0.35);
+  /* accent - primary (rose) */
+  --accent: #e8a4bd;
+  --accent-strong: #f0b9cc;
+  --accent-ink: #2a2826;
+  --accent-glow: rgba(232, 164, 189, 0.22);
 
-  /* accent - secondary (cyan, for JP text / box indicators) */
-  --accent-secondary: #34e7e4;
-  --accent-secondary-ink: #07070d;
-  --accent-secondary-glow: rgba(52, 231, 228, 0.45);
+  /* accent - secondary (sky, for JP text / box indicators) */
+  --accent-secondary: #a3c9e2;
+  --accent-secondary-ink: #2a2826;
+  --accent-secondary-glow: rgba(163, 201, 226, 0.3);
 
   /* review states */
-  --pass: #46e39b;
-  --pass-ink: #071a12;
-  --fail: #ff5470;
-  --fail-ink: #1f0910;
-  --warning: #ffd166;
-  --warning-ink: #241a02;
+  --pass: #b3c98a;
+  --pass-ink: #2a2826;
+  --fail: #e98a72;
+  --fail-ink: #2a2826;
+  --warning: #e6c07b;
+  --warning-ink: #2a2826;
 
-  /* type - RocknRoll One for display, Zen Kaku Gothic New for body. Both
-     cover Latin + Japanese, including furigana. */
-  --font-display: "RocknRoll One", system-ui, sans-serif;
-  --font-sans: "Zen Kaku Gothic New", system-ui, sans-serif;
+  /* type - Yusei Magic (a felt-tip marker hand) for display, Klee One (a neat
+     handwriting) for body. Both cover Latin + Japanese, including furigana.
+     Yusei Magic has a single 400 weight and Klee One tops out at 600, so a
+     heavier font-weight renders with the 600 face. */
+  --font-display: "Yusei Magic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-sans: "Klee One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
 
   /* scale */
-  --radius: 6px;
-  --radius-sm: 4px;
+  --radius: 14px;
+  --radius-sm: 10px;
   --radius-pill: 999px;
 
   /* shell - the rail's own width and ground. Anything using position: fixed
      to fill the viewport beside the rail insets by --rail-width rather than
      hard-coding 82px. */
   --rail-width: 82px;
-  --surface-sunken: #0c0c16;
+  --surface-sunken: #252321;
 
   /* Comfortably above the common 1920/2560 desktop range the full-bleed
      split-pane layout already targets, so below this nothing changes. Used
@@ -66,16 +68,16 @@
      which must outrank the immersive layer it was triggered from. Not the
      default for modals - CardPreviewModal itself still uses --z-modal. */
   --z-above-immersive: 70;
-  /* Denser than before: the ground is much darker now, so a black shadow
-     needs more opacity to read at all. */
-  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* A warm brown-black rather than pure black, so shadows sit in the charcoal
+     ground instead of reading as grey smudges on it. */
+  --shadow-soft: 0 8px 24px rgba(20, 16, 12, 0.35);
   --shadow-accent: 0 0 28px var(--accent-glow);
 
   /* glass - a translucent, frosted look applied automatically wherever
      ambient mode is on (StudyMediaPlayer, StudyInfoPanel, CardPreviewModal) */
-  --glass-surface: rgba(22, 22, 42, 0.2);
-  --glass-surface-panel: rgba(22, 22, 42, 0.82);
-  --glass-border: rgba(242, 240, 255, 0.16);
+  --glass-surface: rgba(50, 48, 47, 0.2);
+  --glass-surface-panel: rgba(50, 48, 47, 0.82);
+  --glass-border: rgba(235, 219, 178, 0.16);
   --glass-blur: blur(20px) saturate(1.6);
 }
 
