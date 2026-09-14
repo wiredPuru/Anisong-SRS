@@ -675,42 +675,45 @@ function backToDecks() {
     <template v-if="selectedId === null">
       <header class="decks-header">
         <h1>Decks</h1>
-        <input
-          v-model="searchInput"
-          type="text"
-          :placeholder="searchPlaceholder"
-          class="search-input"
-          @input="onSearchInput"
-        />
-        <div class="header-controls">
-          <div class="tab-seg" role="tablist">
-            <button
-              type="button"
-              class="tab-seg-btn"
-              :class="{ active: activeType === 'anime' }"
-              @click="setType('anime')"
-            >
-              By title
-            </button>
-            <button
-              type="button"
-              class="tab-seg-btn"
-              :class="{ active: activeType === 'artist' }"
-              @click="setType('artist')"
-            >
-              By artist
-            </button>
-            <button
-              type="button"
-              class="tab-seg-btn"
-              :class="{ active: activeType === 'created' }"
-              @click="setType('created')"
-            >
-              Created
-            </button>
+        <div class="header-center">
+          <input
+            v-model="searchInput"
+            type="text"
+            :placeholder="searchPlaceholder"
+            class="search-input"
+            @input="onSearchInput"
+          />
+          <div class="header-controls">
+            <div class="tab-seg" role="tablist">
+              <button
+                type="button"
+                class="tab-seg-btn"
+                :class="{ active: activeType === 'anime' }"
+                @click="setType('anime')"
+              >
+                By title
+              </button>
+              <button
+                type="button"
+                class="tab-seg-btn"
+                :class="{ active: activeType === 'artist' }"
+                @click="setType('artist')"
+              >
+                By artist
+              </button>
+              <button
+                type="button"
+                class="tab-seg-btn"
+                :class="{ active: activeType === 'created' }"
+                @click="setType('created')"
+              >
+                Created
+              </button>
+            </div>
+            <NuxtLink to="/study?type=all" class="study-all-btn">Study all</NuxtLink>
           </div>
-          <NuxtLink to="/study?type=all" class="study-all-btn">Study all</NuxtLink>
         </div>
+        <span class="header-spacer" aria-hidden="true" />
       </header>
 
       <div class="decks-body">
@@ -828,22 +831,26 @@ function backToDecks() {
         <div class="header-title">
           <button type="button" class="back-btn" @click="backToDecks">&larr; Back to decks</button>
         </div>
-        <input
-          v-model="cardSearchInput"
-          type="text"
-          placeholder="Search this deck's cards..."
-          class="search-input"
-          @input="onCardSearchInput"
-        />
-        <div class="header-controls">
-          <NuxtLink
-            v-if="deckLabel"
-            :to="`/study?type=${activeType}&id=${selectedId}`"
-            class="study-all-btn"
-          >
-            Study this deck
-          </NuxtLink>
+        <div class="header-center">
+          <input
+            v-model="cardSearchInput"
+            type="text"
+            placeholder="Search this deck's cards..."
+            class="search-input"
+            @input="onCardSearchInput"
+          />
+          <div class="header-controls">
+            <NuxtLink
+              :to="`/study?type=${activeType}&id=${selectedId}`"
+              class="study-all-btn"
+              :class="{ 'is-pending': !deckLabel }"
+              :aria-hidden="!deckLabel"
+            >
+              Study this deck
+            </NuxtLink>
+          </div>
         </div>
+        <span class="header-spacer" aria-hidden="true" />
       </header>
 
       <div class="decks-body">
@@ -1095,7 +1102,9 @@ function backToDecks() {
 .decks-header {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr minmax(0, 520px) 1fr;
+  /* The empty right column mirrors the title column, so the centre group sits
+     in the middle of the page rather than the middle of the leftover space. */
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
   gap: 20px;
   padding: 16px 28px;
@@ -1111,10 +1120,23 @@ function backToDecks() {
   line-height: 1;
 }
 
-.header-controls {
+.header-center {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Keeps its width while the deck label loads, so the centred group does not
+   shift sideways when the button appears. Hidden elements take no clicks or focus. */
+.study-all-btn.is-pending {
+  visibility: hidden;
+}
+
+.header-controls {
+  flex: none;
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
@@ -1150,6 +1172,10 @@ function backToDecks() {
 }
 
 .decks-header .search-input {
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 520px;
+  width: 520px;
   margin: 0;
 }
 
@@ -1747,9 +1773,21 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .header-center {
+    flex-wrap: wrap;
+  }
+
+  .header-spacer {
+    display: none;
+  }
+
+  .decks-header .search-input {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
   .header-controls {
     flex-wrap: wrap;
-    justify-content: flex-start;
   }
 }
 </style>
