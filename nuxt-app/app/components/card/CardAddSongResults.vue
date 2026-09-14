@@ -110,6 +110,11 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
   if (updated) addedCards[songId] = updated;
 }
 
+function addSongRowClick(result: SongSearchResult) {
+  if (addedSongCard(result.resultKey) || adding[result.resultKey]) return;
+  addSongResult(result);
+}
+
 async function addSongResult(result: SongSearchResult) {
   const key = result.resultKey;
   addError[key] = null;
@@ -172,7 +177,13 @@ async function removeCard(resultKey: string) {
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="theme-list">
-        <li v-for="result in results" :key="result.resultKey" class="theme-row">
+        <li
+          v-for="result in results"
+          :key="result.resultKey"
+          class="theme-row"
+          :class="{ 'row-clickable': !addedSongCard(result.resultKey) }"
+          @click="addSongRowClick(result)"
+        >
           <div class="theme-info">
             <span class="theme-title">{{ result.songTitle ?? result.themeSlot }}</span>
             <span class="result-meta">
@@ -242,7 +253,7 @@ async function removeCard(resultKey: string) {
                 type="button"
                 class="add-btn"
                 :disabled="adding[result.resultKey]"
-                @click="addSongResult(result)"
+                @click.stop="addSongResult(result)"
               >
                 {{ adding[result.resultKey] ? "Adding..." : "Add" }}
               </button>

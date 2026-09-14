@@ -601,6 +601,11 @@ function resetAddCardSearch() {
   addCardError.value = null;
 }
 
+function addCardRowClick(cardId: number) {
+  if (isCardInDeck(cardId) || addingCardId.value === cardId) return;
+  addCardToCurrentDeck(cardId);
+}
+
 async function addCardToCurrentDeck(cardId: number) {
   if (selectedId.value === null) return;
 
@@ -866,7 +871,13 @@ function backToDecks() {
           </p>
           <p v-else-if="addCardError" class="export-error">{{ addCardError }}</p>
           <ul v-else-if="addCardResults.length" class="add-card-results">
-            <li v-for="r in addCardResults" :key="r.id" class="add-card-result-row">
+            <li
+              v-for="r in addCardResults"
+              :key="r.id"
+              class="add-card-result-row"
+              :class="{ 'row-clickable': !isCardInDeck(r.id) }"
+              @click="addCardRowClick(r.id)"
+            >
               <span class="add-card-result-text">
                 {{ r.songTitle }}
                 <span class="deck-sublabel">{{ r.artistName }} - {{ r.animeTitleEnglish }}</span>
@@ -876,7 +887,7 @@ function backToDecks() {
                 type="button"
                 class="export-btn add-card-btn"
                 :disabled="addingCardId === r.id"
-                @click="addCardToCurrentDeck(r.id)"
+                @click.stop="addCardToCurrentDeck(r.id)"
               >
                 {{ addingCardId === r.id ? "Adding..." : "Add" }}
               </button>
@@ -886,12 +897,19 @@ function backToDecks() {
           <template v-else-if="addAnimeResults">
             <p class="add-card-group-label">Add a new anime</p>
             <ul v-if="addAnimeResults.length" class="add-card-results">
-              <li v-for="r in addAnimeResults" :key="r.aniListId" class="add-card-result-row">
+              <li
+                v-for="r in addAnimeResults"
+                :key="r.aniListId"
+                class="add-card-result-row row-clickable"
+                @click="openAddAnimeModal(r)"
+              >
                 <span class="add-card-result-text">
                   {{ r.titleRomaji }}
                   <span v-if="r.titleEnglish" class="deck-sublabel">{{ r.titleEnglish }}</span>
                 </span>
-                <button type="button" class="export-btn add-card-btn" @click="openAddAnimeModal(r)">Select</button>
+                <button type="button" class="export-btn add-card-btn" @click.stop="openAddAnimeModal(r)">
+                  Select
+                </button>
               </li>
             </ul>
             <p v-else class="state">No matching cards or anime found for "{{ addCardQuery.trim() }}".</p>

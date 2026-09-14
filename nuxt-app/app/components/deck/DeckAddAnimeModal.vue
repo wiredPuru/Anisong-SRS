@@ -111,6 +111,11 @@ watch(
   { immediate: true },
 );
 
+function addThemeRowClick(theme: ThemeResult) {
+  if (addedCards[theme.songId] || adding[theme.songId]) return;
+  addTheme(theme);
+}
+
 async function addTheme(theme: ThemeResult) {
   if (props.deckId === null) return;
 
@@ -194,7 +199,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
       <ul v-if="importResult" class="theme-list">
         <li v-if="!importResult.themes.length" class="state">No themes found for this anime on animethemes.moe.</li>
-        <li v-for="theme in importResult.themes" :key="theme.songId" class="theme-row">
+        <li
+          v-for="theme in importResult.themes"
+          :key="theme.songId"
+          class="theme-row"
+          :class="{ 'row-clickable': !addedCards[theme.songId] }"
+          @click="addThemeRowClick(theme)"
+        >
           <div class="theme-info">
             <span class="theme-title">{{ theme.songTitle }}</span>
             <span class="theme-meta">{{ theme.artistName }} - {{ theme.themeSlot }}</span>
@@ -239,7 +250,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </template>
           <template v-else>
             <div class="theme-actions">
-              <button type="button" class="add-btn" :disabled="adding[theme.songId]" @click="addTheme(theme)">
+              <button type="button" class="add-btn" :disabled="adding[theme.songId]" @click.stop="addTheme(theme)">
                 {{ adding[theme.songId] ? "Adding..." : "Add" }}
               </button>
             </div>
