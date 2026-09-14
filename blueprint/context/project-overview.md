@@ -143,7 +143,7 @@ metadata and clip-URL source, in three sub-features 60a-60c) was added to
 since it introduces a new external provider that outranks animethemes.moe
 rather than merely extending it. Feature 61 (card deletion and bulk delete,
 in three sub-features 61a-61c) was added to `build-plan.md` on 2026-09-13;
-61a is built and merged, 61b and 61c are not yet built; it amended `project-plan.md`'s §3 "Flashcard CRUD"
+61a and 61b are built and merged, 61c is not yet built; it amended `project-plan.md`'s §3 "Flashcard CRUD"
 bullet.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
@@ -1097,8 +1097,8 @@ bullet.
       Settings action that re-resolves cards still holding animethemes.moe
       URLs and no local file, swapping in the faster host where a confident
       match exists.
-61. **Card deletion and bulk delete** - in three sub-features; 61a is
-    done, 61b and 61c are not yet built. Added to `build-plan.md` 2026-09-13 after a report that
+61. **Card deletion and bulk delete** - in three sub-features; 61a and
+    61b are done, 61c is not yet built. Added to `build-plan.md` 2026-09-13 after a report that
     cards could not be deleted. `DELETE /api/cards` and feature 17's file
     cleanup already worked; the gap was that since feature 50c, Delete
     lives only in `/cards`' inspector rail, one card at a time, with no
@@ -1118,7 +1118,16 @@ bullet.
       `{ deleted, notFound }`, alongside the unchanged `{ id }` form. Single
       delete was confirmed working first; the original report was that its
       only button sits at the bottom of `/cards`' inspector.
-    - **61b. Multi-select + bulk delete UI on /cards** - not yet built.
+    - **61b. Multi-select + bulk delete UI on /cards** - done 2026-09-13.
+      A checkbox cell beside each table row's button (not inside it), a
+      tri-state header checkbox over the loaded rows, shift-click ranges, and
+      a sticky selection bar with an inline two-step confirm. Deletes go
+      through one page function, `deleteSelected(ids)`, in sequential batches
+      of 500 (`chunkIds`, `app/utils/cardSelection.ts`); a failed batch leaves
+      the undeleted cards selected with the error shown. Selection clears on a
+      new search. The inspector's single Delete gained the same confirm. Known
+      pre-existing issue, not addressed: between the 820px breakpoint and
+      about 1100px the table's Song column measures 0px wide.
     - **61c. Delete-all-matching + deck-detail parity** - not yet built.
 
 ## Data model

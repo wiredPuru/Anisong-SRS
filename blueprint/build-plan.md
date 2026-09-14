@@ -524,7 +524,7 @@ cleaned-up checkbox version before generating the project overview.
     `deleteCard()` to remove the card's cached stream files alongside the
     local files it already cleans up, and add a batched delete accepting
     many ids in one request.
-  - [ ] 61b. **Multi-select + bulk delete UI on /cards** - per-row
+  - [x] 61b. **Multi-select + bulk delete UI on /cards** - per-row
     checkboxes, a select-all control, a selection action bar, and a
     two-step confirm.
   - [ ] 61c. **Delete-all-matching + deck-detail parity** - delete every

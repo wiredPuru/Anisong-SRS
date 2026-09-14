@@ -162,6 +162,7 @@ function replaceCard(updated: CardWithDetails) {
 }
 
 watch(searchQuery, () => {
+  clearChecked();
   loadFirstPage();
 });
 
@@ -228,6 +229,8 @@ const editSaving = ref(false);
 const editError = ref<string | null>(null);
 const clearingField = reactive<Record<string, boolean>>({});
 const removeCardError = reactive<Record<number, string | null>>({});
+const confirmingRemoveId = ref<number | null>(null);
+const removingCard = ref(false);
 
 const {
   containerRef: cardsBodyRef,
@@ -267,6 +270,85 @@ function onInspectorLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
     ...current,
     ...(kind === "video" ? { localVideoPath: null } : { localAudioPath: null }),
   });
+}
+
+// Multi-select for bulk actions, separate from selectedId (the inspector's
+// single subject). Replaced rather than mutated so Vue sees each change.
+const checkedIds = ref<Set<number>>(new Set());
+let lastCheckedId: number | null = null;
+
+const loadedIds = computed(() => cards.value.map((c) => c.id));
+const headerCheckState = computed(() => selectionState(checkedIds.value, loadedIds.value));
+
+// A shift-click applies the clicked box's new state to the whole range, the
+// way file managers do, rather than toggling each row in it individually.
+function onRowCheckClick(id: number, event: MouseEvent) {
+  const turnOn = !checkedIds.value.has(id);
+  const range = event.shiftKey ? rangeIds(loadedIds.value, lastCheckedId, id) : [id];
+  const next = new Set(checkedIds.value);
+  for (const rowId of range) {
+    if (turnOn) next.add(rowId);
+    else next.delete(rowId);
+  }
+  checkedIds.value = next;
+  lastCheckedId = id;
+}
+
+function toggleCheckAllLoaded() {
+  const next = new Set(checkedIds.value);
+  const clearing = headerCheckState.value === "all";
+  for (const id of loadedIds.value) {
+    if (clearing) next.delete(id);
+    else next.add(id);
+  }
+  checkedIds.value = next;
+}
+
+function clearChecked() {
+  checkedIds.value = new Set();
+  lastCheckedId = null;
+}
+
+// Mirrors BULK_DELETE_MAX in server/utils/cardDelete.ts, which rejects larger batches.
+const BULK_DELETE_MAX = 500;
+const confirmingBulkDelete = ref(false);
+const bulkDeleting = ref(false);
+const bulkDeleteError = ref<string | null>(null);
+
+watch(checkedIds, (ids) => {
+  if (ids.size === 0) confirmingBulkDelete.value = false;
+});
+
+function dropDeletedCards(ids: readonly number[]) {
+  const gone = new Set(ids);
+  const before = cards.value.length;
+  cards.value = cards.value.filter((c) => !gone.has(c.id));
+  totalCards.value = Math.max(0, totalCards.value - (before - cards.value.length));
+  if (selectedId.value !== null && gone.has(selectedId.value)) selectedId.value = null;
+  checkedIds.value = new Set([...checkedIds.value].filter((id) => !gone.has(id)));
+}
+
+// Batches run one after another so a failure stops cleanly: every card already
+// removed leaves the list, and the rest stay selected to retry.
+async function deleteSelected(ids: readonly number[]) {
+  bulkDeleting.value = true;
+  bulkDeleteError.value = null;
+  try {
+    for (const batch of chunkIds(ids, BULK_DELETE_MAX)) {
+      const result = await $fetch<{ deleted: number[]; notFound: number[] }>("/api/cards", {
+        method: "DELETE",
+        body: { ids: batch },
+      });
+      dropDeletedCards([...result.deleted, ...result.notFound]);
+    }
+    confirmingBulkDelete.value = false;
+  } catch (err) {
+    bulkDeleteError.value = extractErrorMessage(err, "Failed to delete cards.");
+    confirmingBulkDelete.value = false;
+  } finally {
+    bulkDeleting.value = false;
+    await refreshMemberships();
+  }
 }
 
 function selectCard(id: number) {
@@ -413,15 +495,17 @@ async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
 
 async function removeCard(id: number) {
   removeCardError[id] = null;
+  removingCard.value = true;
   try {
     await $fetch("/api/cards", { method: "DELETE", body: { id } });
-    cards.value = cards.value.filter((c) => c.id !== id);
-    // The inspector resolves its subject out of cards, so a deleted selection
+    // Also closes the inspector, which resolves its subject out of cards and
     // would otherwise silently blank the rail rather than showing its prompt.
-    if (selectedId.value === id) selectedId.value = null;
-    totalCards.value = Math.max(0, totalCards.value - 1);
+    dropDeletedCards([id]);
   } catch (err) {
     removeCardError[id] = extractErrorMessage(err, "Failed to delete card.");
+  } finally {
+    removingCard.value = false;
+    confirmingRemoveId.value = null;
   }
 }
 </script>
@@ -510,38 +594,96 @@ async function removeCard(id: number) {
         </div>
         <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
         <template v-else>
+          <div v-if="checkedIds.size || bulkDeleteError" class="selection-bar">
+            <span class="selection-count">{{ checkedIds.size }} selected</span>
+            <template v-if="!confirmingBulkDelete">
+              <button type="button" class="selection-clear-btn" :disabled="bulkDeleting" @click="clearChecked">
+                Clear selection
+              </button>
+              <button
+                type="button"
+                class="remove-btn"
+                :disabled="!checkedIds.size || bulkDeleting"
+                @click="confirmingBulkDelete = true"
+              >
+                Delete
+              </button>
+            </template>
+            <template v-else>
+              <span class="confirm-label">
+                Delete {{ checkedIds.size }} {{ checkedIds.size === 1 ? "card" : "cards" }}? This also removes their
+                downloaded files.
+              </span>
+              <button
+                type="button"
+                class="confirm-btn"
+                :disabled="bulkDeleting"
+                @click="deleteSelected([...checkedIds])"
+              >
+                {{ bulkDeleting ? "Deleting..." : "Confirm" }}
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkDeleting"
+                @click="confirmingBulkDelete = false"
+              >
+                Cancel
+              </button>
+            </template>
+            <p v-if="bulkDeleteError" class="edit-error selection-error">{{ bulkDeleteError }}</p>
+          </div>
           <div v-if="cards.length" class="card-table">
-            <div class="table-head">
-              <span />
-              <span>Song</span>
-              <span class="col-anime">Anime</span>
-              <span class="col-sources">Sources</span>
-              <span>Due</span>
+            <div class="row-line">
+              <label class="row-check">
+                <input
+                  type="checkbox"
+                  :checked="headerCheckState === 'all'"
+                  :indeterminate="headerCheckState === 'some'"
+                  aria-label="Select all loaded cards"
+                  @change="toggleCheckAllLoaded"
+                />
+              </label>
+              <div class="table-head">
+                <span />
+                <span>Song</span>
+                <span class="col-anime">Anime</span>
+                <span class="col-sources">Sources</span>
+                <span>Due</span>
+              </div>
             </div>
-            <button
-              v-for="c in cards"
-              :key="c.id"
-              type="button"
-              class="card-row"
-              :class="{ selected: selectedId === c.id }"
-              :aria-pressed="selectedId === c.id"
-              @click="selectCard(c.id)"
-            >
-              <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
-              <span v-else class="cover-thumb cover-thumb-empty" />
-              <span class="cell-song">
-                <span class="song-title">{{ c.songTitle }}</span>
-                <span class="song-artist">{{ c.artistName }}</span>
-              </span>
-              <span class="cell-anime">
-                {{ c.animeTitleEnglish }} <span class="slot">{{ c.themeSlot }}</span>
-              </span>
-              <span class="cell-sources">
-                <span v-for="badge in compactSourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
-                <span v-if="!compactSourceBadges(c).length" class="badge badge-none">No source</span>
-              </span>
-              <span class="cell-due" :class="{ 'due-now': isDueNow(c) }">{{ dueLabel(c) }}</span>
-            </button>
+            <div v-for="c in cards" :key="c.id" class="row-line">
+              <label class="row-check">
+                <input
+                  type="checkbox"
+                  :checked="checkedIds.has(c.id)"
+                  :aria-label="`Select ${c.songTitle}`"
+                  @click="onRowCheckClick(c.id, $event)"
+                />
+              </label>
+              <button
+                type="button"
+                class="card-row"
+                :class="{ selected: selectedId === c.id, checked: checkedIds.has(c.id) }"
+                :aria-pressed="selectedId === c.id"
+                @click="selectCard(c.id)"
+              >
+                <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
+                <span v-else class="cover-thumb cover-thumb-empty" />
+                <span class="cell-song">
+                  <span class="song-title">{{ c.songTitle }}</span>
+                  <span class="song-artist">{{ c.artistName }}</span>
+                </span>
+                <span class="cell-anime">
+                  {{ c.animeTitleEnglish }} <span class="slot">{{ c.themeSlot }}</span>
+                </span>
+                <span class="cell-sources">
+                  <span v-for="badge in compactSourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
+                  <span v-if="!compactSourceBadges(c).length" class="badge badge-none">No source</span>
+                </span>
+                <span class="cell-due" :class="{ 'due-now': isDueNow(c) }">{{ dueLabel(c) }}</span>
+              </button>
+            </div>
           </div>
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
           <p v-else class="state">No cards yet. Search above to find and add one.</p>
@@ -729,9 +871,23 @@ async function removeCard(id: number) {
               <p v-if="editError" class="edit-error">{{ editError }}</p>
             </div>
 
+            <div v-else-if="confirmingRemoveId === selectedCard.id" class="inspector-actions">
+              <span class="confirm-label">Delete this card? This also removes its downloaded files.</span>
+              <button type="button" class="confirm-btn" :disabled="removingCard" @click="removeCard(selectedCard.id)">
+                {{ removingCard ? "Deleting..." : "Confirm" }}
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="removingCard"
+                @click="confirmingRemoveId = null"
+              >
+                Cancel
+              </button>
+            </div>
             <div v-else class="inspector-actions">
               <button type="button" class="edit-btn" @click="startEdit(selectedCard)">Edit card</button>
-              <button type="button" class="remove-btn" @click="removeCard(selectedCard.id)">Delete</button>
+              <button type="button" class="remove-btn" @click="confirmingRemoveId = selectedCard.id">Delete</button>
             </div>
             <p v-if="removeCardError[selectedCard.id]" class="edit-error">{{ removeCardError[selectedCard.id] }}</p>
           </div>
@@ -1003,6 +1159,15 @@ h1 {
   flex: 1;
 }
 
+.inspector-actions .confirm-label {
+  flex-basis: 100%;
+}
+
+.inspector-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .import-panel {
   margin: 16px 24px;
 }
@@ -1130,6 +1295,85 @@ h1 {
   gap: 3px;
 }
 
+.selection-bar {
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: -16px -20px 12px;
+  padding: 12px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.selection-count {
+  font-weight: 700;
+  color: var(--accent-secondary);
+  margin-right: auto;
+}
+
+.selection-clear-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirm-label {
+  color: var(--fail);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.confirm-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--fail);
+  color: var(--fail-ink);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.selection-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.selection-error {
+  flex-basis: 100%;
+}
+
+.row-line {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.row-check {
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.row-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  color-scheme: dark;
+  cursor: pointer;
+}
+
 .table-head,
 .card-row {
   display: grid;
@@ -1161,6 +1405,10 @@ h1 {
 
 .card-row:hover {
   border-color: var(--border);
+}
+
+.card-row.checked {
+  background: color-mix(in srgb, var(--accent-secondary) 8%, var(--surface));
 }
 
 .card-row.selected {
