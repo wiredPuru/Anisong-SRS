@@ -312,6 +312,8 @@ function clearChecked() {
 
 // Mirrors BULK_DELETE_MAX in server/utils/cardDelete.ts, which rejects larger batches.
 const BULK_DELETE_MAX = 500;
+// Mirrors BULK_DECK_ADD_MAX in server/utils/deckMembership.ts.
+const BULK_DECK_ADD_MAX = 500;
 const confirmingBulkDelete = ref(false);
 const bulkDeleting = ref(false);
 const bulkDeleteError = ref<string | null>(null);
@@ -353,6 +355,46 @@ async function deleteSelected(ids: readonly number[]) {
   // Deleted rows shift every later page's offset, and an emptied list hides the
   // infinite-scroll sentinel, so unloaded cards would otherwise read as "No cards".
   if (totalCards.value > cards.value.length) await loadFirstPage();
+}
+
+// Adding to a deck keeps the selection: the cards still exist afterwards, so the
+// same set can go straight into a second deck without re-ticking every row.
+const addToDeckId = ref<number | null>(null);
+const addingToDeck = ref(false);
+const addToDeckError = ref<string | null>(null);
+const addToDeckNotice = ref<string | null>(null);
+
+watch(checkedIds, (ids) => {
+  if (ids.size === 0) addToDeckNotice.value = null;
+});
+
+async function addSelectedToDeck() {
+  const deckId = addToDeckId.value;
+  const ids = [...checkedIds.value];
+  if (deckId === null || !ids.length) return;
+
+  addingToDeck.value = true;
+  addToDeckError.value = null;
+  addToDeckNotice.value = null;
+  let added = 0;
+  try {
+    for (const batch of chunkIds(ids, BULK_DECK_ADD_MAX)) {
+      const result = await $fetch<{ added: number[]; notFound: number[] }>("/api/decks/cards", {
+        method: "POST",
+        body: { deckId, cardIds: batch },
+      });
+      added += result.added.length;
+    }
+    const name = manualDecks.value.find((d) => d.id === deckId)?.name ?? "the deck";
+    addToDeckNotice.value = `Added ${added} ${added === 1 ? "card" : "cards"} to ${name}.`;
+  } catch (err) {
+    addToDeckError.value = extractErrorMessage(err, "Failed to add cards to deck.");
+  } finally {
+    addingToDeck.value = false;
+    // The inspector's DeckMembershipPanel reads this map, so it would show stale
+    // checkboxes for a card that just joined a deck.
+    await refreshMemberships();
+  }
 }
 
 const confirmingDeleteMatching = ref(false);
@@ -654,13 +696,40 @@ async function removeCard(id: number) {
           <div v-if="checkedIds.size || bulkDeleteError" class="selection-bar">
             <span class="selection-count">{{ checkedIds.size }} selected</span>
             <template v-if="!confirmingBulkDelete">
-              <button type="button" class="selection-clear-btn" :disabled="bulkDeleting" @click="clearChecked">
+              <template v-if="manualDecks.length">
+                <select
+                  v-model="addToDeckId"
+                  class="deck-select"
+                  aria-label="Deck to add the selected cards to"
+                  :disabled="addingToDeck || bulkDeleting"
+                >
+                  <option :value="null">Add to deck...</option>
+                  <option v-for="d in manualDecks" :key="d.id" :value="d.id">{{ d.name }}</option>
+                </select>
+                <button
+                  type="button"
+                  class="selection-clear-btn"
+                  :disabled="addToDeckId === null || addingToDeck || bulkDeleting"
+                  @click="addSelectedToDeck"
+                >
+                  {{ addingToDeck ? "Adding..." : "Add to deck" }}
+                </button>
+              </template>
+              <span v-else class="deck-hint">
+                No manual decks yet - <NuxtLink to="/decks?type=created">create one on the Decks page</NuxtLink>.
+              </span>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkDeleting || addingToDeck"
+                @click="clearChecked"
+              >
                 Clear selection
               </button>
               <button
                 type="button"
                 class="remove-btn"
-                :disabled="!checkedIds.size || bulkDeleting"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck"
                 @click="confirmingBulkDelete = true"
               >
                 Delete
@@ -689,6 +758,8 @@ async function removeCard(id: number) {
               </button>
             </template>
             <p v-if="bulkDeleteError" class="edit-error selection-error">{{ bulkDeleteError }}</p>
+            <p v-if="addToDeckError" class="edit-error selection-error">{{ addToDeckError }}</p>
+            <p v-else-if="addToDeckNotice" class="selection-notice">{{ addToDeckNotice }}</p>
           </div>
           <div v-if="cards.length" class="card-table">
             <div class="row-line">
@@ -1407,6 +1478,38 @@ h1 {
 
 .selection-error {
   flex-basis: 100%;
+}
+
+.selection-notice {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--pass);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.deck-select {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+.deck-select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.deck-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deck-hint a {
+  color: var(--accent);
 }
 
 .row-line {

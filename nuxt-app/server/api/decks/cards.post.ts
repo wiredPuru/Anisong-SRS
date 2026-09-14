@@ -1,14 +1,19 @@
-import { addCardToDeck } from "../../utils/decks.ts";
+import { addCardToDeck, addCardsToDeck } from "../../utils/decks.ts";
+import { parseDeckCardsBody } from "../../utils/deckMembership.ts";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
+  const parsed = parseDeckCardsBody(await readBody(event));
 
-  if (!body || typeof body.deckId !== "number" || typeof body.cardId !== "number") {
-    throw createError({ statusCode: 400, statusMessage: "deckId and cardId are required and must be numbers" });
+  if ("error" in parsed) {
+    throw createError({ statusCode: 400, statusMessage: parsed.error });
   }
 
-  const result = addCardToDeck(body.deckId, body.cardId);
-  if ("notFound" in result) {
+  const result =
+    parsed.kind === "bulk"
+      ? addCardsToDeck(parsed.deckId, parsed.cardIds)
+      : addCardToDeck(parsed.deckId, parsed.cardId);
+
+  if ("notFound" in result && result.notFound === true) {
     throw createError({ statusCode: 404, statusMessage: "Deck or card not found" });
   }
 

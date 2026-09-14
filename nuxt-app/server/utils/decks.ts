@@ -309,6 +309,33 @@ export function addCardToDeck(deckId: number, cardId: number): DeckCardMembershi
   return { success: true };
 }
 
+export type BulkDeckAddResult = { notFound: true } | { added: number[]; notFound: number[] };
+
+/** Adds many cards to one deck. Already-member cards are counted as added, since the insert is idempotent. */
+export function addCardsToDeck(deckId: number, cardIds: readonly number[]): BulkDeckAddResult {
+  const deckExists = db.select({ id: deck.id }).from(deck).where(eq(deck.id, deckId)).get();
+  if (!deckExists) {
+    return { notFound: true };
+  }
+
+  const existing = db
+    .select({ id: card.id })
+    .from(card)
+    .where(inArray(card.id, [...cardIds]))
+    .all();
+  const added = existing.map((row) => row.id);
+  const present = new Set(added);
+
+  if (added.length) {
+    db.insert(deckCard)
+      .values(added.map((cardId) => ({ deckId, cardId })))
+      .onConflictDoNothing()
+      .run();
+  }
+
+  return { added, notFound: cardIds.filter((id) => !present.has(id)) };
+}
+
 export function removeCardFromDeck(deckId: number, cardId: number): DeckCardMembershipResult {
   const deckExists = db.select({ id: deck.id }).from(deck).where(eq(deck.id, deckId)).get();
   if (!deckExists) {
