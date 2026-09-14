@@ -814,7 +814,10 @@ function backToDecks() {
           </div>
         </div>
         <p v-else-if="searchQuery" class="state">No decks match "{{ searchQuery }}".</p>
-        <p v-else class="state">No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</p>
+        <p v-else class="state state-empty">
+          <MascotTemi size="companion" />
+          <span>No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</span>
+        </p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>
         <p v-if="deleteDeckError" class="export-error create-deck-error">{{ deleteDeckError }}</p>
         <div v-if="deckItems.length" ref="sentinelRef" class="scroll-sentinel">
@@ -1265,6 +1268,12 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--muted);
+}
+
+.state-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .state a {

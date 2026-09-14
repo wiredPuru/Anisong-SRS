@@ -610,6 +610,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     </div>
     <div v-else-if="error" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">
+      <MascotTemi size="companion" class="state-mascot" />
       All caught up! Nothing due right now.
       <button
         v-if="withheldNewCount > 0"
@@ -1019,6 +1020,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .study-overlay-anchor {
   position: relative;
+}
+
+.state-mascot {
+  margin: 0 auto 12px;
 }
 
 /* The primary action on the completion screen, so it takes the accent fill

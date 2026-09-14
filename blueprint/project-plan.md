@@ -127,6 +127,11 @@ Non-profit. No monetization planned.
 - Rounded corners on panels and controls, with full pills kept for buttons
   and badges. Reverses build 50's tight radii back toward the earlier
   rounded-throughout look (build 62).
+- A mascot, Temi - a pink-twintailed girl in headphones at a quiz-buzzer
+  desk - is the app's face: its favicon, the hero art on Home, and a small
+  companion on empty and all-caught-up states. She stays out of working
+  surfaces (the rail, the Study player, tables), so the screens that are
+  used most stay uncluttered (build 63).
 - App layout: a persistent left rail for navigation, with content in split
   panes that use the full window width, rather than a centered single column.
   Past roughly 2560px of viewport width, the main content column caps and

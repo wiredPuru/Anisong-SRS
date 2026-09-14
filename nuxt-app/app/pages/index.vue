@@ -94,6 +94,7 @@ function formatRelativeTime(iso: string): string {
       <div v-else-if="data" class="dashboard-grid">
         <div class="hero-panel">
           <div class="hero-glow" />
+          <MascotTemi size="hero" alt="Temi, the GAQ SRS mascot" class="hero-mascot" />
           <div class="hero-text">
             <span class="hero-eyebrow">Ready to go</span>
             <span class="hero-headline">{{ heroHeadline }}</span>
@@ -275,6 +276,14 @@ h1 {
   border-radius: 50%;
   background: radial-gradient(circle, var(--accent-glow), transparent 65%);
   pointer-events: none;
+}
+
+/* Sits on the panel's bottom edge, so the desk reads as resting on it; the
+   panel's overflow: hidden trims only the desk legs. */
+.hero-mascot {
+  position: relative;
+  align-self: flex-end;
+  margin-block: -8px -23px;
 }
 
 .hero-text {

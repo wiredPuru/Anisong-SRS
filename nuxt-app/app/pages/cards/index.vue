@@ -814,7 +814,10 @@ async function removeCard(id: number) {
             </div>
           </div>
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
-          <p v-else class="state">No cards yet. Search above to find and add one.</p>
+          <p v-else class="state state-empty">
+            <MascotTemi size="companion" />
+            <span>No cards yet. Search above to find and add one.</span>
+          </p>
           <div v-if="cards.length" ref="sentinelRef" class="scroll-sentinel">
             <span v-if="loadingMore" class="loading-more">
               <ActivityStatus label="Loading more cards" />
@@ -1402,6 +1405,12 @@ h1 {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--muted);
+}
+
+.state-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .state a {

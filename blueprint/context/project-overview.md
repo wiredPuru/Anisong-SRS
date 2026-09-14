@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash c1f8362aa021629f945ea6b870a76bbb73e2149dd7f772c05271ef2ab214eadf -->
+<!-- blueprint:source-hash c86adc7809b558a1a784d6752d82d16314ef25a698ba12507dd169c9e304605e -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -150,7 +150,10 @@ built and merged in full. It replaces feature 50's Akiba Neon
 look with a gruvbox-inspired soft dark palette (rose and light sky blue
 accents), playful handwritten Japanese-capable fonts, and rounder corners, and
 rewrote the first two bullets of `project-plan.md` §7 to put cute/moe ahead
-of the Akihabara arcade style.
+of the Akihabara arcade style. Feature 63 (Temi, the app's mascot) was added
+to `build-plan.md` on 2026-09-14 and is now built and merged; it added a §7 UI/UX
+bullet to `project-plan.md`, reversing 62's "no mascots" scope note for
+non-working surfaces only.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1196,6 +1199,25 @@ of the Akihabara arcade style.
       one global `:focus-visible` ring uses `--focus-ring` (sky). The only
       follow-up left open: the active segment in segmented controls (Decks,
       Stats) is marked by a fill 1.13:1 against its surface.
+63. **Mascot (Temi)** - done. Added to `build-plan.md` and built 2026-09-14.
+    Temi, a pink-twintailed girl in headphones sitting at a school desk with
+    a red quiz buzzer, becomes the app's face: a face-crop favicon and touch
+    icon, the hero art on Home's dashboard, and a small companion on the
+    "all caught up" state on `/study` and the empty-library states on
+    `/cards` and `/decks`. The source is a 1254x1254 transparent PNG
+    (1.35MB), saved under `blueprint/reference/mascot/`; the app ships
+    resized, optimized copies under `nuxt-app/public/`, which `bun run
+    package` already copies beside the binary, so they work offline. She
+    stays out of working surfaces - the rail (whose logo tile 62a removed),
+    the Study player and info panel, tables, and modals. No data, route, or
+    behaviour changes. Added a §7 bullet to `project-plan.md`. As built: a
+    `components/mascot/MascotTemi.vue` component (`size: "hero" |
+    "companion"`, `alt` defaulting to `""`, fixed `width`/`height` so nothing
+    shifts on load) renders `/mascot/temi-320.webp` with a
+    `/mascot/temi-640.webp` 2x `srcset`; `favicon.ico` (16/32/48, 15KB, was
+    285KB) and a 180px `apple-touch-icon.png` are linked from
+    `nuxt.config.ts`. The hero image is 150px, 96px under 820px; companions
+    are 96px. Regeneration commands are in the feature's archive.
 
 ## Data model
 
@@ -1447,6 +1469,9 @@ rail has no logo tile. Cute/moe takes priority over the Akihabara arcade
 signage style feature 50 introduced. Every color a component uses comes from a
 `main.css` token, including modal scrims, the player's veils and record, and
 native form controls; keyboard focus shows one sky-blue ring everywhere.
+Temi, the mascot (feature 63), appears on Home's hero, on `/study`'s
+all-caught-up state and the empty `/cards` and `/decks` states, and as the
+favicon, never on working surfaces.
 
 **Before 62a (feature 50):** Akihabara arcade signage - the same
 otaku-culture reference, read through neon storefronts and game-centre

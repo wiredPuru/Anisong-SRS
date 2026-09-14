@@ -547,6 +547,12 @@ cleaned-up checkbox version before generating the project overview.
     loading veils, the visualizer ring stroke, the record texture) with
     tokens, then check text, badges, focus rings, active tabs, and
     pass/fail on every screen for legibility on the new ground.
+- [x] 63. **Mascot (Temi)** - add the app's mascot, Temi (a pink-twintailed
+  girl in headphones at a quiz-buzzer desk), as optimized image assets: a
+  face-crop favicon and touch icon, the hero art on Home, and a small
+  companion on the "all caught up" and empty-library states. Source image
+  saved under `blueprint/reference/mascot/`. No data, route, or behaviour
+  changes.
 
 ## Plan maintenance
 
