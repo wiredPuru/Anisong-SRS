@@ -395,11 +395,21 @@ let autoRevealArmedDurationMs = 0;
 // the next resume so it continues from where it left off instead of
 // restarting the full duration. Null means "not paused mid-countdown."
 let autoRevealRemainingMs: number | null = null;
+// The countdown pill renders this rather than keeping its own clock, so it
+// freezes on pause exactly when the reveal timeout does.
+const autoRevealDisplaySeconds = ref(AUTO_REVEAL_SECONDS_DEFAULT);
+let autoRevealDisplayTick: ReturnType<typeof setInterval> | null = null;
+// Well under a second so a resume never shows a stale number for long.
+const AUTO_REVEAL_DISPLAY_TICK_MS = 250;
 
 function stopAutoRevealTimeout() {
   if (autoRevealTimeout !== null) {
     clearTimeout(autoRevealTimeout);
     autoRevealTimeout = null;
+  }
+  if (autoRevealDisplayTick !== null) {
+    clearInterval(autoRevealDisplayTick);
+    autoRevealDisplayTick = null;
   }
 }
 
@@ -409,26 +419,24 @@ function startAutoRevealTimeout(durationMs: number) {
   autoRevealArmedDurationMs = durationMs;
   autoRevealTimeout = setTimeout(() => {
     autoRevealedThisCard.value = true;
-    autoRevealTimeout = null;
+    stopAutoRevealTimeout();
     autoRevealRemainingMs = null;
   }, durationMs);
+  autoRevealDisplayTick = setInterval(syncAutoRevealDisplay, AUTO_REVEAL_DISPLAY_TICK_MS);
+  syncAutoRevealDisplay();
 }
 
-// StudyAutoRevealCountdown only reads its `seconds` prop once, in its own
-// onMounted - it has no way to know time has already elapsed, so this
-// derives the true remaining time instead of a static prop. Mirrors the
-// same three states onPlaybackPaused/maybeStartOrResumeAutoReveal already
-// track: actively counting down, paused mid-countdown (autoRevealRemainingMs),
-// or not started yet.
-function currentAutoRevealRemainingSeconds(): number {
+// Covers the three states onPlaybackPaused/maybeStartOrResumeAutoReveal
+// track: actively counting down, paused mid-countdown
+// (autoRevealRemainingMs), or not started yet.
+function syncAutoRevealDisplay() {
   if (autoRevealTimeout !== null) {
-    const elapsedMs = Date.now() - autoRevealArmedAt;
-    return Math.max(0, Math.ceil((autoRevealArmedDurationMs - elapsedMs) / 1000));
+    autoRevealDisplaySeconds.value = remainingRevealSeconds(autoRevealArmedDurationMs, Date.now() - autoRevealArmedAt);
+  } else if (autoRevealRemainingMs !== null) {
+    autoRevealDisplaySeconds.value = remainingRevealSeconds(autoRevealRemainingMs);
+  } else {
+    autoRevealDisplaySeconds.value = autoRevealSeconds.value;
   }
-  if (autoRevealRemainingMs !== null) {
-    return Math.max(0, Math.ceil(autoRevealRemainingMs / 1000));
-  }
-  return autoRevealSeconds.value;
 }
 
 // Arms (or resumes, with whatever time was left at the last pause) the
@@ -457,6 +465,7 @@ function onPlaybackPaused() {
   const elapsed = Date.now() - autoRevealArmedAt;
   autoRevealRemainingMs = Math.max(0, autoRevealArmedDurationMs - elapsed);
   stopAutoRevealTimeout();
+  syncAutoRevealDisplay();
 }
 
 // Forces the newly-targeted Hide toggle(s) on, and reverts whichever
@@ -549,6 +558,7 @@ watch(
     stopAutoRevealTimeout();
     autoRevealRemainingMs = null;
     autoRevealedThisCard.value = false;
+    syncAutoRevealDisplay();
 
     // Turning Auto Reveal on, switching mode, or changing the seconds value
     // while a card is actively playing starts counting immediately with the
@@ -723,8 +733,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <div class="info-panel-wrap">
               <StudyAutoRevealCountdown
                 v-if="autoRevealCountdownActive"
-                :key="presentationKey"
-                :seconds="currentAutoRevealRemainingSeconds()"
+                :seconds="autoRevealDisplaySeconds"
                 :ambient="ambientMode"
               />
               <StudyInfoPanel

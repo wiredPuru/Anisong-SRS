@@ -1,29 +1,11 @@
 <script setup lang="ts">
-const props = defineProps<{ seconds: number; ambient?: boolean; immersive?: boolean }>();
-
-const remaining = ref(props.seconds);
-let interval: ReturnType<typeof setInterval> | null = null;
-
-onMounted(() => {
-  remaining.value = props.seconds;
-  interval = setInterval(() => {
-    remaining.value = Math.max(0, remaining.value - 1);
-    if (remaining.value === 0 && interval !== null) {
-      clearInterval(interval);
-      interval = null;
-    }
-  }, 1000);
-});
-
-onUnmounted(() => {
-  if (interval !== null) clearInterval(interval);
-});
+defineProps<{ seconds: number; ambient?: boolean; immersive?: boolean }>();
 </script>
 
 <template>
   <div class="auto-reveal-countdown" :class="{ 'ambient-glass': ambient, 'immersive-glass': immersive }">
     <span class="label">Revealing in</span>
-    <span class="count">{{ remaining }}</span>
+    <span class="count">{{ seconds }}</span>
   </div>
 </template>
 
