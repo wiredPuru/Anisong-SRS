@@ -553,7 +553,7 @@ cleaned-up checkbox version before generating the project overview.
   companion on the "all caught up" and empty-library states. Source image
   saved under `blueprint/reference/mascot/`. No data, route, or behaviour
   changes.
-- [ ] 64. **Clip source setting** - a persistent Settings choice in the
+- [x] 64. **Clip source setting** - a persistent Settings choice in the
   Playback section for where clip files (video/audio) may come from:
   AnisongDB only (default), Both (AnisongDB preferred, animethemes.moe as
   fallback, today's behaviour), or animethemes.moe only. It governs clip
@@ -571,7 +571,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 64b. **Import-time clip filtering** - anime, song, and artist
     import and deck import keep only allowed clip URLs; a theme left with no
     allowed clip still shows in results, disabled, with a note saying why.
-  - [ ] 64c. **Existing cards under a narrower setting** - Study and
+  - [x] 64c. **Existing cards under a narrower setting** - Study and
     Preview skip a blocked URL (playing the other kind when it is allowed),
     a card with nothing allowed shows the existing error state with a hint
     pointing at the 60c re-source action, and that action honours the

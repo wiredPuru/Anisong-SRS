@@ -37,7 +37,11 @@ function scopeQuery(scope: StudyScope): Record<string, string | number> {
   return scope.type === "all" ? { type: "all" } : { type: scope.type, id: scope.id };
 }
 
-export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly: ComputedRef<boolean>) {
+export function useStudySession(
+  scope: ComputedRef<StudyScope | null>,
+  audioOnly: ComputedRef<boolean>,
+  clipSource: ComputedRef<"anisongdb" | "both" | "animethemes">,
+) {
   const currentCard = ref<CardWithDetails | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -86,7 +90,7 @@ export function useStudySession(scope: ComputedRef<StudyScope | null>, audioOnly
       // the queue actually reaches them (current card's own warm-up is
       // StudyMediaPlayer's job, triggered separately on mount).
       for (const upcomingCard of result.upcoming) {
-        const url = resolveRemotePrefetchUrl(upcomingCard, audioOnly.value);
+        const url = resolveRemotePrefetchUrl(upcomingCard, audioOnly.value, clipSource.value);
         if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
       }
     } catch (err) {

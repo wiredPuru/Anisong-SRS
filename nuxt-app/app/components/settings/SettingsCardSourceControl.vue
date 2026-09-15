@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { isUnavailable } from "../../utils/importStream";
 
-const props = defineProps<{ count: number }>();
+const props = defineProps<{ count: number; clipSource: "anisongdb" | "both" | "animethemes" }>();
 const emit = defineEmits<{ saved: [] }>();
+
+// The only host this action ever moves a card onto is AMQ's, which
+// "animethemes"-only mode excludes - so there's nothing safe for it to do in
+// that mode, distinct from "count is 0 because every card already moved".
+const disabledByClipSource = computed(() => props.clipSource === "animethemes");
 
 interface SourceRefreshResult {
   checked: number;
@@ -66,24 +71,30 @@ async function moveSources() {
       </span>
     </div>
 
-    <p v-if="props.count" class="card-source-count">
-      {{ props.count }} {{ props.count === 1 ? "card streams" : "cards stream" }} from animethemes.moe.
+    <p v-if="disabledByClipSource" class="card-source-count card-source-count-clear">
+      Not available - your <NuxtLink to="/settings?section=playback">Clip source setting</NuxtLink> only allows
+      animethemes.moe, so there's no faster source to move cards to.
     </p>
-    <p v-else class="card-source-count card-source-count-clear">Every card already uses the faster source.</p>
+    <template v-else>
+      <p v-if="props.count" class="card-source-count">
+        {{ props.count }} {{ props.count === 1 ? "card streams" : "cards stream" }} from animethemes.moe.
+      </p>
+      <p v-else class="card-source-count card-source-count-clear">Every card already uses the faster source.</p>
 
-    <ActivityStatus
-      v-if="isRunning"
-      label="Re-resolving clip sources"
-      request-key="source-refresh"
-      :progress="activity.progress.value"
-      :revision="activity.revision.value"
-    />
-    <button v-else type="button" class="card-source-btn" :disabled="!props.count" @click="moveSources">
-      Move cards to the faster source
-    </button>
+      <ActivityStatus
+        v-if="isRunning"
+        label="Re-resolving clip sources"
+        request-key="source-refresh"
+        :progress="activity.progress.value"
+        :revision="activity.revision.value"
+      />
+      <button v-else type="button" class="card-source-btn" :disabled="!props.count" @click="moveSources">
+        Move cards to the faster source
+      </button>
 
-    <p v-if="summary" class="card-source-summary">{{ summary }}</p>
-    <p v-if="error" class="control-error">{{ error }}</p>
+      <p v-if="summary" class="card-source-summary">{{ summary }}</p>
+      <p v-if="error" class="control-error">{{ error }}</p>
+    </template>
   </div>
 </template>
 
@@ -126,6 +137,10 @@ async function moveSources() {
 .card-source-count-clear {
   color: var(--muted);
   font-weight: 400;
+}
+
+.card-source-count-clear a {
+  color: var(--accent);
 }
 
 .card-source-btn {

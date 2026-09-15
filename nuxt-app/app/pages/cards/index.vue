@@ -188,10 +188,12 @@ const { data: mediaLibraryData } = await useFetch<{
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  clipSource: "anisongdb" | "both" | "animethemes";
 }>("/api/media-library");
 const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
 const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audioOnly");
 const autoDownload = computed(() => mediaLibraryData.value?.autoDownload ?? false);
+const clipSource = computed(() => mediaLibraryData.value?.clipSource ?? "anisongdb");
 
 const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
   query: { type: "created" },
@@ -870,6 +872,7 @@ async function removeCard(id: number) {
             :audio-only="audioOnly"
             :has-default-download-folder="hasDefaultDownloadFolder"
             :auto-download="autoDownload"
+            :clip-source="clipSource"
             :allow-expand="true"
             v-model:immersive="inspectorImmersive"
             @local-path-updated="onInspectorLocalPathUpdated"

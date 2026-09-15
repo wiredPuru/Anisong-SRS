@@ -245,7 +245,11 @@ async function importDeck() {
 
               <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
 
-              <SettingsCardSourceControl :count="data.animethemesSourcedCardCount" @saved="refresh" />
+              <SettingsCardSourceControl
+                :count="data.animethemesSourcedCardCount"
+                :clip-source="data.clipSource"
+                @saved="refresh"
+              />
             </template>
 
             <template v-else-if="activeSection === 'study'">

@@ -23,6 +23,7 @@ const props = defineProps<{
   hideCover?: boolean;
   hideListeningLabel?: boolean;
   autoDownload?: boolean;
+  clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -39,8 +40,12 @@ function mediaUrl(localPath: string | null, remoteUrl: string | null): string | 
   return null;
 }
 
-const hasVideoSource = computed(() => Boolean(props.card.localVideoPath || props.card.animethemesVideoUrl));
-const hasAudioSource = computed(() => Boolean(props.card.localAudioPath || props.card.animethemesAudioUrl));
+// A remote URL only counts as a source when the Clip source setting still
+// allows its host - a local file always counts, regardless of the setting.
+const remoteVideoAllowed = computed(() => isRemoteUrlAllowed(props.card.animethemesVideoUrl, props.clipSource ?? "anisongdb"));
+const remoteAudioAllowed = computed(() => isRemoteUrlAllowed(props.card.animethemesAudioUrl, props.clipSource ?? "anisongdb"));
+const hasVideoSource = computed(() => Boolean(props.card.localVideoPath) || remoteVideoAllowed.value);
+const hasAudioSource = computed(() => Boolean(props.card.localAudioPath) || remoteAudioAllowed.value);
 
 // Which element/src actually mounts - deliberately independent of hideVideo,
 // so toggling it never swaps the underlying element mid-playback (that
@@ -77,6 +82,21 @@ const mediaKind = computed<"video" | "audio">(() => {
 // that actually applies to this card - it has no other way to know which of
 // the two is currently mounted (audioFallbackChosen included).
 watch(mediaKind, (kind) => emit("update:media-kind", kind), { immediate: true });
+
+// True only when the kind that just failed to load has nothing else to try -
+// its only source is a remote URL the Clip source setting rejects, not a
+// local file gone stale (that's feature 42's original, unrelated case). Drives
+// the error veil's hint below instead of a Download/Redownload action that
+// would just hit the same 403 a blocked host already produces.
+const failedKindBlocked = computed(() => {
+  if (failedKind.value === "video") {
+    return !props.card.localVideoPath && props.card.animethemesVideoUrl !== null && !remoteVideoAllowed.value;
+  }
+  if (failedKind.value === "audio") {
+    return !props.card.localAudioPath && props.card.animethemesAudioUrl !== null && !remoteAudioAllowed.value;
+  }
+  return false;
+});
 
 // Whether the video frame is actually shown. Hiding video (or audioOnly)
 // always forces the audio-style veil, even when the video element keeps
@@ -172,7 +192,8 @@ watch(showCoverArt, (active) => {
 // playback often finds it already cached by the time the user presses play.
 // Client-only: onMounted never runs during SSR, and the watch below has no
 // `immediate` so it only reacts to a genuine later change, not the initial value.
-const prefetchUrl = computed(() => resolveRemotePrefetchUrl(props.card, props.audioOnly));
+const prefetchUrl = computed(() =>
+  resolveRemotePrefetchUrl(props.card, props.audioOnly, props.clipSource ?? "anisongdb"));
 
 function triggerPrefetch(url: string | null) {
   if (!url) return;
@@ -966,7 +987,7 @@ onUnmounted(() => stopDrag?.());
         <!-- Only the kind that actually failed is offered here. Rendering both
              is what put "Download audio" under a video failure whose audio was
              never the problem. -->
-        <div v-if="failedKind && hasAnyDownloadableSource(card)" class="download-section">
+        <div v-if="failedKind && !failedKindBlocked && hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
             <template v-if="canDownload(card, failedKind)">
               <DownloadProgress
@@ -995,6 +1016,13 @@ onUnmounted(() => stopDrag?.());
             Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
           </p>
           <p v-if="downloadError[card.id]" class="download-error">{{ downloadError[card.id] }}</p>
+        </div>
+        <div v-else-if="failedKindBlocked" class="download-section">
+          <p class="clip-blocked-hint">
+            Blocked by your <NuxtLink to="/settings?section=playback">Clip source setting</NuxtLink>. Try
+            <NuxtLink to="/settings?section=library">re-sourcing this card's clips</NuxtLink>, or widen the setting to
+            include this host.
+          </p>
         </div>
       </div>
       <div
@@ -1391,6 +1419,17 @@ onUnmounted(() => stopDrag?.());
 }
 
 .download-hint a {
+  color: var(--accent);
+}
+
+.clip-blocked-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.clip-blocked-hint a {
   color: var(--accent);
 }
 

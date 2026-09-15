@@ -33,6 +33,7 @@ const props = defineProps<{
   hasDefaultDownloadFolder?: boolean;
   audioOnly?: boolean;
   autoDownload?: boolean;
+  clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
 const emit = defineEmits<{ close: []; updated: [card: CardWithDetails] }>();
 
@@ -246,6 +247,7 @@ watch(
         :has-default-download-folder="hasDefaultDownloadFolder"
         :audio-only="audioOnly"
         :auto-download="autoDownload"
+        :clip-source="clipSource"
         v-model:immersive="immersive"
         @local-path-updated="onLocalPathUpdated"
         @local-path-cleared="onLocalPathCleared"

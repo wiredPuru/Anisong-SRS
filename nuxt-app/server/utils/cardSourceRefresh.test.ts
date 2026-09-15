@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
-import { anime, artist, card, song } from "../db/schema.ts";
+import { anime, artist, card, mediaLibrarySettings, song } from "../db/schema.ts";
 import type { AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { AnimeLookupUnavailableError } from "./animeMetadata.ts";
@@ -68,6 +68,7 @@ afterEach(() => {
   db.delete(song).run();
   db.delete(artist).run();
   db.delete(anime).run();
+  db.delete(mediaLibrarySettings).run();
 });
 
 describe("isAnimethemesUrl", () => {
@@ -140,6 +141,30 @@ describe("listSourceRefreshCandidates", () => {
       swapVideo: true,
       swapAudio: false,
     });
+  });
+});
+
+describe("listSourceRefreshCandidates clip source gate", () => {
+  it("returns nothing under animethemes-only mode, even with real candidates present", () => {
+    makeCard({ animethemesVideoUrl: VIDEO, animethemesAudioUrl: AUDIO });
+    db.insert(mediaLibrarySettings).values({ id: 1, clipSource: "animethemes" }).run();
+
+    expect(listSourceRefreshCandidates()).toEqual([]);
+    expect(countCardsToRefresh()).toBe(0);
+  });
+
+  it.each(["anisongdb", "both"] as const)("still finds a candidate under %s mode (unchanged from today)", (source) => {
+    makeCard({ animethemesVideoUrl: VIDEO, animethemesAudioUrl: AUDIO });
+    db.insert(mediaLibrarySettings).values({ id: 1, clipSource: source }).run();
+
+    expect(listSourceRefreshCandidates()).toHaveLength(1);
+    expect(countCardsToRefresh()).toBe(1);
+  });
+
+  it("defaults to anisongdb (finds a candidate) when no setting row exists", () => {
+    makeCard({ animethemesVideoUrl: VIDEO, animethemesAudioUrl: AUDIO });
+
+    expect(listSourceRefreshCandidates()).toHaveLength(1);
   });
 });
 

@@ -5,6 +5,7 @@ import type { AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { AnimeLookupUnavailableError } from "./animeMetadata.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
+import { getClipSource } from "./mediaLibrary.ts";
 import { titleKey } from "./textMatch.ts";
 
 export interface SourceRefreshCandidate {
@@ -37,6 +38,12 @@ export function isAnimethemesUrl(url: string | null): boolean {
 // decides, since a substring match would also accept another host serving a
 // path that happens to name animethemes.moe.
 export function listSourceRefreshCandidates(): SourceRefreshCandidate[] {
+  // This action's only write target is an AMQ host - under "animethemes"-only
+  // mode that host is excluded, so moving a card onto it would break a card
+  // that plays fine today rather than fix one that doesn't. Nothing to offer
+  // in that mode; "anisongdb" and "both" both allow it, unchanged from today.
+  if (getClipSource() === "animethemes") return [];
+
   const rows = db
     .select({
       cardId: card.id,

@@ -35,11 +35,13 @@ const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  clipSource: "anisongdb" | "both" | "animethemes";
 }>("/api/media-library");
 
 const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.defaultDownloadFolder));
 const persistedAudioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
 const autoDownload = computed(() => studySettings.value?.autoDownload ?? false);
+const clipSource = computed(() => studySettings.value?.clipSource ?? "anisongdb");
 
 // A session-only override of the persisted Playback mode setting, toggled
 // from the display-toggles row below. `null` means "follow /settings".
@@ -65,7 +67,7 @@ const {
   submit,
   studyNewCards,
   refresh: refreshStudySession,
-} = useStudySession(scope, effectiveAudioOnly);
+} = useStudySession(scope, effectiveAudioOnly, clipSource);
 
 // Snapshotted only when a new presentation begins (StudyMediaPlayer fully
 // remounts on presentationKey), so toggling "Audio only" mid-card never
@@ -719,6 +721,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="playerAudioOnly"
           :auto-download="autoDownload"
+          :clip-source="clipSource"
           :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
@@ -814,6 +817,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         :open="viewedHistoryEntry !== null"
         :has-default-download-folder="hasDefaultDownloadFolder"
         :audio-only="effectiveAudioOnly"
+        :clip-source="clipSource"
         @close="viewedHistoryEntry = null"
         @updated="onHistoryCardUpdated"
       />
