@@ -503,33 +503,36 @@ function triggerAutoDownload(kind: "video" | "audio" | null) {
 onMounted(() => triggerAutoDownload(autoDownloadTarget.value));
 watch(autoDownloadTarget, (kind) => triggerAutoDownload(kind));
 
+function playIfPaused() {
+  const el = activeEl.value;
+  if (!el?.paused) return;
+  // A veil can outlive a source that never finished loading, so pressing
+  // play reloads first. The S hotkey always reached this function, while
+  // the button itself was disabled by the veil - this is what made a
+  // working clip look dead behind a button that did nothing.
+  if (errorMessage.value) retryLoad();
+  // AudioContext starts suspended under autoplay policy; resuming here,
+  // inside a real click/keypress handler, is what actually unlocks it.
+  audioContext?.resume();
+  el.play().catch((error: DOMException) => {
+    // The reload above tears down an in-flight play request. That abort is
+    // ours, the same way MEDIA_ERR_ABORTED is in onError.
+    if (error?.name === "AbortError") return;
+    errorMessage.value = "Couldn't play this clip.";
+    // Without a kind the veil below renders its message and no actions at
+    // all, which is the dead end this fix exists to remove.
+    failedKind.value = mediaKind.value;
+  });
+}
+
 function togglePlay() {
   const el = activeEl.value;
   if (!el) return;
-  if (el.paused) {
-    // A veil can outlive a source that never finished loading, so pressing
-    // play reloads first. The S hotkey always reached this function, while
-    // the button itself was disabled by the veil - this is what made a
-    // working clip look dead behind a button that did nothing.
-    if (errorMessage.value) retryLoad();
-    // AudioContext starts suspended under autoplay policy; resuming here,
-    // inside a real click/keypress handler, is what actually unlocks it.
-    audioContext?.resume();
-    el.play().catch((error: DOMException) => {
-      // The reload above tears down an in-flight play request. That abort is
-      // ours, the same way MEDIA_ERR_ABORTED is in onError.
-      if (error?.name === "AbortError") return;
-      errorMessage.value = "Couldn't play this clip.";
-      // Without a kind the veil below renders its message and no actions at
-      // all, which is the dead end this fix exists to remove.
-      failedKind.value = mediaKind.value;
-    });
-  } else {
-    el.pause();
-  }
+  if (el.paused) playIfPaused();
+  else el.pause();
 }
 
-defineExpose({ pause: () => activeEl.value?.pause() });
+defineExpose({ pause: () => activeEl.value?.pause(), playIfPaused });
 
 // Ambient glow: samples the *same* <video> already decoding for playback via
 // canvas, rather than a second <video> playing a duplicate stream - avoids

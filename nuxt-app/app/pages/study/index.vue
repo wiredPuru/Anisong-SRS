@@ -260,7 +260,7 @@ function revealCurrentCard() {
   autoRevealRemainingMs = null;
 }
 
-const mediaPlayerRef = ref<{ pause: () => void } | null>(null);
+const mediaPlayerRef = ref<{ pause: () => void; playIfPaused: () => void } | null>(null);
 const viewedHistoryEntry = ref<SessionHistoryEntry | null>(null);
 const showSessionLog = ref(false);
 
@@ -970,6 +970,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
             @answer="submitTypedAnswer"
             @give-up="saveTypedAnswer('fail', null)"
+            @typing-started="mediaPlayerRef?.playIfPaused()"
           />
           <StudyAnswerControls
             v-if="!typedAnswers"

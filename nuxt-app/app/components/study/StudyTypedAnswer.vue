@@ -7,12 +7,13 @@ const props = defineProps<{
   disabled: boolean;
   available: boolean;
 }>();
-const emit = defineEmits<{ answer: [selection: AnimeAnswerOption]; giveUp: [] }>();
+const emit = defineEmits<{ answer: [selection: AnimeAnswerOption]; giveUp: []; typingStarted: [] }>();
 const query = ref("");
 const selected = ref<AnimeAnswerOption | null>(null);
 const open = ref(false);
 const active = ref(-1);
 const composing = ref(false);
+const playbackRequested = ref(false);
 const input = ref<HTMLInputElement | null>(null);
 const listId = useId();
 const { results, loading, error, update, reset } = useAnimeAnswerSearch();
@@ -29,6 +30,10 @@ function search() {
   selected.value = null;
   active.value = -1;
   open.value = true;
+  if (!playbackRequested.value && query.value.trim()) {
+    playbackRequested.value = true;
+    emit("typingStarted");
+  }
   if (!composing.value) update(query.value);
 }
 
@@ -68,7 +73,13 @@ function clearAnswer() {
   if (!props.disabled && props.available) nextTick(() => input.value?.focus());
 }
 
-watch(() => [props.presentationKey, props.contextKey], clearAnswer);
+watch(() => [props.presentationKey, props.contextKey], ([presentationKey], [previousPresentationKey]) => {
+  if (presentationKey !== previousPresentationKey) playbackRequested.value = false;
+  clearAnswer();
+});
+watch(() => [props.disabled, props.available], ([disabled, available]) => {
+  if (!disabled && available) nextTick(() => input.value?.focus());
+});
 onMounted(() => {
   if (!props.disabled && props.available) input.value?.focus();
 });
