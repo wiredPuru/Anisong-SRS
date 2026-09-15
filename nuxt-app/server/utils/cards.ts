@@ -31,6 +31,7 @@ export interface CardWithDetails {
   artistId: number;
   artistName: string;
   animeId: number;
+  animeAniListId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -55,6 +56,7 @@ const cardSelection = {
   artistId: artist.id,
   artistName: artist.name,
   animeId: anime.id,
+  animeAniListId: anime.aniListId,
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,

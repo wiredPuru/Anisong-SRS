@@ -9,6 +9,8 @@ defineProps<{
   randomStart: boolean;
   ambientMode: boolean;
   audioOnly: boolean;
+  typedAnswers: boolean;
+  typedAnswersLocked: boolean;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
 }>();
@@ -19,6 +21,7 @@ const emit = defineEmits<{
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
   "toggle-audio-only": [];
+  "toggle-typed-answers": [];
   "update:auto-reveal-mode": [AutoRevealMode];
   "update:auto-reveal-seconds": [number];
 }>();
@@ -28,6 +31,17 @@ const showAutoRevealSettings = ref(false);
 
 <template>
   <div class="display-toggles">
+    <button
+      type="button"
+      class="toggle-btn"
+      :class="{ on: typedAnswers }"
+      :aria-pressed="typedAnswers"
+      :disabled="typedAnswersLocked"
+      @click="emit('toggle-typed-answers')"
+    >
+      Typed Answers
+      <span class="tooltip">{{ typedAnswersLocked ? "Continue before changing answer mode" : "Remember your preference for typed anime answers" }}</span>
+    </button>
     <!-- Labels read positive ("Video" lit = video showing) while the state
          stays negative: the props are still hideVideo/hideCover/hideInfo, so
          feature 46's Auto Reveal keeps forcing and reverting exactly the
@@ -52,8 +66,9 @@ const showAutoRevealSettings = ref(false);
         v-else
         type="button"
         class="seg-btn"
-        :class="{ on: !hideCover }"
-        :aria-pressed="!hideCover"
+        :disabled="typedAnswers"
+        :class="{ on: !hideCover && !typedAnswers }"
+        :aria-pressed="!hideCover && !typedAnswers"
         @click="emit('toggle-hide-cover')"
       >
         Cover
@@ -62,8 +77,9 @@ const showAutoRevealSettings = ref(false);
       <button
         type="button"
         class="seg-btn"
-        :class="{ on: !hideInfo }"
-        :aria-pressed="!hideInfo"
+        :disabled="typedAnswers"
+        :class="{ on: !hideInfo && !typedAnswers }"
+        :aria-pressed="!hideInfo && !typedAnswers"
         @click="emit('toggle-hide-info')"
       >
         Info
@@ -73,12 +89,15 @@ const showAutoRevealSettings = ref(false);
     <button
       type="button"
       class="toggle-btn"
+      :disabled="typedAnswers"
       :class="{ on: autoRevealMode !== 'off' }"
       :aria-pressed="autoRevealMode !== 'off'"
       @click="showAutoRevealSettings = true"
     >
       Auto reveal
-      <span class="tooltip">Choose what it hides (video/cover, info, or both) and its timer</span>
+      <span class="tooltip">
+        {{ typedAnswers ? "Paused while Typed Answers is on" : "Choose what it hides (video/cover, info, or both) and its timer" }}
+      </span>
     </button>
     <button
       type="button"

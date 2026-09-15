@@ -27,6 +27,7 @@ export interface CardWithDetails {
   artistId: number;
   artistName: string;
   animeId: number;
+  animeAniListId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -62,8 +63,8 @@ export function useStudySession(
   // itself is never written to - this only widens what this session asks for.
   const includeNewBeyondLimit = ref(false);
 
-  async function fetchNext() {
-    if (!scope.value) return;
+  async function fetchNext(): Promise<boolean> {
+    if (!scope.value) return false;
     loading.value = true;
     error.value = null;
     try {
@@ -93,15 +94,17 @@ export function useStudySession(
         const url = resolveRemotePrefetchUrl(upcomingCard, audioOnly.value, clipSource.value);
         if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
       }
+      return true;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to load the next card.");
+      return false;
     } finally {
       loading.value = false;
     }
   }
 
   async function submit(result: "pass" | "fail") {
-    if (reviewing.value || !currentCard.value) return;
+    if (reviewing.value || !currentCard.value) return false;
     reviewing.value = true;
     error.value = null;
     try {
@@ -110,8 +113,10 @@ export function useStudySession(
         body: { cardId: currentCard.value.id, result },
       });
       reviewedCount.value += 1;
+      return true;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to submit review.");
+      return false;
     } finally {
       reviewing.value = false;
     }

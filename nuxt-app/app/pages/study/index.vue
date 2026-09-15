@@ -1,7 +1,26 @@
 <script setup lang="ts">
 import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
+import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 
 const route = useRoute();
+const typedAnswers = ref(false);
+const TYPED_ANSWERS_STORAGE_KEY = "gaqSrs:typedAnswers";
+
+onMounted(() => {
+  try {
+    typedAnswers.value = localStorage.getItem(TYPED_ANSWERS_STORAGE_KEY) === "1";
+  } catch {
+    // Storage can be unavailable; the toggle still works for this visit.
+  }
+});
+
+watch(typedAnswers, (value) => {
+  try {
+    localStorage.setItem(TYPED_ANSWERS_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // Keep the current session usable when persistence is blocked.
+  }
+});
 
 type ScopeResult = { valid: true; scope: StudyScope } | { valid: false };
 
@@ -58,7 +77,6 @@ const {
   loading,
   error,
   sessionComplete,
-  reviewing,
   reviewedCount,
   presentationKey,
   newCardsToday,
@@ -99,14 +117,26 @@ interface SessionHistoryEntry {
   result: "pass" | "fail";
 }
 
+interface QuizResultPhase {
+  presentationKey: number;
+  result: "pass" | "fail";
+  selectedTitle: string | null;
+  correctTitle: string;
+  pointsAwarded: number;
+}
+
 // Every card actually reviewed this session, in order - load-bearing for a
 // future study-session-log feature, which should read this directly rather
 // than re-deriving it. Session-only, like Hide Video/Hide Info/Random
 // start/Ambient mode; resets on scope change below.
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
+const quizScore = ref(createQuizScore());
+const quizResult = ref<QuizResultPhase | null>(null);
 
 watch(scope, () => {
   sessionHistory.value = [];
+  quizScore.value = createQuizScore();
+  quizResult.value = null;
 });
 
 // Session-only visual feedback for the moment a grade lands - never persisted,
@@ -132,19 +162,89 @@ onUnmounted(() => {
   if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
 });
 
+const cardEditing = ref(false);
+const submissionBusy = ref(false);
+const awaitingNextCard = ref(false);
+let reviewSubmission = createReviewSubmission();
+watch([presentationKey, scope], () => {
+  reviewSubmission = createReviewSubmission();
+  awaitingNextCard.value = false;
+  quizResult.value = null;
+  cardEditing.value = false;
+});
+
 async function submitReview(result: "pass" | "fail") {
+  if (submissionBusy.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
-  const countBefore = reviewedCount.value;
-  await submit(result);
-  // reviewedCount only increments after a *successful* POST
-  // /api/study/review, inside submit() - comparing it (not presentationKey,
-  // which does not bump once the queue runs out) is what tells a real
-  // review apart from a no-op double-submit (submit() guards on
-  // `reviewing`) or a failed request.
-  if (reviewedCard && reviewedCount.value !== countBefore) {
+  const presentation = presentationKey.value;
+  const scopeKey = JSON.stringify(scope.value);
+  const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
+  submissionBusy.value = true;
+  try {
+    await reviewSubmission.run(async () => {
+      const saved = await submit(result);
+      if (saved && stillCurrent()) {
+        awaitingNextCard.value = true;
+        flashGrade(result);
+        sessionHistory.value.push({ card: reviewedCard, result });
+      }
+      return saved;
+    }, async () => {
+      return stillCurrent() ? await refreshStudySession() : false;
+    });
+  } finally {
+    submissionBusy.value = false;
+  }
+}
+
+function correctAnimeTitle(card: CardWithDetails): string {
+  return card.animeTitleEnglish || card.animeTitleRomaji || card.animeTitleNative;
+}
+
+async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | null) {
+  if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
+  const reviewedCard = currentCard.value;
+  const presentation = presentationKey.value;
+  const scopeKey = JSON.stringify(scope.value);
+  const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
+  submissionBusy.value = true;
+  try {
+    const saveState = await reviewSubmission.saveOnce(() => submit(result));
+    if (saveState !== "saved" || !stillCurrent()) return;
+    const transition = applyQuizResult(quizScore.value, result);
+    quizScore.value = transition.score;
     flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result });
-    await refreshStudySession();
+    quizResult.value = {
+      presentationKey: presentation,
+      result,
+      selectedTitle,
+      correctTitle: correctAnimeTitle(reviewedCard),
+      pointsAwarded: transition.pointsAwarded,
+    };
+  } finally {
+    submissionBusy.value = false;
+  }
+}
+
+function submitTypedAnswer(selection: AnimeAnswerOption) {
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
+  const result = evaluateAnimeAnswer(currentCard.value?.animeAniListId, selection.aniListId);
+  if (result !== "unavailable") void saveTypedAnswer(result, selection.titleEnglish || selection.titleRomaji || selection.titleNative);
+}
+
+async function continueTypedAnswer() {
+  if (!quizResult.value || submissionBusy.value || loading.value) return;
+  awaitingNextCard.value = true;
+  submissionBusy.value = true;
+  try {
+    const advanced = await reviewSubmission.advanceOnce(refreshStudySession);
+    if (advanced) {
+      quizResult.value = null;
+      awaitingNextCard.value = false;
+    }
+  } finally {
+    submissionBusy.value = false;
   }
 }
 
@@ -154,6 +254,7 @@ async function submitReview(result: "pass" | "fail") {
 // this (or one of those other paths) has already run, so submitReview() above
 // never has to reveal-then-grade in one step anymore.
 function revealCurrentCard() {
+  if (typedAnswers.value) return;
   autoRevealedThisCard.value = true;
   stopAutoRevealTimeout();
   autoRevealRemainingMs = null;
@@ -383,7 +484,7 @@ watch(autoRevealSeconds, (value) => {
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
 const autoRevealCountdownActive = computed(
-  () => autoRevealMode.value !== "off" && hasStartedPlaybackThisCard.value && !autoRevealedThisCard.value,
+  () => canAutoReveal(typedAnswers.value, autoRevealMode.value, hasStartedPlaybackThisCard.value, autoRevealedThisCard.value),
 );
 // Mirrors the media player's actual play/pause state (see onPlaybackStarted/
 // onPlaybackPaused below) - distinct from hasStartedPlaybackThisCard, which
@@ -446,7 +547,7 @@ function syncAutoRevealDisplay() {
 // playback resume. No-ops harmlessly when Auto Reveal is off, nothing has
 // played yet, or this card already revealed.
 function maybeStartOrResumeAutoReveal() {
-  if (autoRevealMode.value === "off" || autoRevealedThisCard.value || !hasStartedPlaybackThisCard.value) return;
+  if (!canAutoReveal(typedAnswers.value, autoRevealMode.value, hasStartedPlaybackThisCard.value, autoRevealedThisCard.value)) return;
   startAutoRevealTimeout(autoRevealRemainingMs ?? autoRevealSeconds.value * 1000);
 }
 
@@ -485,6 +586,7 @@ const AUTO_REVEAL_MODE_TARGETS: Record<AutoRevealMode, { visual: boolean; info: 
 watch(
   autoRevealMode,
   (mode, previousMode) => {
+    if (typedAnswers.value) return;
     const targets = AUTO_REVEAL_MODE_TARGETS[mode];
     const previousTargets = previousMode ? AUTO_REVEAL_MODE_TARGETS[previousMode] : { visual: false, info: false };
     if (targets.visual) {
@@ -513,7 +615,7 @@ watch(
 // the target computeds already reflect the new mode, so isTargeted is
 // already false there and this no-ops correctly.
 function onHideToggleChanged(isTargeted: boolean, isNowHidden: boolean) {
-  if (isNowHidden || !isTargeted || autoRevealedThisCard.value) return;
+  if (typedAnswers.value || isNowHidden || !isTargeted || autoRevealedThisCard.value) return;
   autoRevealedThisCard.value = true;
   stopAutoRevealTimeout();
   autoRevealRemainingMs = null;
@@ -548,11 +650,11 @@ watch(
       // any manual Hide Video/Hide Info/Hide Cover change made mid-card on
       // the previous card. Only ever forces on, never off - reverting an
       // untargeted toggle is the mode-change watcher's job above, not this.
-      if (autoRevealTargetsVisual.value) {
+      if (!typedAnswers.value && autoRevealTargetsVisual.value) {
         hideVideo.value = true;
         hideCover.value = true;
       }
-      if (autoRevealTargetsInfo.value) {
+      if (!typedAnswers.value && autoRevealTargetsInfo.value) {
         hideInfo.value = true;
       }
     }
@@ -572,6 +674,26 @@ watch(
   { immediate: true },
 );
 
+watch(typedAnswers, () => {
+  stopAutoRevealTimeout();
+  autoRevealRemainingMs = null;
+  autoRevealedThisCard.value = false;
+  syncAutoRevealDisplay();
+  if (!typedAnswers.value && isPlaybackActive.value) maybeStartOrResumeAutoReveal();
+});
+
+let hideVideoBeforeTypedAnswers: boolean | null = null;
+watch(typedAnswers, (enabled) => {
+  const state = transitionTypedAnswerVideo(
+    enabled,
+    autoRevealTargetsVisual.value,
+    hideVideo.value,
+    hideVideoBeforeTypedAnswers,
+  );
+  hideVideo.value = state.hideVideo;
+  hideVideoBeforeTypedAnswers = state.hiddenBeforeTypedAnswers;
+});
+
 onUnmounted(stopAutoRevealTimeout);
 
 const { setAmbientGlass } = useAmbientGlass();
@@ -590,6 +712,16 @@ const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
+  if (quizResult.value) {
+    if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
+      event.preventDefault();
+      void continueTypedAnswer();
+    }
+    // Playback's S hotkey is handled independently by StudyMediaPlayer. Keep
+    // the result stable by suppressing page-level navigation and reveal keys.
+    return;
+  }
+  if (typedAnswers.value && ["i", "c"].includes(event.key.toLowerCase())) return;
   const key = event.key.toLowerCase();
   if (key === "i") {
     hideInfo.value = !hideInfo.value;
@@ -620,10 +752,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="loading && !currentCard" class="state">
       <ActivityStatus label="Loading your study queue" />
     </div>
-    <div v-else-if="error" class="state state-error">{{ error }}</div>
+    <div v-else-if="error && !currentCard" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">
       <MascotTemi size="companion" class="state-mascot" />
-      All caught up! Nothing due right now.
+      <strong class="completion-title">All caught up!</strong>
+      <span>Nothing due right now.</span>
+      <div v-if="quizScore.answered > 0" class="quiz-summary" aria-label="Typed answer session summary">
+        <p class="summary-kicker">Quiz complete</p>
+        <div class="summary-score">{{ quizScore.score.toLocaleString() }} <small>points</small></div>
+        <div class="summary-stats">
+          <span><strong>{{ quizScore.correct }}/{{ quizScore.answered }}</strong> correct</span>
+          <span><strong>{{ quizAccuracy(quizScore) }}%</strong> accuracy</span>
+          <span><strong>{{ quizScore.bestCombo }}x</strong> best combo</span>
+        </div>
+      </div>
       <button
         v-if="withheldNewCount > 0"
         type="button"
@@ -637,6 +779,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         v-if="sessionHistory.length > 0"
         type="button"
         class="previous-card-btn"
+        :disabled="Boolean(quizResult)"
         @click="openPreviousCard"
       >
         &#8617; Previous card
@@ -648,7 +791,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div class="header-left">
           <span class="chip">{{ scopeChipLabel }}</span>
           <span class="counts">
-            Card {{ reviewedCount + 1 }}
+            Card {{ reviewedCount + (quizResult ? 0 : 1) }}
             <span class="sep" aria-hidden="true">&middot;</span>
             {{ dueCount }} left
           </span>
@@ -677,6 +820,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           >
             <span class="progress-fill" :style="{ width: `${sessionProgress}%` }" />
           </div>
+          <StudyQuizScore
+            v-if="typedAnswers"
+            :score="quizScore.score"
+            :combo="quizScore.combo"
+            :correct="quizScore.correct"
+            :answered="quizScore.answered"
+          />
         </div>
         <div class="header-right">
           <StudyDisplayToggles
@@ -687,11 +837,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :random-start="randomStart"
             :ambient-mode="ambientMode"
             :audio-only="effectiveAudioOnly"
+            :typed-answers="typedAnswers"
+            :typed-answers-locked="Boolean(quizResult)"
+            @toggle-typed-answers="!submissionBusy && !quizResult && (typedAnswers = !typedAnswers)"
             v-model:auto-reveal-mode="autoRevealMode"
             :auto-reveal-seconds="autoRevealSeconds"
             @toggle-hide-video="hideVideo = !hideVideo"
-            @toggle-hide-info="hideInfo = !hideInfo"
-            @toggle-hide-cover="hideCover = !hideCover"
+            @toggle-hide-info="!typedAnswers && (hideInfo = !hideInfo)"
+            @toggle-hide-cover="!typedAnswers && (hideCover = !hideCover)"
             @toggle-random-start="randomStart = !randomStart"
             @toggle-ambient-mode="ambientMode = !ambientMode"
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
@@ -701,7 +854,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             type="button"
             class="controls-toggle-btn"
             aria-label="Session log"
-            @click="showSessionLog = !showSessionLog"
+            :disabled="Boolean(quizResult)"
+            @click="!quizResult && (showSessionLog = !showSessionLog)"
           >
             <span aria-hidden="true">📋</span>
             <span class="tooltip">Session log &middot; Hotkey: L</span>
@@ -714,15 +868,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           ref="mediaPlayerRef"
           :key="presentationKey"
           :card="currentCard"
-          :hide-video="(hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
+          :hide-video="typedAnswers ? hideVideo : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
           :random-start="randomStart"
           :ambient="ambientMode"
-          :hide-theme-badge="hideInfo && !autoRevealedThisCard"
+          :hide-theme-badge="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
           :has-default-download-folder="hasDefaultDownloadFolder"
           :audio-only="playerAudioOnly"
           :auto-download="autoDownload"
           :clip-source="clipSource"
-          :hide-cover="(hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard"
+          :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
           @playback-started="onPlaybackStarted"
           @playback-paused="onPlaybackPaused"
           @local-path-updated="onLocalPathUpdated"
@@ -732,6 +886,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
+          <StudyQuizResult
+            v-if="typedAnswers && quizResult"
+            :result="quizResult.result"
+            :selected-title="quizResult.selectedTitle"
+            :correct-title="quizResult.correctTitle"
+            :points-awarded="quizResult.pointsAwarded"
+            :score="quizScore.score"
+            :combo="quizScore.combo"
+            :busy="submissionBusy || loading"
+            :retry="Boolean(error && awaitingNextCard)"
+            @continue="continueTypedAnswer"
+          />
           <div>
             <div class="info-panel-wrap">
               <StudyAutoRevealCountdown
@@ -740,8 +906,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :ambient="ambientMode"
               />
               <StudyInfoPanel
-                :blurred="hideInfo && !autoRevealedThisCard"
-                :inert="hideInfo && !autoRevealedThisCard"
+                :blurred="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
+                :inert="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
                 :presentation-key="presentationKey"
                 :ambient="ambientMode"
                 :immersive="false"
@@ -759,11 +925,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 @streak-required-saved="onSettingsSaved"
               />
               <button
-                v-if="hideInfo && !autoRevealedThisCard"
+                v-if="!typedAnswers && hideInfo && !autoRevealedThisCard"
                 type="button"
                 class="info-reveal-target"
                 aria-label="Reveal card information"
-                :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog"
+                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
                 @click="revealCurrentCard"
                 @keydown.enter.stop
                 @keydown.space.stop
@@ -777,7 +943,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :toggling-membership="togglingMembership"
               :deck-toggle-error="deckToggleError"
               :has-default-download-folder="hasDefaultDownloadFolder"
+              :disabled="Boolean(quizResult)"
               @updated="onCardEdited"
+              @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
           </div>
@@ -785,13 +953,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             v-if="sessionHistory.length > 0"
             type="button"
             class="previous-card-btn"
+            :disabled="Boolean(quizResult)"
             @click="openPreviousCard"
           >
             &#8617; Previous card
             <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
           </button>
+          <p v-if="error" role="alert">{{ error }}</p>
+          <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
+          <StudyTypedAnswer
+            v-if="typedAnswers && !quizResult"
+            :key="JSON.stringify(scope)"
+            :presentation-key="presentationKey"
+            :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
+            :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+            @answer="submitTypedAnswer"
+            @give-up="saveTypedAnswer('fail', null)"
+          />
           <StudyAnswerControls
-            :disabled="reviewing || viewedHistoryEntry !== null || showSessionLog"
+            v-if="!typedAnswers"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
             :awaiting-reveal="hideInfo && !autoRevealedThisCard"
             @pass="submitReview('pass')"
             @fail="submitReview('fail')"
@@ -803,10 +985,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                info" - all three wrong, and there is no replay binding at
                all, so it is deliberately not copied. -->
           <p class="hotkey-legend">
-            <span><kbd>S</kbd> play/pause</span>
-            <span><kbd>I</kbd> hide info</span>
-            <span><kbd>P</kbd> previous card</span>
-            <span><kbd>L</kbd> session log</span>
+            <template v-if="typedAnswers">
+              <template v-if="quizResult">
+                <span><kbd>Enter</kbd> continue</span>
+                <span><kbd>S</kbd> play/pause</span>
+              </template>
+              <template v-else>
+                <span><kbd>&uarr;&darr;</kbd> choose</span>
+                <span><kbd>Enter</kbd> select / submit</span>
+                <span><kbd>Esc</kbd> close suggestions</span>
+              </template>
+            </template>
+            <template v-else>
+              <span><kbd>S</kbd> play/pause</span>
+              <span><kbd>I</kbd> hide info</span>
+              <span><kbd>P</kbd> previous card</span>
+              <span><kbd>L</kbd> session log</span>
+            </template>
           </p>
         </div>
       </div>
@@ -864,6 +1059,73 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .state-error {
   color: var(--fail);
   border-color: var(--fail);
+}
+
+.completion-title {
+  display: block;
+  color: var(--text);
+  font: 400 24px var(--font-display);
+}
+
+.quiz-summary {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 360px);
+  margin: 18px auto;
+  padding: 18px;
+  border: 1px solid var(--accent-secondary);
+  border-radius: var(--radius);
+  background: radial-gradient(circle at 50% 0, var(--accent-secondary-glow), transparent 58%), var(--surface-raised);
+  box-shadow: var(--shadow-accent);
+  animation: summary-arrive 420ms cubic-bezier(0.2, 0.9, 0.25, 1.15);
+}
+
+.summary-kicker {
+  margin: 0;
+  color: var(--accent-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.summary-score {
+  color: var(--text);
+  font: 400 clamp(30px, 6vw, 44px) var(--font-display);
+  line-height: 1;
+}
+
+.summary-score small {
+  color: var(--muted);
+  font: 700 11px var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.summary-stats span {
+  display: grid;
+  gap: 2px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.summary-stats strong {
+  color: var(--text);
+  font: 400 17px var(--font-display);
+}
+
+@keyframes summary-arrive {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-summary { animation: none; }
 }
 
 /* One bordered strip across the top of the content column, replacing the old
@@ -1005,6 +1267,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   opacity: 1;
 }
 
+.controls-toggle-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
 .controls-toggle-btn .tooltip {
   position: absolute;
   top: calc(100% + 8px);
@@ -1119,6 +1386,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .previous-card-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
+}
+
+.previous-card-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Two panes, edge to edge, filling whatever height is left under the header.

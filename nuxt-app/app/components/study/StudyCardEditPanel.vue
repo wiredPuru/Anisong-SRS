@@ -20,13 +20,16 @@ const props = defineProps<{
 	togglingMembership: Record<string, boolean>
 	deckToggleError: string | null
 	hasDefaultDownloadFolder: boolean
+	disabled?: boolean
 }>()
 const emit = defineEmits<{
 	updated: [card: CardWithDetails]
+	'editing-change': [editing: boolean]
 	'toggle-membership': [deckId: number, checked: boolean]
 }>()
 
 const editing = ref(false)
+watch(editing, (value) => emit('editing-change', value), { flush: 'sync' })
 const videoPath = ref('')
 const audioPath = ref('')
 const notes = ref('')
@@ -35,6 +38,7 @@ const error = ref<string | null>(null)
 const clearing = reactive<Record<string, boolean>>({})
 
 function startEdit() {
+	if (props.disabled) return
 	videoPath.value = props.card.localVideoPath ?? ''
 	audioPath.value = props.card.localAudioPath ?? ''
 	notes.value = props.card.notes ?? ''
@@ -125,6 +129,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			v-if="!editing"
 			type="button"
 			class="edit-toggle-btn"
+			:disabled="disabled"
 			@click="startEdit"
 		>
 			Edit card
@@ -433,7 +438,8 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 }
 
 .save-btn:disabled,
-.cancel-btn:disabled {
+.cancel-btn:disabled,
+.edit-toggle-btn:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;
 }

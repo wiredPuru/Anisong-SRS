@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 70061b1fad6eb5e0d501654f0f2dc2ac9c07b4599e5484b8290d01fcfcbf6a62 -->
+<!-- blueprint:source-hash 6e6c532766dfbb6aaea2f4f4e2f61f9520ed83170da627df8ffb1f4e69b655dc -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -154,8 +154,8 @@ of the Akihabara arcade style. Feature 63 (Temi, the app's mascot) was added
 to `build-plan.md` on 2026-09-14 and is now built and merged; it added a §7 UI/UX
 bullet to `project-plan.md`, reversing 62's "no mascots" scope note for
 non-working surfaces only. Feature 64 (a Clip source setting, in three
-sub-features 64a-64c) was added to `build-plan.md` on 2026-09-14; 64a is
-built and merged, 64b and 64c are not yet built. It revises feature 60's "no new setting" decision, and amended
+sub-features 64a-64c) was added to `build-plan.md` on 2026-09-14 and is
+built in full. It revises feature 60's "no new setting" decision, and amended
 `project-plan.md`'s §3 "Anime & song lookup" bullet and §5 AnisongDB Tech
 line.
 
@@ -1222,7 +1222,7 @@ line.
     285KB) and a 180px `apple-touch-icon.png` are linked from
     `nuxt.config.ts`. The hero image is 150px, 96px under 820px; companions
     are 96px. Regeneration commands are in the feature's archive.
-64. **Clip source setting** - in progress (64a done). Added to `build-plan.md`
+64. **Clip source setting** - done. Added to `build-plan.md`
     2026-09-14 after clips were still being streamed and downloaded from
     animethemes.moe despite feature 60 preferring AnisongDB. 60a's merge in
     `server/utils/themeSource.ts` keeps animethemes.moe URLs for a theme
@@ -1246,17 +1246,23 @@ line.
       `/api/media/prefetch`, and `/api/cards/download`, which return `403`
       for an excluded host before any cache lookup, so an already-cached clip
       is refused too. `parseAllowedStreamUrl` is unchanged and still the
-      open-proxy guard and the stream-cache cleanup check. Until 64c, a card
-      whose playable URL is excluded shows the player's error state.
-    - **64b. Import-time clip filtering** - not yet built. Anime, song, and
+      open-proxy guard and the stream-cache cleanup check. Feature 64c also skips excluded playback URLs in Study and Preview.
+    - **64b. Import-time clip filtering** - done. Anime, song, and
       artist import and deck import keep only allowed clip URLs; a theme
       left with no allowed clip still shows in results, disabled, with a
       note saying why.
-    - **64c. Existing cards under a narrower setting** - not yet built.
+    - **64c. Existing cards under a narrower setting** - done.
       Study and Preview skip a blocked URL (playing the other kind when it
       is allowed); a card with nothing allowed shows the existing error
       state with a hint pointing at 60c's re-source action, which honours
       the setting.
+
+65. **Typed anime answers on Study** - in progress. A remembered, default-off
+    Study toggle enables online anime autocomplete, including anime outside the
+    library. Keyboard or mouse selection followed by submission records
+    Pass/Fail, then pauses on an animated result with the revealed answer,
+    points, and combo feedback while playback continues. A separate Continue
+    action or later Enter press advances. Search failures never grade.
 
 ## Data model
 
@@ -1505,6 +1511,13 @@ stored session queue.
 Non-profit. No monetization planned.
 
 ## UI/UX
+
+- **Feature 65 in progress:** Study gains a remembered Typed Answers toggle,
+  off by default. Its online anime suggestions and submission control replace
+  manual review controls while enabled. A saved answer reveals an energetic
+  result panel and session score/combo, keeps the song available for listening,
+  and waits for a separate Continue action. Ordinary manual review remains
+  available when switched off.
 
 **Current look (feature 62, 2026-09-14):** cute and moe first - soft,
 playful, a little cartoony, read through a lo-fi gruvbox-inspired palette: a

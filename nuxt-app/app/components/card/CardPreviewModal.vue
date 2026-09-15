@@ -16,6 +16,7 @@ interface CardWithDetails {
   artistId: number;
   artistName: string;
   animeId: number;
+  animeAniListId: number;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;

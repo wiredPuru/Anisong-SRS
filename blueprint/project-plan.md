@@ -51,7 +51,11 @@ instance against their own local media and database.
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
   arrow (pass), matching the Anki/Migaku convention. Fail returns a card to a
-  shorter review interval; pass advances it to a longer one.
+  shorter review interval; pass advances it to a longer one. Optional typed
+  anime answers (feature 65) use a wider online catalogue with filtering
+  suggestions, then automatically grade and save Pass/Fail. Submission reveals
+  a lively result state with points and combo feedback while the song keeps
+  playing; the user advances separately with a Continue action or Enter.
 - **Language display** - English, Romaji, and Japanese are each independently
   toggleable and can all be shown at once if desired; Furigana is a separate
   sub-toggle under Japanese (only relevant when Japanese is on). Furigana is
@@ -160,7 +164,10 @@ Non-profit. No monetization planned.
   removed with it. Card Preview keeps its own expand/immersive mode, which
   is where that mechanism still lives.
 - Review controls follow Anki/Migaku convention: pass/fail buttons, or left
-  arrow (fail) / right arrow (pass) as keyboard shortcuts.
+  arrow (fail) / right arrow (pass) as keyboard shortcuts. A remembered Typed
+  Answers toggle on Study, off by default, replaces manual grading with an
+  anime autocomplete and submission control when enabled. Suggestions support
+  keyboard and mouse selection; search errors never count as wrong answers.
 - Japanese text must render as real, selectable DOM text (not baked into an
   image or video) so the Migaku browser extension can attach its dictionary
   popup to it.

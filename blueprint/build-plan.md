@@ -577,6 +577,12 @@ cleaned-up checkbox version before generating the project overview.
     pointing at the 60c re-source action, and that action honours the
     setting. Stored URLs are never deleted.
 
+- [x] 65. **Typed anime answers on Study** - optional, remembered answer mode
+  with online anime autocomplete, automatic Pass/Fail grading, an explicit
+  answer-result/continue phase, and session score/combo feedback. Suggestions
+  include anime outside the local library; submitted answers leave the song
+  playing until the user continues.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
