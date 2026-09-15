@@ -11,6 +11,7 @@ interface SongSearchResult {
   animeTitleRomaji: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  clipBlocked: boolean;
 }
 
 interface CardWithDetails {
@@ -111,7 +112,7 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
 }
 
 function addSongRowClick(result: SongSearchResult) {
-  if (addedSongCard(result.resultKey) || adding[result.resultKey]) return;
+  if (addedSongCard(result.resultKey) || adding[result.resultKey] || result.clipBlocked) return;
   addSongResult(result);
 }
 
@@ -181,7 +182,7 @@ async function removeCard(resultKey: string) {
           v-for="result in results"
           :key="result.resultKey"
           class="theme-row"
-          :class="{ 'row-clickable': !addedSongCard(result.resultKey) }"
+          :class="{ 'row-clickable': !addedSongCard(result.resultKey) && !result.clipBlocked }"
           @click="addSongRowClick(result)"
         >
           <div class="theme-info">
@@ -252,12 +253,15 @@ async function removeCard(resultKey: string) {
               <button
                 type="button"
                 class="add-btn"
-                :disabled="adding[result.resultKey]"
+                :disabled="adding[result.resultKey] || result.clipBlocked"
                 @click.stop="addSongResult(result)"
               >
                 {{ adding[result.resultKey] ? "Adding..." : "Add" }}
               </button>
             </div>
+            <p v-if="result.clipBlocked" class="clip-blocked-hint">
+              No clip allowed - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>.
+            </p>
             <p v-if="addError[result.resultKey]" class="inline-error">
               {{ addError[result.resultKey] }}
             </p>
@@ -354,6 +358,16 @@ async function removeCard(resultKey: string) {
 .add-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.clip-blocked-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.clip-blocked-hint a {
+  color: var(--accent);
 }
 
 .added-info {

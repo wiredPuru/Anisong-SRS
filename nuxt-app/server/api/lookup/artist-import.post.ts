@@ -2,7 +2,9 @@ import { respondWithImportProgress } from "../../utils/importProgress.ts";
 import { AnimeLookupUnavailableError, createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { ProviderUnavailableError } from "../../lib/graphql.ts";
 import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource.ts";
+import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { getClipSource } from "../../utils/mediaLibrary.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -48,9 +50,11 @@ export default defineEventHandler(async (event) => {
         songTitle: string;
         videoUrl: string | null;
         audioUrl: string | null;
+        clipBlocked: boolean;
       }[];
     }[] = [];
 
+    const clipSource = getClipSource();
     const metadata = createAnimeMetadataResolver();
     let unavailableAnimeCount = 0;
     let completed = 0;
@@ -94,12 +98,15 @@ export default defineEventHandler(async (event) => {
             animethemesThemeId: entry.animethemesThemeId,
           });
 
+          const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(entry.videoUrl, entry.audioUrl, clipSource);
+
           return {
             songId: songRow.id,
             themeSlot: entry.themeSlot,
             songTitle: songRow.title,
-            videoUrl: entry.videoUrl,
-            audioUrl: entry.audioUrl,
+            videoUrl,
+            audioUrl,
+            clipBlocked,
           };
         });
 

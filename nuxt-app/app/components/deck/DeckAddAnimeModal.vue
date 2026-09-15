@@ -13,6 +13,7 @@ interface ThemeResult {
   artistName: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  clipBlocked: boolean;
 }
 
 interface ImportResult {
@@ -112,7 +113,7 @@ watch(
 );
 
 function addThemeRowClick(theme: ThemeResult) {
-  if (addedCards[theme.songId] || adding[theme.songId]) return;
+  if (addedCards[theme.songId] || adding[theme.songId] || theme.clipBlocked) return;
   addTheme(theme);
 }
 
@@ -203,7 +204,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           v-for="theme in importResult.themes"
           :key="theme.songId"
           class="theme-row"
-          :class="{ 'row-clickable': !addedCards[theme.songId] }"
+          :class="{ 'row-clickable': !addedCards[theme.songId] && !theme.clipBlocked }"
           @click="addThemeRowClick(theme)"
         >
           <div class="theme-info">
@@ -250,10 +251,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </template>
           <template v-else>
             <div class="theme-actions">
-              <button type="button" class="add-btn" :disabled="adding[theme.songId]" @click.stop="addTheme(theme)">
+              <button
+                type="button"
+                class="add-btn"
+                :disabled="adding[theme.songId] || theme.clipBlocked"
+                @click.stop="addTheme(theme)"
+              >
                 {{ adding[theme.songId] ? "Adding..." : "Add" }}
               </button>
             </div>
+            <p v-if="theme.clipBlocked" class="clip-blocked-hint">
+              No clip allowed - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>.
+            </p>
             <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
           </template>
         </li>
@@ -400,6 +409,16 @@ h2 {
 .add-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.clip-blocked-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.clip-blocked-hint a {
+  color: var(--accent);
 }
 
 .added-badge {

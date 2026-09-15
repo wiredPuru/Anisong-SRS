@@ -1,9 +1,10 @@
 import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { extname, isAbsolute, join, relative } from "node:path";
 import { cardExistsForSong, createCard } from "./cards.ts";
+import { filterClipUrls } from "./clipSource.ts";
 import type { DeckBundleManifest } from "./deckExport.ts";
 import { findAnimeByAniListId, findSongByAnimeAndSlot, getArtistById, getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
-import { getDefaultDownloadFolder } from "./mediaLibrary.ts";
+import { getClipSource, getDefaultDownloadFolder } from "./mediaLibrary.ts";
 import { resolveUniquePath, sanitizeSegment } from "./mediaDownload.ts";
 
 // Mirrors mediaLibrary.ts's isPathWithinLibrary - a manifest is untrusted
@@ -44,6 +45,7 @@ export function importBundle(sourcePath: string): ImportBundleResult {
   }
 
   const defaultFolder = getDefaultDownloadFolder();
+  const clipSource = getClipSource();
   let created = 0;
   let skipped = 0;
   const errors: string[] = [];
@@ -99,11 +101,14 @@ export function importBundle(sourcePath: string): ImportBundleResult {
         }
       }
 
+      const { videoUrl: animethemesVideoUrl, audioUrl: animethemesAudioUrl } =
+        filterClipUrls(entry.animethemesVideoUrl, entry.animethemesAudioUrl, clipSource);
+
       const result = createCard({
         songId: songRow.id,
         localAudioPath,
-        animethemesVideoUrl: entry.animethemesVideoUrl,
-        animethemesAudioUrl: entry.animethemesAudioUrl,
+        animethemesVideoUrl,
+        animethemesAudioUrl,
       });
 
       if ("card" in result) {

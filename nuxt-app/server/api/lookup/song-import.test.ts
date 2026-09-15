@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ byAniListId: vi.fn(), upsertAnime: vi.fn(), upsertSong: vi.fn() }));
+const mocks = vi.hoisted(() => ({ byAniListId: vi.fn(), upsertAnime: vi.fn(), upsertSong: vi.fn(), getClipSource: vi.fn() }));
 vi.mock("../../utils/animeMetadata.ts", () => ({ createAnimeMetadataResolver: () => mocks }));
 vi.mock("../../utils/cards.ts", () => ({ getCardsBySongIds: () => [] }));
 vi.mock("../../utils/lookup.ts", () => ({
@@ -8,6 +8,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   upsertAnime: mocks.upsertAnime,
   upsertSong: mocks.upsertSong,
 }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource }));
 
 const anisongBody = {
   resultKey: "adb:31487",
@@ -35,6 +36,7 @@ beforeEach(() => {
   mocks.byAniListId.mockResolvedValue({ aniListId: 114194, titleRomaji: "Beastars", animethemesId: null });
   mocks.upsertAnime.mockImplementation((anime) => ({ id: 7, ...anime }));
   mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song }));
+  mocks.getClipSource.mockReturnValue("both");
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -65,5 +67,19 @@ describe("song import request validation", () => {
     ["a blank theme slot", { ...anisongBody, themeSlot: "  " }],
   ])("rejects a request with %s", async (_label, body) => {
     await expect(importSong(body)).rejects.toThrow("Invalid song import request");
+  });
+});
+
+describe("song import clip filtering", () => {
+  it("re-filters the request body's URL rather than trusting it, when the setting has since changed", async () => {
+    // The client just echoes back a search result. If the Clip source setting
+    // narrowed between search and click, the stale AMQ URL must not survive.
+    mocks.getClipSource.mockReturnValue("animethemes");
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ videoUrl: null, audioUrl: null });
+  });
+
+  it("keeps a URL the current setting still allows", async () => {
+    mocks.getClipSource.mockReturnValue("anisongdb");
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ videoUrl: anisongBody.videoUrl });
   });
 });

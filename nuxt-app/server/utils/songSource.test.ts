@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderRequestError, ProviderUnavailableError } from "../lib/graphql.ts";
 import { searchSongsOnAnimeThemes } from "../lib/animethemes.ts";
 import { searchSongs } from "../lib/anisongdb.ts";
+import { getClipSource } from "./mediaLibrary.ts";
 import { searchSongEntries } from "./songSource.ts";
 
 vi.mock("../lib/animethemes.ts", () => ({ searchSongsOnAnimeThemes: vi.fn() }));
 vi.mock("../lib/anisongdb.ts", () => ({ searchSongs: vi.fn() }));
+vi.mock("./mediaLibrary.ts", () => ({ getClipSource: vi.fn() }));
 
 const fromAnimeThemes = vi.mocked(searchSongsOnAnimeThemes);
 const fromAnisong = vi.mocked(searchSongs);
+const clipSource = vi.mocked(getClipSource);
 
 const anisongResult = (overrides = {}) => ({
   annSongId: 31487,
@@ -42,6 +45,10 @@ beforeEach(() => {
   fromAnisong.mockReset();
   fromAnisong.mockResolvedValue([anisongResult()]);
   fromAnimeThemes.mockResolvedValue([animethemesEntry()]);
+  // "both" keeps every fixture URL unfiltered by default; filtering itself is
+  // covered by its own describe block below.
+  clipSource.mockReset();
+  clipSource.mockReturnValue("both");
 });
 
 describe("song search source", () => {
@@ -58,6 +65,7 @@ describe("song search source", () => {
       animeTitleRomaji: "Beastars",
       videoUrl: "https://naedist.animemusicquiz.com/fast.webm",
       audioUrl: "https://naedist.animemusicquiz.com/fast.mp3",
+      clipBlocked: false,
     }]);
     expect(fromAnimeThemes).not.toHaveBeenCalled();
   });
@@ -78,7 +86,7 @@ describe("song search source", () => {
 
   it("falls back to AnimeThemes when AnisongDB is unavailable", async () => {
     fromAnisong.mockRejectedValue(new ProviderUnavailableError("AnisongDB"));
-    expect(await searchSongEntries("Gurenge")).toEqual([animethemesEntry()]);
+    expect(await searchSongEntries("Gurenge")).toEqual([{ ...animethemesEntry(), clipBlocked: false }]);
     expect(fromAnimeThemes).toHaveBeenCalledWith("Gurenge");
   });
 
@@ -92,5 +100,20 @@ describe("song search source", () => {
     fromAnisong.mockRejectedValue(new ProviderUnavailableError("AnisongDB"));
     fromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
     await expect(searchSongEntries("Gurenge")).rejects.toMatchObject({ statusCode: 503 });
+  });
+});
+
+describe("song search source clip filtering", () => {
+  it("drops an AnisongDB (AMQ-hosted) result's URLs and reports clipBlocked under animethemes-only", async () => {
+    clipSource.mockReturnValue("animethemes");
+    const [result] = await searchSongEntries("Kaibutsu");
+    expect(result).toMatchObject({ videoUrl: null, audioUrl: null, clipBlocked: true });
+  });
+
+  it("drops an AnimeThemes result's URLs and reports clipBlocked under anisongdb-only", async () => {
+    fromAnisong.mockRejectedValue(new ProviderUnavailableError("AnisongDB"));
+    clipSource.mockReturnValue("anisongdb");
+    const [result] = await searchSongEntries("Gurenge");
+    expect(result).toMatchObject({ videoUrl: null, audioUrl: null, clipBlocked: true });
   });
 });

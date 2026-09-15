@@ -1,15 +1,22 @@
 import { searchSongsOnAnimeThemes, type SongSearchEntry } from "../lib/animethemes.ts";
 import { searchSongs } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
+import { filterClipUrls } from "./clipSource.ts";
+import { getClipSource } from "./mediaLibrary.ts";
+
+export interface FilteredSongSearchEntry extends SongSearchEntry {
+  clipBlocked: boolean;
+}
 
 // AnisongDB answers a song search in roughly a third of the time AnimeThemes
 // takes, and its clip URLs come from AMQ's own hosts, so it is asked first.
 // Unlike the per-anime import (see themeSource.ts) there is nothing to merge:
 // a search result is a picking aid, and the import that follows re-resolves
 // everything from the AniList id anyway.
-export async function searchSongEntries(query: string): Promise<SongSearchEntry[]> {
+export async function searchSongEntries(query: string): Promise<FilteredSongSearchEntry[]> {
+  let entries: SongSearchEntry[];
   try {
-    return (await searchSongs(query)).map((result) => ({
+    entries = (await searchSongs(query)).map((result) => ({
       resultKey: `adb:${result.annSongId}`,
       animethemesThemeId: null,
       themeSlot: result.themeSlot,
@@ -29,6 +36,12 @@ export async function searchSongEntries(query: string): Promise<SongSearchEntry[
     // something wrong, and masking that behind a second provider would hide a
     // real fault.
     if (!(error instanceof ProviderUnavailableError)) throw error;
-    return searchSongsOnAnimeThemes(query);
+    entries = await searchSongsOnAnimeThemes(query);
   }
+
+  const clipSource = getClipSource();
+  return entries.map((entry) => {
+    const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(entry.videoUrl, entry.audioUrl, clipSource);
+    return { ...entry, videoUrl, audioUrl, clipBlocked };
+  });
 }

@@ -29,7 +29,9 @@ function baseEntry(overrides: Partial<DeckBundleManifest["cards"][number]> = {})
     artistName: "Original artist",
     song: { title: "Original song", themeSlot: "OP1", animethemesThemeId: null },
     animethemesVideoUrl: null,
-    animethemesAudioUrl: "https://example.com/theme.ogg",
+    // An AMQ host, allowed under the real default clip source setting
+    // ("anisongdb") these tests don't otherwise configure.
+    animethemesAudioUrl: "https://naedist.animemusicquiz.com/theme.mp3",
     audioFile: null,
     ...overrides,
   };
@@ -118,5 +120,40 @@ describe("importBundle", () => {
     const animeRows = db.select().from(anime).all();
     expect(animeRows).toHaveLength(1);
     expect(animeRows[0]).toMatchObject({ titleRomaji: "Renamed show", titleEnglish: "Renamed show", titleNative: "改題" });
+  });
+});
+
+describe("importBundle clip filtering", () => {
+  it("drops a stored URL the current Clip source setting excludes and reports the entry as an error, not a created card", () => {
+    db.insert(mediaLibrarySettings).values({ id: 1, clipSource: "animethemes" }).run();
+
+    writeManifest({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      scope: { type: "anime", id: 1 },
+      // The only source is an AMQ host, which "animethemes" mode excludes,
+      // and no audioFile is bundled - so this entry ends up with nothing.
+      cards: [baseEntry()],
+    });
+
+    const result = importBundle(bundleDir);
+    expect(result.created).toBe(0);
+    expect(result.errors).toEqual([expect.stringContaining("needs at least one")]);
+    expect(db.select().from(card).all()).toHaveLength(0);
+  });
+
+  it("still imports a stored URL the current setting allows", () => {
+    db.insert(mediaLibrarySettings).values({ id: 1, clipSource: "anisongdb" }).run();
+
+    writeManifest({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      scope: { type: "anime", id: 1 },
+      cards: [baseEntry()],
+    });
+
+    const result = importBundle(bundleDir);
+    expect(result).toEqual({ created: 1, skipped: 0, errors: [] });
+    expect(db.select().from(card).all()[0]).toMatchObject({ animethemesAudioUrl: baseEntry().animethemesAudioUrl });
   });
 });

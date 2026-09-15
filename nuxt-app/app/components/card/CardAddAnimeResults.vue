@@ -15,6 +15,7 @@ interface ThemeResult {
   artistName: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  clipBlocked: boolean;
 }
 
 interface ImportResult {
@@ -387,6 +388,9 @@ async function removeCard(songId: number) {
                         Add card
                       </button>
                     </div>
+                    <p v-if="theme.clipBlocked" class="clip-blocked-hint">
+                      No remote clip - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>. Add a local video path above instead.
+                    </p>
                     <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
                   </template>
                 </li>
@@ -556,6 +560,16 @@ async function removeCard(songId: number) {
 .add-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.clip-blocked-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.clip-blocked-hint a {
+  color: var(--accent);
 }
 
 .added-info {

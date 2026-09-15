@@ -1,5 +1,7 @@
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
+import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { getClipSource } from "../../utils/mediaLibrary.ts";
 import { resolveThemes } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -16,6 +18,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const resolved = await resolveThemes({ aniListId: body.aniListId, malId: aniListAnime.malId ?? null });
+  const clipSource = getClipSource();
 
   const animeRow = upsertAnime({
     aniListId: aniListAnime.aniListId,
@@ -39,13 +42,16 @@ export default defineEventHandler(async (event) => {
       animethemesThemeId: theme.animethemesThemeId,
     });
 
+    const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(theme.videoUrl, theme.audioUrl, clipSource);
+
     return {
       songId: songRow.id,
       themeSlot: theme.themeSlot,
       songTitle: songRow.title,
       artistName: artistRow.name,
-      videoUrl: theme.videoUrl,
-      audioUrl: theme.audioUrl,
+      videoUrl,
+      audioUrl,
+      clipBlocked,
     };
   });
 

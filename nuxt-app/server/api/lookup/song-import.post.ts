@@ -1,6 +1,8 @@
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { getCardsBySongIds } from "../../utils/cards.ts";
+import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { getClipSource } from "../../utils/mediaLibrary.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -41,13 +43,17 @@ export default defineEventHandler(async (event) => {
     animethemesThemeId,
   });
 
+  // Re-filter rather than trust the request body: the client just echoes back
+  // a search result, and the setting can have changed since that search ran.
+  const { videoUrl, audioUrl } = filterClipUrls(body.videoUrl ?? null, body.audioUrl ?? null, getClipSource());
+
   return {
     songId: songRow.id,
     themeSlot: songRow.themeSlot,
     songTitle: songRow.title,
     artistName: artistRow.name,
-    videoUrl: body.videoUrl ?? null,
-    audioUrl: body.audioUrl ?? null,
+    videoUrl,
+    audioUrl,
     existingCard: getCardsBySongIds([songRow.id])[0] ?? null,
   };
 });

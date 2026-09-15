@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReportImportProgress } from "../../utils/importProgress";
 
-const mocks = vi.hoisted(() => ({ report: vi.fn(), resolveArtistThemes: vi.fn(), byAniListId: vi.fn() }));
+const mocks = vi.hoisted(() => ({ report: vi.fn(), resolveArtistThemes: vi.fn(), byAniListId: vi.fn(), getClipSource: vi.fn() }));
 vi.mock("../../utils/importProgress.ts", () => ({
   respondWithImportProgress: (_event: unknown, run: (report: ReportImportProgress) => Promise<unknown>) => run(mocks.report),
 }));
@@ -18,6 +18,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   upsertAnime: (anime: { aniListId: number }) => ({ id: anime.aniListId, ...anime }),
   upsertSong: (song: unknown) => ({ id: 1, ...(song as object) }),
 }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource }));
 
 const anisongCandidate = { source: "anisongdb", id: 8355, name: "YOASOBI", slug: null };
 
@@ -46,6 +47,7 @@ beforeEach(() => {
       audioUrl: null,
     }],
   });
+  mocks.getClipSource.mockReturnValue("both");
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -82,5 +84,26 @@ describe("artist import request validation", () => {
   ])("rejects a request with %s", async (_label, body) => {
     await expect(importArtist(body)).rejects.toThrow("candidate is required");
     expect(mocks.resolveArtistThemes).not.toHaveBeenCalled();
+  });
+});
+
+describe("artist import clip filtering", () => {
+  it("drops a theme's URL and reports clipBlocked when the setting excludes its host", async () => {
+    mocks.getClipSource.mockReturnValue("animethemes");
+    const result = await importArtist({ candidate: anisongCandidate }) as { animeGroups: { themes: unknown[] }[] };
+    expect(result.animeGroups[0]!.themes).toEqual([expect.objectContaining({
+      videoUrl: null,
+      audioUrl: null,
+      clipBlocked: true,
+    })]);
+  });
+
+  it("keeps a theme's URL and reports not blocked when the setting allows its host", async () => {
+    mocks.getClipSource.mockReturnValue("anisongdb");
+    const result = await importArtist({ candidate: anisongCandidate }) as { animeGroups: { themes: unknown[] }[] };
+    expect(result.animeGroups[0]!.themes).toEqual([expect.objectContaining({
+      videoUrl: "https://naedist.animemusicquiz.com/fast.webm",
+      clipBlocked: false,
+    })]);
   });
 });

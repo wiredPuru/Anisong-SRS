@@ -568,7 +568,7 @@ cleaned-up checkbox version before generating the project overview.
     its Settings control, and `/api/media/stream`, `/api/media/prefetch`,
     and `/api/cards/download` refusing a URL whose host the setting
     excludes.
-  - [ ] 64b. **Import-time clip filtering** - anime, song, and artist
+  - [x] 64b. **Import-time clip filtering** - anime, song, and artist
     import and deck import keep only allowed clip URLs; a theme left with no
     allowed clip still shows in results, disabled, with a note saying why.
   - [ ] 64c. **Existing cards under a narrower setting** - Study and
