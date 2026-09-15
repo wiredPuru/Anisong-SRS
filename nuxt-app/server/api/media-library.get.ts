@@ -3,6 +3,7 @@ import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
   getBoxOneStreakRequired,
+  getClipSource,
   getDailyNewCardLimit,
   getDefaultDownloadFolder,
   getLibraryPaths,
@@ -21,6 +22,7 @@ export default defineEventHandler(() => {
     streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
+    clipSource: getClipSource(),
     missingCoverCount: countAnimeMissingCover(),
     animethemesSourcedCardCount: countCardsToRefresh(),
   };

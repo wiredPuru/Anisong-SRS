@@ -26,7 +26,10 @@ instance against their own local media and database.
   available OP/ED themes. Theme data and clip URLs come from AnisongDB first
   (the database behind Anime Music Quiz), falling back to animethemes.moe for
   anything it does not cover. AniList stays the source of anime titles and
-  cover art.
+  cover art. A Clip source setting (AnisongDB only by default, Both, or
+  animethemes.moe only) decides which of the two providers clip files may be
+  streamed or downloaded from; animethemes.moe metadata is used in every
+  mode.
 - **Flashcard CRUD** - create, read, update, delete cards at any time. A card
   references a song/theme and either a local media file or a direct
   animethemes.moe reference (or both). Should be able to auto import whole artists for example Kotoko
@@ -98,7 +101,9 @@ instance against their own local media and database.
   hosts (`naedist`/`eudist.animemusicquiz.com`), which send permissive CORS
   and support byte ranges. Unofficial and undocumented for third-party use;
   the existing stream cache and local downloads mean each file is fetched
-  about once.
+  about once. By default it is the only allowed clip host; animethemes.moe
+  clips are used only when the Clip source setting is Both or
+  animethemes.moe only.
 - MyAnimeList's own public list endpoint
   (`myanimelist.net/animelist/<user>/load.json?status=2`) - used only to read
   a public username's Completed anime list, since MAL's official API requires

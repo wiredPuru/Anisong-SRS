@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `clip_source` text DEFAULT 'anisongdb' NOT NULL;

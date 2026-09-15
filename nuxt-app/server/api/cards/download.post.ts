@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, statSync, unlinkSync } from "node:fs";
 import { Readable } from "node:stream";
 import { getCardWithDetails, updateCard } from "../../utils/cards.ts";
+import { assertClipUrlAllowed } from "../../utils/clipSourceGuard.ts";
 import { buildDownloadBaseName, downloadMediaFile } from "../../utils/mediaDownload.ts";
 import { getDefaultDownloadFolder } from "../../utils/mediaLibrary.ts";
 
@@ -65,6 +66,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: `Card already has a local ${kind} file. Clear it first to re-download.`,
     });
   }
+  assertClipUrlAllowed(sourceUrl);
 
   const destDir = getDefaultDownloadFolder();
   if (!destDir) {

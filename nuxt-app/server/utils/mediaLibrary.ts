@@ -3,6 +3,7 @@ import { isAbsolute, join, normalize, relative } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { mediaLibrarySettings } from "../db/schema.ts";
+import { isClipSource, type ClipSource } from "./clipSource.ts";
 
 const SETTINGS_ID = 1;
 
@@ -160,6 +161,28 @@ export function setAutoDownload(enabled: boolean): { error: string } | { autoDow
     .run();
 
   return { autoDownload: enabled };
+}
+
+export function getClipSource(): ClipSource {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.clipSource ?? "anisongdb";
+}
+
+export function setClipSource(source: string): { error: string } | { clipSource: ClipSource } {
+  if (!isClipSource(source)) {
+    return { error: "Clip source must be 'anisongdb', 'both', or 'animethemes'." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, clipSource: source })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { clipSource: source } })
+    .run();
+
+  return { clipSource: source };
 }
 
 export function getPlaybackMode(): "auto" | "audioOnly" {

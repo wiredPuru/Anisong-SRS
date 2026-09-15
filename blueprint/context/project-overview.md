@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash c86adc7809b558a1a784d6752d82d16314ef25a698ba12507dd169c9e304605e -->
+<!-- blueprint:source-hash 70061b1fad6eb5e0d501654f0f2dc2ac9c07b4599e5484b8290d01fcfcbf6a62 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -153,7 +153,11 @@ rewrote the first two bullets of `project-plan.md` §7 to put cute/moe ahead
 of the Akihabara arcade style. Feature 63 (Temi, the app's mascot) was added
 to `build-plan.md` on 2026-09-14 and is now built and merged; it added a §7 UI/UX
 bullet to `project-plan.md`, reversing 62's "no mascots" scope note for
-non-working surfaces only.
+non-working surfaces only. Feature 64 (a Clip source setting, in three
+sub-features 64a-64c) was added to `build-plan.md` on 2026-09-14; 64a is
+built and merged, 64b and 64c are not yet built. It revises feature 60's "no new setting" decision, and amended
+`project-plan.md`'s §3 "Anime & song lookup" bullet and §5 AnisongDB Tech
+line.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1218,6 +1222,41 @@ non-working surfaces only.
     285KB) and a 180px `apple-touch-icon.png` are linked from
     `nuxt.config.ts`. The hero image is 150px, 96px under 820px; companions
     are 96px. Regeneration commands are in the feature's archive.
+64. **Clip source setting** - in progress (64a done). Added to `build-plan.md`
+    2026-09-14 after clips were still being streamed and downloaded from
+    animethemes.moe despite feature 60 preferring AnisongDB. 60a's merge in
+    `server/utils/themeSource.ts` keeps animethemes.moe URLs for a theme
+    AnisongDB has no title match for, for a kind AnisongDB lacks
+    (`match.videoUrl ?? known.videoUrl`), and for every theme of an anime
+    with no MAL id; 60b's song/artist search falls back wholesale on an
+    AnisongDB outage; pre-60 cards and deck-import manifests still carry
+    animethemes.moe URLs. A persistent Settings choice in the Playback
+    section, `clipSource`: `"anisongdb"` (AnisongDB only, the default),
+    `"both"` (AnisongDB preferred, animethemes.moe fallback - feature 60's
+    behaviour), or `"animethemes"` (animethemes.moe only). It governs clip
+    URLs only; animethemes.moe metadata (native song titles, theme ids) is
+    used in every mode. Stored URLs are never deleted when the setting
+    narrows.
+    - **64a. Setting + fetch-time enforcement** - done 2026-09-14. The stored
+      setting (migration `0015`, `getClipSource`/`setClipSource`,
+      `POST /api/media-library/clip-source`) and a Settings control in the
+      Playback section. `isClipUrlAllowed` (`server/utils/clipSource.ts`, the
+      one host-to-provider map) is enforced by `assertClipUrlAllowed`
+      (`server/utils/clipSourceGuard.ts`) in `/api/media/stream`,
+      `/api/media/prefetch`, and `/api/cards/download`, which return `403`
+      for an excluded host before any cache lookup, so an already-cached clip
+      is refused too. `parseAllowedStreamUrl` is unchanged and still the
+      open-proxy guard and the stream-cache cleanup check. Until 64c, a card
+      whose playable URL is excluded shows the player's error state.
+    - **64b. Import-time clip filtering** - not yet built. Anime, song, and
+      artist import and deck import keep only allowed clip URLs; a theme
+      left with no allowed clip still shows in results, disabled, with a
+      note saying why.
+    - **64c. Existing cards under a narrower setting** - not yet built.
+      Study and Preview skip a blocked URL (playing the other kind when it
+      is allowed); a card with nothing allowed shows the existing error
+      state with a hint pointing at 60c's re-source action, which honours
+      the setting.
 
 ## Data model
 
@@ -1343,6 +1382,10 @@ Singleton row (`id` always `1`).
 - `playbackMode` (text, not null, default `"auto"`, values `"auto" |
   "audioOnly"`) - added in feature 43. Editable only on `/settings`; see
   feature 43's entry above for why.
+- `autoDownload` (boolean, not null, default `false`) - added in feature 59.
+- `clipSource` (text, not null, default `"anisongdb"`, values `"anisongdb" |
+  "both" | "animethemes"`) - added in feature 64a. Which providers' hosts
+  clip files may be streamed or downloaded from.
 
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
 > through `Song` by `artistId` or `animeId`, not a stored entity. Manual
@@ -1432,7 +1475,11 @@ stored session queue.
   latency grounds, with animethemes.moe kept as the fallback. OpenAPI spec at
   `https://anisongdb.com/openapi.json`. Media entries are bare filenames
   (`byvisp.webm`, `qi299l.mp3`) resolved against a distribution host, so the
-  client owns host selection and fallback.
+  client owns host selection and fallback. Since feature 64a, the Clip source
+  setting defaults to AnisongDB as the only host clips may stream or
+  download from; animethemes.moe clips are fetched only in its Both or
+  animethemes.moe-only modes. Import still stores animethemes.moe URLs until
+  64b.
 - **MyAnimeList public list endpoint**
   (`myanimelist.net/animelist/<user>/load.json?status=2`) - added in feature
   58, used only to read a public username's Completed anime list. Not an
@@ -1537,7 +1584,8 @@ Routes:
   animethemes.moe clips. Feature 43 added a Playback mode control (Auto /
   Audio only) - the only place this setting can be changed, deliberately
   not exposed on `/study` itself. Feature 59 added an Auto Download toggle
-  in the same Playback section.
+  in the same Playback section, where feature 64a added the
+  Clip source choice.
 - `/cards` - done. Flashcard list/management, plus (feature 8) a per-source
   download action shown when a card has a remote reference and no local
   file yet. Feature 11 added a per-row "Preview" button opening a modal

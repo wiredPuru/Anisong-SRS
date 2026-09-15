@@ -8,6 +8,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
   animethemesSourcedCardCount: number;
 }>("/api/media-library");
@@ -268,6 +269,11 @@ async function importDeck() {
                 library as you study or preview it, instead of relying on the manual Download button.
               </p>
               <SettingsAutoDownloadControl :enabled="data.autoDownload" @saved="refresh" />
+              <p class="section-hint">
+                Which sites clip files may stream and download from. Song and anime details are still looked up from
+                both.
+              </p>
+              <SettingsClipSourceControl :source="data.clipSource" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'cache'">

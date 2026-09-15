@@ -553,6 +553,29 @@ cleaned-up checkbox version before generating the project overview.
   companion on the "all caught up" and empty-library states. Source image
   saved under `blueprint/reference/mascot/`. No data, route, or behaviour
   changes.
+- [ ] 64. **Clip source setting** - a persistent Settings choice in the
+  Playback section for where clip files (video/audio) may come from:
+  AnisongDB only (default), Both (AnisongDB preferred, animethemes.moe as
+  fallback, today's behaviour), or animethemes.moe only. It governs clip
+  URLs only; animethemes.moe metadata (native song titles, theme ids) is
+  still used in every mode. Applied where clip URLs are chosen (anime,
+  song, and artist import, deck import) and enforced where they are fetched
+  (stream, prefetch, download), so a card holding a URL from an excluded
+  host never streams or downloads from it. Revises feature 60's "no new
+  setting" decision: clips were still reaching animethemes.moe through
+  60a's per-kind and unmatched-theme fallbacks.
+  - [x] 64a. **Setting + fetch-time enforcement** - the stored setting and
+    its Settings control, and `/api/media/stream`, `/api/media/prefetch`,
+    and `/api/cards/download` refusing a URL whose host the setting
+    excludes.
+  - [ ] 64b. **Import-time clip filtering** - anime, song, and artist
+    import and deck import keep only allowed clip URLs; a theme left with no
+    allowed clip still shows in results, disabled, with a note saying why.
+  - [ ] 64c. **Existing cards under a narrower setting** - Study and
+    Preview skip a blocked URL (playing the other kind when it is allowed),
+    a card with nothing allowed shows the existing error state with a hint
+    pointing at the 60c re-source action, and that action honours the
+    setting. Stored URLs are never deleted.
 
 ## Plan maintenance
 

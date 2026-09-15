@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import type { ClipSource } from "../utils/clipSource.ts";
 
 export const anime = sqliteTable("anime", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -101,6 +102,7 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   streamCacheMaxBytes: integer("stream_cache_max_bytes").notNull().default(1_073_741_824),
   playbackMode: text("playback_mode").$type<"auto" | "audioOnly">().notNull().default("auto"),
   autoDownload: integer("auto_download", { mode: "boolean" }).notNull().default(false),
+  clipSource: text("clip_source").$type<ClipSource>().notNull().default("anisongdb"),
 });
 
 export type Anime = typeof anime.$inferSelect;
