@@ -1150,6 +1150,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .header-left {
+  flex: 1 1 520px;
   gap: 14px;
   min-width: 0;
 }
@@ -1406,6 +1407,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 @media (max-width: 820px) {
+  .header-left {
+    flex-wrap: wrap;
+  }
+
   .study-grid {
     grid-template-columns: 1fr;
   }

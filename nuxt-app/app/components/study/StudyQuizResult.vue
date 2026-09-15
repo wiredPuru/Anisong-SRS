@@ -10,15 +10,19 @@ const props = defineProps<{
   retry: boolean;
 }>();
 const emit = defineEmits<{ continue: [] }>();
+const resultPanel = ref<HTMLElement | null>(null);
 const continueButton = ref<HTMLButtonElement | null>(null);
 
 const heading = computed(() => (props.result === "pass" ? "Correct!" : props.selectedTitle ? "Not quite" : "Answer revealed"));
 
-onMounted(() => nextTick(() => continueButton.value?.focus()));
+onMounted(() => nextTick(() => {
+  resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
+  continueButton.value?.focus({ preventScroll: true });
+}));
 </script>
 
 <template>
-  <section class="quiz-result" :class="result" role="status" aria-live="polite" aria-atomic="true">
+  <section ref="resultPanel" class="quiz-result" :class="result" role="status" aria-live="polite" aria-atomic="true">
     <div class="result-burst" aria-hidden="true">
       <span>{{ result === "pass" ? "✓" : "!" }}</span>
     </div>

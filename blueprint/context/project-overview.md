@@ -1257,7 +1257,7 @@ line.
       state with a hint pointing at 60c's re-source action, which honours
       the setting.
 
-65. **Typed anime answers on Study** - in progress. A remembered, default-off
+65. **Typed anime answers on Study** - done 2026-09-15. A remembered, default-off
     Study toggle enables online anime autocomplete, including anime outside the
     library. Keyboard or mouse selection followed by submission records
     Pass/Fail, then pauses on an animated result with the revealed answer,
@@ -1512,7 +1512,7 @@ Non-profit. No monetization planned.
 
 ## UI/UX
 
-- **Feature 65 in progress:** Study gains a remembered Typed Answers toggle,
+- **Feature 65:** Study has a remembered Typed Answers toggle,
   off by default. Its online anime suggestions and submission control replace
   manual review controls while enabled. A saved answer reveals an energetic
   result panel and session score/combo, keeps the song available for listening,
