@@ -8,7 +8,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="quiz-score" aria-label="Typed answer session score">
+  <div
+    class="quiz-score"
+    :aria-label="`Typed answer session score: ${score.toLocaleString()} points, ${combo}x combo, ${correct} of ${answered} correct`"
+  >
     <span class="score-stat">
       <small>Score</small>
       <strong>{{ score.toLocaleString() }}</strong>
@@ -29,8 +32,12 @@ defineProps<{
 .quiz-score {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 10px;
-  flex: none;
   padding: 5px 10px;
   border: 1px solid color-mix(in srgb, var(--accent-secondary) 55%, var(--border));
   border-radius: var(--radius-pill);
@@ -42,6 +49,7 @@ defineProps<{
   display: grid;
   grid-template-columns: auto auto;
   align-items: baseline;
+  min-width: 0;
   gap: 5px;
   white-space: nowrap;
 }
@@ -58,6 +66,7 @@ strong {
   color: var(--accent-secondary);
   font-family: var(--font-display);
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .score-divider {
@@ -78,6 +87,19 @@ strong {
 @media (min-width: 1100px) {
   .score-record {
     display: grid;
+  }
+}
+
+@media (max-width: 1200px) {
+  .quiz-score {
+    gap: 4px 8px;
+  }
+
+  .score-stat {
+    grid-template-columns: 1fr;
+    gap: 0;
+    text-align: center;
+    white-space: normal;
   }
 }
 </style>

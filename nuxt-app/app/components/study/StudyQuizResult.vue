@@ -58,6 +58,7 @@ onMounted(() => nextTick(() => {
 .quiz-result {
   position: relative;
   isolation: isolate;
+  flex: none;
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   gap: 18px;
