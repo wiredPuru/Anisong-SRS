@@ -34,9 +34,7 @@ defineProps<{
   align-items: center;
   justify-content: center;
   flex: 0 1 auto;
-  flex-wrap: wrap;
-  min-width: 0;
-  max-width: 100%;
+  flex-wrap: nowrap;
   gap: 10px;
   padding: 5px 10px;
   border: 1px solid color-mix(in srgb, var(--accent-secondary) 55%, var(--border));
@@ -81,17 +79,13 @@ strong {
 }
 
 .score-record {
-  display: none;
+  display: grid;
 }
 
-@media (min-width: 1100px) {
-  .score-record {
-    display: grid;
-  }
-}
-
-@media (max-width: 1200px) {
+@media (max-width: 820px) {
   .quiz-score {
+    flex-wrap: wrap;
+    max-width: 100%;
     gap: 4px 8px;
   }
 
