@@ -864,25 +864,40 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </header>
       <div class="study-grid">
         <div class="player-pane">
-        <StudyMediaPlayer
-          ref="mediaPlayerRef"
-          :key="presentationKey"
-          :card="currentCard"
-          :hide-video="typedAnswers ? hideVideo : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
-          :random-start="randomStart"
-          :ambient="ambientMode"
-          :hide-theme-badge="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
-          :has-default-download-folder="hasDefaultDownloadFolder"
-          :audio-only="playerAudioOnly"
-          :auto-download="autoDownload"
-          :clip-source="clipSource"
-          :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
-          @playback-started="onPlaybackStarted"
-          @playback-paused="onPlaybackPaused"
-          @local-path-updated="onLocalPathUpdated"
-          @local-path-cleared="onLocalPathCleared"
-          @update:media-kind="currentMediaKind = $event"
-        />
+          <StudyMediaPlayer
+            ref="mediaPlayerRef"
+            :key="presentationKey"
+            :card="currentCard"
+            :hide-video="typedAnswers ? hideVideo : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
+            :random-start="randomStart"
+            :ambient="ambientMode"
+            :hide-theme-badge="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
+            :has-default-download-folder="hasDefaultDownloadFolder"
+            :audio-only="playerAudioOnly"
+            :auto-download="autoDownload"
+            :clip-source="clipSource"
+            :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
+            @playback-started="onPlaybackStarted"
+            @playback-paused="onPlaybackPaused"
+            @local-path-updated="onLocalPathUpdated"
+            @local-path-cleared="onLocalPathCleared"
+            @update:media-kind="currentMediaKind = $event"
+          >
+            <template #overlay>
+              <StudyTypedAnswer
+                v-if="typedAnswers && !quizResult"
+                :key="JSON.stringify(scope)"
+                overlay
+                :presentation-key="presentationKey"
+                :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
+                :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
+                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+                @answer="submitTypedAnswer"
+                @give-up="saveTypedAnswer('fail', null)"
+                @typing-started="mediaPlayerRef?.playIfPaused()"
+              />
+            </template>
+          </StudyMediaPlayer>
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
@@ -961,17 +976,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
           <p v-if="error" role="alert">{{ error }}</p>
           <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
-          <StudyTypedAnswer
-            v-if="typedAnswers && !quizResult"
-            :key="JSON.stringify(scope)"
-            :presentation-key="presentationKey"
-            :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
-            :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
-            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
-            @answer="submitTypedAnswer"
-            @give-up="saveTypedAnswer('fail', null)"
-            @typing-started="mediaPlayerRef?.playIfPaused()"
-          />
           <StudyAnswerControls
             v-if="!typedAnswers"
             :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"

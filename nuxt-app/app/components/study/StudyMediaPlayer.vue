@@ -1074,6 +1074,7 @@ onUnmounted(() => stopDrag?.());
         </div>
       </div>
 
+      <slot name="overlay" />
       <slot v-if="immersive" name="immersive" />
     </div>
   </div>

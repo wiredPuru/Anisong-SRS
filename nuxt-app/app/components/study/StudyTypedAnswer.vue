@@ -6,6 +6,7 @@ const props = defineProps<{
   contextKey: string;
   disabled: boolean;
   available: boolean;
+  overlay?: boolean;
 }>();
 const emit = defineEmits<{ answer: [selection: AnimeAnswerOption]; giveUp: []; typingStarted: [] }>();
 const query = ref("");
@@ -26,14 +27,17 @@ function titles(option: AnimeAnswerOption) {
   return [...new Set([option.titleRomaji, option.titleNative].filter((title) => title && title !== label(option)))].join(" / ");
 }
 
+function requestPlayback() {
+  if (playbackRequested.value) return;
+  playbackRequested.value = true;
+  emit("typingStarted");
+}
+
 function search() {
   selected.value = null;
   active.value = -1;
   open.value = true;
-  if (!playbackRequested.value && query.value.trim()) {
-    playbackRequested.value = true;
-    emit("typingStarted");
-  }
+  if (query.value.trim()) requestPlayback();
   if (!composing.value) update(query.value);
 }
 
@@ -47,6 +51,11 @@ function choose(option: AnimeAnswerOption) {
 
 function onKeydown(event: KeyboardEvent) {
   if (shouldIgnoreAnswerKey(props.disabled, event.isComposing, composing.value, event.repeat)) return;
+  if (event.key === " " && !query.value && props.available) {
+    event.preventDefault();
+    requestPlayback();
+    return;
+  }
   if (event.key === "Escape") { open.value = false; return; }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
@@ -61,6 +70,7 @@ function onKeydown(event: KeyboardEvent) {
     const option = results.value[active.value];
     if (open.value && option) choose(option);
     else if (selected.value && props.available) emit("answer", selected.value);
+    else if (query.value.trim() && props.available) emit("giveUp");
   }
 }
 
@@ -86,7 +96,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="typed-answer">
+  <div class="typed-answer" :class="{ overlay, 'has-selection': selected }">
     <label :for="`${listId}-input`">Anime title</label>
     <input
       ref="input"
@@ -122,16 +132,16 @@ onMounted(() => {
         <small v-if="titles(option)">{{ titles(option) }}</small>
       </li>
     </ul>
-    <p role="status" aria-live="polite">
+    <p class="answer-status" role="status" aria-live="polite">
       <template v-if="loading">Searching anime...</template>
       <template v-else-if="error">{{ error }}</template>
       <template v-else-if="selected">Selected: {{ label(selected) }}</template>
       <template v-else-if="open && query.trim().length >= 2 && !results.length">No anime found.</template>
-      <template v-else>Use arrow keys and Enter to select an anime.</template>
+      <template v-else>Start typing or press Space to play. Select a match, or press Enter to give up.</template>
     </p>
-    <p v-if="!available">This card has no valid anime identity. Turn Typed Answers off to review it manually.</p>
-    <button type="button" :disabled="disabled || !available || !selected" @click="selected && emit('answer', selected)">Submit answer</button>
-    <button type="button" :disabled="disabled || !available" @click="emit('giveUp')">Give up</button>
+    <p v-if="!available" class="answer-unavailable">This card has no valid anime identity. Turn Typed Answers off to review it manually.</p>
+    <button v-if="selected" class="submit-btn" type="button" :disabled="disabled || !available" @click="emit('answer', selected)">Submit answer</button>
+    <button class="give-up-btn" type="button" :disabled="disabled || !available" @click="emit('giveUp')">Give up</button>
   </div>
 </template>
 
@@ -145,4 +155,81 @@ li.active, li:hover { background: var(--surface-raised); color: var(--accent); }
 small { display: block; color: var(--muted); }
 p { margin: 0; font-size: 12px; color: var(--muted); }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.typed-answer.overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  z-index: 5;
+  width: min(calc(100% - 48px), 720px);
+  padding: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-soft);
+  transform: translateX(-50%);
+}
+
+.overlay label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.overlay input { grid-column: 1; grid-row: 1; min-width: 0; }
+.typed-answer.overlay.has-selection { grid-template-columns: minmax(0, 1fr) auto auto; }
+.overlay .submit-btn { grid-column: 2; grid-row: 1; }
+.overlay .give-up-btn { grid-column: 2; grid-row: 1; }
+.overlay.has-selection .give-up-btn { grid-column: 3; }
+.overlay .answer-status { grid-column: 1 / -1; grid-row: 2; }
+.overlay .answer-unavailable { grid-column: 1 / -1; grid-row: 3; }
+
+.overlay ul {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  max-height: min(220px, 42vh);
+  box-shadow: var(--shadow-soft);
+}
+
+@media (max-width: 600px) {
+  .typed-answer.overlay {
+    bottom: 76px;
+    width: calc(100% - 12px);
+    padding: 8px;
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .overlay button {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .overlay .answer-status,
+  .overlay .answer-unavailable {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .overlay ul {
+    max-height: 46px;
+  }
+}
 </style>
