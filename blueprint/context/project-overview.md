@@ -107,9 +107,9 @@ the same day, resolving that still-open overlay decision by picking the
 `#2b` "Bottom bar" candidate - reskinned to the app's shipped Akiba Neon
 tokens rather than that candidate's own Nocturne tokens. It was built and
 merged, then rolled back the same day, and a follow-on fix then removed
-`/study`'s immersive mode entirely. Its build-plan box is unchecked but it
-is not a pending build target; whether to rebuild it, or retire the number
-the way 18/25/32 were retired, is an open roadmap decision. Feature 54 (a
+`/study`'s immersive mode entirely. It was abandoned outright 2026-09-18 -
+not a build target, and its number is retired, not reused, joining
+18/25/32. Feature 54 (a
 version stamp plus a GitHub release check) was added and built on
 2026-09-04, and is the point at which the project gained a unit test runner:
 Vitest was installed the same day, so the logic-test gate in
@@ -923,14 +923,16 @@ line.
     answering while one was open silently reviewed the live card behind it
     - both now disable `StudyAnswerControls` via its existing `disabled`
     prop while open.
-53. **Immersive study mode: bottom bar layout** - built, then rolled back
+~~53. **Immersive study mode: bottom bar layout**~~ - abandoned
+    2026-09-18. Built, then rolled back
     2026-09-03 (see
     `blueprint/history/rollbacks/2026-09-03-53-immersive-study-bottom-bar.md`).
     A follow-on commit then removed the expand/immersive mode from `/study`
     specifically (`CardPreviewModal` keeps its own, reached from `/cards`
     and `/decks`), so the `/study` overlay this feature existed to replace
-    is gone and the feature's premise no longer holds there. Its build-plan
-    box is unchecked but it is not the next thing to build. Added to
+    is gone and the feature's premise no longer holds there. Dropped from
+    the roadmap entirely rather than redesigned a third time; not a build
+    target, and its number is retired, not reused, joining 18/25/32. Added to
     `build-plan.md` on 2026-09-03, resolving the open decision noted under
     feature 50 above. Replaced feature 31's then-current immersive overlay (card
     info floated directly on top of the video) with the `#2b` "Bottom bar"
