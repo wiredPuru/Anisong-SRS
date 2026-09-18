@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import type { BonusCategoryResult } from "~/utils/quizScore";
+
 const props = defineProps<{
   result: "pass" | "fail";
   selectedTitle: string | null;
   correctTitle: string;
   pointsAwarded: number;
+  bonusResults: BonusCategoryResult[];
   score: number;
   combo: number;
   busy: boolean;
@@ -14,6 +17,10 @@ const resultPanel = ref<HTMLElement | null>(null);
 const continueButton = ref<HTMLButtonElement | null>(null);
 
 const heading = computed(() => (props.result === "pass" ? "Correct!" : props.selectedTitle ? "Not quite" : "Answer revealed"));
+
+const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
+  themeSlot: "Opening/Ending",
+};
 
 onMounted(() => nextTick(() => {
   resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -37,6 +44,18 @@ onMounted(() => nextTick(() => {
         <span>{{ result === "pass" ? "You named it" : "Correct answer" }}</span>
         {{ correctTitle }}
       </p>
+      <ul v-if="bonusResults.length" class="bonus-results">
+        <li v-for="bonus in bonusResults" :key="bonus.category" class="bonus-row" :class="{ correct: bonus.correct }">
+          <span class="bonus-icon" aria-hidden="true">{{ bonus.correct ? "✓" : "✕" }}</span>
+          <span class="bonus-label">{{ BONUS_CATEGORY_LABELS[bonus.category] }}</span>
+          <span class="bonus-answer">
+            {{ bonus.correct ? bonus.correctLabel : `${bonus.selectedLabel} → ${bonus.correctLabel}` }}
+          </span>
+          <strong class="bonus-points" :class="{ empty: bonus.pointsAwarded === 0 }">
+            {{ bonus.pointsAwarded > 0 ? `+${bonus.pointsAwarded}` : "+0" }}
+          </strong>
+        </li>
+      </ul>
       <div class="reward-row">
         <strong class="points" :class="{ empty: pointsAwarded === 0 }">
           {{ pointsAwarded > 0 ? `+${pointsAwarded}` : "+0" }}
@@ -98,6 +117,23 @@ h2 { margin: 0 0 12px; color: var(--text); font-family: var(--font-display); fon
 .selected-answer { color: var(--muted); }
 .selected-answer span, .correct-answer span { display: block; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .correct-answer { font-size: 17px; font-weight: 700; }
+
+.bonus-results { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bonus-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: 12px;
+}
+.bonus-icon { color: var(--fail); font-weight: 700; }
+.bonus-row.correct .bonus-icon { color: var(--pass); }
+.bonus-label { flex: none; color: var(--faint); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
+.bonus-answer { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.bonus-points { flex: none; color: var(--result-color); font-family: var(--font-display); font-size: 14px; }
+.bonus-points.empty { color: var(--faint); }
 
 .reward-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 14px; }
 .points { color: var(--result-color); font-family: var(--font-display); font-size: 25px; animation: points-pop 520ms 140ms both cubic-bezier(0.2, 1.4, 0.3, 1); }

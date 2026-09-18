@@ -1,0 +1,26 @@
+export type ThemeSlotType = "OP" | "ED";
+
+export interface ThemeSlotSelection {
+  type: ThemeSlotType;
+  number: number;
+}
+
+export function formatThemeSlot(selection: ThemeSlotSelection): string {
+  return `${selection.type}${selection.number}`;
+}
+
+// The stored themeSlot is not always the clean "OP1"/"ED2" shape it usually
+// is - the real library also holds suffixed variants ("ED1-EN", "ED7-
+// ShounenHen") and numbers into the high 20s/30 on long-running shows. A
+// player can't reasonably type a suffix, so grading only needs the leading
+// OP/ED + number.
+export function normalizeThemeSlot(rawSlot: string): ThemeSlotSelection | null {
+  const match = /^(OP|ED)(\d+)/i.exec(rawSlot.trim());
+  if (!match) return null;
+  return { type: match[1]!.toUpperCase() as ThemeSlotType, number: Number(match[2]) };
+}
+
+export function evaluateThemeSlotAnswer(expectedSlot: string, selection: ThemeSlotSelection): boolean {
+  const expected = normalizeThemeSlot(expectedSlot);
+  return expected !== null && expected.type === selection.type && expected.number === selection.number;
+}

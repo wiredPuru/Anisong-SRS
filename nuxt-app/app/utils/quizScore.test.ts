@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyQuizResult, createQuizScore, quizAccuracy } from "./quizScore";
+import { applyBonusCategory, applyQuizResult, BONUS_CATEGORY_POINTS, createQuizScore, quizAccuracy } from "./quizScore";
 
 describe("typed-answer quiz score", () => {
   it("awards a capped combo bonus", () => {
@@ -33,5 +33,29 @@ describe("typed-answer quiz score", () => {
 
   it("omits accuracy until a typed answer has been scored", () => {
     expect(quizAccuracy(createQuizScore())).toBeNull();
+  });
+});
+
+describe("bonus category score", () => {
+  it("adds the flat bonus on a correct guess without touching combo/correct/answered", () => {
+    const base = applyQuizResult(createQuizScore(), "pass").score; // combo 1, score 100
+    const transition = applyBonusCategory(base, true);
+
+    expect(transition.pointsAwarded).toBe(BONUS_CATEGORY_POINTS);
+    expect(transition.score).toEqual({ ...base, score: base.score + BONUS_CATEGORY_POINTS });
+  });
+
+  it("adds nothing on a wrong guess and leaves the score untouched", () => {
+    const base = applyQuizResult(createQuizScore(), "pass").score;
+    const transition = applyBonusCategory(base, false);
+
+    expect(transition.pointsAwarded).toBe(0);
+    expect(transition.score).toEqual(base);
+  });
+
+  it("does not mutate the previous score object", () => {
+    const base = createQuizScore();
+    applyBonusCategory(base, true);
+    expect(base).toEqual(createQuizScore());
   });
 });

@@ -157,7 +157,19 @@ non-working surfaces only. Feature 64 (a Clip source setting, in three
 sub-features 64a-64c) was added to `build-plan.md` on 2026-09-14 and is
 built in full. It revises feature 60's "no new setting" decision, and amended
 `project-plan.md`'s §3 "Anime & song lookup" bullet and §5 AnisongDB Tech
-line.
+line. Feature 65 (typed anime answers on Study, with automatic grading, a
+result/continue phase, and session score/combo) was added to `build-plan.md`
+on 2026-09-15 and is now built and merged in full; it added a §7 UI/UX
+bullet to `project-plan.md`. This paragraph did not record it at the time -
+noted here retroactively, the same way 39/40's gap was recorded. Feature 66
+(multi-category typed answers, in two sub-features 66a-66b) was added to
+`build-plan.md` on 2026-09-19, extending feature 65 with an optional
+sub-menu of additional guessable categories beyond the anime title (Song
+name, Opening/Ending number), each scored as independent bonus points on
+top of the existing anime-guess score/combo; only the anime-name result
+still drives SRS scheduling. No `project-plan.md` change - it extends
+feature 65's already-documented Study capability rather than a new product
+direction.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.

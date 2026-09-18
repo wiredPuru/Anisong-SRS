@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
 import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
+import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
+import type { ThemeSlotSelection } from "~/utils/themeSlotAnswer";
+import type { BonusCategoryResult } from "~/utils/quizScore";
 
 const route = useRoute();
 const typedAnswers = ref(false);
 const TYPED_ANSWERS_STORAGE_KEY = "gaqSrs:typedAnswers";
+const typedAnswerCategories = ref<TypedAnswerCategories>({ ...DEFAULT_TYPED_ANSWER_CATEGORIES });
 
 onMounted(() => {
   try {
     typedAnswers.value = localStorage.getItem(TYPED_ANSWERS_STORAGE_KEY) === "1";
   } catch {
     // Storage can be unavailable; the toggle still works for this visit.
+  }
+  try {
+    const stored = localStorage.getItem(TYPED_ANSWER_CATEGORIES_STORAGE_KEY);
+    if (stored) typedAnswerCategories.value = { ...DEFAULT_TYPED_ANSWER_CATEGORIES, ...JSON.parse(stored) };
+  } catch {
+    // Storage can be unavailable or hold invalid JSON; the defaults still work for this visit.
   }
 });
 
@@ -21,6 +31,14 @@ watch(typedAnswers, (value) => {
     // Keep the current session usable when persistence is blocked.
   }
 });
+
+watch(typedAnswerCategories, (value) => {
+  try {
+    localStorage.setItem(TYPED_ANSWER_CATEGORIES_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Keep the current session usable when persistence is blocked.
+  }
+}, { deep: true });
 
 type ScopeResult = { valid: true; scope: StudyScope } | { valid: false };
 
@@ -123,6 +141,7 @@ interface QuizResultPhase {
   selectedTitle: string | null;
   correctTitle: string;
   pointsAwarded: number;
+  bonusResults: BonusCategoryResult[];
 }
 
 // Every card actually reviewed this session, in order - load-bearing for a
@@ -132,6 +151,10 @@ interface QuizResultPhase {
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
 const quizScore = ref(createQuizScore());
 const quizResult = ref<QuizResultPhase | null>(null);
+// Whatever the Opening/Ending picker currently holds when the anime answer
+// is submitted or given up - null means the bonus category was skipped for
+// this question, not graded as wrong. Reset per card below.
+const themeSlotSelection = ref<ThemeSlotSelection | null>(null);
 
 watch(scope, () => {
   sessionHistory.value = [];
@@ -171,6 +194,7 @@ watch([presentationKey, scope], () => {
   awaitingNextCard.value = false;
   quizResult.value = null;
   cardEditing.value = false;
+  themeSlotSelection.value = null;
 });
 
 async function submitReview(result: "pass" | "fail") {
@@ -201,6 +225,28 @@ function correctAnimeTitle(card: CardWithDetails): string {
   return card.animeTitleEnglish || card.animeTitleRomaji || card.animeTitleNative;
 }
 
+// Grades whatever each enabled bonus category currently holds and folds any
+// bonus points into quizScore. A category left blank at submit time is
+// skipped entirely - omitted from the result, not graded as wrong.
+function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResult[] {
+  const results: BonusCategoryResult[] = [];
+  const themeSlotPick = themeSlotSelection.value;
+  if (themeSlotPick) {
+    const correct = evaluateThemeSlotAnswer(reviewedCard.themeSlot, themeSlotPick);
+    const transition = applyBonusCategory(quizScore.value, correct);
+    quizScore.value = transition.score;
+    const normalizedExpected = normalizeThemeSlot(reviewedCard.themeSlot);
+    results.push({
+      category: "themeSlot",
+      correct,
+      pointsAwarded: transition.pointsAwarded,
+      selectedLabel: formatThemeSlot(themeSlotPick),
+      correctLabel: normalizedExpected ? formatThemeSlot(normalizedExpected) : reviewedCard.themeSlot,
+    });
+  }
+  return results;
+}
+
 async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | null) {
   if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
@@ -213,6 +259,7 @@ async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | 
     if (saveState !== "saved" || !stillCurrent()) return;
     const transition = applyQuizResult(quizScore.value, result);
     quizScore.value = transition.score;
+    const bonusResults = gradeBonusCategories(reviewedCard);
     flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result });
     quizResult.value = {
@@ -221,6 +268,7 @@ async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | 
       selectedTitle,
       correctTitle: correctAnimeTitle(reviewedCard),
       pointsAwarded: transition.pointsAwarded,
+      bonusResults,
     };
   } finally {
     submissionBusy.value = false;
@@ -839,7 +887,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :audio-only="effectiveAudioOnly"
             :typed-answers="typedAnswers"
             :typed-answers-locked="Boolean(quizResult)"
+            :typed-answer-categories="typedAnswerCategories"
             @toggle-typed-answers="!submissionBusy && !quizResult && (typedAnswers = !typedAnswers)"
+            @update:typed-answer-categories="typedAnswerCategories = $event"
             v-model:auto-reveal-mode="autoRevealMode"
             :auto-reveal-seconds="autoRevealSeconds"
             @toggle-hide-video="hideVideo = !hideVideo"
@@ -849,6 +899,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-ambient-mode="ambientMode = !ambientMode"
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
+          />
+          <StudyThemeSlotAnswer
+            v-if="typedAnswers && !quizResult && typedAnswerCategories.themeSlot"
+            :key="presentationKey"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+            @update:selection="themeSlotSelection = $event"
           />
           <button
             type="button"
@@ -907,6 +963,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :selected-title="quizResult.selectedTitle"
             :correct-title="quizResult.correctTitle"
             :points-awarded="quizResult.pointsAwarded"
+            :bonus-results="quizResult.bonusResults"
             :score="quizScore.score"
             :combo="quizScore.combo"
             :busy="submissionBusy || loading"

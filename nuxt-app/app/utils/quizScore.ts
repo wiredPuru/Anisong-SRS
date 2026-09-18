@@ -43,3 +43,23 @@ export function quizAccuracy(score: QuizScore): number | null {
   if (score.answered === 0) return null;
   return Math.round((score.correct / score.answered) * 100);
 }
+
+// Bonus categories (Opening/Ending number, and later Song name) add flat
+// points on top of the anime-name score. They deliberately never touch
+// combo, correct, answered, or bestCombo - those stay the anime-recognition
+// signal exactly as applyQuizResult defines it, not a mix of two different
+// kinds of question.
+export const BONUS_CATEGORY_POINTS = 50;
+
+export interface BonusCategoryResult {
+  category: "themeSlot";
+  correct: boolean;
+  pointsAwarded: number;
+  selectedLabel: string;
+  correctLabel: string;
+}
+
+export function applyBonusCategory(current: QuizScore, correct: boolean): QuizScoreTransition {
+  if (!correct) return { score: current, pointsAwarded: 0 };
+  return { score: { ...current, score: current.score + BONUS_CATEGORY_POINTS }, pointsAwarded: BONUS_CATEGORY_POINTS };
+}

@@ -578,6 +578,27 @@ cleaned-up checkbox version before generating the project overview.
   answer-result/continue phase, and session score/combo feedback. Suggestions
   include anime outside the local library; submitted answers leave the song
   playing until the user continues.
+- [ ] 66. **Multi-category typed answers** - extend Typed Answers (feature 65)
+  with an optional sub-menu of additional guessable categories beyond the
+  anime title, each scored independently as bonus points on top of the
+  existing anime-guess score/combo. Anime name stays on by default and
+  cannot be turned off; Song name and Opening/Ending number are off by
+  default and independently toggleable. Only the anime-name result still
+  drives the card's SRS pass/fail; bonus categories never change scheduling
+  or accuracy stats, only add optional bonus points.
+  - [x] 66a. **Category settings menu + Opening/Ending number category** - a
+    settings popup (mirroring Auto Reveal's) to toggle Song name and
+    Opening/Ending number on/off, remembered like the Typed Answers
+    preference; adds the Opening/Ending category itself, a compact
+    Opening/Ending + number picker graded against the card's exact theme
+    slot, shown as its own correct/wrong row in the result panel with flat
+    bonus points added to the session score. With every extra category off
+    (today's default), Study behaves byte-for-byte like it does now.
+  - [ ] 66b. **Song name category** - adds the Song name category: a
+    redacted song search-as-you-type (title/artist shown, anime identity
+    withheld to avoid spoiling the anime guess) graded by exact song-title
+    match against the card, reusing 66a's settings menu, shared submit
+    flow, and bonus-scoring framework.
 
 ## Plan maintenance
 

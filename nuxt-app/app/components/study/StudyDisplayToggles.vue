@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
+
 type AutoRevealMode = "off" | "video" | "info" | "both";
 
 defineProps<{
@@ -11,6 +13,7 @@ defineProps<{
   audioOnly: boolean;
   typedAnswers: boolean;
   typedAnswersLocked: boolean;
+  typedAnswerCategories: TypedAnswerCategories;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
 }>();
@@ -22,11 +25,13 @@ const emit = defineEmits<{
   "toggle-ambient-mode": [];
   "toggle-audio-only": [];
   "toggle-typed-answers": [];
+  "update:typed-answer-categories": [TypedAnswerCategories];
   "update:auto-reveal-mode": [AutoRevealMode];
   "update:auto-reveal-seconds": [number];
 }>();
 
 const showAutoRevealSettings = ref(false);
+const showTypedAnswerCategories = ref(false);
 </script>
 
 <template>
@@ -41,6 +46,17 @@ const showAutoRevealSettings = ref(false);
     >
       Typed Answers
       <span class="tooltip">{{ typedAnswersLocked ? "Continue before changing answer mode" : "Remember your preference for typed anime answers" }}</span>
+    </button>
+    <button
+      v-if="typedAnswers"
+      type="button"
+      class="categories-btn"
+      aria-label="Answer categories"
+      :disabled="typedAnswersLocked"
+      @click="showTypedAnswerCategories = true"
+    >
+      <span aria-hidden="true">⚙</span>
+      <span class="tooltip">Choose what you guess each round</span>
     </button>
     <!-- Labels read positive ("Video" lit = video showing) while the state
          stays negative: the props are still hideVideo/hideCover/hideInfo, so
@@ -136,6 +152,12 @@ const showAutoRevealSettings = ref(false);
       @update:seconds="emit('update:auto-reveal-seconds', $event)"
       @close="showAutoRevealSettings = false"
     />
+    <StudyTypedAnswerCategoriesModal
+      v-if="showTypedAnswerCategories"
+      :categories="typedAnswerCategories"
+      @update:categories="emit('update:typed-answer-categories', $event)"
+      @close="showTypedAnswerCategories = false"
+    />
   </div>
 </template>
 
@@ -215,6 +237,27 @@ const showAutoRevealSettings = ref(false);
   cursor: not-allowed;
 }
 
+.categories-btn {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.categories-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Drops below the control, not above: these now live in the strip at the very
    top of the content column, where an upward tooltip has no room. */
 .tooltip {
@@ -241,7 +284,9 @@ const showAutoRevealSettings = ref(false);
 .toggle-btn:hover .tooltip,
 .toggle-btn:focus-visible .tooltip,
 .seg-btn:hover .tooltip,
-.seg-btn:focus-visible .tooltip {
+.seg-btn:focus-visible .tooltip,
+.categories-btn:hover .tooltip,
+.categories-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
 }
