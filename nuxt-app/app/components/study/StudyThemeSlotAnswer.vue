@@ -10,8 +10,7 @@ const emit = defineEmits<{ "update:selection": [ThemeSlotSelection | null] }>();
 // player actually touches this control, so an untouched bonus category is
 // never silently graded as a guess of "OP1". The page keys this component
 // on presentationKey, forcing a fresh mount (and fresh local state) every
-// card, the same reset guarantee an overlay-slot remount used to give it
-// before this moved out of the player frame - see the placement note below.
+// card.
 const type = ref<ThemeSlotType>("OP");
 const number = ref(1);
 const touched = ref(false);
@@ -35,14 +34,6 @@ function onNumberInput(event: Event) {
 </script>
 
 <template>
-  <!-- Lives in the study header, not floating over the video: an overlay
-       positioned inside the player frame (tried first, in two different
-       corners) collided with the frame's own existing overlay content on a
-       16:9 frame at a narrow viewport, where the anime answer box and the
-       playback controls already fill the frame edge to edge with no free
-       space left for a third element. The header has normal, unconstrained
-       flow and already wraps responsively (StudyDisplayToggles), so this
-       control reuses that instead of fighting the video frame for room. -->
   <div class="theme-slot-answer" :class="{ touched }">
     <span class="label">OP/ED</span>
     <div class="seg" role="group" aria-label="Opening or Ending">
@@ -80,10 +71,11 @@ function onNumberInput(event: Event) {
   flex: none;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
 }
 
 .theme-slot-answer.touched {

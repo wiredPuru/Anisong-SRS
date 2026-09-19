@@ -156,12 +156,10 @@ small { display: block; color: var(--muted); }
 p { margin: 0; font-size: 12px; color: var(--muted); }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* The study page's .answer-stack owns the placement inside the player frame;
+   this stays relative only so the suggestion list anchors to it. */
 .typed-answer.overlay {
-  position: absolute;
-  left: 50%;
-  bottom: 88px;
-  z-index: 5;
-  width: min(calc(100% - 48px), 720px);
+  position: relative;
   padding: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
   border: 1px solid var(--glass-border);
@@ -169,7 +167,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   background: var(--glass-surface);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-soft);
-  transform: translateX(-50%);
 }
 
 .overlay label {
@@ -203,8 +200,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 600px) {
   .typed-answer.overlay {
-    bottom: 76px;
-    width: calc(100% - 12px);
     padding: 8px;
     gap: 6px;
     grid-template-columns: minmax(0, 1fr) auto;

@@ -12,6 +12,13 @@ const composing = ref(false);
 const listId = useId();
 const { results, loading, error, update, reset } = useSongAnswerSearch();
 
+const status = computed(() => {
+  if (loading.value) return "Searching songs...";
+  if (error.value) return error.value;
+  if (open.value && query.value.trim().length >= 2 && !results.value.length) return "No song found. Your typed answer still counts.";
+  return "";
+});
+
 function publish() {
   emit("update:answer", query.value.trim() || null);
 }
@@ -89,42 +96,56 @@ function onKeydown(event: KeyboardEvent) {
         <small v-if="option.artistName">{{ option.artistName }}</small>
       </li>
     </ul>
-    <p class="answer-status" role="status" aria-live="polite">
-      <template v-if="loading">Searching songs...</template>
-      <template v-else-if="error">{{ error }}</template>
-      <template v-else-if="open && query.trim().length >= 2 && !results.length">No song found. Your typed answer still counts.</template>
-      <template v-else>Optional. Leave it blank to skip this category.</template>
-    </p>
+    <!-- Only rendered when it has something to say: the placeholder already
+         covers the idle case, and the overlay has no room for a standing hint. -->
+    <p v-if="status" class="answer-status" role="status" aria-live="polite">{{ status }}</p>
   </div>
 </template>
 
 <style scoped>
+/* Sized down against the anime box it sits under: this is a bonus guess, and
+   only the anime title grades the card. */
 .song-answer {
   position: relative;
-  display: grid;
-  gap: 6px;
-  flex: none;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
 }
 
-label { color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-input { font: inherit; padding: 10px; color: var(--text); background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+label { flex: none; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Opens upward into free video space. Downward would land on the playback
+   controls the overlay deliberately sits above. */
 ul {
   position: absolute;
-  right: 12px;
-  left: 12px;
-  top: calc(100% - 34px);
+  right: 0;
+  bottom: calc(100% + 6px);
+  left: 0;
   z-index: 5;
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 220px;
+  max-height: min(200px, 34vh);
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -132,8 +153,9 @@ ul {
   box-shadow: var(--shadow-soft);
 }
 
-li { padding: 8px; cursor: pointer; overflow-wrap: anywhere; }
+li { padding: 7px 8px; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
 li.active, li:hover { background: var(--surface-raised); color: var(--accent); }
-small { display: block; color: var(--muted); }
-p { margin: 0; font-size: 12px; color: var(--muted); }
+small { display: block; font-size: 11px; color: var(--muted); }
+
+.answer-status { flex: none; margin: 0; font-size: 11px; color: var(--muted); }
 </style>

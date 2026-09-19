@@ -329,6 +329,13 @@ const mediaPlayerRef = ref<{ pause: () => void; playIfPaused: () => void } | nul
 const viewedHistoryEntry = ref<SessionHistoryEntry | null>(null);
 const showSessionLog = ref(false);
 
+// Every answer control in the overlay shares one gate, so the anime box and
+// the bonus controls can never disagree about whether the round is answerable.
+const answerControlsDisabled = computed(() =>
+  cardEditing.value || submissionBusy.value || awaitingNextCard.value || loading.value
+  || viewedHistoryEntry.value !== null || showSessionLog.value,
+);
+
 function openHistoryCard(entry: SessionHistoryEntry) {
   mediaPlayerRef.value?.pause();
   viewedHistoryEntry.value = entry;
@@ -917,12 +924,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
           />
-          <StudyThemeSlotAnswer
-            v-if="typedAnswers && !quizResult && typedAnswerCategories.themeSlot"
-            :key="presentationKey"
-            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
-            @update:selection="themeSlotSelection = $event"
-          />
           <button
             type="button"
             class="controls-toggle-btn"
@@ -957,29 +958,38 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @update:media-kind="currentMediaKind = $event"
           >
             <template #overlay>
-              <StudyTypedAnswer
-                v-if="typedAnswers && !quizResult"
-                :key="JSON.stringify(scope)"
-                overlay
-                :presentation-key="presentationKey"
-                :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
-                :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
-                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
-                @answer="submitTypedAnswer"
-                @give-up="saveTypedAnswer('fail', null)"
-                @typing-started="mediaPlayerRef?.playIfPaused()"
-              />
+              <div v-if="typedAnswers && !quizResult" class="answer-stack">
+                <StudyTypedAnswer
+                  :key="JSON.stringify(scope)"
+                  overlay
+                  :presentation-key="presentationKey"
+                  :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
+                  :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
+                  :disabled="answerControlsDisabled"
+                  @answer="submitTypedAnswer"
+                  @give-up="saveTypedAnswer('fail', null)"
+                  @typing-started="mediaPlayerRef?.playIfPaused()"
+                />
+                <div v-if="typedAnswerCategories.songName || typedAnswerCategories.themeSlot" class="bonus-answers">
+                  <StudySongAnswer
+                    v-if="typedAnswerCategories.songName"
+                    :key="`song-${presentationKey}`"
+                    :disabled="answerControlsDisabled"
+                    @update:answer="songAnswerText = $event"
+                  />
+                  <StudyThemeSlotAnswer
+                    v-if="typedAnswerCategories.themeSlot"
+                    :key="`slot-${presentationKey}`"
+                    :disabled="answerControlsDisabled"
+                    @update:selection="themeSlotSelection = $event"
+                  />
+                </div>
+              </div>
             </template>
           </StudyMediaPlayer>
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
-          <StudySongAnswer
-            v-if="typedAnswers && !quizResult && typedAnswerCategories.songName"
-            :key="presentationKey"
-            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
-            @update:answer="songAnswerText = $event"
-          />
           <StudyQuizResult
             v-if="typedAnswers && quizResult"
             :result="quizResult.result"
@@ -1518,6 +1528,53 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex-direction: column;
   justify-content: center;
   padding: 24px;
+}
+
+/* Every answer control for the round sits together over the video, centred
+   above the playback bar, rather than the bonus categories living out in the
+   header and side column where they read as unrelated settings. The anime
+   title keeps the full-width row because it is the only answer that grades
+   the card; the bonus row underneath is deliberately smaller and quieter. */
+.answer-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  width: min(calc(100% - 48px), 720px);
+  transform: translateX(-50%);
+}
+
+.bonus-answers {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.bonus-answers > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Below this width the 16:9 frame is barely taller than the controls it
+   holds, so a bottom-anchored stack gets cut off from the top down - losing
+   the anime input, the one control that actually grades the card. Anchoring
+   to the top instead keeps it first in view and lets the bonus row be what
+   runs out of room. The frame genuinely cannot fit all three here; this is
+   damage control for a width the app does not target, not a fix. */
+@media (max-width: 600px) {
+  .answer-stack {
+    top: 6px;
+    bottom: auto;
+    gap: 6px;
+    width: calc(100% - 12px);
+  }
+
+  .bonus-answers {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
 
 /* A glow, not a fill - matches feature 24's border/glow convention for
