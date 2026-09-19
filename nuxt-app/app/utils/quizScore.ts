@@ -44,15 +44,15 @@ export function quizAccuracy(score: QuizScore): number | null {
   return Math.round((score.correct / score.answered) * 100);
 }
 
-// Bonus categories (Opening/Ending number, and later Song name) add flat
-// points on top of the anime-name score. They deliberately never touch
+// Bonus categories (Song name, Opening/Ending number) add flat points on top
+// of the anime-name score. They deliberately never touch
 // combo, correct, answered, or bestCombo - those stay the anime-recognition
 // signal exactly as applyQuizResult defines it, not a mix of two different
 // kinds of question.
 export const BONUS_CATEGORY_POINTS = 50;
 
 export interface BonusCategoryResult {
-  category: "themeSlot";
+  category: "themeSlot" | "songName";
   correct: boolean;
   pointsAwarded: number;
   selectedLabel: string;

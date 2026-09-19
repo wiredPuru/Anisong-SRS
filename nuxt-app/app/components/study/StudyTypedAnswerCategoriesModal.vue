@@ -32,6 +32,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <span class="locked-badge">Always on</span>
         </div>
         <div class="category-row">
+          <span class="category-label">Song name</span>
+          <button
+            type="button"
+            class="category-toggle"
+            :class="{ on: categories.songName }"
+            :aria-pressed="categories.songName"
+            @click="emit('update:categories', { ...categories, songName: !categories.songName })"
+          >
+            {{ categories.songName ? "On" : "Off" }}
+          </button>
+        </div>
+        <div class="category-row">
           <span class="category-label">Opening/Ending number</span>
           <button
             type="button"

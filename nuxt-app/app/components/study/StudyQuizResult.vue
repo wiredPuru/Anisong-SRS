@@ -19,6 +19,7 @@ const continueButton = ref<HTMLButtonElement | null>(null);
 const heading = computed(() => (props.result === "pass" ? "Correct!" : props.selectedTitle ? "Not quite" : "Answer revealed"));
 
 const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
+  songName: "Song name",
   themeSlot: "Opening/Ending",
 };
 

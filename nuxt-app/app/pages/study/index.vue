@@ -155,6 +155,9 @@ const quizResult = ref<QuizResultPhase | null>(null);
 // is submitted or given up - null means the bonus category was skipped for
 // this question, not graded as wrong. Reset per card below.
 const themeSlotSelection = ref<ThemeSlotSelection | null>(null);
+// Whatever the Song name box holds at submit time, trimmed - null means the
+// category was skipped for this question, same rule as the picker above.
+const songAnswerText = ref<string | null>(null);
 
 watch(scope, () => {
   sessionHistory.value = [];
@@ -195,6 +198,7 @@ watch([presentationKey, scope], () => {
   quizResult.value = null;
   cardEditing.value = false;
   themeSlotSelection.value = null;
+  songAnswerText.value = null;
 });
 
 async function submitReview(result: "pass" | "fail") {
@@ -230,6 +234,19 @@ function correctAnimeTitle(card: CardWithDetails): string {
 // skipped entirely - omitted from the result, not graded as wrong.
 function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResult[] {
   const results: BonusCategoryResult[] = [];
+  const songPick = songAnswerText.value?.trim();
+  if (songPick) {
+    const correct = evaluateSongAnswer(reviewedCard, songPick);
+    const transition = applyBonusCategory(quizScore.value, correct);
+    quizScore.value = transition.score;
+    results.push({
+      category: "songName",
+      correct,
+      pointsAwarded: transition.pointsAwarded,
+      selectedLabel: songPick,
+      correctLabel: reviewedCard.songTitle,
+    });
+  }
   const themeSlotPick = themeSlotSelection.value;
   if (themeSlotPick) {
     const correct = evaluateThemeSlotAnswer(reviewedCard.themeSlot, themeSlotPick);
@@ -957,6 +974,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
         </div>
         <div class="side">
+          <StudySongAnswer
+            v-if="typedAnswers && !quizResult && typedAnswerCategories.songName"
+            :key="presentationKey"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+            @update:answer="songAnswerText = $event"
+          />
           <StudyQuizResult
             v-if="typedAnswers && quizResult"
             :result="quizResult.result"
