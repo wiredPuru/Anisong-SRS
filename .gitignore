@@ -4,6 +4,9 @@
 # Editor
 .idea
 
+# Browser automation session artifacts (snapshots, console logs, screenshots)
+.playwright-cli/
+
 # Env files
 .env
 .env.*

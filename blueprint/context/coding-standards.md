@@ -147,6 +147,12 @@ interval/scheduling logic.
 For UI and integration behavior, prefer real browser evidence over reading the
 code and assuming it works.
 
+- The `playwright-cli` skill under `nuxt-app/.claude/skills/` drives a browser
+  through a global `playwright-cli` binary. Use it for screenshots, console and
+  network checks, and user-flow verification. It is a local tool, not a project
+  dependency: nothing in `package.json` changes, so AGENTS.md's "Playwright is
+  deliberately not a dependency" still holds, as does `bun run measure` being
+  the way to get real layout geometry.
 - If Playwright is already installed, or the Commands section of `AGENTS.md`
   declares a Playwright script, use Playwright for browser checks, screenshots,
   console-error checks, and user-flow verification.
