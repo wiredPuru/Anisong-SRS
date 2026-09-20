@@ -46,7 +46,13 @@ onMounted(() => nextTick(() => {
         {{ correctTitle }}
       </p>
       <ul v-if="bonusResults.length" class="bonus-results">
-        <li v-for="bonus in bonusResults" :key="bonus.category" class="bonus-row" :class="{ correct: bonus.correct }">
+        <li
+          v-for="(bonus, index) in bonusResults"
+          :key="bonus.category"
+          class="bonus-row"
+          :class="{ correct: bonus.correct }"
+          :style="{ animationDelay: `${140 + index * 180}ms` }"
+        >
           <span class="bonus-icon" aria-hidden="true">{{ bonus.correct ? "✓" : "✕" }}</span>
           <span class="bonus-label">{{ BONUS_CATEGORY_LABELS[bonus.category] }}</span>
           <span class="bonus-answer">
@@ -128,6 +134,13 @@ h2 { margin: 0 0 12px; color: var(--text); font-family: var(--font-display); fon
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   font-size: 12px;
+  /* Delay is per row (set inline), so the rows arrive one at a time instead
+     of the whole list appearing at once. */
+  animation: bonus-row-in 320ms both cubic-bezier(0.2, 1.3, 0.3, 1);
+}
+
+@keyframes bonus-row-in {
+  from { opacity: 0; transform: translateX(-14px) scale(0.94); }
 }
 .bonus-icon { color: var(--fail); font-weight: 700; }
 .bonus-row.correct .bonus-icon { color: var(--pass); }
@@ -173,6 +186,6 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quiz-result, .result-burst, .points { animation: none; }
+  .quiz-result, .result-burst, .points, .bonus-row { animation: none; }
 }
 </style>

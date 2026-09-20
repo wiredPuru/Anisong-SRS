@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature 67 - dynamic scoring feedback motion mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Yusei+Magic&display=swap" rel="stylesheet">
+<style>
+/* Throwaway mockup for feature 67. Tokens copied from
+   nuxt-app/app/assets/css/main.css so the motion is judged against the real
+   palette and type, not an approximation. Not shipped, not imported. */
+:root {
+  --bg: #2a2826;
+  --surface: #32302f;
+  --surface-raised: #3c3836;
+  --border: #4a4542;
+  --text: #ebdbb2;
+  --muted: #bdae93;
+  --faint: #b0a08d;
+  --accent: #e8a4bd;
+  --accent-strong: #f0b9cc;
+  --accent-ink: #2a2826;
+  --accent-glow: rgba(232, 164, 189, 0.22);
+  --accent-secondary: #a3c9e2;
+  --accent-secondary-glow: rgba(163, 201, 226, 0.3);
+  --pass: #b3c98a;
+  --pass-ink: #2a2826;
+  --fail: #e98a72;
+  --fail-ink: #2a2826;
+  --warning: #e6c07b;
+  --warning-ink: #2a2826;
+  --font-display: "Yusei Magic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-sans: "Klee One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --surface-sunken: #252321;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 18px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.5 var(--font-sans);
+}
+
+h1 { margin: 0 0 4px; font: 400 22px var(--font-display); }
+.lede { margin: 0 0 18px; color: var(--muted); font-size: 13px; max-width: 78ch; }
+
+/* ---------- control strip ---------- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.controls fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.controls legend { display: none; }
+.controls label.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.controls label.pill:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-raised));
+  color: var(--text);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.controls input { accent-color: var(--accent); margin: 0; }
+.controls .group-label { color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+
+button.fire {
+  padding: 8px 15px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 600 13px var(--font-sans);
+  cursor: pointer;
+}
+button.fire.ghost { background: transparent; color: var(--text); }
+button.fire.miss { border-color: var(--fail); background: var(--fail); color: var(--fail-ink); }
+button.fire:hover { filter: brightness(1.08); }
+
+/* ---------- fake study screen ---------- */
+.stage {
+  position: relative;
+  isolation: isolate;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.study-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.counts { color: var(--faint); font-size: 12px; }
+
+/* the real StudyQuizScore chip, copied in shape */
+.quiz-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 55%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent-secondary) 8%, var(--surface));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-secondary-glow) 55%, transparent);
+}
+.score-stat { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 5px; white-space: nowrap; }
+.quiz-score small { color: var(--faint); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.quiz-score strong { color: var(--accent-secondary); font-family: var(--font-display); font-size: 14px; }
+.score-divider { width: 1px; height: 22px; background: var(--border); }
+.score-stat.hot strong { color: var(--warning); text-shadow: 0 0 12px color-mix(in srgb, var(--warning) 45%, transparent); }
+
+/* the landing pulse the chip plays when the burst arrives */
+.quiz-score.landed { animation: chip-land 420ms cubic-bezier(0.2, 1.5, 0.35, 1); }
+@keyframes chip-land {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.13); box-shadow: 0 0 30px color-mix(in srgb, var(--pass) 60%, transparent); }
+  100% { transform: scale(1); }
+}
+.quiz-score.broke { animation: chip-break 380ms ease-out; }
+@keyframes chip-break {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+.study-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; }
+@media (max-width: 900px) { .study-grid { grid-template-columns: 1fr; } }
+
+.player-pane { position: relative; }
+.player-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 62%),
+    var(--surface);
+  color: var(--faint);
+  font-size: 13px;
+  overflow: hidden;
+}
+.answer-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: min(78%, 420px);
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.side-panel {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--faint);
+  font-size: 12px;
+  min-height: 160px;
+}
+.side-panel h3 { margin: 0 0 8px; font: 400 15px var(--font-display); color: var(--text); }
+
+/* result panel bonus rows, staggered */
+.bonus-results { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bonus-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: 12px;
+  animation: bonus-in 320ms both cubic-bezier(0.2, 1.3, 0.3, 1);
+}
+.bonus-row .label { flex: 1; color: var(--text); }
+.bonus-row .pts { font-family: var(--font-display); color: var(--pass); }
+.bonus-row.wrong .pts { color: var(--faint); }
+@keyframes bonus-in { from { opacity: 0; transform: translateX(-14px) scale(0.92); } }
+
+/* ---------- the burst layer (the feature itself) ---------- */
+.burst-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.burst {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: clamp(38px, 6vw, 74px);
+  line-height: 1;
+  color: var(--pass);
+  text-shadow:
+    0 0 18px color-mix(in srgb, var(--pass) 55%, transparent),
+    0 4px 0 color-mix(in srgb, var(--bg) 70%, transparent);
+  white-space: nowrap;
+}
+.burst.miss { color: var(--fail); text-shadow: 0 0 18px color-mix(in srgb, var(--fail) 55%, transparent); font-size: clamp(30px, 4.4vw, 52px); }
+.burst .unit { font-family: var(--font-sans); font-size: 0.3em; letter-spacing: 0.1em; text-transform: uppercase; margin-left: 6px; opacity: 0.8; }
+
+.burst-sub {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+  color: var(--warning-ink);
+  font: 600 13px var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.burst-sub.cold { background: var(--fail); color: var(--fail-ink); }
+
+.burst-bonus {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 20%, var(--bg));
+  color: var(--text);
+  font: 600 13px var(--font-sans);
+  white-space: nowrap;
+}
+
+.spark {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.note { margin-top: 16px; color: var(--faint); font-size: 12px; max-width: 78ch; }
+code { color: var(--accent-secondary); font-size: 0.92em; }
+</style>
+</head>
+<body>
+
+<h1>Feature 67 - dynamic scoring feedback</h1>
+<p class="lede">
+  Throwaway motion mockup. Fire a result and watch the feedback: the points burst
+  over the player where the answer was given, then travel into the session score
+  chip, which counts up. Pick an intensity and tell me which one ships.
+</p>
+
+<div class="controls">
+  <fieldset>
+    <span class="group-label">Intensity</span>
+    <label class="pill"><input type="radio" name="intensity" value="subtle"> Subtle</label>
+    <label class="pill"><input type="radio" name="intensity" value="standard" checked> Standard</label>
+    <label class="pill"><input type="radio" name="intensity" value="casino"> Casino</label>
+  </fieldset>
+  <fieldset>
+    <span class="group-label">Options</span>
+    <label class="pill"><input type="checkbox" id="opt-bonus"> Bonus categories on</label>
+    <label class="pill"><input type="checkbox" id="opt-reduced"> Simulate reduced motion</label>
+  </fieldset>
+  <fieldset>
+    <span class="group-label">Fire</span>
+    <button type="button" class="fire" id="fire-correct">Correct</button>
+    <button type="button" class="fire miss" id="fire-miss">Wrong</button>
+    <button type="button" class="fire ghost" id="fire-streak">Run a 5-streak</button>
+    <button type="button" class="fire ghost" id="fire-reset">Reset</button>
+  </fieldset>
+</div>
+
+<div class="stage">
+  <header class="study-header">
+    <div class="header-left">
+      <span class="chip">All cards</span>
+      <span class="counts">Card 4 &middot; 12 left</span>
+      <div class="quiz-score" id="score-chip">
+        <span class="score-stat"><small>Score</small><strong id="score-value">0</strong></span>
+        <span class="score-divider"></span>
+        <span class="score-stat" id="combo-stat"><small>Combo</small><strong id="combo-value">0x</strong></span>
+        <span class="score-stat"><small>Correct</small><strong id="record-value">0/0</strong></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="study-grid">
+    <div class="player-pane">
+      <div class="player-frame" id="player-frame">
+        <span>player</span>
+        <div class="answer-bar" id="answer-origin">answer box - bursts originate here</div>
+      </div>
+    </div>
+    <aside class="side-panel">
+      <h3>Result panel</h3>
+      <p id="panel-copy">Fire a result to see the bonus rows stagger in.</p>
+      <ul class="bonus-results" id="bonus-list"></ul>
+    </aside>
+  </div>
+</div>
+
+<div class="burst-layer" id="burst-layer" aria-hidden="true"></div>
+
+<p class="note">
+  Every animation here uses the Web Animations API against measured element
+  positions (<code>getBoundingClientRect</code>), which is how the real burst will
+  find the score chip whatever the layout width. "Simulate reduced motion" shows
+  the <code>prefers-reduced-motion</code> path: values still update, nothing flies.
+</p>
+
+<script>
+const INTENSITY = {
+  subtle:   { hold: 320, travel: 420, pop: 1.10, sparks: 0,  shakeFrom: Infinity, sub: false },
+  standard: { hold: 460, travel: 520, pop: 1.22, sparks: 8,  shakeFrom: 3,        sub: true  },
+  casino:   { hold: 620, travel: 620, pop: 1.38, sparks: 18, shakeFrom: 2,        sub: true  },
+};
+
+const state = { score: 0, combo: 0, correct: 0, answered: 0 };
+
+const layer = document.getElementById("burst-layer");
+const chip = document.getElementById("score-chip");
+const scoreValue = document.getElementById("score-value");
+const comboValue = document.getElementById("combo-value");
+const comboStat = document.getElementById("combo-stat");
+const recordValue = document.getElementById("record-value");
+const origin = document.getElementById("answer-origin");
+const bonusList = document.getElementById("bonus-list");
+const panelCopy = document.getElementById("panel-copy");
+
+const reduced = () => document.getElementById("opt-reduced").checked;
+const bonusOn = () => document.getElementById("opt-bonus").checked;
+const tuning = () => INTENSITY[document.querySelector('input[name="intensity"]:checked').value];
+
+const centerOf = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+
+function place(node, at) {
+  node.style.left = `${at.x}px`;
+  node.style.top = `${at.y}px`;
+  layer.append(node);
+}
+
+// Counts the chip from its current displayed value to the new total, so the
+// number visibly climbs instead of snapping.
+function countUpTo(total, ms) {
+  const from = Number(scoreValue.textContent.replace(/,/g, "")) || 0;
+  if (reduced() || from === total) { scoreValue.textContent = total.toLocaleString(); return; }
+  const started = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - started) / ms);
+    const eased = 1 - Math.pow(1 - t, 3);
+    scoreValue.textContent = Math.round(from + (total - from) * eased).toLocaleString();
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function syncChip() {
+  comboValue.textContent = `${state.combo}x`;
+  recordValue.textContent = `${state.correct}/${state.answered}`;
+  comboStat.classList.toggle("hot", state.combo > 1);
+}
+
+function sparkle(at, color, count) {
+  for (let i = 0; i < count; i += 1) {
+    const s = document.createElement("span");
+    s.className = "spark";
+    s.style.background = color;
+    s.style.boxShadow = `0 0 10px ${color}`;
+    place(s, at);
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const dist = 90 + Math.random() * 130;
+    s.animate([
+      { transform: "translate(-50%, -50%) scale(1)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(angle) * dist}px), calc(-50% + ${Math.sin(angle) * dist}px)) scale(0.2)`, opacity: 0 },
+    ], { duration: 520 + Math.random() * 320, easing: "cubic-bezier(0.15, 0.7, 0.3, 1)" })
+      .finished.then(() => s.remove(), () => s.remove());
+  }
+}
+
+function burstCorrect(points) {
+  const t = tuning();
+  const from = centerOf(origin);
+  const to = centerOf(chip);
+
+  const node = document.createElement("div");
+  node.className = "burst";
+  node.innerHTML = `+${points}<span class="unit">pts</span>`;
+  place(node, from);
+
+  if (t.sparks) sparkle(from, getComputedStyle(document.documentElement).getPropertyValue("--pass").trim(), t.sparks);
+
+  if (t.sub && state.combo >= 2) {
+    const sub = document.createElement("div");
+    sub.className = "burst-sub";
+    sub.textContent = `${state.combo}x combo`;
+    place(sub, { x: from.x, y: from.y + 54 });
+    sub.animate([
+      { opacity: 0, transform: "translate(-50%, -50%) scale(0.6) rotate(-6deg)" },
+      { opacity: 1, transform: "translate(-50%, -50%) scale(1) rotate(-3deg)", offset: 0.25 },
+      { opacity: 1, transform: "translate(-50%, -50%) scale(1) rotate(-3deg)", offset: 0.7 },
+      { opacity: 0, transform: "translate(-50%, -80%) scale(0.9)" },
+    ], { duration: t.hold + 420, easing: "ease-out" }).finished.then(() => sub.remove(), () => sub.remove());
+  }
+
+  // pop in place, hold so the number is readable, then fly into the chip
+  const anim = node.animate([
+    { opacity: 0, transform: `translate(-50%, -50%) scale(0.35)`, offset: 0 },
+    { opacity: 1, transform: `translate(-50%, -50%) scale(${t.pop})`, offset: 0.18 },
+    { opacity: 1, transform: `translate(-50%, -50%) scale(1)`, offset: 0.3 },
+    { opacity: 1, transform: `translate(-50%, -50%) scale(1)`, offset: 0.55 },
+    { opacity: 0.9, transform: `translate(calc(-50% + ${(to.x - from.x) * 0.55}px), calc(-50% + ${(to.y - from.y) * 0.4}px)) scale(0.72)`, offset: 0.8 },
+    { opacity: 0, transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.32)`, offset: 1 },
+  ], { duration: t.hold + t.travel, easing: "cubic-bezier(0.3, 0.9, 0.2, 1)" });
+
+  anim.finished.then(() => {
+    node.remove();
+    chip.classList.remove("landed");
+    void chip.offsetWidth;
+    chip.classList.add("landed");
+    countUpTo(state.score, 480);
+  }, () => node.remove());
+
+  if (state.combo >= t.shakeFrom) {
+    document.getElementById("player-frame").animate([
+      { transform: "translate(0,0)" },
+      { transform: "translate(-4px, 2px)" },
+      { transform: "translate(3px, -2px)" },
+      { transform: "translate(0,0)" },
+    ], { duration: 260, easing: "ease-out" });
+  }
+}
+
+function burstMiss(hadCombo) {
+  const from = centerOf(origin);
+  const node = document.createElement("div");
+  node.className = "burst miss";
+  node.textContent = "Miss";
+  place(node, from);
+  node.animate([
+    { opacity: 0, transform: "translate(-50%, -50%) scale(0.6) rotate(-4deg)" },
+    { opacity: 1, transform: "translate(-50%, -50%) scale(1) rotate(2deg)", offset: 0.22 },
+    { opacity: 1, transform: "translate(-50%, -42%) scale(1)", offset: 0.6 },
+    { opacity: 0, transform: "translate(-50%, -20%) scale(0.92)" },
+  ], { duration: 760, easing: "ease-out" }).finished.then(() => node.remove(), () => node.remove());
+
+  if (hadCombo) {
+    const sub = document.createElement("div");
+    sub.className = "burst-sub cold";
+    sub.textContent = "Combo lost";
+    place(sub, { x: from.x, y: from.y + 54 });
+    sub.animate([
+      { opacity: 0, transform: "translate(-50%, -50%) scale(0.7)" },
+      { opacity: 1, transform: "translate(-50%, -50%) scale(1)", offset: 0.25 },
+      { opacity: 0, transform: "translate(-50%, -30%) scale(0.95)" },
+    ], { duration: 820, easing: "ease-out" }).finished.then(() => sub.remove(), () => sub.remove());
+    chip.classList.remove("broke");
+    void chip.offsetWidth;
+    chip.classList.add("broke");
+  }
+}
+
+// Bonus chips arrive after the main burst, one at a time, each flying to the chip.
+function burstBonuses(count) {
+  const t = tuning();
+  const to = centerOf(chip);
+  for (let i = 0; i < count; i += 1) {
+    const delay = t.hold + 180 + i * 260;
+    setTimeout(() => {
+      state.score += 50;
+      if (reduced()) { countUpTo(state.score, 0); return; }
+      const from = centerOf(origin);
+      const node = document.createElement("div");
+      node.className = "burst-bonus";
+      node.textContent = `+50 ${i === 0 ? "song name" : "opening/ending"}`;
+      place(node, { x: from.x, y: from.y - 70 - i * 34 });
+      node.animate([
+        { opacity: 0, transform: "translate(-50%, -50%) scale(0.7)" },
+        { opacity: 1, transform: "translate(-50%, -50%) scale(1)", offset: 0.2 },
+        { opacity: 1, transform: "translate(-50%, -50%) scale(1)", offset: 0.5 },
+        { opacity: 0, transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.4)` },
+      ], { duration: 720, easing: "cubic-bezier(0.3, 0.9, 0.2, 1)" })
+        .finished.then(() => { node.remove(); countUpTo(state.score, 320); }, () => node.remove());
+    }, delay);
+  }
+}
+
+function renderPanel(result, bonuses) {
+  panelCopy.textContent = result === "pass" ? "Correct! Cowboy Bebop" : "Not quite - Cowboy Bebop";
+  bonusList.innerHTML = "";
+  bonuses.forEach((b, i) => {
+    const li = document.createElement("li");
+    li.className = `bonus-row${b.correct ? "" : " wrong"}`;
+    li.style.animationDelay = reduced() ? "0ms" : `${140 + i * 180}ms`;
+    li.innerHTML = `<span class="label">${b.label}</span><span class="pts">${b.correct ? "+50" : "+0"}</span>`;
+    bonusList.append(li);
+  });
+}
+
+function fireCorrect() {
+  const points = 100 + Math.min(state.combo, 4) * 25;
+  state.combo += 1;
+  state.correct += 1;
+  state.answered += 1;
+  state.score += points;
+  syncChip();
+  const bonuses = bonusOn() ? [{ label: "Song name", correct: true }, { label: "Opening/Ending", correct: true }] : [];
+  renderPanel("pass", bonuses);
+  if (reduced()) { countUpTo(state.score, 0); if (bonuses.length) burstBonuses(bonuses.length); return; }
+  burstCorrect(points);
+  if (bonuses.length) burstBonuses(bonuses.length);
+}
+
+function fireMiss() {
+  const hadCombo = state.combo > 0;
+  state.combo = 0;
+  state.answered += 1;
+  syncChip();
+  renderPanel("fail", bonusOn() ? [{ label: "Song name", correct: false }, { label: "Opening/Ending", correct: true }] : []);
+  if (bonusOn()) burstBonuses(1);
+  if (!reduced()) burstMiss(hadCombo);
+}
+
+document.getElementById("fire-correct").addEventListener("click", fireCorrect);
+document.getElementById("fire-miss").addEventListener("click", fireMiss);
+document.getElementById("fire-streak").addEventListener("click", () => {
+  for (let i = 0; i < 5; i += 1) setTimeout(fireCorrect, i * 1500);
+});
+document.getElementById("fire-reset").addEventListener("click", () => {
+  Object.assign(state, { score: 0, combo: 0, correct: 0, answered: 0 });
+  scoreValue.textContent = "0";
+  syncChip();
+  bonusList.innerHTML = "";
+  panelCopy.textContent = "Fire a result to see the bonus rows stagger in.";
+});
+
+syncChip();
+</script>
+</body>
+</html>

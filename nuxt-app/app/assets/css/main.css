@@ -65,6 +65,10 @@
      re-deriving the whole scale. The rail sits above page content but below
      overlays: it is chrome, and a modal backdrop is meant to cover it. */
   --z-chrome: 30;
+  /* Study's score bursts, which fly over the header chrome they are aimed at
+     but must stay under any modal: the session log or a Preview opened on top
+     of them covers them, rather than points drifting across an open dialog. */
+  --z-score-burst: 40;
   --z-modal: 50;
   --z-immersive: 60;
   /* Above --z-immersive, for the one case a plain modal isn't enough for:

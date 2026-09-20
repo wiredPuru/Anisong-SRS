@@ -4,6 +4,8 @@ import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 import type { ThemeSlotSelection } from "~/utils/themeSlotAnswer";
 import type { BonusCategoryResult } from "~/utils/quizScore";
+import type { BurstRect } from "~/utils/scoreBurst";
+import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
 
 const route = useRoute();
 const typedAnswers = ref(false);
@@ -165,6 +167,24 @@ watch(scope, () => {
   quizResult.value = null;
 });
 
+const burstLayerRef = ref<{
+  launch: (plan: ReturnType<typeof buildBurstPlan>, refs: { origin: BurstRect; targetEl: HTMLElement | null }) => void;
+  cancel: () => void;
+} | null>(null);
+const answerStackRef = ref<HTMLElement | null>(null);
+const playerPaneRef = ref<HTMLElement | null>(null);
+const scoreChipRef = ref<{ chipEl: HTMLElement | null; countUp: (points?: number) => void; settle: () => void; shake: () => void } | null>(null);
+
+// Where a burst starts. Read before the grade is written, because setting
+// quizResult unmounts the answer stack the burst should fly from; the player
+// pane's centre is the fallback for a card answered some other way.
+function readBurstOrigin(): BurstRect {
+  const el = answerStackRef.value ?? playerPaneRef.value;
+  const rect = el?.getBoundingClientRect();
+  if (rect) return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  return { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+}
+
 // Session-only visual feedback for the moment a grade lands - never persisted,
 // cleared on its own after the CSS animation finishes.
 const gradeFlash = ref<"pass" | "fail" | null>(null);
@@ -186,6 +206,7 @@ function flashGrade(result: "pass" | "fail") {
 
 onUnmounted(() => {
   if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
+  if (comboShakeTimeout) clearTimeout(comboShakeTimeout);
 });
 
 const cardEditing = ref(false);
@@ -195,6 +216,11 @@ let reviewSubmission = createReviewSubmission();
 watch([presentationKey, scope], () => {
   reviewSubmission = createReviewSubmission();
   awaitingNextCard.value = false;
+  // Nothing should still be flying toward a chip that has moved or a total
+  // that no longer applies, and the chip must land on the truth, not
+  // wherever a cancelled tween happened to be.
+  burstLayerRef.value?.cancel();
+  scoreChipRef.value?.settle();
   quizResult.value = null;
   cardEditing.value = false;
   themeSlotSelection.value = null;
@@ -223,6 +249,34 @@ async function submitReview(result: "pass" | "fail") {
   } finally {
     submissionBusy.value = false;
   }
+}
+
+// Fire-and-forget decoration: the grade is already written by the time this
+// runs, and a failure here must never cost the user their answer.
+function launchScoreBursts(grade: Parameters<typeof buildBurstPlan>[0], origin: BurstRect) {
+  const plan = buildBurstPlan(grade);
+  // After the tick, so the score chip has the new total in props by the time
+  // a burst credits it. Reduced motion credits synchronously inside launch,
+  // and would otherwise clamp against a score prop still holding the old
+  // value. The origin rect is already captured, so deferring costs nothing.
+  if (plan.length) {
+    void nextTick(() => burstLayerRef.value?.launch(plan, { origin, targetEl: scoreChipRef.value?.chipEl ?? null }));
+  }
+  if (grade.result === "pass" && grade.combo >= COMBO_SHAKE_FROM) shakePlayer();
+  if (grade.result === "fail" && grade.previousCombo > 0) scoreChipRef.value?.shake();
+}
+
+// A long streak earns a kick on the frame itself, not just a bigger number.
+const comboShake = ref(false);
+let comboShakeTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function shakePlayer() {
+  if (comboShakeTimeout) clearTimeout(comboShakeTimeout);
+  comboShake.value = false;
+  nextTick(() => {
+    comboShake.value = true;
+    comboShakeTimeout = setTimeout(() => (comboShake.value = false), 320);
+  });
 }
 
 function correctAnimeTitle(card: CardWithDetails): string {
@@ -274,11 +328,21 @@ async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | 
   try {
     const saveState = await reviewSubmission.saveOnce(() => submit(result));
     if (saveState !== "saved" || !stillCurrent()) return;
+    const previousCombo = quizScore.value.combo;
+    const burstOrigin = readBurstOrigin();
     const transition = applyQuizResult(quizScore.value, result);
     quizScore.value = transition.score;
     const bonusResults = gradeBonusCategories(reviewedCard);
     flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result });
+    launchScoreBursts({
+      result,
+      answered: selectedTitle !== null,
+      pointsAwarded: transition.pointsAwarded,
+      combo: quizScore.value.combo,
+      previousCombo,
+      bonusResults,
+    }, burstOrigin);
     quizResult.value = {
       presentationKey: presentation,
       result,
@@ -894,6 +958,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </div>
           <StudyQuizScore
             v-if="typedAnswers"
+            ref="scoreChipRef"
             :score="quizScore.score"
             :combo="quizScore.combo"
             :correct="quizScore.correct"
@@ -937,7 +1002,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </header>
       <div class="study-grid">
-        <div class="player-pane">
+        <div ref="playerPaneRef" class="player-pane" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
             :key="presentationKey"
@@ -958,7 +1023,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @update:media-kind="currentMediaKind = $event"
           >
             <template #overlay>
-              <div v-if="typedAnswers && !quizResult" class="answer-stack">
+              <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
                 <StudyTypedAnswer
                   :key="JSON.stringify(scope)"
                   overlay
@@ -1101,6 +1166,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </div>
     </template>
+    <StudyScoreBurst v-if="typedAnswers" ref="burstLayerRef" @landed="scoreChipRef?.countUp($event)" />
     <div class="study-overlay-anchor">
       <CardPreviewModal
         :card="viewedHistoryEntry?.card ?? null"
@@ -1581,6 +1647,25 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    "on" states rather than a solid color wash over the video. Sits above the
    player (no z-index needed, later in DOM order) but never intercepts
    clicks meant for it. */
+/* A streak worth shaking for. Short and small on purpose: the frame is
+   showing a video, and anything longer reads as a glitch rather than a hit. */
+.combo-shake {
+  animation: combo-shake 320ms ease-out;
+}
+
+@keyframes combo-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-4px, 2px); }
+  55% { transform: translate(3px, -2px); }
+  80% { transform: translate(-1px, 1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combo-shake {
+    animation: none;
+  }
+}
+
 .grade-flash {
   position: absolute;
   inset: 12px;

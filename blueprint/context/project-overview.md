@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 6e6c532766dfbb6aaea2f4f4e2f61f9520ed83170da627df8ffb1f4e69b655dc -->
+<!-- blueprint:source-hash d3e24d77ea01da2ce2081c7df240ae300a3150e46c5cab085a3d8ebfefc9d80f -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -169,7 +169,12 @@ name, Opening/Ending number), each scored as independent bonus points on
 top of the existing anime-guess score/combo; only the anime-name result
 still drives SRS scheduling. No `project-plan.md` change - it extends
 feature 65's already-documented Study capability rather than a new product
-direction.
+direction. Feature 67 (dynamic, arcade-style scoring feedback on Study - a
+travelling "+N" burst, a counting-up score chip, escalating combo emphasis,
+and staggered bonus rows) was added to `build-plan.md` on 2026-09-19 and is
+the next build target. It is presentation only, changing no point value,
+grade, schedule, or stored shape, and needed no `project-plan.md` change for
+the same reason feature 66 did not.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1277,6 +1282,22 @@ direction.
     Pass/Fail, then pauses on an animated result with the revealed answer,
     points, and combo feedback while playback continues. A separate Continue
     action or later Enter press advances. Search failures never grade.
+66. **Multi-category typed answers** - done, in two sub-features (66a
+    category settings menu plus the Opening/Ending number category, 66b the
+    Song name category). See the Features paragraph above for the full
+    scope; both are built and merged.
+67. **Dynamic scoring feedback on Study** - added to `build-plan.md`
+    2026-09-19, not yet built. Makes features 65/66's scoring feel arcade-like
+    rather than a static number in the header: a "+N" burst animates over the
+    player where the answer was given and travels toward the session score
+    chip before fading, the chip's total counts up with a pulse, a growing
+    combo gets escalating emphasis, and the result panel's bonus rows pop in
+    staggered. Presentation only - point values, grading, SRS scheduling, and
+    every stored shape are untouched, and all motion is suppressed under
+    `prefers-reduced-motion`. No `project-plan.md` change: §7's feature-65
+    bullet already describes an energetic result panel and session
+    score/combo, so this sharpens a documented capability rather than adding
+    a product direction, the same call feature 66 made.
 
 ## Data model
 

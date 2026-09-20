@@ -599,6 +599,15 @@ cleaned-up checkbox version before generating the project overview.
     withheld to avoid spoiling the anime guess) graded by exact song-title
     match against the card, reusing 66a's settings menu, shared submit
     flow, and bonus-scoring framework.
+- [x] 67. **Dynamic scoring feedback on Study** - make typed-answer scoring
+  feel energetic and arcade-like instead of a static number in the header.
+  A "+N" score burst animates over the player where the answer was given and
+  flies toward the session score chip before fading; the chip's own total
+  counts up to its new value with a pulse; a growing combo gets escalating
+  emphasis; and each bonus category's points pop in staggered rather than all
+  appearing at once in the result panel. Presentation only - no change to
+  point values, grading, SRS scheduling, or any stored shape, and every
+  animation is suppressed under `prefers-reduced-motion`.
 
 ## Plan maintenance
 
