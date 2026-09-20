@@ -1,6 +1,8 @@
-import { count, eq, gte, sql } from "drizzle-orm";
+import { count, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, reviewLog, song } from "../db/schema.ts";
+import { getDueCardCount } from "./cards.ts";
+import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
 
 export interface OverallStats {
   totalReviews: number;
@@ -230,6 +232,196 @@ export function getWeakestDecks(limit: number, minReviews: number): WeakestDeckE
 
   entries.sort((a, b) => a.passRate - b.passRate);
   return entries.slice(0, limit);
+}
+
+// Box 4 is the first interval of a week or longer, which is what makes a card
+// worth calling "mature" here. One constant so the panel label and the count
+// can never drift apart.
+export const MATURE_BOX = 4;
+const MAX_BOX = 5;
+
+export interface CollectionHealth {
+  totalCards: number;
+  neverReviewed: number;
+  matureCards: number;
+  maturePercent: number | null;
+  // Sent rather than hard-coded client-side, so the label and the count keep
+  // sharing one definition of "mature".
+  matureBox: number;
+  boxOneStreakRequired: number;
+  boxes: { box: number; count: number }[];
+  boxOneByStreak: { streak: number; count: number }[];
+}
+
+export interface CollectionHealthInput {
+  boxCounts: { box: number; count: number }[];
+  boxOneStreakCounts: { streak: number; count: number }[];
+  neverReviewed: number;
+  boxOneStreakRequired: number;
+}
+
+// Fills in every box and every box-1 streak bucket, including the ones no card
+// currently occupies, so the UI can render a stable set of segments instead of
+// a shape that changes with the data.
+export function shapeCollectionHealth(input: CollectionHealthInput): CollectionHealth {
+  const byBox = new Map(input.boxCounts.map((row) => [row.box, row.count]));
+  const boxes = Array.from({ length: MAX_BOX }, (_, index) => ({
+    box: index + 1,
+    count: byBox.get(index + 1) ?? 0,
+  }));
+
+  const byStreak = new Map(input.boxOneStreakCounts.map((row) => [row.streak, row.count]));
+  // A card needing N passes sits at streak 0..N-1 while still in box 1. A
+  // stored streak past that range can only come from the requirement being
+  // lowered after the fact, so it counts toward the last bucket rather than
+  // vanishing.
+  const lastBucket = Math.max(0, input.boxOneStreakRequired - 1);
+  const boxOneByStreak = Array.from({ length: lastBucket + 1 }, (_, streak) => ({
+    streak,
+    count: streak === lastBucket ? sumFrom(byStreak, streak) : (byStreak.get(streak) ?? 0),
+  }));
+
+  const totalCards = boxes.reduce((sum, entry) => sum + entry.count, 0);
+  const matureCards = boxes
+    .filter((entry) => entry.box >= MATURE_BOX)
+    .reduce((sum, entry) => sum + entry.count, 0);
+
+  return {
+    totalCards,
+    neverReviewed: input.neverReviewed,
+    matureCards,
+    maturePercent: totalCards > 0 ? matureCards / totalCards : null,
+    matureBox: MATURE_BOX,
+    boxOneStreakRequired: input.boxOneStreakRequired,
+    boxes,
+    boxOneByStreak,
+  };
+}
+
+function sumFrom(counts: Map<number, number>, from: number): number {
+  let total = 0;
+  for (const [streak, value] of counts) {
+    if (streak >= from) total += value;
+  }
+  return total;
+}
+
+export function getCollectionHealth(): CollectionHealth {
+  const boxCounts = db
+    .select({ box: card.box, count: count(card.id) })
+    .from(card)
+    .groupBy(card.box)
+    .all();
+
+  const boxOneStreakCounts = db
+    .select({ streak: card.streak, count: count(card.id) })
+    .from(card)
+    .where(eq(card.box, 1))
+    .groupBy(card.streak)
+    .all();
+
+  const reviewedCardIds = db.selectDistinct({ id: reviewLog.cardId }).from(reviewLog);
+  const neverReviewed = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .where(notInArray(card.id, reviewedCardIds))
+    .get()!.count;
+
+  return shapeCollectionHealth({
+    boxCounts,
+    boxOneStreakCounts,
+    neverReviewed,
+    boxOneStreakRequired: getBoxOneStreakRequired(),
+  });
+}
+
+const FORECAST_DAYS = 30;
+const FORECAST_VISIBLE_DAYS = 7;
+
+export interface ReviewForecast {
+  dueNow: number;
+  backlog: number;
+  days: { date: string; count: number }[];
+  next7: number;
+  next30: number;
+}
+
+export interface ReviewForecastInput {
+  dueByDate: { date: string; count: number }[];
+  // Local date keys, today first. Passed in rather than derived so the
+  // bucketing stays pure and testable across month and DST boundaries.
+  dayKeys: string[];
+  dueNow: number;
+  backlog: number;
+}
+
+export function forecastDayKeys(from: Date, count: number): string[] {
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+  return Array.from({ length: count }, () => {
+    const key = toLocalDateKey(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+    return key;
+  });
+}
+
+// Anything already overdue lands in today's bucket rather than a row in the
+// past, because today is when you actually face it.
+export function shapeForecast(input: ReviewForecastInput): ReviewForecast {
+  const todayKey = input.dayKeys[0] ?? "";
+  const horizon = new Set(input.dayKeys);
+
+  const counts = new Map<string, number>();
+  for (const entry of input.dueByDate) {
+    const bucket = entry.date <= todayKey ? todayKey : entry.date;
+    if (!horizon.has(bucket)) continue;
+    counts.set(bucket, (counts.get(bucket) ?? 0) + entry.count);
+  }
+
+  const days = input.dayKeys
+    .slice(0, FORECAST_VISIBLE_DAYS)
+    .map((date) => ({ date, count: counts.get(date) ?? 0 }));
+
+  const sum = (keys: string[]) => keys.reduce((total, date) => total + (counts.get(date) ?? 0), 0);
+
+  return {
+    dueNow: input.dueNow,
+    backlog: input.backlog,
+    days,
+    next7: sum(input.dayKeys.slice(0, FORECAST_VISIBLE_DAYS)),
+    next30: sum(input.dayKeys),
+  };
+}
+
+export function getReviewForecast(): ReviewForecast {
+  const dayKeys = forecastDayKeys(new Date(), FORECAST_DAYS);
+  const endExclusive = new Date();
+  endExclusive.setHours(0, 0, 0, 0);
+  endExclusive.setDate(endExclusive.getDate() + FORECAST_DAYS);
+
+  const dueDateExpr = sql<string>`date(${card.nextReviewAt}, 'unixepoch', 'localtime')`;
+  const dueByDate = db
+    .select({ date: dueDateExpr, count: count(card.id) })
+    .from(card)
+    .where(lt(card.nextReviewAt, endExclusive))
+    .groupBy(dueDateExpr)
+    .all();
+
+  const backlog = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .where(lte(card.nextReviewAt, new Date()))
+    .get()!.count;
+
+  return shapeForecast({
+    dueByDate,
+    dayKeys,
+    // The one number Study itself answers with, so the two surfaces cannot
+    // disagree about what is due: it honours the daily new-card cap, which a
+    // plain nextReviewAt count does not.
+    dueNow: getDueCardCount({ type: "all" }),
+    backlog,
+  });
 }
 
 export function clearReviewLog(): number {

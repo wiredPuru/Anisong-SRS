@@ -608,6 +608,33 @@ cleaned-up checkbox version before generating the project overview.
   appearing at once in the result panel. Presentation only - no change to
   point values, grading, SRS scheduling, or any stored shape, and every
   animation is suppressed under `prefers-reduced-motion`.
+- [ ] 68. **Deeper review stats** - turn `/stats` from three KPI tiles, one
+  chart, and a breakdown list into a real analytics page, using only data
+  already on disk: `review_log`'s `boxBefore`/`boxAfter` and the clock time
+  of `reviewedAt`, plus `card`'s `box`/`streak`/`nextReviewAt`, none of
+  which the stats queries read today. Sectioned single page in the existing
+  panel styling, every stat retroactive over the full review history. No
+  schema change, no new logging, and no change to what Study records.
+  Deliberately goes deeper than Home's "Last 30 days" and "Weakest decks"
+  panels rather than restating them.
+  - [x] 68a. **Collection health + review forecast** - a box 1-5
+    distribution (showing box 1's streak-to-graduate progress, since
+    `boxOneStreakRequired` means box 1 is a multi-pass stage, not one
+    step), percent mature, a never-reviewed count, and a due-cards
+    forecast for today, the next 7 days, and the next 30.
+  - [ ] 68b. **Retention by box + trends** - pass rate per `boxBefore` (is
+    box 5 actually holding?), a 7-day rolling average on the existing
+    reviews chart, a week-over-week pass-rate delta, most-improved and
+    most-declined decks by recent-versus-older rate, and an OP versus ED
+    split by `themeSlot`.
+  - [ ] 68c. **Activity heatmap + records** - a calendar heatmap of review
+    volume, hour-of-day and weekday performance read from `reviewedAt`'s
+    time component, and a records panel: longest streak ever (today's KPI
+    only shows the current one), best single day, and total days studied.
+  - [ ] 68d. **Leeches and trouble cards** - the cards actually costing
+    you: worst by fail count, current fail streak, and a separate
+    never-passed list, each row opening the existing `CardPreviewModal` so
+    a problem card can be acted on without leaving the page.
 
 ## Plan maintenance
 

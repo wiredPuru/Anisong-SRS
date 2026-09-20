@@ -28,6 +28,27 @@ interface AnimeStats {
   passRate: number | null;
 }
 
+// Mirrors CollectionHealth in server/utils/stats.ts, same field order (F-09).
+interface CollectionHealth {
+  totalCards: number;
+  neverReviewed: number;
+  matureCards: number;
+  maturePercent: number | null;
+  matureBox: number;
+  boxOneStreakRequired: number;
+  boxes: { box: number; count: number }[];
+  boxOneByStreak: { streak: number; count: number }[];
+}
+
+// Mirrors ReviewForecast in server/utils/stats.ts, same field order (F-09).
+interface ReviewForecast {
+  dueNow: number;
+  backlog: number;
+  days: { date: string; count: number }[];
+  next7: number;
+  next30: number;
+}
+
 type StatsType = "artist" | "anime";
 
 interface TimelineEntry {
@@ -67,6 +88,88 @@ const {
 } = await useFetch<{ stats: ArtistStats[] | AnimeStats[] }>("/api/stats", {
   query: computed(() => ({ type: activeType.value })),
 });
+
+const {
+  data: collection,
+  pending: collectionPending,
+  error: collectionError,
+  refresh: refreshCollection,
+} = await useFetch<CollectionHealth>("/api/stats", {
+  query: { type: "collection" },
+});
+
+// Box 1 is several stages deep (a card needs boxOneStreakRequired passes to
+// leave it), so the ladder is those buckets followed by boxes 2-5 rather than
+// five equal steps. --seg-mix ramps one accent across the whole ladder, so the
+// bar reads as progress even though each stage is its own segment.
+interface HealthStage {
+  key: string;
+  label: string;
+  count: number;
+  mix: string;
+}
+
+const healthStages = computed<HealthStage[]>(() => {
+  if (!collection.value) return [];
+  const { boxOneByStreak, boxes, boxOneStreakRequired, matureBox } = collection.value;
+
+  const stages = [
+    ...boxOneByStreak.map((bucket) => ({
+      key: `box1-streak-${bucket.streak}`,
+      label:
+        bucket.streak === 0
+          ? "Box 1 - not passed yet"
+          : `Box 1 - ${bucket.streak} of ${boxOneStreakRequired} passes`,
+      count: bucket.count,
+    })),
+    ...boxes
+      .filter((entry) => entry.box > 1)
+      .map((entry) => ({
+        key: `box-${entry.box}`,
+        label: `Box ${entry.box}${entry.box >= matureBox ? " - mature" : ""}`,
+        count: entry.count,
+      })),
+  ];
+
+  return stages.map((stage, index) => ({
+    ...stage,
+    mix: `${Math.round(15 + (85 * index) / Math.max(1, stages.length - 1))}%`,
+  }));
+});
+
+const visibleHealthStages = computed(() => healthStages.value.filter((stage) => stage.count > 0));
+
+function stageWidth(stage: HealthStage): string {
+  const total = collection.value?.totalCards ?? 0;
+  return total > 0 ? `${(stage.count / total) * 100}%` : "0%";
+}
+
+function formatPercent(value: number | null): string {
+  if (value === null) return "-";
+  return `${Math.round(value * 100)}%`;
+}
+
+const {
+  data: forecast,
+  pending: forecastPending,
+  error: forecastError,
+  refresh: refreshForecast,
+} = await useFetch<ReviewForecast>("/api/stats", {
+  query: { type: "forecast" },
+});
+
+const forecastDays = computed(() => forecast.value?.days ?? []);
+const maxForecastCount = computed(() => Math.max(1, ...forecastDays.value.map((day) => day.count)));
+
+function forecastDayLabel(date: string, index: number): string {
+  if (index === 0) return "Today";
+  if (index === 1) return "Tomorrow";
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
+}
+
+function forecastBarWidth(count: number): string {
+  return `${(count / maxForecastCount.value) * 100}%`;
+}
 
 const range = ref<TimelineRange>("30");
 
@@ -112,7 +215,13 @@ const refreshing = ref(false);
 async function refreshStats() {
   refreshing.value = true;
   try {
-    await Promise.all([refreshOverall(), refreshRows(), refreshTimeline()]);
+    await Promise.all([
+      refreshOverall(),
+      refreshRows(),
+      refreshTimeline(),
+      refreshCollection(),
+      refreshForecast(),
+    ]);
   } finally {
     refreshing.value = false;
   }
@@ -250,6 +359,90 @@ function setType(type: StatsType) {
           {{ formatStreak(overall.streakDays) }}
         </span>
       </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Collection health</span>
+      </div>
+      <div v-if="collectionPending" class="state">
+        <ActivityStatus label="Loading collection health" />
+      </div>
+      <div v-else-if="collectionError" class="state state-error">
+        Couldn't load collection health. Try refreshing.
+      </div>
+      <p v-else-if="!collection || !collection.totalCards" class="state">
+        No cards yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.
+      </p>
+      <template v-else>
+        <div class="health-figures">
+          <div class="health-figure">
+            <span class="health-figure-value">{{ collection.totalCards }}</span>
+            <span class="health-figure-label">Total cards</span>
+          </div>
+          <div class="health-figure">
+            <span class="health-figure-value">
+              {{ formatPercent(collection.maturePercent) }}
+              <span class="health-figure-sub">{{ collection.matureCards }}</span>
+            </span>
+            <span class="health-figure-label">Mature (box {{ collection.matureBox }}+)</span>
+          </div>
+          <div class="health-figure">
+            <span class="health-figure-value">{{ collection.neverReviewed }}</span>
+            <span class="health-figure-label">Never reviewed</span>
+          </div>
+        </div>
+        <div class="health-bar">
+          <span
+            v-for="stage in visibleHealthStages"
+            :key="stage.key"
+            class="health-bar-seg"
+            :style="{ width: stageWidth(stage), '--seg-mix': stage.mix }"
+            :title="`${stage.label} - ${stage.count} card${stage.count === 1 ? '' : 's'}`"
+          />
+        </div>
+        <div class="health-legend">
+          <span v-for="stage in healthStages" :key="stage.key" class="health-legend-item">
+            <span class="health-legend-dot" :style="{ '--seg-mix': stage.mix }" />
+            {{ stage.label }}
+            <span class="health-legend-count">{{ stage.count }}</span>
+          </span>
+        </div>
+      </template>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Review forecast</span>
+        <span v-if="forecast && forecast.next30" class="forecast-totals">
+          {{ forecast.next7 }} in 7 days · {{ forecast.next30 }} in 30
+        </span>
+      </div>
+      <div v-if="forecastPending" class="state">
+        <ActivityStatus label="Loading review forecast" />
+      </div>
+      <div v-else-if="forecastError" class="state state-error">Couldn't load the forecast. Try refreshing.</div>
+      <p v-else-if="!forecast || !forecast.next30" class="state">Nothing due in the next 30 days.</p>
+      <template v-else>
+        <div class="forecast-due">
+          <span class="health-figure-value">{{ forecast.dueNow }}</span>
+          <span class="health-figure-label">
+            Due now
+            <template v-if="forecast.backlog > forecast.dueNow">
+              · {{ forecast.backlog - forecast.dueNow }} held back by the daily new-card limit
+            </template>
+          </span>
+        </div>
+        <div class="forecast-days">
+          <div v-for="(day, index) in forecastDays" :key="day.date" class="forecast-day">
+            <span class="forecast-day-label">{{ forecastDayLabel(day.date, index) }}</span>
+            <span class="forecast-day-track">
+              <span v-if="day.count" class="forecast-day-fill" :style="{ width: forecastBarWidth(day.count) }" />
+            </span>
+            <span class="forecast-day-count" :class="{ 'forecast-day-count-zero': !day.count }">{{ day.count }}</span>
+          </div>
+        </div>
+      </template>
     </div>
 
     <div class="chart-panel">
@@ -562,6 +755,134 @@ function setType(type: StatsType) {
   font-size: 15px;
 }
 
+.forecast-totals {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.forecast-due {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.forecast-days {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.forecast-day {
+  display: grid;
+  grid-template-columns: 84px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.forecast-day-label {
+  color: var(--muted);
+}
+
+.forecast-day-track {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.forecast-day-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.forecast-day-count {
+  text-align: right;
+  font-weight: 700;
+}
+
+.forecast-day-count-zero {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.health-figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.health-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.health-figure-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.health-figure-sub {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.health-figure-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.health-bar {
+  display: flex;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+/* --seg-mix ramps one accent from barely-tinted (a brand new card) to full
+   strength (box 5), so the bar reads as a single progression rather than five
+   unrelated colours. */
+.health-bar-seg {
+  background: color-mix(in srgb, var(--accent-secondary) var(--seg-mix), var(--surface-raised));
+  border-right: 1px solid var(--surface);
+}
+
+.health-bar-seg:last-child {
+  border-right: none;
+}
+
+.health-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.health-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.health-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent-secondary) var(--seg-mix), var(--surface-raised));
+}
+
+.health-legend-count {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .chart-legend {
   display: flex;
   gap: 14px;
@@ -778,6 +1099,10 @@ function setType(type: StatsType) {
 
   .kpi-row {
     grid-template-columns: 1fr;
+  }
+
+  .health-figures {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

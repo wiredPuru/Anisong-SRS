@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash d3e24d77ea01da2ce2081c7df240ae300a3150e46c5cab085a3d8ebfefc9d80f -->
+<!-- blueprint:source-hash c40ed297928c4dc82ef3f742eeb86c8572a59a650d090903832756a7ccaf9f6a -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -172,9 +172,15 @@ feature 65's already-documented Study capability rather than a new product
 direction. Feature 67 (dynamic, arcade-style scoring feedback on Study - a
 travelling "+N" burst, a counting-up score chip, escalating combo emphasis,
 and staggered bonus rows) was added to `build-plan.md` on 2026-09-19 and is
-the next build target. It is presentation only, changing no point value,
+built and merged. It is presentation only, changing no point value,
 grade, schedule, or stored shape, and needed no `project-plan.md` change for
-the same reason feature 66 did not.
+the same reason feature 66 did not. Feature 68 (a deeper `/stats`, in four
+sub-features 68a-68d) was added to `build-plan.md` the same day and is the
+next build target; it reads only data already stored - `ReviewLog`'s
+`boxBefore`/`boxAfter` and the clock time of `reviewedAt`, plus `Card`'s
+`box`/`streak`/`nextReviewAt` - so it needs no migration and no
+`project-plan.md` change, §3's existing "Review stats" bullet already
+covering the surface it deepens.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1286,8 +1292,8 @@ the same reason feature 66 did not.
     category settings menu plus the Opening/Ending number category, 66b the
     Song name category). See the Features paragraph above for the full
     scope; both are built and merged.
-67. **Dynamic scoring feedback on Study** - added to `build-plan.md`
-    2026-09-19, not yet built. Makes features 65/66's scoring feel arcade-like
+67. **Dynamic scoring feedback on Study** - done. Added to `build-plan.md`
+    2026-09-19 and built the same day. Makes features 65/66's scoring feel arcade-like
     rather than a static number in the header: a "+N" burst animates over the
     player where the answer was given and travels toward the session score
     chip before fading, the chip's total counts up with a pulse, a growing
@@ -1298,6 +1304,45 @@ the same reason feature 66 did not.
     bullet already describes an energetic result panel and session
     score/combo, so this sharpens a documented capability rather than adding
     a product direction, the same call feature 66 made.
+68. **Deeper review stats** - added to `build-plan.md` 2026-09-19, in four
+    sub-features, none built yet. Turns `/stats` from three KPI tiles, one
+    chart, and a By Artist / By Title breakdown into a real analytics page
+    using only data already on disk. `server/utils/stats.ts` reads just
+    `ReviewLog.result` and the date part of `ReviewLog.reviewedAt` today:
+    `boxBefore`/`boxAfter`, `reviewedAt`'s time component, and `Card`'s
+    `box`/`streak`/`nextReviewAt` are all stored and entirely unused by
+    stats. Every metric is therefore retroactive over the full review
+    history, with no schema change, no new logging, and no change to what
+    Study records - deliberately chosen over persisting features 65-67's
+    typed-answer score/combo (session-only client state today), which would
+    have started empty. Sectioned single page in the existing 50e/62 panel
+    styling. Goes deeper than Home's "Last 30 days" and "Weakest decks"
+    panels (feature 50f) rather than restating them. No `project-plan.md`
+    change: §3's "Review stats - guess-rate tracking, sliceable by artist
+    and by anime" already covers this surface, so this deepens a documented
+    capability rather than adding a product direction, the same call
+    features 66 and 67 made.
+    - **68a. Collection health + review forecast** - box 1-5 distribution,
+      percent mature, never-reviewed count, and a due-cards forecast for
+      today, the next 7 days, and the next 30. Box 1 shows streak-to-graduate
+      progress rather than one step, since `computeNextBoxState` requires
+      `boxOneStreakRequired` (default 3) consecutive passes to reach box 2.
+      Pure `Card` state, no log analytics, and it establishes the section
+      pattern 68b-68d follow.
+    - **68b. Retention by box + trends** - pass rate per `boxBefore`, a
+      7-day rolling average on the existing reviews chart, a week-over-week
+      pass-rate delta, most-improved and most-declined decks by recent
+      versus older rate, and an OP versus ED split by `Song.themeSlot`.
+    - **68c. Activity heatmap + records** - a calendar heatmap of review
+      volume, hour-of-day and weekday performance from `reviewedAt`'s time
+      component, and a records panel: longest streak ever (`getStudyStreak()`
+      returns only the current one today), best single day, total days
+      studied.
+    - **68d. Leeches and trouble cards** - worst cards by fail count,
+      current fail streak, and a separate never-passed list, each row
+      opening the existing `CardPreviewModal`. Last of the four because it
+      is the only one adding an interactive modal to `/stats`, which that
+      page has never had.
 
 ## Data model
 
@@ -1735,7 +1780,11 @@ Routes:
 - `/stats` - done. Overall pass rate plus a By Artist / By Title toggle,
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes
-  `ReviewLog` only - `Card.box`/`Card.nextReviewAt` are untouched.
+  `ReviewLog` only - `Card.box`/`Card.nextReviewAt` are untouched. Feature
+  68 (planned, not built) deepens this page into a sectioned analytics
+  surface - collection health and forecast, retention by box and trends,
+  an activity heatmap and records, and a leech list - all from data
+  already stored.
 
 ## Deployment
 
