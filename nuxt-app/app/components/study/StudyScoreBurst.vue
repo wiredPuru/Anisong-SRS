@@ -22,7 +22,7 @@ const SPARK_COUNT = 8;
 
 // Hold time before a burst starts travelling, and how long the flight takes.
 // The "Standard" preset from blueprint/reference/dynamic-scoring-feedback.
-const HOLD_MS = 460;
+const HOLD_MS = 1600;
 const TRAVEL_MS = 520;
 
 const live = ref<LiveBurst[]>([]);
