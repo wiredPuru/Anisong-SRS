@@ -15,6 +15,7 @@ interface ThemeResult {
   artistName: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  noAnimethemesMatch: boolean;
 }
 
 interface ImportResult {
@@ -182,7 +183,7 @@ async function addAllThemes() {
 
   const steps: BulkStep[] = [];
   for (const theme of selectedAnime.value.themes) {
-    if (addedCards[theme.songId]) continue;
+    if (addedCards[theme.songId] || theme.noAnimethemesMatch) continue;
     steps.push({
       label: theme.songTitle,
       run: async () => {
@@ -345,10 +346,18 @@ async function removeCard(songId: number) {
                       :disabled="adding[theme.songId]"
                       class="path-input"
                     />
-                    <button type="button" class="add-btn" :disabled="adding[theme.songId]" @click="addCard(theme)">
+                    <button
+                      type="button"
+                      class="add-btn"
+                      :disabled="adding[theme.songId] || theme.noAnimethemesMatch"
+                      @click="addCard(theme)"
+                    >
                       Add card
                     </button>
                   </div>
+                  <p v-if="theme.noAnimethemesMatch" class="no-match-hint">
+                    Not on AnimeThemes.moe, so it cannot be added.
+                  </p>
                   <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
                 </template>
               </li>
@@ -505,6 +514,12 @@ async function removeCard(songId: number) {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.no-match-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .add-btn:disabled {

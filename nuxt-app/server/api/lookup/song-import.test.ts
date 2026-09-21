@@ -1,8 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ byAniListId: vi.fn(), upsertAnime: vi.fn(), upsertSong: vi.fn(), getClipSource: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  byAniListId: vi.fn(),
+  upsertAnime: vi.fn(),
+  upsertSong: vi.fn(),
+  getClipSource: vi.fn(),
+  getCardsBySongIds: vi.fn(),
+  loadMatchIndex: vi.fn(),
+}));
 vi.mock("../../utils/animeMetadata.ts", () => ({ createAnimeMetadataResolver: () => mocks }));
-vi.mock("../../utils/cards.ts", () => ({ getCardsBySongIds: () => [] }));
+vi.mock("../../utils/cards.ts", () => ({ getCardsBySongIds: mocks.getCardsBySongIds }));
+vi.mock("../../utils/themeSource.ts", async (importActual) => ({
+  ...await importActual<typeof import("../../utils/themeSource.ts")>(),
+  loadAnimeThemesMatchIndex: mocks.loadMatchIndex,
+}));
 vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: (name: string) => ({ id: 1, name }),
   upsertAnime: mocks.upsertAnime,
@@ -37,6 +48,8 @@ beforeEach(() => {
   mocks.upsertAnime.mockImplementation((anime) => ({ id: 7, ...anime }));
   mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song }));
   mocks.getClipSource.mockReturnValue("both");
+  mocks.getCardsBySongIds.mockReturnValue([]);
+  mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map([["kaibutsu", 9139]]) });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -81,5 +94,53 @@ describe("song import clip filtering", () => {
   it("keeps a URL the current setting still allows", async () => {
     mocks.getClipSource.mockReturnValue("anisongdb");
     await expect(importSong(anisongBody)).resolves.toMatchObject({ videoUrl: anisongBody.videoUrl });
+  });
+});
+
+describe("song import AnimeThemes match gate", () => {
+  it("stores the AnimeThemes theme id when the anime has the song, whatever slot it labels it", async () => {
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.loadMatchIndex).toHaveBeenCalledWith(114194);
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: 9139, themeSlot: "OP1" }));
+  });
+
+  it("flags a song AnimeThemes does not have and leaves its id unset", async () => {
+    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map() });
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ songId: 42, noAnimethemesMatch: true, existingCard: null });
+    expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
+  });
+
+  it("flags every song when AnimeThemes has no entry for the anime at all", async () => {
+    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: null, byTitle: new Map() });
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: true });
+  });
+
+  it("fails open when AnimeThemes is unreachable", async () => {
+    mocks.loadMatchIndex.mockResolvedValue({ status: "unavailable" });
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the lookup when the result already carries an AnimeThemes theme id", async () => {
+    await expect(importSong({ ...anisongBody, animethemesThemeId: 9139 })).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
+  });
+
+  it("skips the lookup when an earlier import already stored the id", async () => {
+    mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song, animethemesThemeId: 555 }));
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
+  });
+
+  it("does not gate a song that already has a card", async () => {
+    const existingCard = { id: 5, songId: 42 };
+    mocks.getCardsBySongIds.mockReturnValue([existingCard]);
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ existingCard, noAnimethemesMatch: false });
+    expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
+  });
+
+  it("does not swallow a fault that is not an outage", async () => {
+    mocks.loadMatchIndex.mockRejectedValue(new Error("AnimeThemes rejected the request (422)."));
+    await expect(importSong(anisongBody)).rejects.toThrow("rejected the request");
   });
 });

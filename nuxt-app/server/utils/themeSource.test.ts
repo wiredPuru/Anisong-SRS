@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderRequestError, ProviderUnavailableError } from "../lib/graphql.ts";
-import { fetchAnimeThemesByAniListId } from "../lib/animethemes.ts";
+import { fetchAnimeThemesByAniListId, fetchThemeTitlesByAniListIds } from "../lib/animethemes.ts";
 import { fetchThemesByMalId } from "../lib/anisongdb.ts";
-import { resolveThemes } from "./themeSource.ts";
+import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex, resolveThemes, startMatchIndexLoads } from "./themeSource.ts";
 
-vi.mock("../lib/animethemes.ts", () => ({ fetchAnimeThemesByAniListId: vi.fn() }));
+vi.mock("../lib/animethemes.ts", () => ({ fetchAnimeThemesByAniListId: vi.fn(), fetchThemeTitlesByAniListIds: vi.fn() }));
 vi.mock("../lib/anisongdb.ts", () => ({ fetchThemesByMalId: vi.fn() }));
 
 const fromAnimeThemes = vi.mocked(fetchAnimeThemesByAniListId);
+const titlesFromAnimeThemes = vi.mocked(fetchThemeTitlesByAniListIds);
 const fromAnisong = vi.mocked(fetchThemesByMalId);
 
 const animethemesTheme = (overrides = {}) => ({
@@ -35,6 +36,7 @@ const resolve = (malId: number | null = 1) => resolveThemes({ aniListId: 1, malI
 beforeEach(() => {
   fromAnimeThemes.mockReset();
   fromAnisong.mockReset();
+  titlesFromAnimeThemes.mockReset();
   fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme()] });
   fromAnisong.mockResolvedValue([anisongTheme()]);
 });
@@ -55,6 +57,7 @@ describe("theme source resolution", () => {
   it("merges a slot both providers know about", async () => {
     expect(await resolve()).toEqual({
       animethemesId: 521,
+      animethemesUnavailable: false,
       themes: [{
         themeSlot: "OP1",
         songTitle: "Tank!",
@@ -140,6 +143,7 @@ describe("theme source resolution", () => {
     fromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
     expect(await resolve()).toEqual({
       animethemesId: null,
+      animethemesUnavailable: true,
       themes: [expect.objectContaining({ source: "anisongdb", videoUrl: "https://naedist.animemusicquiz.com/fast.webm" })],
     });
   });
@@ -163,6 +167,207 @@ describe("theme source resolution", () => {
   it("returns an empty list when neither provider has the anime", async () => {
     fromAnimeThemes.mockResolvedValue(null);
     fromAnisong.mockResolvedValue([]);
-    expect(await resolve()).toEqual({ animethemesId: null, themes: [] });
+    expect(await resolve()).toEqual({ animethemesId: null, animethemesUnavailable: false, themes: [] });
+  });
+
+  it("does not report AnimeThemes as unavailable when it simply has no entry for the anime", async () => {
+    fromAnimeThemes.mockResolvedValue(null);
+    expect((await resolve()).animethemesUnavailable).toBe(false);
+  });
+
+  it("does not report AnimeThemes as unavailable when only AnisongDB is down", async () => {
+    fromAnisong.mockRejectedValue(new ProviderUnavailableError("AnisongDB"));
+    expect((await resolve()).animethemesUnavailable).toBe(false);
+  });
+});
+
+describe("AnimeThemes match index", () => {
+  const load = () => loadAnimeThemesMatchIndex(1);
+
+  it.each([
+    ["exactly", "Tank!"],
+    ["across case and punctuation", "TANK!!"],
+    ["across spacing", "Tank !"],
+    ["across accents", "Tánk!"],
+  ])("matches a song title %s", async (_label, songTitle) => {
+    expect(findThemeMatch(await load(), songTitle)).toBe(900);
+  });
+
+  it("finds a match regardless of which slot the asking provider labels it", async () => {
+    fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme({ themeSlot: "ED1", songTitle: "Crucifix X", animethemesThemeId: 902 })] });
+    expect(findThemeMatch(await load(), "Crucifix X")).toBe(902);
+  });
+
+  it("does not guess across a real spelling difference", async () => {
+    fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme({ songTitle: "Kagami Hyoushi" })] });
+    expect(findThemeMatch(await load(), "Kagamiutsushi")).toBeNull();
+  });
+
+  it("keeps the first theme when two share a title", async () => {
+    fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [
+      animethemesTheme({ themeSlot: "OP1", animethemesThemeId: 900 }),
+      animethemesTheme({ themeSlot: "ED1", animethemesThemeId: 901 }),
+    ] });
+    expect(findThemeMatch(await load(), "Tank!")).toBe(900);
+  });
+
+  it("returns null for a blank or missing title", async () => {
+    const index = await load();
+    expect(findThemeMatch(index, null)).toBeNull();
+    expect(findThemeMatch(index, "  !! ")).toBeNull();
+  });
+
+  it("returns an ok index with nothing in it when AnimeThemes has no entry for the anime", async () => {
+    fromAnimeThemes.mockResolvedValue(null);
+    const index = await load();
+    expect(index).toEqual({ status: "ok", animethemesId: null, byTitle: new Map() });
+    expect(findThemeMatch(index, "Tank!")).toBeNull();
+  });
+
+  it("reports an outage as unavailable instead of throwing", async () => {
+    fromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
+    const index = await load();
+    expect(index).toEqual({ status: "unavailable" });
+    expect(findThemeMatch(index, "Tank!")).toBeNull();
+  });
+
+  it("rethrows a fault that is not an outage", async () => {
+    fromAnimeThemes.mockRejectedValue(new ProviderRequestError("AnimeThemes rejected the request (422)."));
+    await expect(load()).rejects.toThrow("rejected the request");
+  });
+});
+
+describe("missing AnimeThemes match gate", () => {
+  it("is not missing when a theme id is stored", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: 900, unavailable: false })).toBe(false);
+  });
+
+  it("is missing when no id is stored and AnimeThemes was reachable", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: null, unavailable: false })).toBe(true);
+  });
+
+  it("fails open when no id is stored but AnimeThemes was unreachable", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: null, unavailable: true })).toBe(false);
+  });
+
+  it("stays not missing when an id is stored even during an outage", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: 900, unavailable: true })).toBe(false);
+  });
+});
+
+describe("bulk match index loading", () => {
+  const start = (ids: number[], options = {}) => startMatchIndexLoads(ids, { retryDelayMs: 0, ...options });
+  const titles = (id: number, songTitle = "Tank!") => [id, { animethemesId: 500 + id, themes: [{ animethemesThemeId: 900 + id, songTitle }] }] as const;
+  // Answers every requested id with a one-song anime, like AnimeThemes would.
+  beforeEach(() => {
+    titlesFromAnimeThemes.mockImplementation(async (ids: number[]) => new Map(ids.map((id) => titles(id))));
+  });
+
+  it("returns one promise per distinct anime, keyed by AniList id", async () => {
+    const loads = start([1, 2, 2, 3]);
+    expect([...loads.keys()]).toEqual([1, 2, 3]);
+    await Promise.all(loads.values());
+  });
+
+  it("asks for a whole chunk of anime in one request, not one request each", async () => {
+    await Promise.all(start(Array.from({ length: 70 }, (_, i) => i + 1), { chunkSize: 40 }).values());
+    expect(titlesFromAnimeThemes.mock.calls.map(([ids]) => ids.length)).toEqual([40, 30]);
+    expect(fromAnimeThemes).not.toHaveBeenCalled();
+  });
+
+  it("builds each anime's own index from its own themes", async () => {
+    titlesFromAnimeThemes.mockResolvedValue(new Map([titles(1, "Tank!"), titles(2, "Blue")]));
+    const loads = start([1, 2]);
+    expect(findThemeMatch(await loads.get(1)!, "Tank!")).toBe(901);
+    expect(findThemeMatch(await loads.get(1)!, "Blue")).toBeNull();
+    expect(findThemeMatch(await loads.get(2)!, "Blue")).toBe(902);
+  });
+
+  it("gives an anime AnimeThemes has no entry for an ok index with nothing in it", async () => {
+    titlesFromAnimeThemes.mockResolvedValue(new Map([titles(1)]));
+    const missing = await start([1, 2]).get(2)!;
+    expect(missing).toEqual({ status: "ok", animethemesId: null, byTitle: new Map() });
+  });
+
+  it("never runs more requests at once than the concurrency bound", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    titlesFromAnimeThemes.mockImplementation(async (ids: number[]) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return new Map(ids.map((id) => titles(id)));
+    });
+    await Promise.all(start([1, 2, 3, 4, 5, 6, 7], { chunkSize: 1, concurrency: 2 }).values());
+    expect(peak).toBe(2);
+    expect(titlesFromAnimeThemes).toHaveBeenCalledTimes(7);
+  });
+
+  it("retries an outage once and uses the retry's answer", async () => {
+    titlesFromAnimeThemes
+      .mockRejectedValueOnce(new ProviderUnavailableError("AnimeThemes"))
+      .mockImplementationOnce(async (ids: number[]) => new Map(ids.map((id) => titles(id))));
+    expect((await start([1]).get(1)!).status).toBe("ok");
+    expect(titlesFromAnimeThemes).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports unavailable when the retry is also an outage", async () => {
+    titlesFromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
+    await expect(start([1, 2]).get(1)!).resolves.toEqual({ status: "unavailable" });
+    expect(titlesFromAnimeThemes).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops calling the provider once several chunks in a row stay unavailable", async () => {
+    titlesFromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
+    const results = await Promise.all(start([1, 2, 3, 4, 5], { chunkSize: 1, concurrency: 1, giveUpAfter: 2 }).values());
+    expect(results.every((index) => index.status === "unavailable")).toBe(true);
+    expect(titlesFromAnimeThemes).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not let one recovered chunk trip the give-up threshold", async () => {
+    titlesFromAnimeThemes
+      .mockRejectedValueOnce(new ProviderUnavailableError("AnimeThemes"))
+      .mockRejectedValueOnce(new ProviderUnavailableError("AnimeThemes"))
+      .mockImplementation(async (ids: number[]) => new Map(ids.map((id) => titles(id))));
+    const results = await Promise.all(start([1, 2, 3, 4], { chunkSize: 1, concurrency: 1, giveUpAfter: 2 }).values());
+    expect(results.map((index) => index.status)).toEqual(["unavailable", "ok", "ok", "ok"]);
+  });
+
+  it("hands a non-outage fault to the anime in that chunk, and to no other chunk", async () => {
+    titlesFromAnimeThemes
+      .mockRejectedValueOnce(new ProviderRequestError("AnimeThemes rejected the request (422)."))
+      .mockImplementation(async (ids: number[]) => new Map(ids.map((id) => titles(id))));
+    const loads = start([1, 2], { chunkSize: 1, concurrency: 1 });
+    await expect(loads.get(1)!).rejects.toThrow("rejected the request");
+    await expect(loads.get(2)!).resolves.toMatchObject({ status: "ok" });
+  });
+
+  it("does not raise an unhandled rejection for a failed load nobody awaits", async () => {
+    titlesFromAnimeThemes.mockRejectedValue(new ProviderRequestError("AnimeThemes rejected the request (422)."));
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    start([1]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+});
+
+describe("missing AnimeThemes match gate", () => {
+  it("is not missing when a theme id is stored", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: 900, unavailable: false })).toBe(false);
+  });
+
+  it("is missing when no id is stored and AnimeThemes was reachable", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: null, unavailable: false })).toBe(true);
+  });
+
+  it("fails open when no id is stored but AnimeThemes was unreachable", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: null, unavailable: true })).toBe(false);
+  });
+
+  it("stays not missing when an id is stored even during an outage", () => {
+    expect(isMissingAnimeThemesMatch({ storedThemeId: 900, unavailable: true })).toBe(false);
   });
 });

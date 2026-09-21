@@ -3,6 +3,7 @@ import { getCardsBySongIds } from "../../utils/cards.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource } from "../../utils/mediaLibrary.ts";
+import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -34,14 +35,31 @@ export default defineEventHandler(async (event) => {
 
   const artistRow = getOrCreateArtist(body.artistName ?? "Unknown Artist");
 
-  const songRow = upsertSong({
+  const upsertWith = (themeId: number | null) => upsertSong({
     animeId: animeRow.id,
     artistId: artistRow.id,
     title: body.songTitle ?? body.themeSlot,
     titleNative: body.songTitleNative,
     themeSlot: body.themeSlot,
-    animethemesThemeId,
+    animethemesThemeId: themeId,
   });
+
+  let songRow = upsertWith(animethemesThemeId);
+  const existingCard = getCardsBySongIds([songRow.id])[0] ?? null;
+
+  // An AnisongDB result never says whether AnimeThemes has the song, so the
+  // answer costs one lookup for the anime. A song that already has a card, or
+  // whose stored id an earlier import found, is settled without it.
+  let noAnimethemesMatch = false;
+  if (!existingCard && songRow.animethemesThemeId === null) {
+    const index = await loadAnimeThemesMatchIndex(animeRow.aniListId);
+    const matchedThemeId = findThemeMatch(index, body.songTitle ?? null) ?? findThemeMatch(index, songRow.title);
+    if (matchedThemeId !== null) songRow = upsertWith(matchedThemeId);
+    noAnimethemesMatch = isMissingAnimeThemesMatch({
+      storedThemeId: matchedThemeId,
+      unavailable: index.status === "unavailable",
+    });
+  }
 
   // Re-filter rather than trust the request body: the client just echoes back
   // a search result, and the setting can have changed since that search ran.
@@ -54,6 +72,7 @@ export default defineEventHandler(async (event) => {
     artistName: artistRow.name,
     videoUrl,
     audioUrl,
-    existingCard: getCardsBySongIds([songRow.id])[0] ?? null,
+    existingCard,
+    noAnimethemesMatch,
   };
 });

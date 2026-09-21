@@ -104,6 +104,51 @@ function toThemeLookup(theme: RawAnimeTheme): AnimeThemeLookup | null {
   };
 }
 
+export interface AnimeThemeTitles {
+  animethemesId: number;
+  themes: { animethemesThemeId: number; songTitle: string }[];
+}
+
+// Just enough of each anime to say which songs AnimeThemes has: no artists and
+// no video links, which is what lets one request cover dozens of anime in about
+// the time a single full lookup takes.
+const TITLES_BY_ANILIST_QUERY = `
+  query ($anilistId: [Int!]) {
+    findAnimeByExternalSite(site: ANILIST, id: $anilistId) {
+      id
+      resources(site: ANILIST) { nodes { externalId } }
+      animethemes(first: 50) {
+        id
+        song { title { romaji native } }
+      }
+    }
+  }
+`;
+
+// An id AnimeThemes has no entry for is simply absent from the result.
+export async function fetchThemeTitlesByAniListIds(aniListIds: number[]): Promise<Map<number, AnimeThemeTitles>> {
+  const wanted = new Set(aniListIds);
+  const data = await requestAnimeThemes<{ findAnimeByExternalSite: unknown }>(TITLES_BY_ANILIST_QUERY, { anilistId: aniListIds });
+  if (!Array.isArray(data.findAnimeByExternalSite)) throw new ProviderUnavailableError("AnimeThemes");
+
+  const found = new Map<number, AnimeThemeTitles>();
+  for (const record of data.findAnimeByExternalSite) {
+    if (!isRecord(record) || !isPositiveId(record.id) || !isRecord(record.resources) ||
+      !Array.isArray(record.resources.nodes) || !Array.isArray(record.animethemes)) continue;
+
+    const themes = (record.animethemes as RawAnimeTheme[]).flatMap((theme) => {
+      const songTitle = theme.song?.title.romaji ?? theme.song?.title.native ?? null;
+      return songTitle ? [{ animethemesThemeId: theme.id, songTitle }] : [];
+    });
+
+    for (const node of record.resources.nodes) {
+      const externalId = isRecord(node) ? node.externalId : undefined;
+      if (isPositiveId(externalId) && wanted.has(externalId)) found.set(externalId, { animethemesId: record.id, themes });
+    }
+  }
+  return found;
+}
+
 export interface AnimeThemesArtistCandidate {
   id: number;
   name: string;

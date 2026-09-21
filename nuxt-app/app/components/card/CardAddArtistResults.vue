@@ -15,6 +15,7 @@ interface ArtistThemeResult {
   videoUrl: string | null;
   audioUrl: string | null;
   clipBlocked: boolean;
+  noAnimethemesMatch: boolean;
 }
 
 interface ArtistImportResult {
@@ -164,7 +165,7 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
 }
 
 function addThemeRowClick(theme: ArtistThemeResult) {
-  if (addedCards[theme.songId] || adding[theme.songId] || theme.clipBlocked) return;
+  if (addedCards[theme.songId] || adding[theme.songId] || theme.clipBlocked || theme.noAnimethemesMatch) return;
   addTheme(theme);
 }
 
@@ -198,9 +199,10 @@ async function addAllThemes() {
   const steps: BulkStep[] = [];
   for (const group of artistImport.value.animeGroups) {
     for (const theme of group.themes) {
-      // A blocked theme's row already shows it can't be added; attempting it
-      // here would just report a predictable failure instead of a skip.
-      if (addedCards[theme.songId] || theme.clipBlocked) continue;
+      // A blocked or unmatched theme's row already shows it can't be added;
+      // attempting it here would just report a predictable failure instead of
+      // a skip.
+      if (addedCards[theme.songId] || theme.clipBlocked || theme.noAnimethemesMatch) continue;
       steps.push({
         label: theme.songTitle,
         run: async () => {
@@ -384,7 +386,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 v-for="theme in group.themes"
                 :key="theme.songId"
                 class="theme-row"
-                :class="{ 'row-clickable': !addedCards[theme.songId] && !theme.clipBlocked }"
+                :class="{ 'row-clickable': !addedCards[theme.songId] && !theme.clipBlocked && !theme.noAnimethemesMatch }"
                 @click="addThemeRowClick(theme)"
               >
                 <div class="theme-info">
@@ -448,13 +450,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                     <button
                       type="button"
                       class="add-btn"
-                      :disabled="adding[theme.songId] || theme.clipBlocked"
+                      :disabled="adding[theme.songId] || theme.clipBlocked || theme.noAnimethemesMatch"
                       @click.stop="addTheme(theme)"
                     >
                       {{ adding[theme.songId] ? "Adding..." : "Add" }}
                     </button>
                   </div>
-                  <p v-if="theme.clipBlocked" class="clip-blocked-hint">
+                  <p v-if="theme.noAnimethemesMatch" class="no-match-hint">
+                    Not on AnimeThemes.moe, so it cannot be added.
+                  </p>
+                  <p v-else-if="theme.clipBlocked" class="clip-blocked-hint">
                     No clip allowed - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>.
                   </p>
                   <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
@@ -681,6 +686,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .clip-blocked-hint a {
   color: var(--accent);
+}
+
+.no-match-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .added-info {

@@ -14,6 +14,7 @@ interface ThemeResult {
   videoUrl: string | null;
   audioUrl: string | null;
   clipBlocked: boolean;
+  noAnimethemesMatch: boolean;
 }
 
 interface ImportResult {
@@ -113,7 +114,7 @@ watch(
 );
 
 function addThemeRowClick(theme: ThemeResult) {
-  if (addedCards[theme.songId] || adding[theme.songId] || theme.clipBlocked) return;
+  if (addedCards[theme.songId] || adding[theme.songId] || theme.clipBlocked || theme.noAnimethemesMatch) return;
   addTheme(theme);
 }
 
@@ -204,7 +205,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           v-for="theme in importResult.themes"
           :key="theme.songId"
           class="theme-row"
-          :class="{ 'row-clickable': !addedCards[theme.songId] && !theme.clipBlocked }"
+          :class="{ 'row-clickable': !addedCards[theme.songId] && !theme.clipBlocked && !theme.noAnimethemesMatch }"
           @click="addThemeRowClick(theme)"
         >
           <div class="theme-info">
@@ -254,13 +255,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <button
                 type="button"
                 class="add-btn"
-                :disabled="adding[theme.songId] || theme.clipBlocked"
+                :disabled="adding[theme.songId] || theme.clipBlocked || theme.noAnimethemesMatch"
                 @click.stop="addTheme(theme)"
               >
                 {{ adding[theme.songId] ? "Adding..." : "Add" }}
               </button>
             </div>
-            <p v-if="theme.clipBlocked" class="clip-blocked-hint">
+            <p v-if="theme.noAnimethemesMatch" class="no-match-hint">
+              Not on AnimeThemes.moe, so it cannot be added.
+            </p>
+            <p v-else-if="theme.clipBlocked" class="clip-blocked-hint">
               No clip allowed - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>.
             </p>
             <p v-if="addError[theme.songId]" class="inline-error">{{ addError[theme.songId] }}</p>
@@ -419,6 +423,12 @@ h2 {
 
 .clip-blocked-hint a {
   color: var(--accent);
+}
+
+.no-match-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .added-badge {

@@ -5,6 +5,7 @@ import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource } from "../../utils/mediaLibrary.ts";
+import { findThemeMatch, isMissingAnimeThemesMatch, startMatchIndexLoads } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -51,8 +52,17 @@ export default defineEventHandler(async (event) => {
         videoUrl: string | null;
         audioUrl: string | null;
         clipBlocked: boolean;
+        noAnimethemesMatch: boolean;
       }[];
     }[] = [];
+
+    // AnisongDB entries carry no AnimeThemes id, so each such anime needs its own
+    // AnimeThemes lookup to say which of its songs AnimeThemes has.
+    const matchIndexes = startMatchIndexLoads(
+      [...entriesByAniListId]
+        .filter(([, entries]) => entries.some((entry) => entry.animethemesThemeId === null))
+        .map(([aniListId]) => aniListId),
+    );
 
     const clipSource = getClipSource();
     const metadata = createAnimeMetadataResolver();
@@ -88,6 +98,8 @@ export default defineEventHandler(async (event) => {
           coverImageUrl: aniListAnime.coverImageUrl,
         });
 
+        const matchIndex = await matchIndexes.get(aniListId);
+
         const themes = entries.map((entry) => {
           const songRow = upsertSong({
             animeId: animeRow.id,
@@ -95,7 +107,7 @@ export default defineEventHandler(async (event) => {
             title: entry.songTitle ?? entry.themeSlot,
             titleNative: entry.songTitleNative,
             themeSlot: entry.themeSlot,
-            animethemesThemeId: entry.animethemesThemeId,
+            animethemesThemeId: entry.animethemesThemeId ?? (matchIndex ? findThemeMatch(matchIndex, entry.songTitle) : null),
           });
 
           const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(entry.videoUrl, entry.audioUrl, clipSource);
@@ -107,6 +119,10 @@ export default defineEventHandler(async (event) => {
             videoUrl,
             audioUrl,
             clipBlocked,
+            noAnimethemesMatch: isMissingAnimeThemesMatch({
+              storedThemeId: songRow.animethemesThemeId,
+              unavailable: matchIndex?.status === "unavailable",
+            }),
           };
         });
 

@@ -56,6 +56,7 @@ const addedCards = reactive<Record<number, CardWithDetails>>({});
 const adding = reactive<Record<string, boolean>>({});
 const addError = reactive<Record<string, string | null>>({});
 const resultSongId = reactive<Record<string, number>>({});
+const noAnimethemesMatch = reactive<Record<string, boolean>>({});
 
 const {
   downloading,
@@ -113,7 +114,7 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
 }
 
 function addSongRowClick(result: SongSearchResult) {
-  if (addedSongCard(result.resultKey) || adding[result.resultKey] || result.clipBlocked) return;
+  if (addedSongCard(result.resultKey) || adding[result.resultKey] || result.clipBlocked || noAnimethemesMatch[result.resultKey]) return;
   addSongResult(result);
 }
 
@@ -128,7 +129,13 @@ async function addSongResult(result: SongSearchResult) {
       videoUrl: string | null;
       audioUrl: string | null;
       existingCard: CardWithDetails | null;
+      noAnimethemesMatch: boolean;
     }>("/api/lookup/song-import", { method: "POST", body: result });
+
+    if (imported.noAnimethemesMatch) {
+      noAnimethemesMatch[key] = true;
+      return;
+    }
 
     resultSongId[key] = imported.songId;
 
@@ -183,7 +190,7 @@ async function removeCard(resultKey: string) {
           v-for="result in results"
           :key="result.resultKey"
           class="theme-row"
-          :class="{ 'row-clickable': !addedSongCard(result.resultKey) && !result.clipBlocked }"
+          :class="{ 'row-clickable': !addedSongCard(result.resultKey) && !result.clipBlocked && !noAnimethemesMatch[result.resultKey] }"
           @click="addSongRowClick(result)"
         >
           <div class="theme-info">
@@ -254,13 +261,16 @@ async function removeCard(resultKey: string) {
               <button
                 type="button"
                 class="add-btn"
-                :disabled="adding[result.resultKey] || result.clipBlocked"
+                :disabled="adding[result.resultKey] || result.clipBlocked || noAnimethemesMatch[result.resultKey]"
                 @click.stop="addSongResult(result)"
               >
                 {{ adding[result.resultKey] ? "Adding..." : "Add" }}
               </button>
             </div>
-            <p v-if="result.clipBlocked" class="clip-blocked-hint">
+            <p v-if="noAnimethemesMatch[result.resultKey]" class="no-match-hint">
+              Not on AnimeThemes.moe, so it cannot be added.
+            </p>
+            <p v-else-if="result.clipBlocked" class="clip-blocked-hint">
               No clip allowed - blocked by your <NuxtLink to="/settings">Clip source setting</NuxtLink>.
             </p>
             <p v-if="addError[result.resultKey]" class="inline-error">
@@ -369,6 +379,12 @@ async function removeCard(resultKey: string) {
 
 .clip-blocked-hint a {
   color: var(--accent);
+}
+
+.no-match-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .added-info {
