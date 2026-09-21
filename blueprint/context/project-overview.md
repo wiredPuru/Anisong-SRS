@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash f42ccf8c493f262a7eaa9d551c001295b64bdba1d607d893d4dfe7cedd23e2c7 -->
+<!-- blueprint:source-hash 2bcab819ec69a756e9312375f632ff15a44db946061d916730de950337c409ac -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -192,7 +192,18 @@ marked complete, defaults the panel to a single-month calendar highlight
 (`app/utils/monthHeatmap.ts`, reusing the same fetched data with no extra
 API call) rather than opening on the full 53-week grid, with a Month/Year
 toggle - matching the `tab-seg` convention `/decks` and `/stats` already
-use - to switch to the unchanged year view.
+use - to switch to the unchanged year view. Feature 70 (filtering cards
+without an AnimeThemes.moe match, in two sub-features 70a-70b) was added to
+`build-plan.md` on 2026-09-20; neither sub-feature is built yet. It reads
+`Song.animethemesThemeId`, which `resolveThemes()` (`server/utils/
+themeSource.ts`) already sets to `null` exactly when a theme was resolved
+via AnisongDB alone (no AnimeThemes.moe counterpart) - true across every
+import path (anime, song, and artist import all hit the same "anisongdb"
+branch) - so it needs no schema change and no new provider calls. It does
+not touch Clip source (feature 64), which governs playback host only; this
+is purely about which cards are visible/selectable in the library. No
+`project-plan.md` change - it deepens §3's existing "Flashcard CRUD" bullet
+rather than a new product direction, the same call feature 64 made.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1382,6 +1393,31 @@ use - to switch to the unchanged year view.
     to that month alone rather than the year's) - no extra API call. A
     `tab-seg`/`tab-seg-btn` toggle (the same convention `/decks` and
     `/stats` already use) switches to the unchanged year view and back.
+70. **Filter cards without an AnimeThemes.moe match** - added to
+    `build-plan.md` 2026-09-20, in two sub-features, neither built yet. AMQ's
+    faster clip hosting (feature 60) means AnisongDB is now the preferred
+    metadata/clip source, but its catalog is broader than AnimeThemes.moe's
+    curated one, so a theme can be added to a card's library with no
+    AnimeThemes.moe counterpart backing it at all. This lets a user identify
+    and remove those cards while leaving Clip source (feature 64) exactly as
+    configured - it is about which cards are visible/selectable, never about
+    which host serves a clip.
+    - [ ] 70a. **Library filter + bulk cleanup** - a toggle on `/cards`
+      (`missingAnimeThemes` query param, mirroring the existing `?q=`
+      round-trip) narrows the list, and the existing "Delete all N matching"
+      bulk action, to cards whose `Song.animethemesThemeId` is null. That
+      bulk-delete bar's visibility condition loosens from "a text search is
+      active" to "a text search or the new toggle is active," while
+      `/api/cards/ids` still refuses to run with neither set, so it can
+      never accidentally match the whole library. Deck-detail views
+      (`/decks`) are unaffected - this is a `/cards`-library-only surface,
+      like feature 61b/61c's bulk-select UI before it.
+    - [ ] 70b. **Import-time gate** - an AnisongDB-only result in the
+      Anime/Song/Artist add-candidate search on `/cards` shows disabled with
+      a note explaining why, mirroring feature 64b's "a theme left with no
+      allowed clip still shows in results, disabled" pattern, instead of
+      being addable like a fully-matched one - so 70a's filter does not
+      immediately start refilling with new unmatched cards.
 
 ## Data model
 
@@ -1744,7 +1780,9 @@ Routes:
   by the empty state. Feature 61b's selection bar also carries a deck
   picker and "Add to deck" (`bulk-add-cards-to-deck` fix, 2026-09-14),
   backed by `POST /api/decks/cards` accepting `{ deckId, cardIds }`
-  alongside `{ deckId, cardId }`.
+  alongside `{ deckId, cardId }`. Feature 70a (planned, not built) adds a
+  toggle to filter the list to cards missing an AnimeThemes.moe match, and
+  extends "Delete all N matching" to work from that toggle alone.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
   (feature 9) a per-deck export control and (feature 12) anime cover
   thumbnails on anime-type decks. Feature 13a added a third "Created" toggle

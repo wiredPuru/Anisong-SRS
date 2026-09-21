@@ -5,12 +5,13 @@ export default defineEventHandler((event) => {
   const query = getQuery(event);
   const requestedPage = parsePage(query.page);
   const q = typeof query.q === "string" ? query.q : undefined;
-  const { items, total } = listCards(requestedPage, q);
+  const missingAnimeThemesMatch = query.missingAnimeThemes === "1";
+  const { items, total } = listCards(requestedPage, q, missingAnimeThemesMatch);
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
   const page = Math.min(requestedPage, totalPages);
 
   if (page !== requestedPage) {
-    const clamped = listCards(page, q);
+    const clamped = listCards(page, q, missingAnimeThemesMatch);
     return { cards: clamped.items, page, totalPages, total: clamped.total };
   }
 

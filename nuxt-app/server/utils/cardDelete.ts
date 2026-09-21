@@ -30,3 +30,8 @@ export function parseMatchingQuery(q: unknown): string | null {
   const trimmed = q.trim();
   return trimmed ? trimmed : null;
 }
+
+/** GET /api/cards/ids must have at least one active filter, so it can never accidentally match the whole library. */
+export function hasAnyCardsIdsFilter(q: string | null, missingAnimeThemesMatch: boolean): boolean {
+  return q !== null || missingAnimeThemesMatch;
+}

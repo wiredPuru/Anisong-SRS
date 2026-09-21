@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BULK_DELETE_MAX, parseDeleteBody, parseMatchingQuery } from "./cardDelete.ts";
+import { BULK_DELETE_MAX, hasAnyCardsIdsFilter, parseDeleteBody, parseMatchingQuery } from "./cardDelete.ts";
 
 describe("parseDeleteBody", () => {
   it("accepts a single id", () => {
@@ -39,5 +39,23 @@ describe("parseMatchingQuery", () => {
     expect(parseMatchingQuery("")).toBeNull();
     expect(parseMatchingQuery("   ")).toBeNull();
     expect(parseMatchingQuery(["a", "b"])).toBeNull();
+  });
+});
+
+describe("hasAnyCardsIdsFilter", () => {
+  it("rejects a blank query with the toggle off", () => {
+    expect(hasAnyCardsIdsFilter(null, false)).toBe(false);
+  });
+
+  it("accepts a blank query with the toggle on", () => {
+    expect(hasAnyCardsIdsFilter(null, true)).toBe(true);
+  });
+
+  it("accepts a real query with the toggle off", () => {
+    expect(hasAnyCardsIdsFilter("lisa", false)).toBe(true);
+  });
+
+  it("accepts a real query with the toggle on", () => {
+    expect(hasAnyCardsIdsFilter("lisa", true)).toBe(true);
   });
 });

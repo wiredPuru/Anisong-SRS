@@ -642,6 +642,18 @@ cleaned-up checkbox version before generating the project overview.
   existing "Last 30 days" panel - no changes to what Study or the review log
   record, no schema change; reads the same `reviewedAt` data the existing
   timeline chart already reads.
+- [ ] 70. **Filter cards without an AnimeThemes.moe match** - identify and
+  clean up cards whose theme was only ever resolved via AnisongDB, without
+  changing which host serves any card's clip (Clip source, feature 64, is
+  untouched).
+  - [x] 70a. **Library filter + bulk cleanup** - a toggle on `/cards` that
+    narrows the list - and its "Delete all N matching" bulk action - to
+    cards whose song has no AnimeThemes.moe match, reusing feature 61's
+    bulk-delete machinery.
+  - [ ] 70b. **Import-time gate** - an AnisongDB-only result in the
+    Anime/Song/Artist add-candidate search shows disabled with a note
+    explaining why, mirroring feature 64b's pattern, instead of being
+    addable like normal.
 
 ## Plan maintenance
 

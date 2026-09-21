@@ -108,6 +108,17 @@ applyQueryParam(route.query.q);
 
 watch(() => route.query.q, applyQueryParam);
 
+const missingAnimeThemesMatch = ref(false);
+
+function applyMissingAnimeThemesParam(raw: unknown) {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  missingAnimeThemesMatch.value = value === "1";
+}
+
+applyMissingAnimeThemesParam(route.query.missingAnimeThemes);
+
+watch(() => route.query.missingAnimeThemes, applyMissingAnimeThemesParam);
+
 const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
@@ -127,7 +138,11 @@ async function loadFirstPage() {
   initialError.value = false;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
-      query: { page: 1, q: searchQuery.value || undefined },
+      query: {
+        page: 1,
+        q: searchQuery.value || undefined,
+        missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+      },
     });
     if (!isCurrent()) return;
     cards.value = res.cards;
@@ -146,7 +161,11 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
-      query: { page: nextPage.value, q: searchQuery.value || undefined },
+      query: {
+        page: nextPage.value,
+        q: searchQuery.value || undefined,
+        missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+      },
     });
     cards.value.push(...res.cards);
     nextPage.value += 1;
@@ -162,7 +181,16 @@ function replaceCard(updated: CardWithDetails) {
   if (idx !== -1) cards.value[idx] = updated;
 }
 
-watch(searchQuery, () => {
+// Describes the active filter(s) for the "Delete all N matching" confirm
+// label, since searchQuery alone can't describe a toggle-only filter.
+const matchingFilterDescription = computed(() => {
+  const parts: string[] = [];
+  if (searchQuery.value) parts.push(`matching "${searchQuery.value}"`);
+  if (missingAnimeThemesMatch.value) parts.push("with no AnimeThemes.moe match");
+  return parts.join(" ");
+});
+
+watch([searchQuery, missingAnimeThemesMatch], () => {
   clearChecked();
   confirmingDeleteMatching.value = false;
   loadFirstPage();
@@ -410,7 +438,11 @@ async function deleteAllMatching() {
   bulkDeleting.value = true;
   let ids: number[];
   try {
-    ids = (await $fetch<{ ids: number[] }>("/api/cards/ids", { query: { q } })).ids;
+    ids = (
+      await $fetch<{ ids: number[] }>("/api/cards/ids", {
+        query: { q, missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined },
+      })
+    ).ids;
   } catch (err) {
     bulkDeleteError.value = extractErrorMessage(err, "Failed to find matching cards.");
     bulkDeleting.value = false;
@@ -587,13 +619,24 @@ async function removeCard(id: number) {
         <h1>Cards</h1>
         <span class="header-count">{{ totalCards }} total</span>
       </div>
-      <input
-        v-model="searchInput"
-        type="text"
-        placeholder="Search to find or add a card..."
-        class="search-input"
-        @input="onSearchInput"
-      />
+      <div class="search-area">
+        <input
+          v-model="searchInput"
+          type="text"
+          placeholder="Search to find or add a card..."
+          class="search-input"
+          @input="onSearchInput"
+        />
+        <button
+          type="button"
+          class="filter-toggle"
+          :class="{ active: missingAnimeThemesMatch }"
+          :aria-pressed="missingAnimeThemesMatch"
+          @click="missingAnimeThemesMatch = !missingAnimeThemesMatch"
+        >
+          No AnimeThemes match
+        </button>
+      </div>
       <button
         type="button"
         class="import-toggle"
@@ -660,12 +703,12 @@ async function removeCard(id: number) {
     >
       <div class="list-pane">
         <div v-if="initialPending" class="state">
-          <ActivityStatus :request-key="searchQuery" label="Loading your cards" />
+          <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}`" label="Loading your cards" />
         </div>
         <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
         <template v-else>
           <div
-            v-if="searchQuery && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
+            v-if="(searchQuery || missingAnimeThemesMatch) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
             class="selection-bar"
           >
             <span class="selection-count">{{ totalCards }} matching</span>
@@ -680,7 +723,7 @@ async function removeCard(id: number) {
             </button>
             <template v-else>
               <span class="confirm-label">
-                Delete all {{ totalCards }} {{ totalCards === 1 ? "card" : "cards" }} matching "{{ searchQuery }}"?
+                Delete all {{ totalCards }} {{ totalCards === 1 ? "card" : "cards" }} {{ matchingFilterDescription }}?
                 This also removes their downloaded files.
               </span>
               <button type="button" class="confirm-btn" :disabled="bulkDeleting" @click="deleteAllMatching">
@@ -817,6 +860,7 @@ async function removeCard(id: number) {
             </div>
           </div>
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
+          <p v-else-if="missingAnimeThemesMatch" class="state">No cards without an AnimeThemes.moe match.</p>
           <p v-else class="state state-empty">
             <MascotTemi size="companion" />
             <span>No cards yet. Search above to find and add one.</span>
@@ -1382,10 +1426,18 @@ h1 {
   color: var(--faint);
 }
 
+.search-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .search-input {
   display: block;
   width: 100%;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
   margin: 0;
   padding: 9px 14px;
   border-radius: var(--radius-sm);
@@ -1401,6 +1453,28 @@ h1 {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);
+}
+
+/* Border and glow rather than a fill for the active state, matching the
+   convention feature 24 set so the control stays glass under ambient mode. */
+.filter-toggle {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .state {

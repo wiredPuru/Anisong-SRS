@@ -1,6 +1,6 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, inArray, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { getDailyNewCardLimit, isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -76,21 +76,26 @@ export function searchCards(query: string): CardWithDetails[] {
   return cardQuery().where(like(song.title, `%${query}%`)).orderBy(desc(card.createdAt)).limit(5).all();
 }
 
-export function cardSearchCondition(query?: string) {
+export function cardSearchCondition(query?: string, missingAnimeThemesMatch?: boolean) {
   const trimmed = query?.trim();
-  if (!trimmed) return undefined;
-  const pattern = `%${trimmed}%`;
-  return or(
-    like(song.title, pattern),
-    like(artist.name, pattern),
-    like(anime.titleEnglish, pattern),
-    like(anime.titleRomaji, pattern),
-    like(anime.titleNative, pattern),
-  );
+  const pattern = trimmed ? `%${trimmed}%` : undefined;
+  const textCondition = pattern
+    ? or(
+        like(song.title, pattern),
+        like(artist.name, pattern),
+        like(anime.titleEnglish, pattern),
+        like(anime.titleRomaji, pattern),
+        like(anime.titleNative, pattern),
+      )
+    : undefined;
+  const matchCondition = missingAnimeThemesMatch ? isNull(song.animethemesThemeId) : undefined;
+
+  if (textCondition && matchCondition) return and(textCondition, matchCondition);
+  return textCondition ?? matchCondition;
 }
 
-export function listCards(page: number, query?: string): Paginated<CardWithDetails> {
-  const condition = cardSearchCondition(query);
+export function listCards(page: number, query?: string, missingAnimeThemesMatch?: boolean): Paginated<CardWithDetails> {
+  const condition = cardSearchCondition(query, missingAnimeThemesMatch);
 
   const totalBase = db
     .select({ count: count(card.id) })
@@ -110,15 +115,15 @@ export function listCards(page: number, query?: string): Paginated<CardWithDetai
   return { items, total };
 }
 
-/** Every card id matching a non-empty search, newest first, unpaged. */
-export function listCardIds(query: string): number[] {
+/** Every card id matching at least one active filter, newest first, unpaged. */
+export function listCardIds(query: string, missingAnimeThemesMatch?: boolean): number[] {
   return db
     .select({ id: card.id })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(cardSearchCondition(query))
+    .where(cardSearchCondition(query, missingAnimeThemesMatch))
     .orderBy(desc(card.createdAt))
     .all()
     .map((row) => row.id);
