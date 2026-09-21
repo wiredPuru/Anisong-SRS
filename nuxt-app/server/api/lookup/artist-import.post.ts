@@ -4,7 +4,7 @@ import { ProviderUnavailableError } from "../../lib/graphql.ts";
 import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
-import { getClipSource } from "../../utils/mediaLibrary.ts";
+import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, startMatchIndexLoads } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
     );
 
     const clipSource = getClipSource();
+    const themesOnly = getThemesOnly();
     const metadata = createAnimeMetadataResolver();
     let unavailableAnimeCount = 0;
     let completed = 0;
@@ -119,7 +120,7 @@ export default defineEventHandler(async (event) => {
             videoUrl,
             audioUrl,
             clipBlocked,
-            noAnimethemesMatch: isMissingAnimeThemesMatch({
+            noAnimethemesMatch: themesOnly && isMissingAnimeThemesMatch({
               storedThemeId: songRow.animethemesThemeId,
               unavailable: matchIndex?.status === "unavailable",
             }),

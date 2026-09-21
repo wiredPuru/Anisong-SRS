@@ -1,9 +1,9 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
-import { and, asc, count, desc, eq, inArray, isNull, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
-import { getDailyNewCardLimit, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { removeCachedStream } from "./streamCache.ts";
@@ -250,7 +250,12 @@ export function getNewCardsTodayInfo(): { introduced: number; limit: number | nu
 // caller - deck-tile due counts, the Home dashboard - keeps honouring the
 // limit without opting out.
 export function baseDueCondition(includeNewBeyondLimit = false) {
-  const dueCondition = lte(card.nextReviewAt, new Date());
+  const isDue = lte(card.nextReviewAt, new Date());
+  // A subquery, not a join, so the callers sharing this condition keep their
+  // own join lists (deck tile counts group by artist/anime id).
+  const dueCondition = getThemesOnly()
+    ? and(isDue, inArray(card.songId, db.select({ id: song.id }).from(song).where(isNotNull(song.animethemesThemeId))))
+    : isDue;
 
   const { introduced, limit } = getNewCardsTodayInfo();
   if (!includeNewBeyondLimit && limit !== null && introduced >= limit) {

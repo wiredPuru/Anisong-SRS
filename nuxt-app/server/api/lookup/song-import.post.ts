@@ -2,7 +2,7 @@ import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { getCardsBySongIds } from "../../utils/cards.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
-import { getClipSource } from "../../utils/mediaLibrary.ts";
+import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
     const index = await loadAnimeThemesMatchIndex(animeRow.aniListId);
     const matchedThemeId = findThemeMatch(index, body.songTitle ?? null) ?? findThemeMatch(index, songRow.title);
     if (matchedThemeId !== null) songRow = upsertWith(matchedThemeId);
-    noAnimethemesMatch = isMissingAnimeThemesMatch({
+    noAnimethemesMatch = getThemesOnly() && isMissingAnimeThemesMatch({
       storedThemeId: matchedThemeId,
       unavailable: index.status === "unavailable",
     });

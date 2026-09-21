@@ -2,6 +2,7 @@ import { countCardsToRefresh } from "../utils/cardSourceRefresh.ts";
 import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
+  getThemesOnly,
   getBoxOneStreakRequired,
   getClipSource,
   getDailyNewCardLimit,
@@ -22,6 +23,7 @@ export default defineEventHandler(() => {
     streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
+    themesOnly: getThemesOnly(),
     clipSource: getClipSource(),
     missingCoverCount: countAnimeMissingCover(),
     animethemesSourcedCardCount: countCardsToRefresh(),

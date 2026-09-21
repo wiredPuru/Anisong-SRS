@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   upsertAnime: vi.fn(),
   upsertSong: vi.fn(),
   getClipSource: vi.fn(),
+  getThemesOnly: vi.fn(),
   getCardsBySongIds: vi.fn(),
   loadMatchIndex: vi.fn(),
 }));
@@ -19,7 +20,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   upsertAnime: mocks.upsertAnime,
   upsertSong: mocks.upsertSong,
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 
 const anisongBody = {
   resultKey: "adb:31487",
@@ -48,6 +49,7 @@ beforeEach(() => {
   mocks.upsertAnime.mockImplementation((anime) => ({ id: 7, ...anime }));
   mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song }));
   mocks.getClipSource.mockReturnValue("both");
+  mocks.getThemesOnly.mockReturnValue(true);
   mocks.getCardsBySongIds.mockReturnValue([]);
   mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map([["kaibutsu", 9139]]) });
 });
@@ -108,6 +110,12 @@ describe("song import AnimeThemes match gate", () => {
     mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map() });
     await expect(importSong(anisongBody)).resolves.toMatchObject({ songId: 42, noAnimethemesMatch: true, existingCard: null });
     expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
+  });
+
+  it("never flags a song when themes-only mode is off, but still records the id it finds", async () => {
+    mocks.getThemesOnly.mockReturnValue(false);
+    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map() });
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
   });
 
   it("flags every song when AnimeThemes has no entry for the anime at all", async () => {

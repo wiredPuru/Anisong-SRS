@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReportImportProgress } from "../../utils/importProgress";
 import { ProviderUnavailableError } from "../../lib/graphql";
 
-const mocks = vi.hoisted(() => ({ report: vi.fn(), byAniListId: vi.fn(), byMalId: vi.fn(), upsertAnime: vi.fn(), upsertSong: vi.fn(), getClipSource: vi.fn() }));
+const mocks = vi.hoisted(() => ({ report: vi.fn(), byAniListId: vi.fn(), byMalId: vi.fn(), upsertAnime: vi.fn(), upsertSong: vi.fn(), getClipSource: vi.fn(), getThemesOnly: vi.fn() }));
 vi.mock("../../utils/importProgress.ts", () => ({
   respondWithImportProgress: (_event: unknown, run: (report: ReportImportProgress) => Promise<unknown>) => run(mocks.report),
 }));
@@ -13,7 +13,7 @@ vi.mock("../../utils/animeMetadata.ts", () => ({
 vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: () => ({ id: 1 }), upsertAnime: mocks.upsertAnime, upsertSong: mocks.upsertSong,
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 vi.mock("../../lib/animethemes.ts", () => ({
   fetchArtistThemesBySlug: async () => ({ artistName: "Artist", entries: [1, 2, 3].map((id) => ({
     animeAniListId: id, animeAnimethemesId: id, songTitle: `Song ${id}`, themeSlot: "OP1", animethemesThemeId: id,
@@ -39,6 +39,7 @@ beforeEach(() => {
   mocks.upsertAnime.mockImplementation((anime) => ({ id: anime.aniListId, ...anime }));
   mocks.upsertSong.mockImplementation((song) => ({ id: song.animethemesThemeId, ...song }));
   mocks.getClipSource.mockReturnValue("both");
+  mocks.getThemesOnly.mockReturnValue(true);
 });
 afterEach(() => vi.unstubAllGlobals());
 

@@ -163,6 +163,28 @@ export function setAutoDownload(enabled: boolean): { error: string } | { autoDow
   return { autoDownload: enabled };
 }
 
+export function getThemesOnly(): boolean {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.themesOnly ?? false;
+}
+
+export function setThemesOnly(enabled: boolean): { error: string } | { themesOnly: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "Themes only must be a boolean." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, themesOnly: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { themesOnly: enabled } })
+    .run();
+
+  return { themesOnly: enabled };
+}
+
 export function getClipSource(): ClipSource {
   const row = db
     .select()

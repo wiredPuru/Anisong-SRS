@@ -8,6 +8,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  themesOnly: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
   animethemesSourcedCardCount: number;
@@ -278,6 +279,12 @@ async function importDeck() {
                 both.
               </p>
               <SettingsClipSourceControl :source="data.clipSource" @saved="refresh" />
+              <p class="section-hint">
+                Off (default): add, download, and study any song, including ones only AnisongDB has. On: Study only
+                serves songs that AnimeThemes.moe also has, and songs it lacks cannot be added. Clips still come from
+                the Clip source above; your library and existing cards are never changed.
+              </p>
+              <SettingsThemesOnlyControl :enabled="data.themesOnly" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'cache'">

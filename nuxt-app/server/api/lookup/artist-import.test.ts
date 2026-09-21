@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   resolveArtistThemes: vi.fn(),
   byAniListId: vi.fn(),
   getClipSource: vi.fn(),
+  getThemesOnly: vi.fn(),
   upsertSong: vi.fn(),
   startLoads: vi.fn(),
 }));
@@ -29,7 +30,7 @@ vi.mock("../../utils/themeSource.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../utils/themeSource.ts")>()),
   startMatchIndexLoads: mocks.startLoads,
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 
 const matchIndex = (titles: Record<string, number>) =>
   Promise.resolve({ status: "ok", animethemesId: 1502, byTitle: new Map(Object.entries(titles)) });
@@ -62,6 +63,7 @@ beforeEach(() => {
     }],
   });
   mocks.getClipSource.mockReturnValue("both");
+  mocks.getThemesOnly.mockReturnValue(true);
   mocks.upsertSong.mockImplementation((song: object) => ({ id: 1, ...song }));
   mocks.startLoads.mockImplementation((ids: number[]) => new Map(ids.map((id) => [id, matchIndex({ kaibutsu: 9139 })])));
 });
@@ -154,6 +156,12 @@ describe("artist import AnimeThemes match gate", () => {
       expect.objectContaining({ songTitle: "Only On AnisongDB", noAnimethemesMatch: true }),
     ]);
     expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: null }));
+  });
+
+  it("never flags a song when themes-only mode is off", async () => {
+    mocks.getThemesOnly.mockReturnValue(false);
+    resolveEntries(entry({ themeSlot: "ED1", songTitle: "Only On AnisongDB" }));
+    expect(await run()).toEqual([expect.objectContaining({ songTitle: "Only On AnisongDB", noAnimethemesMatch: false })]);
   });
 
   it("fails open for every song of an anime whose lookup was unavailable", async () => {

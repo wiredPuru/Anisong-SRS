@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `themes_only` integer DEFAULT false NOT NULL;

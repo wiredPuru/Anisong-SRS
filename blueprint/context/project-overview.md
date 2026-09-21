@@ -1547,6 +1547,12 @@ Singleton row (`id` always `1`).
 - `clipSource` (text, not null, default `"anisongdb"`, values `"anisongdb" |
   "both" | "animethemes"`) - added in feature 64a. Which providers' hosts
   clip files may be streamed or downloaded from.
+- `themesOnly` (boolean, not null, default `false`) - added by the
+  `themes-only-mode` fix (2026-09-21). Off: any AnisongDB song can be added
+  and studied. On: Study and due counts only serve cards whose
+  `Song.animethemesThemeId` is set, and feature 70b's import gate applies;
+  otherwise that gate is inactive. Imports still record the AnimeThemes match
+  either way.
 
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
 > through `Song` by `artistId` or `animeId`, not a stored entity. Manual

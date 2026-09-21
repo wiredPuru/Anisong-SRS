@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { pathsToRemove, pickRandomDueOrder } from "./cards.ts";
+import { describe, expect, it, vi } from "vitest";
+import { db } from "../db/client.ts";
+import { card } from "../db/schema.ts";
+import { baseDueCondition, pathsToRemove, pickRandomDueOrder } from "./cards.ts";
+
+const themesOnly = vi.hoisted(() => ({ value: false }));
+vi.mock("./mediaLibrary.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./mediaLibrary.ts")>()),
+  getThemesOnly: () => themesOnly.value,
+  getDailyNewCardLimit: () => null,
+}));
+
+describe("baseDueCondition themes-only filter", () => {
+  const dueSql = () => db.select().from(card).where(baseDueCondition()).toSQL().sql;
+
+  it("adds no song filter by default", () => {
+    themesOnly.value = false;
+    expect(dueSql()).not.toContain("animethemes_theme_id");
+  });
+
+  it("restricts to songs with an AnimeThemes theme id when on", () => {
+    themesOnly.value = true;
+    expect(dueSql()).toMatch(/animethemes_theme_id" is not null/i);
+  });
+});
 
 describe("pathsToRemove", () => {
   it("returns nothing for empty input", () => {
