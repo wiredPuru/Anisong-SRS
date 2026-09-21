@@ -73,28 +73,44 @@ export function toLocalDateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+const MS_PER_DAY = 86_400_000;
+
+// UTC day numbers, so two consecutive calendar dates are always exactly 1
+// apart, including across a daylight-saving change where a local day is 23 or
+// 25 hours long.
+export function dateKeyToDayNumber(key: string): number {
+  const [year, month, day] = key.split("-").map(Number);
+  return Date.UTC(year!, month! - 1, day!) / MS_PER_DAY;
+}
+
+function dayNumberToDateKey(dayNumber: number): string {
+  return new Date(dayNumber * MS_PER_DAY).toISOString().slice(0, 10);
+}
+
+// No review yet today doesn't break the streak until tomorrow, so counting
+// starts from yesterday when today has none.
+export function currentStreakFromDates(dates: Iterable<string>, todayKey: string): number {
+  const days = new Set([...dates].map(dateKeyToDayNumber));
+  let cursor = dateKeyToDayNumber(todayKey);
+  if (!days.has(cursor)) cursor -= 1;
+
+  let streak = 0;
+  while (days.has(cursor)) {
+    streak++;
+    cursor -= 1;
+  }
+  return streak;
+}
+
 export function getStudyStreak(): number {
   const rows = db
     .selectDistinct({ date: reviewDateExpr })
     .from(reviewLog)
     .all();
-  const reviewedDates = new Set(rows.map((r) => r.date));
-  if (reviewedDates.size === 0) return 0;
-
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  if (!reviewedDates.has(toLocalDateKey(cursor))) {
-    // No review yet today doesn't break the streak until tomorrow.
-    cursor.setDate(cursor.getDate() - 1);
-    if (!reviewedDates.has(toLocalDateKey(cursor))) return 0;
-  }
-
-  let streak = 0;
-  while (reviewedDates.has(toLocalDateKey(cursor))) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
+  return currentStreakFromDates(
+    rows.map((r) => r.date),
+    toLocalDateKey(new Date()),
+  );
 }
 
 export function getReviewTimeline(range: ReviewTimelineRange): ReviewTimelineEntry[] {
@@ -809,6 +825,157 @@ export function getReviewHeatmap(): ReviewHeatmap {
     .all();
 
   return shapeReviewHeatmap({ countsByDate, dayKeys, todayKey: toLocalDateKey(today) });
+}
+
+export interface LongestStreak {
+  days: number;
+  start: string;
+  end: string;
+}
+
+// Runs of consecutive dates; a tie goes to the most recent run, since that is
+// the one still worth beating.
+export function longestStreakFromDates(dates: Iterable<string>): LongestStreak | null {
+  const days = [...new Set([...dates].map(dateKeyToDayNumber))].sort((x, y) => x - y);
+  if (days.length === 0) return null;
+
+  const runs: LongestStreak[] = [];
+  let runStart = days[0]!;
+  for (let i = 1; i <= days.length; i++) {
+    const previous = days[i - 1]!;
+    if (days[i] === previous + 1) continue;
+    runs.push({
+      days: previous - runStart + 1,
+      start: dayNumberToDateKey(runStart),
+      end: dayNumberToDateKey(previous),
+    });
+    runStart = days[i]!;
+  }
+  return runs.reduce((best, run) => (run.days >= best.days ? run : best));
+}
+
+export interface StudyRecords {
+  totalDaysStudied: number;
+  currentStreak: number;
+  longestStreak: LongestStreak | null;
+  bestDay: { date: string; count: number } | null;
+}
+
+export interface StudyRecordsInput {
+  dayCounts: { date: string; count: number }[];
+  todayKey: string;
+}
+
+export function shapeStudyRecords(input: StudyRecordsInput): StudyRecords {
+  const countsByDate = new Map<string, number>();
+  for (const entry of input.dayCounts) {
+    countsByDate.set(entry.date, (countsByDate.get(entry.date) ?? 0) + entry.count);
+  }
+
+  let bestDay: StudyRecords["bestDay"] = null;
+  for (const [date, count] of countsByDate) {
+    if (!bestDay || count > bestDay.count || (count === bestDay.count && date > bestDay.date)) {
+      bestDay = { date, count };
+    }
+  }
+
+  return {
+    totalDaysStudied: countsByDate.size,
+    currentStreak: currentStreakFromDates(countsByDate.keys(), input.todayKey),
+    longestStreak: longestStreakFromDates(countsByDate.keys()),
+    bestDay,
+  };
+}
+
+export function getStudyRecords(): StudyRecords {
+  const dayCounts = db
+    .select({ date: reviewDateExpr, count: count(reviewLog.id) })
+    .from(reviewLog)
+    .groupBy(reviewDateExpr)
+    .all();
+
+  return shapeStudyRecords({ dayCounts, todayKey: toLocalDateKey(new Date()) });
+}
+
+export const RHYTHM_MIN_REVIEWS = 5;
+
+export interface RhythmBucket {
+  totalReviews: number;
+  passCount: number;
+  passRate: number | null;
+}
+
+export interface HourOfDayEntry extends RhythmBucket {
+  hour: number;
+}
+
+export interface WeekdayEntry extends RhythmBucket {
+  weekday: number;
+}
+
+export interface StudyRhythm {
+  minReviews: number;
+  hours: HourOfDayEntry[];
+  weekdays: WeekdayEntry[];
+}
+
+export interface StudyRhythmInput {
+  hourRows: { hour: number; totalReviews: number; passCount: number }[];
+  weekdayRows: { weekday: number; totalReviews: number; passCount: number }[];
+}
+
+function shapeRhythmBuckets(
+  rows: { index: number; totalReviews: number; passCount: number }[],
+  size: number,
+): RhythmBucket[] {
+  const totals = Array.from({ length: size }, () => ({ totalReviews: 0, passCount: 0 }));
+  for (const row of rows) {
+    const bucket = totals[row.index];
+    if (!Number.isInteger(row.index) || !bucket) continue;
+    bucket.totalReviews += row.totalReviews;
+    bucket.passCount += Number(row.passCount);
+  }
+  return totals.map(({ totalReviews, passCount }) => {
+    const { passRate } = deriveCounts(totalReviews, passCount);
+    return { totalReviews, passCount, passRate };
+  });
+}
+
+// Always 24 hours and 7 weekdays, empty ones included, so the UI renders a
+// stable axis. Weekdays are Sunday-first (0 = Sunday), matching the heatmap.
+export function shapeStudyRhythm(input: StudyRhythmInput): StudyRhythm {
+  const hours = shapeRhythmBuckets(
+    input.hourRows.map((row) => ({ ...row, index: row.hour })),
+    24,
+  ).map((bucket, hour) => ({ hour, ...bucket }));
+
+  const weekdays = shapeRhythmBuckets(
+    input.weekdayRows.map((row) => ({ ...row, index: row.weekday })),
+    7,
+  ).map((bucket, weekday) => ({ weekday, ...bucket }));
+
+  return { minReviews: RHYTHM_MIN_REVIEWS, hours, weekdays };
+}
+
+export function getStudyRhythm(): StudyRhythm {
+  const clockPart = (format: "%H" | "%w") =>
+    sql<number>`cast(strftime(${format}, ${reviewLog.reviewedAt}, 'unixepoch', 'localtime') as integer)`;
+  const hourExpr = clockPart("%H");
+  const weekdayExpr = clockPart("%w");
+
+  const hourRows = db
+    .select({ hour: hourExpr, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(reviewLog)
+    .groupBy(hourExpr)
+    .all();
+
+  const weekdayRows = db
+    .select({ weekday: weekdayExpr, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(reviewLog)
+    .groupBy(weekdayExpr)
+    .all();
+
+  return shapeStudyRhythm({ hourRows, weekdayRows });
 }
 
 export function clearReviewLog(): number {

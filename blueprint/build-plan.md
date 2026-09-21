@@ -627,7 +627,7 @@ cleaned-up checkbox version before generating the project overview.
     reviews chart, a week-over-week pass-rate delta, most-improved and
     most-declined decks by recent-versus-older rate, and an OP versus ED
     split by `themeSlot`.
-  - [ ] 68c. **Activity heatmap + records** - a calendar heatmap of review
+  - [x] 68c. **Activity heatmap + records** - a calendar heatmap of review
     volume, hour-of-day and weekday performance read from `reviewedAt`'s
     time component, and a records panel: longest streak ever (today's KPI
     only shows the current one), best single day, and total days studied.

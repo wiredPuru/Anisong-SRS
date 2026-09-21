@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   MATURE_BOX,
+  RHYTHM_MIN_REVIEWS,
   TREND_LIMIT,
   TREND_MIN_REVIEWS,
   classifyThemeSlot,
+  currentStreakFromDates,
+  dateKeyToDayNumber,
   forecastDayKeys,
   heatmapDayKeys,
+  longestStreakFromDates,
   rollingPassRates,
   shapeCollectionHealth,
   shapeDeckTrends,
   shapeForecast,
   shapeRetention,
   shapeReviewHeatmap,
+  shapeStudyRecords,
+  shapeStudyRhythm,
   shapeWeekOverWeek,
 } from "./stats.ts";
 import type {
@@ -670,5 +676,198 @@ describe("shapeReviewHeatmap", () => {
 
     expect(heatmap.weeks[0]!.monthLabel).toBe("Oct");
     expect(heatmap.weeks[1]!.monthLabel).toBeNull();
+  });
+});
+
+describe("dateKeyToDayNumber", () => {
+  it("makes consecutive dates exactly one apart across daylight-saving changes", () => {
+    expect(dateKeyToDayNumber("2026-03-09") - dateKeyToDayNumber("2026-03-08")).toBe(1);
+    expect(dateKeyToDayNumber("2026-11-02") - dateKeyToDayNumber("2026-11-01")).toBe(1);
+  });
+
+  it("crosses a month end and a leap day", () => {
+    expect(dateKeyToDayNumber("2026-10-01") - dateKeyToDayNumber("2026-09-30")).toBe(1);
+    expect(dateKeyToDayNumber("2028-02-29") - dateKeyToDayNumber("2028-02-28")).toBe(1);
+    expect(dateKeyToDayNumber("2028-03-01") - dateKeyToDayNumber("2028-02-29")).toBe(1);
+  });
+});
+
+describe("currentStreakFromDates", () => {
+  it("is zero with no reviews", () => {
+    expect(currentStreakFromDates([], "2026-09-20")).toBe(0);
+  });
+
+  it("counts back from today when today has a review", () => {
+    expect(currentStreakFromDates(["2026-09-18", "2026-09-19", "2026-09-20"], "2026-09-20")).toBe(3);
+  });
+
+  it("stays alive when the last review was yesterday", () => {
+    expect(currentStreakFromDates(["2026-09-18", "2026-09-19"], "2026-09-20")).toBe(2);
+  });
+
+  it("is dead after a two-day gap", () => {
+    expect(currentStreakFromDates(["2026-09-17", "2026-09-18"], "2026-09-20")).toBe(0);
+  });
+
+  it("stops at the first missing day", () => {
+    expect(currentStreakFromDates(["2026-09-15", "2026-09-19", "2026-09-20"], "2026-09-20")).toBe(2);
+  });
+
+  it("ignores order and duplicates", () => {
+    expect(currentStreakFromDates(["2026-09-20", "2026-09-19", "2026-09-20"], "2026-09-20")).toBe(2);
+  });
+});
+
+describe("longestStreakFromDates", () => {
+  it("is null with no reviews", () => {
+    expect(longestStreakFromDates([])).toBeNull();
+  });
+
+  it("reports a single day as a run of one", () => {
+    expect(longestStreakFromDates(["2026-09-10"])).toEqual({ days: 1, start: "2026-09-10", end: "2026-09-10" });
+  });
+
+  it("picks the longer of two runs", () => {
+    const dates = ["2026-09-01", "2026-09-02", "2026-09-10", "2026-09-11", "2026-09-12"];
+    expect(longestStreakFromDates(dates)).toEqual({ days: 3, start: "2026-09-10", end: "2026-09-12" });
+  });
+
+  it("prefers the most recent run on a tie", () => {
+    const dates = ["2026-09-01", "2026-09-02", "2026-09-10", "2026-09-11"];
+    expect(longestStreakFromDates(dates)).toEqual({ days: 2, start: "2026-09-10", end: "2026-09-11" });
+  });
+
+  it("runs across a month end and a leap day", () => {
+    expect(longestStreakFromDates(["2028-02-28", "2028-02-29", "2028-03-01"])).toEqual({
+      days: 3,
+      start: "2028-02-28",
+      end: "2028-03-01",
+    });
+  });
+
+  it("breaks a run on exactly one missing day", () => {
+    expect(longestStreakFromDates(["2026-09-01", "2026-09-02", "2026-09-04", "2026-09-05"])?.days).toBe(2);
+  });
+
+  it("ignores order and duplicates", () => {
+    expect(longestStreakFromDates(["2026-09-03", "2026-09-01", "2026-09-02", "2026-09-02"])).toEqual({
+      days: 3,
+      start: "2026-09-01",
+      end: "2026-09-03",
+    });
+  });
+});
+
+describe("shapeStudyRecords", () => {
+  it("reports an empty log as nulls and zeros", () => {
+    expect(shapeStudyRecords({ dayCounts: [], todayKey: "2026-09-20" })).toEqual({
+      totalDaysStudied: 0,
+      currentStreak: 0,
+      longestStreak: null,
+      bestDay: null,
+    });
+  });
+
+  it("finds the busiest day and counts distinct days", () => {
+    const records = shapeStudyRecords({
+      dayCounts: [
+        { date: "2026-09-18", count: 12 },
+        { date: "2026-09-19", count: 40 },
+        { date: "2026-09-20", count: 7 },
+      ],
+      todayKey: "2026-09-20",
+    });
+
+    expect(records.bestDay).toEqual({ date: "2026-09-19", count: 40 });
+    expect(records.totalDaysStudied).toBe(3);
+    expect(records.currentStreak).toBe(3);
+    expect(records.longestStreak).toEqual({ days: 3, start: "2026-09-18", end: "2026-09-20" });
+  });
+
+  it("gives the best day to the most recent one on a tie", () => {
+    const records = shapeStudyRecords({
+      dayCounts: [
+        { date: "2026-09-10", count: 30 },
+        { date: "2026-09-15", count: 30 },
+        { date: "2026-09-12", count: 5 },
+      ],
+      todayKey: "2026-09-20",
+    });
+
+    expect(records.bestDay).toEqual({ date: "2026-09-15", count: 30 });
+  });
+
+  it("keeps the current streak below the record after a gap", () => {
+    const records = shapeStudyRecords({
+      dayCounts: ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-19", "2026-09-20"].map((date) => ({
+        date,
+        count: 1,
+      })),
+      todayKey: "2026-09-20",
+    });
+
+    expect(records.currentStreak).toBe(2);
+    expect(records.longestStreak?.days).toBe(3);
+  });
+});
+
+describe("shapeStudyRhythm", () => {
+  it("returns 24 empty hours and 7 empty weekdays for an empty log", () => {
+    const rhythm = shapeStudyRhythm({ hourRows: [], weekdayRows: [] });
+
+    expect(rhythm.hours).toHaveLength(24);
+    expect(rhythm.weekdays).toHaveLength(7);
+    expect(rhythm.hours.every((h) => h.totalReviews === 0 && h.passRate === null)).toBe(true);
+    expect(rhythm.weekdays.every((d) => d.totalReviews === 0 && d.passRate === null)).toBe(true);
+  });
+
+  it("numbers hours 0-23 and weekdays Sunday-first from 0", () => {
+    const rhythm = shapeStudyRhythm({ hourRows: [], weekdayRows: [] });
+
+    expect(rhythm.hours.map((h) => h.hour)).toEqual(Array.from({ length: 24 }, (_, i) => i));
+    expect(rhythm.weekdays.map((d) => d.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("fills in the hours and weekdays nothing was reviewed in", () => {
+    const rhythm = shapeStudyRhythm({
+      hourRows: [{ hour: 21, totalReviews: 10, passCount: 7 }],
+      weekdayRows: [{ weekday: 5, totalReviews: 10, passCount: 7 }],
+    });
+
+    expect(rhythm.hours[21]).toEqual({ hour: 21, totalReviews: 10, passCount: 7, passRate: 0.7 });
+    expect(rhythm.hours[20]).toEqual({ hour: 20, totalReviews: 0, passCount: 0, passRate: null });
+    expect(rhythm.weekdays[5]).toEqual({ weekday: 5, totalReviews: 10, passCount: 7, passRate: 0.7 });
+    expect(rhythm.weekdays[0]!.passRate).toBeNull();
+  });
+
+  it("derives one rate from pooled counts rather than averaging rates", () => {
+    const rhythm = shapeStudyRhythm({
+      hourRows: [
+        { hour: 9, totalReviews: 3, passCount: 3 },
+        { hour: 9, totalReviews: 7, passCount: 1 },
+      ],
+      weekdayRows: [],
+    });
+
+    expect(rhythm.hours[9]).toMatchObject({ totalReviews: 10, passCount: 4, passRate: 0.4 });
+  });
+
+  it("ignores rows outside 0-23 hours and 0-6 weekdays", () => {
+    const rhythm = shapeStudyRhythm({
+      hourRows: [
+        { hour: 24, totalReviews: 5, passCount: 5 },
+        { hour: -1, totalReviews: 5, passCount: 5 },
+        { hour: 1.5, totalReviews: 5, passCount: 5 },
+      ],
+      weekdayRows: [{ weekday: 7, totalReviews: 5, passCount: 5 }],
+    });
+
+    expect(rhythm.hours.reduce((sum, h) => sum + h.totalReviews, 0)).toBe(0);
+    expect(rhythm.weekdays.reduce((sum, d) => sum + d.totalReviews, 0)).toBe(0);
+  });
+
+  it("passes the small-sample threshold through", () => {
+    expect(shapeStudyRhythm({ hourRows: [], weekdayRows: [] }).minReviews).toBe(RHYTHM_MIN_REVIEWS);
+    expect(RHYTHM_MIN_REVIEWS).toBe(5);
   });
 });

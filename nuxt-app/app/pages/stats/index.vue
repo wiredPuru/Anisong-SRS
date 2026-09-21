@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReviewHeatmap } from "~/utils/monthHeatmap";
+
 interface OverallStats {
   totalReviews: number;
   passCount: number;
@@ -88,6 +90,35 @@ interface TrendStats {
   weekOverWeek: WeekOverWeek;
   improved: DeckTrendEntry[];
   declined: DeckTrendEntry[];
+}
+
+// Mirrors StudyRecords in server/utils/stats.ts, same field order (F-09).
+interface StudyRecords {
+  totalDaysStudied: number;
+  currentStreak: number;
+  longestStreak: { days: number; start: string; end: string } | null;
+  bestDay: { date: string; count: number } | null;
+}
+
+// Mirror the rhythm shapes in server/utils/stats.ts, same field order (F-09).
+interface RhythmBucket {
+  totalReviews: number;
+  passCount: number;
+  passRate: number | null;
+}
+
+interface HourOfDayEntry extends RhythmBucket {
+  hour: number;
+}
+
+interface WeekdayEntry extends RhythmBucket {
+  weekday: number;
+}
+
+interface StudyRhythm {
+  minReviews: number;
+  hours: HourOfDayEntry[];
+  weekdays: WeekdayEntry[];
 }
 
 type StatsType = "artist" | "anime";
@@ -253,6 +284,75 @@ const {
   query: { type: "trends" },
 });
 
+const {
+  data: records,
+  pending: recordsPending,
+  error: recordsError,
+  refresh: refreshRecords,
+} = await useFetch<StudyRecords>("/api/stats", {
+  query: { type: "records" },
+});
+
+function pluralize(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function formatDateLong(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const {
+  data: rhythm,
+  pending: rhythmPending,
+  error: rhythmError,
+  refresh: refreshRhythm,
+} = await useFetch<StudyRhythm>("/api/stats", {
+  query: { type: "rhythm" },
+});
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const hasRhythm = computed(() => rhythm.value?.hours.some((entry) => entry.totalReviews > 0) ?? false);
+const maxHourReviews = computed(() => Math.max(1, ...(rhythm.value?.hours.map((entry) => entry.totalReviews) ?? [])));
+
+// A bucket with too few reviews gets a neutral tier: its rate is shown in the
+// tooltip and text, but is too noisy to colour as good or bad.
+function rhythmTier(bucket: RhythmBucket): "pass" | "warning" | "fail" | "small" | "empty" {
+  if (bucket.passRate === null) return "empty";
+  if (bucket.totalReviews < (rhythm.value?.minReviews ?? 0)) return "small";
+  return passRateTier(bucket.passRate);
+}
+
+function hourName(hour: number): string {
+  return `${hour % 12 || 12} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+function hourAxisLabel(hour: number): string {
+  return hour % 6 === 0 ? `${hour % 12 || 12}${hour < 12 ? "a" : "p"}` : "";
+}
+
+function hourBarHeight(entry: HourOfDayEntry): string {
+  return `${(entry.totalReviews / maxHourReviews.value) * 100}%`;
+}
+
+function hourTitle(entry: HourOfDayEntry): string {
+  if (!entry.totalReviews) return `${hourName(entry.hour)} - no reviews`;
+  const note = rhythmTier(entry) === "small" ? " (small sample)" : "";
+  return `${hourName(entry.hour)} - ${pluralize(entry.totalReviews, "review")}, ${formatPassRate(entry.passRate)} pass rate${note}`;
+}
+
+const {
+  data: heatmap,
+  error: heatmapError,
+  refresh: refreshHeatmap,
+} = await useFetch<ReviewHeatmap>("/api/stats", {
+  query: { type: "heatmap" },
+});
+
 const weekOverWeek = computed(() => trends.value?.weekOverWeek ?? null);
 const improvedDecks = computed(() => trends.value?.improved ?? []);
 const declinedDecks = computed(() => trends.value?.declined ?? []);
@@ -338,6 +438,9 @@ async function refreshStats() {
       refreshForecast(),
       refreshRetention(),
       refreshTrends(),
+      refreshHeatmap(),
+      refreshRecords(),
+      refreshRhythm(),
     ]);
   } finally {
     refreshing.value = false;
@@ -475,6 +578,41 @@ function setType(type: StatsType) {
         <span class="kpi-value" :class="{ 'kpi-value-accent': overall.streakDays > 0 }">
           {{ formatStreak(overall.streakDays) }}
         </span>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Records</span>
+      </div>
+      <div v-if="recordsPending" class="state">
+        <ActivityStatus label="Loading records" />
+      </div>
+      <div v-else-if="recordsError" class="state state-error">Couldn't load records. Try refreshing.</div>
+      <p v-else-if="!records || !records.bestDay || !records.longestStreak" class="state">
+        No reviews yet. <NuxtLink to="/study">Start a session</NuxtLink> to set your first record.
+      </p>
+      <div v-else class="health-figures">
+        <div class="health-figure">
+          <span class="health-figure-value">{{ pluralize(records.longestStreak.days, "day") }}</span>
+          <span class="health-figure-label">Longest streak</span>
+          <span class="health-figure-note">
+            {{ formatDateLong(records.longestStreak.start) }}
+            <template v-if="records.longestStreak.start !== records.longestStreak.end">
+              - {{ formatDateLong(records.longestStreak.end) }}
+            </template>
+            · current: {{ records.currentStreak }}
+          </span>
+        </div>
+        <div class="health-figure">
+          <span class="health-figure-value">{{ pluralize(records.bestDay.count, "review") }}</span>
+          <span class="health-figure-label">Best day</span>
+          <span class="health-figure-note">{{ formatDateLong(records.bestDay.date) }}</span>
+        </div>
+        <div class="health-figure">
+          <span class="health-figure-value">{{ records.totalDaysStudied }}</span>
+          <span class="health-figure-label">Days studied</span>
+        </div>
       </div>
     </div>
 
@@ -728,6 +866,78 @@ function setType(type: StatsType) {
             </div>
           </div>
         </div>
+      </template>
+    </div>
+
+    <StatsActivityHeatmap v-if="heatmap" :heatmap="heatmap" />
+    <div v-else class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Study activity</span>
+      </div>
+      <div v-if="heatmapError" class="state state-error">Couldn't load study activity. Try refreshing.</div>
+      <div v-else class="state">
+        <ActivityStatus label="Loading study activity" />
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">When you study</span>
+      </div>
+      <div v-if="rhythmPending" class="state">
+        <ActivityStatus label="Loading study rhythm" />
+      </div>
+      <div v-else-if="rhythmError" class="state state-error">Couldn't load study rhythm. Try refreshing.</div>
+      <p v-else-if="!rhythm || !hasRhythm" class="state">No reviews yet.</p>
+      <template v-else>
+        <div class="rhythm-grid">
+          <div class="rhythm-section">
+            <span class="rhythm-subtitle">Hour of day</span>
+            <div class="rhythm-hours">
+              <div v-for="entry in rhythm.hours" :key="entry.hour" class="rhythm-hour" :title="hourTitle(entry)">
+                <span
+                  v-if="entry.totalReviews"
+                  class="rhythm-hour-bar"
+                  :class="`tier-${rhythmTier(entry)}`"
+                  :style="{ height: hourBarHeight(entry) }"
+                />
+              </div>
+            </div>
+            <div class="rhythm-axis">
+              <span v-for="entry in rhythm.hours" :key="entry.hour" class="rhythm-axis-cell">
+                {{ hourAxisLabel(entry.hour) }}
+              </span>
+            </div>
+          </div>
+          <div class="rhythm-section">
+            <span class="rhythm-subtitle">Day of week</span>
+            <div class="breakdown-list">
+              <div v-for="day in rhythm.weekdays" :key="day.weekday" class="breakdown-row">
+                <div class="breakdown-row-top">
+                  <span class="breakdown-label">{{ WEEKDAY_NAMES[day.weekday] }}</span>
+                  <span class="breakdown-rate" :class="`tier-${rhythmTier(day)}`">
+                    {{ day.passRate === null ? "No reviews" : formatPassRate(day.passRate) }}
+                    <span v-if="day.totalReviews" class="breakdown-count">
+                      · {{ pluralize(day.totalReviews, "review") }}
+                      <template v-if="rhythmTier(day) === 'small'"> (small sample)</template>
+                    </span>
+                  </span>
+                </div>
+                <div class="breakdown-bar-track">
+                  <span
+                    v-if="day.passRate !== null"
+                    class="breakdown-bar-fill"
+                    :class="`tier-${rhythmTier(day)}`"
+                    :style="{ width: `${Math.round(day.passRate * 100)}%` }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="rhythm-legend">
+          Bar height = reviews, colour = pass rate. Grey means fewer than {{ rhythm.minReviews }} reviews.
+        </p>
       </template>
     </div>
 
@@ -1090,6 +1300,11 @@ function setType(type: StatsType) {
   color: var(--muted);
 }
 
+.health-figure-note {
+  font-size: 12px;
+  color: var(--faint);
+}
+
 .health-bar {
   display: flex;
   height: 14px;
@@ -1356,6 +1571,94 @@ function setType(type: StatsType) {
   background: var(--fail);
 }
 
+.breakdown-bar-fill.tier-small {
+  background: var(--muted);
+  opacity: 0.5;
+}
+
+.breakdown-rate.tier-small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.rhythm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 28px;
+}
+
+.rhythm-section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rhythm-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rhythm-hours {
+  flex: 1;
+  min-height: 140px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rhythm-hour {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.rhythm-hour-bar {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 2px 2px 0 0;
+}
+
+.rhythm-hour-bar.tier-pass {
+  background: var(--pass);
+}
+
+.rhythm-hour-bar.tier-warning {
+  background: var(--warning);
+}
+
+.rhythm-hour-bar.tier-fail {
+  background: var(--fail);
+}
+
+.rhythm-hour-bar.tier-small {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.rhythm-axis {
+  display: flex;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.rhythm-axis-cell {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.rhythm-legend {
+  margin: 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
 .mover-block {
   padding-top: 14px;
   border-top: 1px solid var(--border);
@@ -1498,6 +1801,10 @@ function setType(type: StatsType) {
 
   .health-figures {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rhythm-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

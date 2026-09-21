@@ -5,7 +5,10 @@ import {
   getDeckTrends,
   getRetentionStats,
   getReviewForecast,
+  getReviewHeatmap,
   getReviewTimeline,
+  getStudyRecords,
+  getStudyRhythm,
   getWeekOverWeek,
   listAnimeStats,
   listArtistStats,
@@ -39,6 +42,15 @@ export default defineEventHandler((event) => {
   if (type === "trends") {
     return { weekOverWeek: getWeekOverWeek(), ...getDeckTrends() };
   }
+  if (type === "heatmap") {
+    return getReviewHeatmap();
+  }
+  if (type === "records") {
+    return getStudyRecords();
+  }
+  if (type === "rhythm") {
+    return getStudyRhythm();
+  }
   if (type === "timeline") {
     if (typeof range !== "string" || !TIMELINE_RANGES.includes(range as ReviewTimelineRange)) {
       throw createError({ statusCode: 400, statusMessage: "range must be '30', '90', or 'all'" });
@@ -50,6 +62,6 @@ export default defineEventHandler((event) => {
   throw createError({
     statusCode: 400,
     statusMessage:
-      "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', 'forecast', 'retention', or 'trends'",
+      "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', 'forecast', 'retention', 'trends', 'heatmap', 'records', or 'rhythm'",
   });
 });

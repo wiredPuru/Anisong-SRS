@@ -4,6 +4,17 @@ export interface ReviewHeatmapDay {
   future: boolean;
 }
 
+export interface ReviewHeatmapWeek {
+  days: ReviewHeatmapDay[];
+  monthLabel: string | null;
+}
+
+export interface ReviewHeatmap {
+  weeks: ReviewHeatmapWeek[];
+  maxCount: number;
+  totalReviews: number;
+}
+
 export interface MonthHeatmapCell {
   date: string | null;
   day: number | null;
