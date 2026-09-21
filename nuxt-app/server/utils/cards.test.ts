@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { pathsToRemove, pickRandomDueOrder } from "./cards.ts";
 
 describe("pathsToRemove", () => {
@@ -35,9 +35,12 @@ function tiedPool(): Pooled[] {
   ];
 }
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+// The tie-break is a deterministic hash of (id, calendar day), not
+// Math.random() - these seed dates were picked because they're known to
+// order the tied ids differently, proving the tie-break isn't secretly just
+// insertion order in disguise.
+const seedDay = new Date("2026-09-05T12:00:00.000Z");
+const nextSeedDay = new Date("2026-09-06T12:00:00.000Z");
 
 describe("pickRandomDueOrder", () => {
   it("returns undefined-safe empty array for an empty pool", () => {
@@ -45,25 +48,29 @@ describe("pickRandomDueOrder", () => {
   });
 
   it("always picks the earlier-day card first over same-day ties", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const [first] = pickRandomDueOrder(tiedPool(), 1);
-    expect(first.id).toBe(1);
+    expect(pickRandomDueOrder(tiedPool(), 1, seedDay)[0].id).toBe(1);
+    expect(pickRandomDueOrder(tiedPool(), 1, nextSeedDay)[0].id).toBe(1);
   });
 
-  it("shuffles which same-day card comes next as the mocked random value changes", () => {
-    const pool = tiedPool();
+  it("gives the same order across repeated calls on the same day", () => {
+    const first = pickRandomDueOrder(tiedPool(), 4, seedDay).map((c) => c.id);
+    const second = pickRandomDueOrder(tiedPool(), 4, seedDay).map((c) => c.id);
+    expect(first).toEqual(second);
+  });
 
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const pickedFirst = pickRandomDueOrder(pool, 2)[1];
-
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const pickedSecond = pickRandomDueOrder(pool, 2)[1];
-
-    expect(pickedFirst.id).not.toBe(pickedSecond.id);
+  it("changes the same-day tie-break order once the day rolls over", () => {
+    const pool: Pooled[] = [
+      { id: 2, nextReviewAt: today },
+      { id: 3, nextReviewAt: today },
+      { id: 4, nextReviewAt: today },
+    ];
+    const orderToday = pickRandomDueOrder(pool, 1, seedDay)[0].id;
+    const orderNextDay = pickRandomDueOrder(pool, 1, nextSeedDay)[0].id;
+    expect(orderToday).not.toBe(orderNextDay);
   });
 
   it("never repeats a card and stops once the pool is exhausted", () => {
-    const picks = pickRandomDueOrder(tiedPool(), 10);
+    const picks = pickRandomDueOrder(tiedPool(), 10, seedDay);
     expect(picks).toHaveLength(4);
     expect(new Set(picks.map((c) => c.id)).size).toBe(4);
   });
@@ -73,8 +80,7 @@ describe("pickRandomDueOrder", () => {
       { id: 1, nextReviewAt: new Date("2026-09-04T23:59:00.000Z") },
       { id: 2, nextReviewAt: new Date("2026-09-05T00:01:00.000Z") },
     ];
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const [first] = pickRandomDueOrder(pool, 1);
+    const [first] = pickRandomDueOrder(pool, 1, seedDay);
     expect(first.id).toBe(1);
   });
 
@@ -83,10 +89,8 @@ describe("pickRandomDueOrder", () => {
       { id: 1, nextReviewAt: new Date("2026-09-05T00:01:00.000Z") },
       { id: 2, nextReviewAt: new Date("2026-09-05T23:59:00.000Z") },
     ];
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const pickedLow = pickRandomDueOrder(pool, 1)[0];
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const pickedHigh = pickRandomDueOrder(pool, 1)[0];
-    expect(pickedLow.id).not.toBe(pickedHigh.id);
+    const pickedOnSeedDay = pickRandomDueOrder(pool, 1, seedDay)[0].id;
+    const pickedOnNextSeedDay = pickRandomDueOrder(pool, 1, nextSeedDay)[0].id;
+    expect(pickedOnSeedDay).not.toBe(pickedOnNextSeedDay);
   });
 });

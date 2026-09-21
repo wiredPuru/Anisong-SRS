@@ -270,22 +270,58 @@ function dueCardCondition(scope: StudyScope, includeNewBeyondLimit = false) {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Cards due together (e.g. a bulk import) share the same nextReviewAt, which
-// would otherwise always break ties by row insertion order - the same fixed
-// order on every study session. Picks randomly among the earliest due
-// calendar-day bucket instead, so a genuinely more-overdue card (an earlier
-// day) still wins, but which card comes first within a tied/same-day batch
-// varies each call. `pool` must already be sorted ascending by nextReviewAt.
-export function pickRandomDueOrder<T extends { nextReviewAt: Date }>(pool: readonly T[], count: number): T[] {
+function mix32(value: number): number {
+  let x = value >>> 0;
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x85ebca6b) >>> 0;
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35) >>> 0;
+  x ^= x >>> 16;
+  return x >>> 0;
+}
+
+// A stable pseudo-random rank for a card on a given day - same (id, dayKey)
+// always yields the same value, but neighboring ids don't yield neighboring
+// ranks (a naive hash keyed only on the low digits of `id` would, which
+// degenerates back into insertion order for consecutive ids).
+function dailyTieBreakRank(id: number, dayKey: number): number {
+  const combined = (Math.imul(dayKey, 0x9e3779b1) ^ Math.imul(id, 0x85ebca6b)) >>> 0;
+  return mix32(combined);
+}
+
+// Cards due together (e.g. a bulk import, or several box-1 fails from the
+// same session) share the same nextReviewAt. Ties break by a per-card rank
+// seeded on the calendar day (UTC) rather than Math.random(): a genuinely
+// more-overdue card (an earlier day) still wins, and same-day ties get a
+// pseudo-random order that only changes when the day rolls over - instead of
+// the same fixed row-insertion order forever, without reshuffling on every
+// single call within one day. That stability is load-bearing, not
+// incidental: getUpcomingDueCards's prefetch guess (server/api/study/next.get.ts)
+// only warms the stream cache usefully if the *next* /api/study/next call
+// actually serves the cards it predicted, which a fresh random draw every
+// call made unlikely as soon as more than a couple of cards were tied on the
+// same day. `pool` must already be sorted ascending by nextReviewAt.
+export function pickRandomDueOrder<T extends { id: number; nextReviewAt: Date }>(
+  pool: readonly T[],
+  count: number,
+  now: Date = new Date(),
+): T[] {
+  const dayKey = Math.floor(now.getTime() / DAY_MS);
   const remaining = [...pool];
   const picks: T[] = [];
 
   while (remaining.length > 0 && picks.length < count) {
     const earliestDay = Math.floor(remaining[0].nextReviewAt.getTime() / DAY_MS);
-    const frontierIndices = remaining
-      .map((_, index) => index)
-      .filter((index) => Math.floor(remaining[index].nextReviewAt.getTime() / DAY_MS) === earliestDay);
-    const chosenIndex = frontierIndices[Math.floor(Math.random() * frontierIndices.length)];
+    let chosenIndex = -1;
+    let chosenRank = -1;
+    for (let index = 0; index < remaining.length; index += 1) {
+      if (Math.floor(remaining[index].nextReviewAt.getTime() / DAY_MS) !== earliestDay) continue;
+      const rank = dailyTieBreakRank(remaining[index].id, dayKey);
+      if (chosenIndex === -1 || rank < chosenRank) {
+        chosenIndex = index;
+        chosenRank = rank;
+      }
+    }
     picks.push(remaining[chosenIndex]);
     remaining.splice(chosenIndex, 1);
   }
