@@ -66,7 +66,7 @@ export function getOverallStats(): OverallStats {
 // local user reads "today" rather than the UTC calendar day.
 const reviewDateExpr = sql<string>`date(${reviewLog.reviewedAt}, 'unixepoch', 'localtime')`;
 
-function toLocalDateKey(d: Date): string {
+export function toLocalDateKey(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -422,6 +422,98 @@ export function getReviewForecast(): ReviewForecast {
     dueNow: getDueCardCount({ type: "all" }),
     backlog,
   });
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export interface ReviewHeatmapDay {
+  date: string;
+  count: number;
+  future: boolean;
+}
+
+export interface ReviewHeatmapWeek {
+  days: ReviewHeatmapDay[];
+  monthLabel: string | null;
+}
+
+export interface ReviewHeatmap {
+  weeks: ReviewHeatmapWeek[];
+  maxCount: number;
+  totalReviews: number;
+}
+
+export interface ReviewHeatmapInput {
+  countsByDate: { date: string; count: number }[];
+  // Local date keys, Sunday-aligned start, spanning whole weeks through the
+  // Saturday of today's own week. Passed in rather than derived so shaping
+  // stays pure and testable across month and DST boundaries.
+  dayKeys: string[];
+  todayKey: string;
+}
+
+function startOfWeekSunday(d: Date): Date {
+  const cursor = new Date(d);
+  cursor.setHours(0, 0, 0, 0);
+  cursor.setDate(cursor.getDate() - cursor.getDay());
+  return cursor;
+}
+
+// Ascending local date keys spanning `weeks` whole Sunday-to-Saturday weeks,
+// ending on the Saturday of today's own week - always a multiple of 7 so
+// shapeReviewHeatmap can chunk the result into whole weeks.
+export function heatmapDayKeys(today: Date, weeks: number): string[] {
+  const todayWeekStart = startOfWeekSunday(today);
+  const gridStart = new Date(todayWeekStart);
+  gridStart.setDate(gridStart.getDate() - (weeks - 1) * 7);
+  return forecastDayKeys(gridStart, weeks * 7);
+}
+
+// Days after today (the unplayed rest of the current week) are blanked
+// rather than shown as zero, and excluded from maxCount/totalReviews so a
+// half-empty final week can't drag the intensity scale down.
+export function shapeReviewHeatmap(input: ReviewHeatmapInput): ReviewHeatmap {
+  const counts = new Map(input.countsByDate.map((entry) => [entry.date, entry.count]));
+
+  let maxCount = 0;
+  let totalReviews = 0;
+  const days: ReviewHeatmapDay[] = input.dayKeys.map((date) => {
+    const future = date > input.todayKey;
+    const count = future ? 0 : (counts.get(date) ?? 0);
+    if (!future) {
+      totalReviews += count;
+      if (count > maxCount) maxCount = count;
+    }
+    return { date, count, future };
+  });
+
+  const weeks: ReviewHeatmapWeek[] = [];
+  for (let i = 0; i < days.length; i += 7) {
+    const weekDays = days.slice(i, i + 7);
+    const firstOfMonth = weekDays.find((day) => Number(day.date.slice(8, 10)) === 1);
+    const monthLabel = firstOfMonth ? (MONTH_NAMES[Number(firstOfMonth.date.slice(5, 7)) - 1] ?? null) : null;
+    weeks.push({ days: weekDays, monthLabel });
+  }
+
+  return { weeks, maxCount, totalReviews };
+}
+
+const HEATMAP_WEEKS = 53;
+
+export function getReviewHeatmap(): ReviewHeatmap {
+  const today = new Date();
+  const dayKeys = heatmapDayKeys(today, HEATMAP_WEEKS);
+  const [y, m, d] = dayKeys[0]!.split("-").map(Number);
+  const startDate = new Date(y!, m! - 1, d);
+
+  const countsByDate = db
+    .select({ date: reviewDateExpr, count: count(reviewLog.id) })
+    .from(reviewLog)
+    .where(gte(reviewLog.reviewedAt, startDate))
+    .groupBy(reviewDateExpr)
+    .all();
+
+  return shapeReviewHeatmap({ countsByDate, dayKeys, todayKey: toLocalDateKey(today) });
 }
 
 export function clearReviewLog(): number {

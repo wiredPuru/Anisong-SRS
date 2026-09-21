@@ -635,6 +635,13 @@ cleaned-up checkbox version before generating the project overview.
     you: worst by fail count, current fail streak, and a separate
     never-passed list, each row opening the existing `CardPreviewModal` so
     a problem card can be acted on without leaving the page.
+- [x] 69. **Homepage study activity heatmap** - add a GitHub-contribution-style
+  calendar heatmap to Home's dashboard, showing cards studied (review count)
+  per day over roughly the past year, colored by relative intensity, with a
+  hover tooltip giving the exact date and count. Purely additive next to the
+  existing "Last 30 days" panel - no changes to what Study or the review log
+  record, no schema change; reads the same `reviewedAt` data the existing
+  timeline chart already reads.
 
 ## Plan maintenance
 

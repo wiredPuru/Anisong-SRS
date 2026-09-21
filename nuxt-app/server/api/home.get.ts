@@ -1,5 +1,11 @@
 import { getCardMaturityBreakdown, getDueCardBreakdown, listRecentCards } from "../utils/cards.ts";
-import { getReviewTimeline, getStudyStreak, getWeakestDecks, summarizeTimeline } from "../utils/stats.ts";
+import {
+  getReviewHeatmap,
+  getReviewTimeline,
+  getStudyStreak,
+  getWeakestDecks,
+  summarizeTimeline,
+} from "../utils/stats.ts";
 
 export default defineEventHandler(() => {
   const timeline = getReviewTimeline("30");
@@ -10,6 +16,7 @@ export default defineEventHandler(() => {
     streakDays: getStudyStreak(),
     recentReviews: summarizeTimeline(timeline),
     timeline,
+    heatmap: getReviewHeatmap(),
     weakestDecks: getWeakestDecks(3, 3),
     recentCards: listRecentCards(3),
   };

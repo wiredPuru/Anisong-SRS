@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash c40ed297928c4dc82ef3f742eeb86c8572a59a650d090903832756a7ccaf9f6a -->
+<!-- blueprint:source-hash f42ccf8c493f262a7eaa9d551c001295b64bdba1d607d893d4dfe7cedd23e2c7 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -175,12 +175,24 @@ and staggered bonus rows) was added to `build-plan.md` on 2026-09-19 and is
 built and merged. It is presentation only, changing no point value,
 grade, schedule, or stored shape, and needed no `project-plan.md` change for
 the same reason feature 66 did not. Feature 68 (a deeper `/stats`, in four
-sub-features 68a-68d) was added to `build-plan.md` the same day and is the
-next build target; it reads only data already stored - `ReviewLog`'s
-`boxBefore`/`boxAfter` and the clock time of `reviewedAt`, plus `Card`'s
-`box`/`streak`/`nextReviewAt` - so it needs no migration and no
-`project-plan.md` change, §3's existing "Review stats" bullet already
-covering the surface it deepens.
+sub-features 68a-68d) was added to `build-plan.md` the same day; it reads
+only data already stored - `ReviewLog`'s `boxBefore`/`boxAfter` and the
+clock time of `reviewedAt`, plus `Card`'s `box`/`streak`/`nextReviewAt` - so
+it needs no migration and no `project-plan.md` change, §3's existing
+"Review stats" bullet already covering the surface it deepens. Sub-feature
+68a (collection health + review forecast) is built and merged; 68b-68d are
+not yet built. Feature 69 (a GitHub-contribution-style study activity
+heatmap on the Home dashboard) was added to `build-plan.md` and built the
+same day, 2026-09-20; it is purely additive next to feature 50f's existing
+"Last 30 days" panel, reads the same `ReviewLog.reviewedAt` data via the
+same local-date grouping `server/utils/stats.ts` already uses, and needs no
+schema change and no `project-plan.md` change for the same reason feature
+68 did not. A same-day revision, made mid-build before the feature was
+marked complete, defaults the panel to a single-month calendar highlight
+(`app/utils/monthHeatmap.ts`, reusing the same fetched data with no extra
+API call) rather than opening on the full 53-week grid, with a Month/Year
+toggle - matching the `tab-seg` convention `/decks` and `/stats` already
+use - to switch to the unchanged year view.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1305,7 +1317,8 @@ covering the surface it deepens.
     score/combo, so this sharpens a documented capability rather than adding
     a product direction, the same call feature 66 made.
 68. **Deeper review stats** - added to `build-plan.md` 2026-09-19, in four
-    sub-features, none built yet. Turns `/stats` from three KPI tiles, one
+    sub-features; 68a is built and merged, 68b-68d are not yet built. Turns
+    `/stats` from three KPI tiles, one
     chart, and a By Artist / By Title breakdown into a real analytics page
     using only data already on disk. `server/utils/stats.ts` reads just
     `ReviewLog.result` and the date part of `ReviewLog.reviewedAt` today:
@@ -1343,6 +1356,32 @@ covering the surface it deepens.
       opening the existing `CardPreviewModal`. Last of the four because it
       is the only one adding an interactive modal to `/stats`, which that
       page has never had.
+69. **Homepage study activity heatmap** - added to `build-plan.md` and
+    built the same day, 2026-09-20. A GitHub-contribution-style calendar
+    heatmap on Home's dashboard (`/`), showing cards studied (review count)
+    per day over roughly the past year (53 weeks, calendar-aligned
+    Sunday-start, ending today - future days in the current week render
+    blank), colored by a 5-tier relative intensity scale, with a
+    native-`title` hover tooltip giving the exact date and count, matching
+    the existing "Last 30 days" bar chart's own tooltip convention (feature
+    50f). Purely additive next to that existing panel - no changes to what
+    it shows, no schema change, and it reads `ReviewLog.reviewedAt` through
+    the same local-date grouping helpers `server/utils/stats.ts` already
+    exposes (following the same DB-fetch/pure-shape-function split feature
+    68a established, so the grid-building logic - week alignment,
+    zero-fill, month labels - is independently unit-testable). Distinct
+    from feature 68c's planned calendar heatmap: 68c is a `/stats`-page
+    heatmap bundled with hour-of-day/weekday performance and a records
+    panel; this is a Home-page dashboard glance, unrelated in placement and
+    scope. No `project-plan.md` change, the same call features 66-68 made.
+    A same-day revision defaults the panel to a single-month calendar
+    highlight instead of opening on the full year grid: `app/utils/
+    monthHeatmap.ts` exports a pure `buildMonthHeatmap()` that filters the
+    same fetched `heatmap.weeks` days into one real Sunday-first calendar
+    month (leading/trailing cells padded, `maxCount`/`totalReviews` scaled
+    to that month alone rather than the year's) - no extra API call. A
+    `tab-seg`/`tab-seg-btn` toggle (the same convention `/decks` and
+    `/stats` already use) switches to the unchanged year view and back.
 
 ## Data model
 
@@ -1667,7 +1706,10 @@ Routes:
   replaced the five link cards with a real dashboard - global search +
   Add-card shortcut, a due-cards hero, a 30-day activity card, and
   weakest-decks + recently-added panels - and 50a restyled the nav bar into
-  the persistent left rail.
+  the persistent left rail. Feature 69 (2026-09-20) added a GitHub-style
+  calendar heatmap of cards studied per day, additive next to the existing
+  30-day activity card, defaulting to a single-month calendar highlight
+  with a Month/Year toggle back to the full 53-week grid.
 - `/settings` - done. Media library folder configuration, plus (feature 8) a
   default download folder picker shown once 2+ folders are configured, plus
   (feature 9) an "Import deck" form (source path -> created/skipped summary
