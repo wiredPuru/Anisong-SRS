@@ -121,6 +121,47 @@ interface StudyRhythm {
   weekdays: WeekdayEntry[];
 }
 
+// Mirrors CardWithDetails in server/utils/cards.ts, same field order (F-09).
+interface CardWithDetails {
+  id: number;
+  songId: number;
+  localVideoPath: string | null;
+  localAudioPath: string | null;
+  animethemesVideoUrl: string | null;
+  animethemesAudioUrl: string | null;
+  notes: string | null;
+  box: number;
+  streak: number;
+  nextReviewAt: string;
+  createdAt: string;
+  songTitle: string;
+  songTitleNative: string;
+  themeSlot: string;
+  artistId: number;
+  artistName: string;
+  animeId: number;
+  animeAniListId: number;
+  animeTitleEnglish: string;
+  animeTitleRomaji: string;
+  animeTitleNative: string;
+  animeCoverImageUrl: string | null;
+}
+
+// Mirrors TroubleCardEntry and TroubleCards in server/utils/stats.ts, same field order (F-09).
+interface TroubleCardEntry {
+  card: CardWithDetails;
+  totalReviews: number;
+  failCount: number;
+  currentFailStreak: number;
+  lastReviewedAt: string;
+}
+
+interface TroubleCards {
+  mostFailed: TroubleCardEntry[];
+  onFailStreak: TroubleCardEntry[];
+  neverPassed: TroubleCardEntry[];
+}
+
 type StatsType = "artist" | "anime";
 
 interface TimelineEntry {
@@ -314,6 +355,73 @@ const {
   query: { type: "rhythm" },
 });
 
+const {
+  data: trouble,
+  pending: troublePending,
+  error: troubleError,
+  refresh: refreshTrouble,
+} = await useFetch<TroubleCards>("/api/stats", {
+  query: { type: "trouble" },
+});
+
+type TroubleTab = "mostFailed" | "onFailStreak" | "neverPassed";
+
+const TROUBLE_TABS: { key: TroubleTab; label: string; empty: string }[] = [
+  {
+    key: "mostFailed",
+    label: "Most failed",
+    empty: "No card has been failed twice yet. Cards that keep failing show up here.",
+  },
+  {
+    key: "onFailStreak",
+    label: "On a fail streak",
+    empty: "No card is currently failing twice in a row.",
+  },
+  {
+    key: "neverPassed",
+    label: "Never passed",
+    empty: "Every card reviewed at least twice has been passed at least once.",
+  },
+];
+
+const troubleTab = ref<TroubleTab>("mostFailed");
+const troubleEntries = computed(() => trouble.value?.[troubleTab.value] ?? []);
+const troubleEmptyText = computed(() => TROUBLE_TABS.find((tab) => tab.key === troubleTab.value)?.empty ?? "");
+
+function troubleFigure(entry: TroubleCardEntry): string {
+  if (troubleTab.value === "onFailStreak") return `${entry.currentFailStreak} in a row`;
+  if (troubleTab.value === "neverPassed") return pluralize(entry.totalReviews, "review");
+  return pluralize(entry.failCount, "fail");
+}
+
+function troubleContext(entry: TroubleCardEntry): string {
+  if (troubleTab.value === "neverPassed") return "0 passes";
+  return `of ${pluralize(entry.totalReviews, "review")}`;
+}
+
+const { data: mediaLibraryData } = await useFetch<{
+  defaultDownloadFolder: string | null;
+  playbackMode: "auto" | "audioOnly";
+  autoDownload: boolean;
+  clipSource: "anisongdb" | "both" | "animethemes";
+}>("/api/media-library");
+const hasDefaultDownloadFolder = computed(() => Boolean(mediaLibraryData.value?.defaultDownloadFolder));
+const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audioOnly");
+const autoDownload = computed(() => mediaLibraryData.value?.autoDownload ?? false);
+const clipSource = computed(() => mediaLibraryData.value?.clipSource ?? "anisongdb");
+
+const previewCard = ref<CardWithDetails | null>(null);
+
+function onPreviewCardUpdated(updated: CardWithDetails) {
+  previewCard.value = updated;
+  if (!trouble.value) return;
+  for (const list of [trouble.value.mostFailed, trouble.value.onFailStreak, trouble.value.neverPassed]) {
+    for (const entry of list) {
+      if (entry.card.id === updated.id) entry.card = updated;
+    }
+  }
+}
+
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const hasRhythm = computed(() => rhythm.value?.hours.some((entry) => entry.totalReviews > 0) ?? false);
@@ -441,6 +549,7 @@ async function refreshStats() {
       refreshHeatmap(),
       refreshRecords(),
       refreshRhythm(),
+      refreshTrouble(),
     ]);
   } finally {
     refreshing.value = false;
@@ -941,6 +1050,51 @@ function setType(type: StatsType) {
       </template>
     </div>
 
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Trouble cards</span>
+        <div class="tab-seg" role="tablist">
+          <button
+            v-for="tab in TROUBLE_TABS"
+            :key="tab.key"
+            type="button"
+            class="tab-seg-btn"
+            :class="{ active: troubleTab === tab.key }"
+            @click="troubleTab = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+      <div v-if="troublePending" class="state">
+        <ActivityStatus label="Loading trouble cards" />
+      </div>
+      <div v-else-if="troubleError" class="state state-error">Couldn't load trouble cards. Try refreshing.</div>
+      <p v-else-if="!troubleEntries.length" class="state">{{ troubleEmptyText }}</p>
+      <div v-else class="trouble-list">
+        <button
+          v-for="entry in troubleEntries"
+          :key="entry.card.id"
+          type="button"
+          class="trouble-row"
+          @click="previewCard = entry.card"
+        >
+          <img v-if="entry.card.animeCoverImageUrl" :src="entry.card.animeCoverImageUrl" alt="" class="mover-cover" />
+          <span v-else class="mover-cover mover-cover-empty" />
+          <span class="mover-info">
+            <span class="mover-label">{{ entry.card.songTitle }}</span>
+            <span class="mover-detail">
+              {{ entry.card.artistName }} · {{ entry.card.animeTitleEnglish }} · {{ entry.card.themeSlot }}
+            </span>
+          </span>
+          <span class="trouble-figure">
+            <span class="trouble-figure-value">{{ troubleFigure(entry) }}</span>
+            <span class="trouble-figure-context">{{ troubleContext(entry) }}</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
     <div class="breakdown-panel">
       <div class="breakdown-header">
         <span class="chart-title">Breakdown</span>
@@ -999,6 +1153,17 @@ function setType(type: StatsType) {
       </template>
     </div>
     </div>
+
+    <CardPreviewModal
+      :card="previewCard"
+      :open="previewCard !== null"
+      :has-default-download-folder="hasDefaultDownloadFolder"
+      :audio-only="audioOnly"
+      :auto-download="autoDownload"
+      :clip-source="clipSource"
+      @close="previewCard = null"
+      @updated="onPreviewCardUpdated"
+    />
   </main>
 </template>
 
@@ -1784,6 +1949,51 @@ function setType(type: StatsType) {
 }
 
 .health-figure-value.tier-empty {
+  color: var(--muted);
+}
+
+.trouble-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trouble-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trouble-row:hover {
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+.trouble-figure {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.trouble-figure-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fail);
+}
+
+.trouble-figure-context {
+  font-size: 12px;
   color: var(--muted);
 }
 

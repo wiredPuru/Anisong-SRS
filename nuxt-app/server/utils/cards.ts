@@ -142,6 +142,11 @@ export function getCardsBySongIds(songIds: number[]): CardWithDetails[] {
   return cardQuery().where(inArray(card.songId, songIds)).all();
 }
 
+export function getCardsByIds(ids: number[]): CardWithDetails[] {
+  if (!ids.length) return [];
+  return cardQuery().where(inArray(card.id, ids)).all();
+}
+
 export function listCardsByArtist(artistId: number, page: number, query?: string): Paginated<CardWithDetails> {
   const searchCondition = cardSearchCondition(query);
   const scopeCondition = eq(artist.id, artistId);

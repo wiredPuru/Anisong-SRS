@@ -4,9 +4,11 @@ import {
   RHYTHM_MIN_REVIEWS,
   TREND_LIMIT,
   TREND_MIN_REVIEWS,
+  TROUBLE_LIMIT,
   classifyThemeSlot,
   currentStreakFromDates,
   dateKeyToDayNumber,
+  failStreakFromResults,
   forecastDayKeys,
   heatmapDayKeys,
   longestStreakFromDates,
@@ -18,13 +20,16 @@ import {
   shapeReviewHeatmap,
   shapeStudyRecords,
   shapeStudyRhythm,
+  shapeTroubleCards,
   shapeWeekOverWeek,
 } from "./stats.ts";
+import type { CardWithDetails } from "./cards.ts";
 import type {
   CollectionHealthInput,
   DeckTrendInput,
   ReviewForecastInput,
   ReviewHeatmapInput,
+  TroubleReviewRow,
 } from "./stats.ts";
 
 function input(overrides: Partial<CollectionHealthInput> = {}): CollectionHealthInput {
@@ -869,5 +874,91 @@ describe("shapeStudyRhythm", () => {
   it("passes the small-sample threshold through", () => {
     expect(shapeStudyRhythm({ hourRows: [], weekdayRows: [] }).minReviews).toBe(RHYTHM_MIN_REVIEWS);
     expect(RHYTHM_MIN_REVIEWS).toBe(5);
+  });
+});
+
+describe("failStreakFromResults", () => {
+  it("counts leading fails, newest first", () => {
+    expect(failStreakFromResults([])).toBe(0);
+    expect(failStreakFromResults(["fail"])).toBe(1);
+    expect(failStreakFromResults(["fail", "fail", "fail"])).toBe(3);
+    expect(failStreakFromResults(["fail", "fail", "pass", "fail"])).toBe(2);
+    expect(failStreakFromResults(["pass", "fail", "fail"])).toBe(0);
+  });
+});
+
+describe("shapeTroubleCards", () => {
+  let nextRowId = 1000;
+  // Rows are given newest first, the order the query returns them.
+  function reviews(cardId: number, results: ("pass" | "fail")[], newestAt = 1_000_000): TroubleReviewRow[] {
+    return results.map((result, i) => ({
+      id: nextRowId--,
+      cardId,
+      result,
+      reviewedAt: new Date((newestAt - i * 60) * 1000),
+    }));
+  }
+  const load = (ids: number[]) => ids.map((id) => ({ id }) as CardWithDetails);
+  const ids = (list: { card: CardWithDetails }[]) => list.map((e) => e.card.id);
+
+  it("returns three empty lists for an empty log", () => {
+    expect(shapeTroubleCards([], load)).toEqual({ mostFailed: [], onFailStreak: [], neverPassed: [] });
+  });
+
+  it("includes a card exactly at the fail threshold and excludes one under it", () => {
+    const rows = [...reviews(1, ["fail", "pass", "fail"]), ...reviews(2, ["fail", "pass", "pass"])];
+    const result = shapeTroubleCards(rows, load);
+    expect(ids(result.mostFailed)).toEqual([1]);
+    expect(result.mostFailed[0]).toMatchObject({ failCount: 2, totalReviews: 3, currentFailStreak: 1 });
+  });
+
+  it("puts only cards whose newest reviews are consecutive fails on the streak list", () => {
+    const rows = [
+      ...reviews(1, ["fail", "fail", "fail", "pass"]),
+      ...reviews(2, ["pass", "fail", "fail"]),
+      ...reviews(3, ["fail", "fail", "pass"]),
+    ];
+    const result = shapeTroubleCards(rows, load);
+    expect(ids(result.onFailStreak)).toEqual([1, 3]);
+    expect(result.onFailStreak.map((e) => e.currentFailStreak)).toEqual([3, 2]);
+  });
+
+  it("never-passed needs two reviews and zero passes", () => {
+    const rows = [
+      ...reviews(1, ["fail", "fail"]),
+      ...reviews(2, ["fail"]),
+      ...reviews(3, ["fail", "pass"]),
+      ...reviews(4, ["fail", "fail", "fail"]),
+    ];
+    expect(ids(shapeTroubleCards(rows, load).neverPassed)).toEqual([4, 1]);
+  });
+
+  it("lets a card appear in more than one list", () => {
+    const result = shapeTroubleCards(reviews(1, ["fail", "fail"]), load);
+    expect(ids(result.mostFailed)).toEqual([1]);
+    expect(ids(result.onFailStreak)).toEqual([1]);
+    expect(ids(result.neverPassed)).toEqual([1]);
+  });
+
+  it("caps each list at the limit", () => {
+    const rows = Array.from({ length: TROUBLE_LIMIT + 5 }, (_, i) => reviews(i + 1, ["fail", "fail"])).flat();
+    const result = shapeTroubleCards(rows, load);
+    expect(result.mostFailed).toHaveLength(TROUBLE_LIMIT);
+    expect(result.neverPassed).toHaveLength(TROUBLE_LIMIT);
+  });
+
+  it("breaks ties by most recent review, then card id", () => {
+    const rows = [
+      ...reviews(5, ["fail", "fail"], 2_000_000),
+      ...reviews(3, ["fail", "fail"], 3_000_000),
+      ...reviews(2, ["fail", "fail"], 2_000_000),
+    ];
+    expect(ids(shapeTroubleCards(rows, load).mostFailed)).toEqual([3, 2, 5]);
+  });
+
+  it("drops a card that no longer exists instead of crashing", () => {
+    const rows = [...reviews(1, ["fail", "fail"]), ...reviews(2, ["fail", "fail"])];
+    const result = shapeTroubleCards(rows, (want) => load(want.filter((id) => id !== 1)));
+    expect(ids(result.mostFailed)).toEqual([2]);
   });
 });

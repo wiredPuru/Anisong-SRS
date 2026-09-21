@@ -1,7 +1,8 @@
-import { and, count, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, reviewLog, song } from "../db/schema.ts";
-import { getDueCardCount } from "./cards.ts";
+import { getCardsByIds, getDueCardCount } from "./cards.ts";
+import type { CardWithDetails } from "./cards.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
 
 export interface OverallStats {
@@ -976,6 +977,143 @@ export function getStudyRhythm(): StudyRhythm {
     .all();
 
   return shapeStudyRhythm({ hourRows, weekdayRows });
+}
+
+export const TROUBLE_LIMIT = 10;
+export const TROUBLE_MIN_FAILS = 2;
+export const TROUBLE_MIN_REVIEWS = 2;
+
+export interface TroubleReviewRow {
+  id: number;
+  cardId: number;
+  result: "pass" | "fail";
+  reviewedAt: Date;
+}
+
+export interface TroubleCardEntry {
+  card: CardWithDetails;
+  totalReviews: number;
+  failCount: number;
+  currentFailStreak: number;
+  lastReviewedAt: Date;
+}
+
+export interface TroubleCards {
+  mostFailed: TroubleCardEntry[];
+  onFailStreak: TroubleCardEntry[];
+  neverPassed: TroubleCardEntry[];
+}
+
+// Results must be newest first. This is derived from the log, unrelated to
+// Card.streak (the box-1 pass counter).
+export function failStreakFromResults(results: readonly ("pass" | "fail")[]): number {
+  let streak = 0;
+  for (const result of results) {
+    if (result === "pass") break;
+    streak++;
+  }
+  return streak;
+}
+
+interface TroubleTally {
+  cardId: number;
+  totalReviews: number;
+  failCount: number;
+  currentFailStreak: number;
+  lastReviewedAt: Date;
+  streakOpen: boolean;
+}
+
+// rows must be ordered newest first (reviewedAt, then id, both descending).
+function tallyReviewRows(rows: readonly TroubleReviewRow[]): TroubleTally[] {
+  const byCard = new Map<number, TroubleTally>();
+  for (const row of rows) {
+    let tally = byCard.get(row.cardId);
+    if (!tally) {
+      tally = {
+        cardId: row.cardId,
+        totalReviews: 0,
+        failCount: 0,
+        currentFailStreak: 0,
+        lastReviewedAt: row.reviewedAt,
+        streakOpen: true,
+      };
+      byCard.set(row.cardId, tally);
+    }
+    tally.totalReviews++;
+    if (row.result === "fail") {
+      tally.failCount++;
+      if (tally.streakOpen) tally.currentFailStreak++;
+    } else {
+      tally.streakOpen = false;
+    }
+  }
+  return [...byCard.values()];
+}
+
+function rankTally(
+  tallies: readonly TroubleTally[],
+  qualifies: (t: TroubleTally) => boolean,
+  figure: (t: TroubleTally) => number,
+): TroubleTally[] {
+  return tallies
+    .filter(qualifies)
+    .sort(
+      (a, b) =>
+        figure(b) - figure(a) ||
+        b.lastReviewedAt.getTime() - a.lastReviewedAt.getTime() ||
+        a.cardId - b.cardId,
+    )
+    .slice(0, TROUBLE_LIMIT);
+}
+
+export function shapeTroubleCards(
+  rows: readonly TroubleReviewRow[],
+  loadCards: (ids: number[]) => CardWithDetails[],
+): TroubleCards {
+  const tallies = tallyReviewRows(rows);
+  const ranked = {
+    mostFailed: rankTally(tallies, (t) => t.failCount >= TROUBLE_MIN_FAILS, (t) => t.failCount),
+    onFailStreak: rankTally(tallies, (t) => t.currentFailStreak >= TROUBLE_MIN_FAILS, (t) => t.currentFailStreak),
+    neverPassed: rankTally(
+      tallies,
+      (t) => t.failCount === t.totalReviews && t.totalReviews >= TROUBLE_MIN_REVIEWS,
+      (t) => t.totalReviews,
+    ),
+  };
+
+  const ids = [...new Set(Object.values(ranked).flatMap((list) => list.map((t) => t.cardId)))];
+  const cardsById = new Map(loadCards(ids).map((c) => [c.id, c]));
+
+  const attach = (list: TroubleTally[]): TroubleCardEntry[] =>
+    list.flatMap((t) => {
+      const found = cardsById.get(t.cardId);
+      if (!found) return [];
+      return [
+        {
+          card: found,
+          totalReviews: t.totalReviews,
+          failCount: t.failCount,
+          currentFailStreak: t.currentFailStreak,
+          lastReviewedAt: t.lastReviewedAt,
+        },
+      ];
+    });
+
+  return {
+    mostFailed: attach(ranked.mostFailed),
+    onFailStreak: attach(ranked.onFailStreak),
+    neverPassed: attach(ranked.neverPassed),
+  };
+}
+
+export function getTroubleCards(): TroubleCards {
+  const rows = db
+    .select({ id: reviewLog.id, cardId: reviewLog.cardId, result: reviewLog.result, reviewedAt: reviewLog.reviewedAt })
+    .from(reviewLog)
+    .orderBy(desc(reviewLog.reviewedAt), desc(reviewLog.id))
+    .all();
+  return shapeTroubleCards(rows, getCardsByIds);
 }
 
 export function clearReviewLog(): number {

@@ -608,7 +608,7 @@ cleaned-up checkbox version before generating the project overview.
   appearing at once in the result panel. Presentation only - no change to
   point values, grading, SRS scheduling, or any stored shape, and every
   animation is suppressed under `prefers-reduced-motion`.
-- [ ] 68. **Deeper review stats** - turn `/stats` from three KPI tiles, one
+- [x] 68. **Deeper review stats** - turn `/stats` from three KPI tiles, one
   chart, and a breakdown list into a real analytics page, using only data
   already on disk: `review_log`'s `boxBefore`/`boxAfter` and the clock time
   of `reviewedAt`, plus `card`'s `box`/`streak`/`nextReviewAt`, none of
@@ -631,7 +631,7 @@ cleaned-up checkbox version before generating the project overview.
     volume, hour-of-day and weekday performance read from `reviewedAt`'s
     time component, and a records panel: longest streak ever (today's KPI
     only shows the current one), best single day, and total days studied.
-  - [ ] 68d. **Leeches and trouble cards** - the cards actually costing
+  - [x] 68d. **Leeches and trouble cards** - the cards actually costing
     you: worst by fail count, current fail streak, and a separate
     never-passed list, each row opening the existing `CardPreviewModal` so
     a problem card can be acted on without leaving the page.

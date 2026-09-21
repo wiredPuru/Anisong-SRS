@@ -9,6 +9,7 @@ import {
   getReviewTimeline,
   getStudyRecords,
   getStudyRhythm,
+  getTroubleCards,
   getWeekOverWeek,
   listAnimeStats,
   listArtistStats,
@@ -51,6 +52,9 @@ export default defineEventHandler((event) => {
   if (type === "rhythm") {
     return getStudyRhythm();
   }
+  if (type === "trouble") {
+    return getTroubleCards();
+  }
   if (type === "timeline") {
     if (typeof range !== "string" || !TIMELINE_RANGES.includes(range as ReviewTimelineRange)) {
       throw createError({ statusCode: 400, statusMessage: "range must be '30', '90', or 'all'" });
@@ -62,6 +66,6 @@ export default defineEventHandler((event) => {
   throw createError({
     statusCode: 400,
     statusMessage:
-      "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', 'forecast', 'retention', 'trends', 'heatmap', 'records', or 'rhythm'",
+      "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', 'forecast', 'retention', 'trends', 'heatmap', 'records', 'rhythm', or 'trouble'",
   });
 });
