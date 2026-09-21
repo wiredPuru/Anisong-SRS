@@ -622,7 +622,7 @@ cleaned-up checkbox version before generating the project overview.
     `boxOneStreakRequired` means box 1 is a multi-pass stage, not one
     step), percent mature, a never-reviewed count, and a due-cards
     forecast for today, the next 7 days, and the next 30.
-  - [ ] 68b. **Retention by box + trends** - pass rate per `boxBefore` (is
+  - [x] 68b. **Retention by box + trends** - pass rate per `boxBefore` (is
     box 5 actually holding?), a 7-day rolling average on the existing
     reviews chart, a week-over-week pass-rate delta, most-improved and
     most-declined decks by recent-versus-older rate, and an OP versus ED

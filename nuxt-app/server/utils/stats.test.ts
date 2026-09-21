@@ -1,13 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   MATURE_BOX,
+  TREND_LIMIT,
+  TREND_MIN_REVIEWS,
+  classifyThemeSlot,
   forecastDayKeys,
   heatmapDayKeys,
+  rollingPassRates,
   shapeCollectionHealth,
+  shapeDeckTrends,
   shapeForecast,
+  shapeRetention,
   shapeReviewHeatmap,
+  shapeWeekOverWeek,
 } from "./stats.ts";
-import type { CollectionHealthInput, ReviewForecastInput, ReviewHeatmapInput } from "./stats.ts";
+import type {
+  CollectionHealthInput,
+  DeckTrendInput,
+  ReviewForecastInput,
+  ReviewHeatmapInput,
+} from "./stats.ts";
 
 function input(overrides: Partial<CollectionHealthInput> = {}): CollectionHealthInput {
   return {
@@ -239,6 +251,303 @@ describe("shapeForecast", () => {
 
     expect(forecast.dueNow).toBe(12);
     expect(forecast.backlog).toBe(30);
+  });
+});
+
+describe("classifyThemeSlot", () => {
+  it("reads opening and ending slots with and without a number", () => {
+    expect(classifyThemeSlot("OP1")).toBe("OP");
+    expect(classifyThemeSlot("OP")).toBe("OP");
+    expect(classifyThemeSlot("ED2")).toBe("ED");
+  });
+
+  it("tolerates casing and stray whitespace", () => {
+    expect(classifyThemeSlot(" op3 ")).toBe("OP");
+    expect(classifyThemeSlot("ed")).toBe("ED");
+  });
+
+  it("keeps an unrecognised slot in its own bucket", () => {
+    expect(classifyThemeSlot("IN1")).toBe("other");
+    expect(classifyThemeSlot("")).toBe("other");
+  });
+});
+
+describe("shapeRetention", () => {
+  it("returns a full ladder with no rates when nothing has been reviewed", () => {
+    const retention = shapeRetention({ byBox: [], byThemeSlot: [] });
+
+    expect(retention.byBox).toHaveLength(5);
+    expect(retention.byBox.every((entry) => entry.passRate === null)).toBe(true);
+    expect(retention.byThemeKind.map((entry) => entry.kind)).toEqual(["OP", "ED", "other"]);
+    expect(retention.byThemeKind.every((entry) => entry.totalReviews === 0)).toBe(true);
+  });
+
+  it("keeps a box with no reviews as a row rather than omitting it", () => {
+    const retention = shapeRetention({
+      byBox: [
+        { box: 1, totalReviews: 10, passCount: 6 },
+        { box: 5, totalReviews: 4, passCount: 3 },
+      ],
+      byThemeSlot: [],
+    });
+
+    expect(retention.byBox.map((entry) => entry.box)).toEqual([1, 2, 3, 4, 5]);
+    expect(retention.byBox[0]).toEqual({ box: 1, totalReviews: 10, passCount: 6, failCount: 4, passRate: 0.6 });
+    expect(retention.byBox[1]).toEqual({ box: 2, totalReviews: 0, passCount: 0, failCount: 0, passRate: null });
+    expect(retention.byBox[4]!.passRate).toBe(0.75);
+  });
+
+  it("pools every slot of one kind into a single volume-weighted rate", () => {
+    const retention = shapeRetention({
+      byBox: [],
+      byThemeSlot: [
+        { themeSlot: "OP1", totalReviews: 10, passCount: 9 },
+        { themeSlot: "OP2", totalReviews: 90, passCount: 45 },
+        { themeSlot: "ED1", totalReviews: 4, passCount: 1 },
+      ],
+    });
+
+    const [op, ed] = retention.byThemeKind;
+    // Weighted by volume, not the mean of 90% and 50%.
+    expect(op).toEqual({ kind: "OP", totalReviews: 100, passCount: 54, failCount: 46, passRate: 0.54 });
+    expect(ed!.passRate).toBe(0.25);
+  });
+
+  it("counts an unrecognised slot without letting it disappear", () => {
+    const retention = shapeRetention({
+      byBox: [],
+      byThemeSlot: [{ themeSlot: "IN1", totalReviews: 3, passCount: 2 }],
+    });
+
+    const other = retention.byThemeKind.find((entry) => entry.kind === "other")!;
+    expect(other.totalReviews).toBe(3);
+    expect(other.passRate).toBeCloseTo(2 / 3);
+  });
+});
+
+function day(date: string, totalReviews: number, passCount: number) {
+  return { date, totalReviews, passCount, passRate: totalReviews > 0 ? passCount / totalReviews : null };
+}
+
+describe("rollingPassRates", () => {
+  it("returns nothing for an empty timeline", () => {
+    expect(rollingPassRates([], 7)).toEqual([]);
+  });
+
+  it("returns the day's own rate when it is the only one", () => {
+    expect(rollingPassRates([day("2026-09-20", 4, 3)], 7)).toEqual([{ date: "2026-09-20", passRate: 0.75 }]);
+  });
+
+  it("accumulates across consecutive days", () => {
+    const rolling = rollingPassRates([day("2026-09-18", 10, 5), day("2026-09-19", 10, 9)], 7);
+
+    expect(rolling[0]!.passRate).toBe(0.5);
+    expect(rolling[1]!.passRate).toBe(0.7);
+  });
+
+  it("weights by review volume rather than averaging the two days' rates", () => {
+    // The mean of 100% and 50% would be 75%; the heavy day has to dominate.
+    const rolling = rollingPassRates([day("2026-09-18", 2, 2), day("2026-09-19", 98, 49)], 7);
+
+    expect(rolling[1]!.passRate).toBeCloseTo(51 / 100);
+  });
+
+  it("drops a day that falls out of the calendar window", () => {
+    const rolling = rollingPassRates([day("2026-09-10", 10, 10), day("2026-09-17", 10, 0)], 7);
+
+    // Sep 10 is 7 days before Sep 17, so it is outside a 7-day trailing window
+    // that starts on Sep 11.
+    expect(rolling[1]!.passRate).toBe(0);
+  });
+
+  it("keeps the boundary day inside the window", () => {
+    const rolling = rollingPassRates([day("2026-09-11", 10, 10), day("2026-09-17", 10, 0)], 7);
+
+    expect(rolling[1]!.passRate).toBe(0.5);
+  });
+
+  it("counts calendar days, not entries, across a gap in studying", () => {
+    // Eight entries that a 7-entry window would pool together, but they span
+    // months, so each day only ever sees itself.
+    const entries = [
+      day("2026-01-01", 10, 10),
+      day("2026-02-01", 10, 10),
+      day("2026-03-01", 10, 10),
+      day("2026-04-01", 10, 10),
+      day("2026-05-01", 10, 10),
+      day("2026-06-01", 10, 10),
+      day("2026-07-01", 10, 10),
+      day("2026-08-01", 10, 0),
+    ];
+
+    expect(rollingPassRates(entries, 7).at(-1)!.passRate).toBe(0);
+  });
+
+  it("crosses a month boundary when the window spans one", () => {
+    const rolling = rollingPassRates([day("2026-09-29", 10, 10), day("2026-10-02", 10, 0)], 7);
+
+    expect(rolling[1]!.passRate).toBe(0.5);
+  });
+});
+
+function week(totalReviews: number, passCount: number) {
+  return { totalReviews, passCount };
+}
+
+describe("shapeWeekOverWeek", () => {
+  it("has no rates and no delta before anything is reviewed", () => {
+    const wow = shapeWeekOverWeek({ current: week(0, 0), previous: week(0, 0) });
+
+    expect(wow.current.passRate).toBeNull();
+    expect(wow.previous.passRate).toBeNull();
+    expect(wow.delta).toBeNull();
+  });
+
+  it("withholds the delta when the previous week has no reviews", () => {
+    // A first week of study is not a jump up from zero, it is an unknown.
+    const wow = shapeWeekOverWeek({ current: week(20, 15), previous: week(0, 0) });
+
+    expect(wow.current.passRate).toBe(0.75);
+    expect(wow.delta).toBeNull();
+  });
+
+  it("withholds the delta when the current week has no reviews", () => {
+    const wow = shapeWeekOverWeek({ current: week(0, 0), previous: week(20, 15) });
+
+    expect(wow.delta).toBeNull();
+  });
+
+  it("reports an improvement as a positive delta", () => {
+    const wow = shapeWeekOverWeek({ current: week(10, 8), previous: week(10, 5) });
+
+    expect(wow.delta).toBeCloseTo(0.3);
+  });
+
+  it("reports a decline as a negative delta", () => {
+    const wow = shapeWeekOverWeek({ current: week(10, 4), previous: week(20, 18) });
+
+    expect(wow.delta).toBeCloseTo(-0.5);
+  });
+
+  it("keeps both sample sizes so an unequal comparison stays visible", () => {
+    const wow = shapeWeekOverWeek({ current: week(3, 3), previous: week(120, 60) });
+
+    expect(wow.current.totalReviews).toBe(3);
+    expect(wow.previous.totalReviews).toBe(120);
+    expect(wow.delta).toBeCloseTo(0.5);
+  });
+});
+
+function deck(id: number, overrides: Partial<DeckTrendInput> = {}): DeckTrendInput {
+  return {
+    type: "artist",
+    id,
+    label: `Deck ${id}`,
+    coverImageUrl: null,
+    recentReviews: 10,
+    recentPasses: 5,
+    olderReviews: 10,
+    olderPasses: 5,
+    ...overrides,
+  };
+}
+
+const RANK = { minReviews: TREND_MIN_REVIEWS, limit: TREND_LIMIT };
+
+describe("shapeDeckTrends", () => {
+  it("returns empty lists for no decks", () => {
+    expect(shapeDeckTrends([], RANK)).toEqual({ improved: [], declined: [] });
+  });
+
+  it("excludes a deck with no older baseline rather than ranking it as improved", () => {
+    const trends = shapeDeckTrends([deck(1, { olderReviews: 0, olderPasses: 0, recentPasses: 10 })], RANK);
+
+    expect(trends.improved).toEqual([]);
+    expect(trends.declined).toEqual([]);
+  });
+
+  it("excludes a deck under the threshold in either window alone", () => {
+    const thin = deck(1, { recentReviews: 2, recentPasses: 2 });
+    const thinOlder = deck(2, { olderReviews: 2, olderPasses: 0, recentPasses: 10 });
+
+    expect(shapeDeckTrends([thin, thinOlder], RANK).improved).toEqual([]);
+  });
+
+  it("admits a deck sitting exactly on the threshold", () => {
+    const trends = shapeDeckTrends(
+      [deck(1, { recentReviews: 3, recentPasses: 3, olderReviews: 3, olderPasses: 0 })],
+      RANK,
+    );
+
+    expect(trends.improved).toHaveLength(1);
+    expect(trends.improved[0]!.delta).toBe(1);
+  });
+
+  it("drops an exact tie from both lists", () => {
+    const trends = shapeDeckTrends([deck(1, { recentPasses: 5, olderPasses: 5 })], RANK);
+
+    expect(trends.improved).toEqual([]);
+    expect(trends.declined).toEqual([]);
+  });
+
+  it("never puts the same deck in both lists", () => {
+    const trends = shapeDeckTrends(
+      [deck(1, { recentPasses: 9 }), deck(2, { recentPasses: 1 })],
+      RANK,
+    );
+
+    const improvedIds = trends.improved.map((entry) => entry.id);
+    const declinedIds = trends.declined.map((entry) => entry.id);
+    expect(improvedIds).toEqual([1]);
+    expect(declinedIds).toEqual([2]);
+    expect(improvedIds.filter((id) => declinedIds.includes(id))).toEqual([]);
+  });
+
+  it("ranks the biggest movers first and truncates at the limit", () => {
+    const rows = [
+      deck(1, { recentPasses: 6 }),
+      deck(2, { recentPasses: 10 }),
+      deck(3, { recentPasses: 8 }),
+      deck(4, { recentPasses: 7 }),
+      deck(5, { recentPasses: 0 }),
+      deck(6, { recentPasses: 2 }),
+      deck(7, { recentPasses: 1 }),
+      deck(8, { recentPasses: 3 }),
+    ];
+
+    const trends = shapeDeckTrends(rows, RANK);
+
+    expect(trends.improved.map((entry) => entry.id)).toEqual([2, 3, 4]);
+    expect(trends.declined.map((entry) => entry.id)).toEqual([5, 7, 6]);
+  });
+
+  it("carries the deck's identity and both windows' rates through", () => {
+    const trends = shapeDeckTrends(
+      [
+        deck(9, {
+          type: "anime",
+          label: "Bocchi the Rock!",
+          coverImageUrl: "https://example.test/cover.jpg",
+          recentReviews: 8,
+          recentPasses: 6,
+          olderReviews: 4,
+          olderPasses: 1,
+        }),
+      ],
+      RANK,
+    );
+
+    expect(trends.improved[0]).toEqual({
+      type: "anime",
+      id: 9,
+      label: "Bocchi the Rock!",
+      coverImageUrl: "https://example.test/cover.jpg",
+      recentRate: 0.75,
+      recentReviews: 8,
+      olderRate: 0.25,
+      olderReviews: 4,
+      delta: 0.5,
+    });
   });
 });
 

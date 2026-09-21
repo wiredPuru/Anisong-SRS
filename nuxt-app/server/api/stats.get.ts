@@ -1,10 +1,15 @@
 import {
+  ROLLING_WINDOW_DAYS,
   getCollectionHealth,
   getOverallStats,
+  getDeckTrends,
+  getRetentionStats,
   getReviewForecast,
   getReviewTimeline,
+  getWeekOverWeek,
   listAnimeStats,
   listArtistStats,
+  rollingPassRates,
 } from "../utils/stats.ts";
 import type { ReviewTimelineRange } from "../utils/stats.ts";
 
@@ -28,15 +33,23 @@ export default defineEventHandler((event) => {
   if (type === "forecast") {
     return getReviewForecast();
   }
+  if (type === "retention") {
+    return getRetentionStats();
+  }
+  if (type === "trends") {
+    return { weekOverWeek: getWeekOverWeek(), ...getDeckTrends() };
+  }
   if (type === "timeline") {
     if (typeof range !== "string" || !TIMELINE_RANGES.includes(range as ReviewTimelineRange)) {
       throw createError({ statusCode: 400, statusMessage: "range must be '30', '90', or 'all'" });
     }
-    return { entries: getReviewTimeline(range as ReviewTimelineRange) };
+    const entries = getReviewTimeline(range as ReviewTimelineRange);
+    return { entries, rolling: rollingPassRates(entries, ROLLING_WINDOW_DAYS) };
   }
 
   throw createError({
     statusCode: 400,
-    statusMessage: "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', or 'forecast'",
+    statusMessage:
+      "type must be 'overall', 'artist', 'anime', 'timeline', 'collection', 'forecast', 'retention', or 'trends'",
   });
 });

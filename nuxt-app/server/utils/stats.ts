@@ -1,4 +1,4 @@
-import { count, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
+import { and, count, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, reviewLog, song } from "../db/schema.ts";
 import { getDueCardCount } from "./cards.ts";
@@ -117,6 +117,47 @@ export function getReviewTimeline(range: ReviewTimelineRange): ReviewTimelineEnt
     passCount: Number(row.passCount),
     passRate: row.totalReviews > 0 ? Number(row.passCount) / row.totalReviews : null,
   }));
+}
+
+export const ROLLING_WINDOW_DAYS = 7;
+
+export interface RollingPassRate {
+  date: string;
+  passRate: number;
+}
+
+// UTC arithmetic on a plain date key, so a DST boundary cannot shift the
+// window by a day the way local midnight can.
+function shiftDateKey(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
+// Smooths the per-day pass rate over a trailing window of CALENDAR days, not
+// of entries. getReviewTimeline only returns days that had reviews, so a
+// window counted in entries would silently stretch across weeks of not
+// studying and average them as if they were consecutive.
+export function rollingPassRates(entries: ReviewTimelineEntry[], windowDays: number): RollingPassRate[] {
+  let start = 0;
+  let totalReviews = 0;
+  let passCount = 0;
+
+  return entries.map((entry, index) => {
+    totalReviews += entry.totalReviews;
+    passCount += entry.passCount;
+
+    const cutoff = shiftDateKey(entry.date, -(windowDays - 1));
+    while (start <= index && entries[start]!.date < cutoff) {
+      totalReviews -= entries[start]!.totalReviews;
+      passCount -= entries[start]!.passCount;
+      start++;
+    }
+
+    // An entry only exists for a day that had reviews, so the window can only
+    // be empty if a caller hands in a zero-review day.
+    return { date: entry.date, passRate: totalReviews > 0 ? passCount / totalReviews : 0 };
+  });
 }
 
 function daysAgo(days: number): Date {
@@ -422,6 +463,260 @@ export function getReviewForecast(): ReviewForecast {
     dueNow: getDueCardCount({ type: "all" }),
     backlog,
   });
+}
+
+export type ThemeKind = "OP" | "ED" | "other";
+
+const THEME_KINDS: ThemeKind[] = ["OP", "ED", "other"];
+
+export interface RetentionEntry {
+  totalReviews: number;
+  passCount: number;
+  failCount: number;
+  passRate: number | null;
+}
+
+export interface RetentionStats {
+  byBox: (RetentionEntry & { box: number })[];
+  byThemeKind: (RetentionEntry & { kind: ThemeKind })[];
+}
+
+export interface RetentionInput {
+  byBox: { box: number; totalReviews: number; passCount: number }[];
+  byThemeSlot: { themeSlot: string; totalReviews: number; passCount: number }[];
+}
+
+// themeSlot is free text: imports and hand edits have produced "OP1", "ED",
+// and the occasional oddity, so anything that isn't clearly an opening or an
+// ending keeps its reviews in a visible bucket rather than being dropped.
+export function classifyThemeSlot(slot: string): ThemeKind {
+  const normalized = slot.trim().toUpperCase();
+  if (normalized.startsWith("OP")) return "OP";
+  if (normalized.startsWith("ED")) return "ED";
+  return "other";
+}
+
+// Fills every box and every theme kind, including ones with no reviews, so the
+// panel renders a stable ladder instead of a shape that moves with the data -
+// the same call shapeCollectionHealth makes.
+export function shapeRetention(input: RetentionInput): RetentionStats {
+  const boxTotals = new Map(input.byBox.map((row) => [row.box, row]));
+  const byBox = Array.from({ length: MAX_BOX }, (_, index) => {
+    const box = index + 1;
+    const row = boxTotals.get(box);
+    return { box, ...deriveCounts(row?.totalReviews ?? 0, row?.passCount ?? 0) };
+  });
+
+  const kindTotals = new Map<ThemeKind, { totalReviews: number; passCount: number }>();
+  for (const row of input.byThemeSlot) {
+    const kind = classifyThemeSlot(row.themeSlot);
+    const running = kindTotals.get(kind) ?? { totalReviews: 0, passCount: 0 };
+    kindTotals.set(kind, {
+      totalReviews: running.totalReviews + row.totalReviews,
+      passCount: running.passCount + Number(row.passCount),
+    });
+  }
+
+  const byThemeKind = THEME_KINDS.map((kind) => {
+    const row = kindTotals.get(kind);
+    return { kind, ...deriveCounts(row?.totalReviews ?? 0, row?.passCount ?? 0) };
+  });
+
+  return { byBox, byThemeKind };
+}
+
+export function getRetentionStats(): RetentionStats {
+  // boxBefore, not boxAfter: the question is whether a card held at the box it
+  // had already reached, which boxAfter has already answered by moving it.
+  const byBox = db
+    .select({ box: reviewLog.boxBefore, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(reviewLog)
+    .groupBy(reviewLog.boxBefore)
+    .all();
+
+  const byThemeSlot = db
+    .select({ themeSlot: song.themeSlot, totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(reviewLog)
+    .innerJoin(card, eq(reviewLog.cardId, card.id))
+    .innerJoin(song, eq(card.songId, song.id))
+    .groupBy(song.themeSlot)
+    .all();
+
+  return shapeRetention({ byBox, byThemeSlot });
+}
+
+export const WEEK_DAYS = 7;
+
+export interface WeekWindow {
+  totalReviews: number;
+  passRate: number | null;
+}
+
+export interface WeekOverWeek {
+  current: WeekWindow;
+  previous: WeekWindow;
+  delta: number | null;
+}
+
+export interface WeekOverWeekInput {
+  current: { totalReviews: number; passCount: number };
+  previous: { totalReviews: number; passCount: number };
+}
+
+// A week with no reviews has no rate to compare, so the delta stays null
+// rather than reading a first week of study as a jump up from zero.
+export function shapeWeekOverWeek(input: WeekOverWeekInput): WeekOverWeek {
+  const current = deriveCounts(input.current.totalReviews, input.current.passCount);
+  const previous = deriveCounts(input.previous.totalReviews, input.previous.passCount);
+  const delta =
+    current.passRate !== null && previous.passRate !== null ? current.passRate - previous.passRate : null;
+
+  return {
+    current: { totalReviews: current.totalReviews, passRate: current.passRate },
+    previous: { totalReviews: previous.totalReviews, passRate: previous.passRate },
+    delta,
+  };
+}
+
+function reviewTotalsBetween(from: Date, to: Date | null): { totalReviews: number; passCount: number } {
+  const row = db
+    .select({ totalReviews: count(reviewLog.id), passCount: passCountExpr })
+    .from(reviewLog)
+    .where(to ? and(gte(reviewLog.reviewedAt, from), lt(reviewLog.reviewedAt, to)) : gte(reviewLog.reviewedAt, from))
+    .get()!;
+
+  return { totalReviews: row.totalReviews, passCount: Number(row.passCount) };
+}
+
+export function getWeekOverWeek(): WeekOverWeek {
+  const currentStart = daysAgo(WEEK_DAYS - 1);
+  const previousStart = daysAgo(WEEK_DAYS * 2 - 1);
+
+  return shapeWeekOverWeek({
+    current: reviewTotalsBetween(currentStart, null),
+    previous: reviewTotalsBetween(previousStart, currentStart),
+  });
+}
+
+// The movers compare a recent window against everything older. A deck needs
+// TREND_MIN_REVIEWS in BOTH windows to rank: one noisy review either side
+// would otherwise swing a deck to the top of a list on nothing.
+export const TREND_RECENT_DAYS = 30;
+export const TREND_MIN_REVIEWS = 3;
+export const TREND_LIMIT = 3;
+
+export interface DeckTrendEntry {
+  type: "artist" | "anime";
+  id: number;
+  label: string;
+  coverImageUrl: string | null;
+  recentRate: number;
+  recentReviews: number;
+  olderRate: number;
+  olderReviews: number;
+  delta: number;
+}
+
+export interface DeckTrendInput {
+  type: "artist" | "anime";
+  id: number;
+  label: string;
+  coverImageUrl: string | null;
+  recentReviews: number;
+  recentPasses: number;
+  olderReviews: number;
+  olderPasses: number;
+}
+
+export interface DeckTrends {
+  improved: DeckTrendEntry[];
+  declined: DeckTrendEntry[];
+}
+
+export function shapeDeckTrends(
+  rows: DeckTrendInput[],
+  options: { minReviews: number; limit: number },
+): DeckTrends {
+  const ranked: DeckTrendEntry[] = [];
+
+  for (const row of rows) {
+    // A deck with no older reviews has no baseline, so it is excluded rather
+    // than ranked as having improved from nothing.
+    if (row.recentReviews < options.minReviews || row.olderReviews < options.minReviews) continue;
+
+    const recentRate = row.recentPasses / row.recentReviews;
+    const olderRate = row.olderPasses / row.olderReviews;
+    const delta = recentRate - olderRate;
+    if (delta === 0) continue;
+
+    ranked.push({
+      type: row.type,
+      id: row.id,
+      label: row.label,
+      coverImageUrl: row.coverImageUrl,
+      recentRate,
+      recentReviews: row.recentReviews,
+      olderRate,
+      olderReviews: row.olderReviews,
+      delta,
+    });
+  }
+
+  const improved = ranked.filter((entry) => entry.delta > 0).sort((a, b) => b.delta - a.delta);
+  const declined = ranked.filter((entry) => entry.delta < 0).sort((a, b) => a.delta - b.delta);
+
+  return { improved: improved.slice(0, options.limit), declined: declined.slice(0, options.limit) };
+}
+
+function windowCountExprs(cutoffSeconds: number) {
+  return {
+    recentReviews: sql<number>`coalesce(sum(case when ${reviewLog.reviewedAt} >= ${cutoffSeconds} then 1 else 0 end), 0)`,
+    recentPasses: sql<number>`coalesce(sum(case when ${reviewLog.reviewedAt} >= ${cutoffSeconds} and ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`,
+    olderReviews: sql<number>`coalesce(sum(case when ${reviewLog.reviewedAt} < ${cutoffSeconds} then 1 else 0 end), 0)`,
+    olderPasses: sql<number>`coalesce(sum(case when ${reviewLog.reviewedAt} < ${cutoffSeconds} and ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`,
+  };
+}
+
+export function getDeckTrends(): DeckTrends {
+  const cutoffSeconds = Math.floor(daysAgo(TREND_RECENT_DAYS - 1).getTime() / 1000);
+  const windows = windowCountExprs(cutoffSeconds);
+
+  const artistRows = db
+    .select({ id: artist.id, label: artist.name, ...windows })
+    .from(reviewLog)
+    .innerJoin(card, eq(reviewLog.cardId, card.id))
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .groupBy(artist.id)
+    .all();
+
+  const animeRows = db
+    .select({ id: anime.id, label: anime.titleEnglish, coverImageUrl: anime.coverImageUrl, ...windows })
+    .from(reviewLog)
+    .innerJoin(card, eq(reviewLog.cardId, card.id))
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .groupBy(anime.id)
+    .all();
+
+  const toInput = (
+    row: { id: number; label: string; coverImageUrl?: string | null } & Record<string, unknown>,
+    type: "artist" | "anime",
+  ): DeckTrendInput => ({
+    type,
+    id: row.id,
+    label: row.label,
+    coverImageUrl: row.coverImageUrl ?? null,
+    recentReviews: Number(row.recentReviews),
+    recentPasses: Number(row.recentPasses),
+    olderReviews: Number(row.olderReviews),
+    olderPasses: Number(row.olderPasses),
+  });
+
+  return shapeDeckTrends(
+    [...artistRows.map((row) => toInput(row, "artist")), ...animeRows.map((row) => toInput(row, "anime"))],
+    { minReviews: TREND_MIN_REVIEWS, limit: TREND_LIMIT },
+  );
 }
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

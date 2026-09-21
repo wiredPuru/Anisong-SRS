@@ -49,6 +49,47 @@ interface ReviewForecast {
   next30: number;
 }
 
+type ThemeKind = "OP" | "ED" | "other";
+
+interface RetentionEntry {
+  totalReviews: number;
+  passCount: number;
+  failCount: number;
+  passRate: number | null;
+}
+
+// Mirrors RetentionStats in server/utils/stats.ts, same field order (F-09).
+interface RetentionStats {
+  byBox: (RetentionEntry & { box: number })[];
+  byThemeKind: (RetentionEntry & { kind: ThemeKind })[];
+}
+
+// Mirrors WeekOverWeek in server/utils/stats.ts, same field order (F-09).
+interface WeekOverWeek {
+  current: { totalReviews: number; passRate: number | null };
+  previous: { totalReviews: number; passRate: number | null };
+  delta: number | null;
+}
+
+// Mirrors DeckTrendEntry in server/utils/stats.ts, same field order (F-09).
+interface DeckTrendEntry {
+  type: "artist" | "anime";
+  id: number;
+  label: string;
+  coverImageUrl: string | null;
+  recentRate: number;
+  recentReviews: number;
+  olderRate: number;
+  olderReviews: number;
+  delta: number;
+}
+
+interface TrendStats {
+  weekOverWeek: WeekOverWeek;
+  improved: DeckTrendEntry[];
+  declined: DeckTrendEntry[];
+}
+
 type StatsType = "artist" | "anime";
 
 interface TimelineEntry {
@@ -56,6 +97,13 @@ interface TimelineEntry {
   totalReviews: number;
   passCount: number;
   passRate: number | null;
+}
+
+// Mirrors RollingPassRate in server/utils/stats.ts (F-09). One entry per
+// timeline entry, in the same order.
+interface RollingPassRate {
+  date: string;
+  passRate: number;
 }
 
 interface StatsRow {
@@ -171,6 +219,62 @@ function forecastBarWidth(count: number): string {
   return `${(count / maxForecastCount.value) * 100}%`;
 }
 
+const {
+  data: retention,
+  pending: retentionPending,
+  error: retentionError,
+  refresh: refreshRetention,
+} = await useFetch<RetentionStats>("/api/stats", {
+  query: { type: "retention" },
+});
+
+const retentionTotal = computed(() =>
+  (retention.value?.byBox ?? []).reduce((sum, entry) => sum + entry.totalReviews, 0),
+);
+
+const THEME_KIND_LABELS: Record<ThemeKind, string> = {
+  OP: "Openings",
+  ED: "Endings",
+  other: "Other slots",
+};
+
+// "other" only exists for slots neither prefix matched, so it stays hidden
+// until something actually lands in it.
+const retentionKinds = computed(() =>
+  (retention.value?.byThemeKind ?? []).filter((entry) => entry.kind !== "other" || entry.totalReviews > 0),
+);
+
+const {
+  data: trends,
+  pending: trendsPending,
+  error: trendsError,
+  refresh: refreshTrends,
+} = await useFetch<TrendStats>("/api/stats", {
+  query: { type: "trends" },
+});
+
+const weekOverWeek = computed(() => trends.value?.weekOverWeek ?? null);
+const improvedDecks = computed(() => trends.value?.improved ?? []);
+const declinedDecks = computed(() => trends.value?.declined ?? []);
+const hasMovers = computed(() => improvedDecks.value.length > 0 || declinedDecks.value.length > 0);
+
+// Percentage points, not a percentage of a percentage: a move from 50% to 60%
+// is "+10 pts", never "+20%".
+function formatDelta(delta: number): string {
+  const points = Math.round(delta * 100);
+  return `${points > 0 ? "+" : points < 0 ? "-" : ""}${Math.abs(points)} pts`;
+}
+
+function deltaTier(delta: number): "pass" | "fail" | "empty" {
+  if (delta > 0) return "pass";
+  if (delta < 0) return "fail";
+  return "empty";
+}
+
+function formatReviewCount(total: number): string {
+  return `${total} review${total === 1 ? "" : "s"}`;
+}
+
 const range = ref<TimelineRange>("30");
 
 function setRange(next: TimelineRange) {
@@ -187,7 +291,7 @@ const {
   pending: timelinePending,
   error: timelineError,
   refresh: refreshTimeline,
-} = await useFetch<{ entries: TimelineEntry[] }>("/api/stats", {
+} = await useFetch<{ entries: TimelineEntry[]; rolling: RollingPassRate[] }>("/api/stats", {
   query: computed(() => ({ type: "timeline", range: range.value })),
 });
 
@@ -206,6 +310,17 @@ function timelinePoint(entry: TimelineEntry, index: number): string {
 
 const timelinePolylinePoints = computed(() => timelineEntries.value.map(timelinePoint).join(" "));
 
+const rollingEntries = computed(() => timeline.value?.rolling ?? []);
+
+const rollingPolylinePoints = computed(() =>
+  rollingEntries.value
+    .map((entry, index) => {
+      const x = rollingEntries.value.length > 1 ? (index / (rollingEntries.value.length - 1)) * 100 : 50;
+      return `${x},${100 - entry.passRate * 100}`;
+    })
+    .join(" "),
+);
+
 function formatDateShort(date: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
@@ -221,6 +336,8 @@ async function refreshStats() {
       refreshTimeline(),
       refreshCollection(),
       refreshForecast(),
+      refreshRetention(),
+      refreshTrends(),
     ]);
   } finally {
     refreshing.value = false;
@@ -447,10 +564,59 @@ function setType(type: StatsType) {
 
     <div class="chart-panel">
       <div class="chart-header">
+        <span class="chart-title">Retention</span>
+        <span class="chart-note">All time, by the box a card was in when you reviewed it</span>
+      </div>
+      <div v-if="retentionPending" class="state">
+        <ActivityStatus label="Loading retention" />
+      </div>
+      <div v-else-if="retentionError" class="state state-error">Couldn't load retention. Try refreshing.</div>
+      <p v-else-if="!retention || !retentionTotal" class="state">
+        No reviews yet. <NuxtLink to="/study">Study a card</NuxtLink> to start.
+      </p>
+      <template v-else>
+        <div class="breakdown-list">
+          <div v-for="entry in retention.byBox" :key="entry.box" class="breakdown-row">
+            <div class="breakdown-row-top">
+              <span class="breakdown-label">Box {{ entry.box }}</span>
+              <span class="breakdown-rate" :class="`tier-${passRateTier(entry.passRate)}`">
+                {{ formatPassRate(entry.passRate) }}
+                <span v-if="entry.totalReviews" class="breakdown-count">
+                  · {{ entry.totalReviews }} review{{ entry.totalReviews === 1 ? "" : "s" }}
+                </span>
+              </span>
+            </div>
+            <div class="breakdown-bar-track">
+              <span
+                v-if="entry.passRate !== null"
+                class="breakdown-bar-fill"
+                :class="`tier-${passRateTier(entry.passRate)}`"
+                :style="{ width: `${Math.round(entry.passRate * 100)}%` }"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="kind-strip">
+          <div v-for="entry in retentionKinds" :key="entry.kind" class="kind-figure">
+            <span class="health-figure-value" :class="`tier-${passRateTier(entry.passRate)}`">
+              {{ formatPassRate(entry.passRate) }}
+            </span>
+            <span class="health-figure-label">
+              {{ THEME_KIND_LABELS[entry.kind] }}
+              <template v-if="entry.totalReviews">· {{ entry.totalReviews }}</template>
+            </span>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
         <span class="chart-title">Reviews and pass rate</span>
         <div class="chart-legend">
           <span class="legend-item"><span class="legend-swatch legend-swatch-reviews" /> reviews</span>
           <span class="legend-item"><span class="legend-swatch legend-swatch-rate" /> pass rate</span>
+          <span class="legend-item"><span class="legend-swatch legend-swatch-rolling" /> 7-day average</span>
         </div>
       </div>
       <div v-if="timelinePending" class="state">
@@ -469,11 +635,98 @@ function setType(type: StatsType) {
           />
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="chart-line">
             <polyline :points="timelinePolylinePoints" fill="none" vector-effect="non-scaling-stroke" />
+            <polyline
+              :points="rollingPolylinePoints"
+              fill="none"
+              vector-effect="non-scaling-stroke"
+              class="chart-line-rolling"
+            />
           </svg>
         </div>
         <div class="chart-axis">
           <span>{{ formatDateShort(timelineEntries[0].date) }}</span>
           <span>{{ formatDateShort(timelineEntries[timelineEntries.length - 1].date) }}</span>
+        </div>
+      </template>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Trends</span>
+        <span class="chart-note">Last 7 days against the 7 before</span>
+      </div>
+      <div v-if="trendsPending" class="state">
+        <ActivityStatus label="Loading trends" />
+      </div>
+      <div v-else-if="trendsError" class="state state-error">Couldn't load trends. Try refreshing.</div>
+      <p v-else-if="!weekOverWeek || !weekOverWeek.current.totalReviews" class="state">
+        No reviews in the last 7 days yet.
+      </p>
+      <template v-else>
+        <div class="week-figures">
+          <div class="health-figure">
+            <span class="health-figure-value" :class="`tier-${deltaTier(weekOverWeek.delta ?? 0)}`">
+              {{ weekOverWeek.delta === null ? "-" : formatDelta(weekOverWeek.delta) }}
+            </span>
+            <span class="health-figure-label">Week over week</span>
+          </div>
+          <div class="health-figure">
+            <span class="health-figure-value">{{ formatPassRate(weekOverWeek.current.passRate) }}</span>
+            <span class="health-figure-label">
+              This week · {{ formatReviewCount(weekOverWeek.current.totalReviews) }}
+            </span>
+          </div>
+          <div class="health-figure">
+            <span class="health-figure-value" :class="{ 'tier-empty': weekOverWeek.previous.passRate === null }">
+              {{ weekOverWeek.previous.passRate === null ? "-" : formatPassRate(weekOverWeek.previous.passRate) }}
+            </span>
+            <span class="health-figure-label">
+              Previous week · {{ formatReviewCount(weekOverWeek.previous.totalReviews) }}
+            </span>
+          </div>
+        </div>
+        <p v-if="weekOverWeek.delta === null" class="trend-note">
+          Nothing was reviewed in the previous 7 days, so there is no rate to compare against yet.
+        </p>
+        <div class="mover-block">
+          <p v-if="!hasMovers" class="trend-note">
+            No deck has enough reviews both inside and before the last 30 days yet, so there is nothing to
+            compare. This fills in once a deck has been studied across both windows.
+          </p>
+          <div v-else class="mover-columns">
+            <div class="mover-column">
+              <span class="mover-heading">Most improved</span>
+              <p v-if="!improvedDecks.length" class="trend-note">No deck has improved yet.</p>
+              <div v-for="entry in improvedDecks" :key="`up-${entry.type}-${entry.id}`" class="mover-row">
+                <img v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
+                <span v-else class="mover-cover mover-cover-empty" />
+                <span class="mover-info">
+                  <span class="mover-label">{{ entry.label }}</span>
+                  <span class="mover-detail">
+                    {{ formatPassRate(entry.olderRate) }} to {{ formatPassRate(entry.recentRate) }} ·
+                    {{ formatReviewCount(entry.recentReviews) }} recently
+                  </span>
+                </span>
+                <span class="mover-delta tier-pass">{{ formatDelta(entry.delta) }}</span>
+              </div>
+            </div>
+            <div class="mover-column">
+              <span class="mover-heading">Most declined</span>
+              <p v-if="!declinedDecks.length" class="trend-note">No deck has declined yet.</p>
+              <div v-for="entry in declinedDecks" :key="`down-${entry.type}-${entry.id}`" class="mover-row">
+                <img v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
+                <span v-else class="mover-cover mover-cover-empty" />
+                <span class="mover-info">
+                  <span class="mover-label">{{ entry.label }}</span>
+                  <span class="mover-detail">
+                    {{ formatPassRate(entry.olderRate) }} to {{ formatPassRate(entry.recentRate) }} ·
+                    {{ formatReviewCount(entry.recentReviews) }} recently
+                  </span>
+                </span>
+                <span class="mover-delta tier-fail">{{ formatDelta(entry.delta) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -908,6 +1161,11 @@ function setType(type: StatsType) {
 
 .legend-swatch-rate {
   background: var(--accent-secondary);
+  opacity: 0.5;
+}
+
+.legend-swatch-rolling {
+  background: var(--text);
 }
 
 .chart-plot {
@@ -936,6 +1194,15 @@ function setType(type: StatsType) {
 .chart-line polyline {
   stroke: var(--accent-secondary);
   stroke-width: 1.4;
+  /* Faded so the steadier rolling line reads on top of it rather than the two
+     competing for attention. */
+  opacity: 0.5;
+}
+
+.chart-line polyline.chart-line-rolling {
+  stroke: var(--text);
+  stroke-width: 1.8;
+  opacity: 1;
 }
 
 .chart-axis {
@@ -1087,6 +1354,134 @@ function setType(type: StatsType) {
 
 .breakdown-bar-fill.tier-fail {
   background: var(--fail);
+}
+
+.mover-block {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.mover-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.mover-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mover-heading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mover-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mover-cover {
+  flex: none;
+  width: 34px;
+  height: 48px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  object-fit: cover;
+}
+
+.mover-cover-empty {
+  display: block;
+}
+
+.mover-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mover-label {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mover-detail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mover-delta {
+  flex: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mover-delta.tier-pass {
+  color: var(--pass);
+}
+
+.mover-delta.tier-fail {
+  color: var(--fail);
+}
+
+.week-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.trend-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.chart-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kind-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.kind-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.health-figure-value.tier-pass {
+  color: var(--pass);
+}
+
+.health-figure-value.tier-warning {
+  color: var(--warning);
+}
+
+.health-figure-value.tier-fail {
+  color: var(--fail);
+}
+
+.health-figure-value.tier-empty {
+  color: var(--muted);
 }
 
 /* 50h: same breakpoint as .study-grid. Placed last so it wins the
