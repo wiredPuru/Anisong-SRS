@@ -10,9 +10,9 @@ const props = withDefaults(
     categories: TypedAnswerCategories;
     required?: RequiredCategories;
   }>(),
-  { required: () => ({ anime: true, songName: false }) },
+  { required: () => ({ anime: true, songName: false, themeSlot: false, artist: false }) },
 );
-const titleGraded = computed(() => props.required.anime && !props.required.songName);
+const titleGraded = computed(() => props.required.anime && !props.required.songName && !props.required.themeSlot && !props.required.artist);
 const emit = defineEmits<{
   "update:categories": [TypedAnswerCategories];
   close: [];
@@ -36,7 +36,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
         <h2 class="title">Answer categories</h2>
         <p v-if="titleGraded" class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
-        <p v-else class="hint">This deck decides what each round is graded on. Opening/Ending number is still an optional bonus.</p>
+        <p v-else class="hint">This deck decides what each round is graded on.<template v-if="!required.themeSlot"> Opening/Ending number is still an optional bonus.</template></p>
         <div class="category-row locked">
           <span class="category-label">Anime name</span>
           <span class="locked-badge">{{ !required.anime ? "Not asked by this deck" : titleGraded ? "Always on" : "Required by this deck" }}</span>
@@ -57,7 +57,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             {{ categories.songName ? "On" : "Off" }}
           </button>
         </div>
-        <div class="category-row">
+        <div v-if="required.artist" class="category-row locked">
+          <span class="category-label">Artist</span>
+          <span class="locked-badge">Required by this deck</span>
+        </div>
+        <div v-if="required.themeSlot" class="category-row locked">
+          <span class="category-label">Opening/Ending number</span>
+          <span class="locked-badge">Required by this deck</span>
+        </div>
+        <div v-else class="category-row">
           <span class="category-label">Opening/Ending number</span>
           <button
             type="button"

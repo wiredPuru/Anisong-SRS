@@ -195,8 +195,11 @@ const activeType = computed<StatsType>(() => (route.query.type === "anime" ? "an
 // Feature 71: which scheduling track every section reads. Only offered once a
 // song or title+song track has anything in it; an unknown or unavailable ?track=
 // falls back to the anime-title view rather than an empty page.
-const TRACK_LABELS: Record<GradingCriterion, string> = { title: "Anime title", song: "Song name", "title+song": "Both" };
-const TRACK_NOTES: Record<Exclude<GradingCriterion, "title">, string> = {
+// Combinations beyond these three are labelled properly by 72c; until then
+// they fall back to Study's name for them rather than a blank button.
+const TRACK_LABELS: Partial<Record<GradingCriterion, string>> = { title: "Anime title", song: "Song name", "title+song": "Both" };
+const trackLabel = (track: GradingCriterion) => TRACK_LABELS[track] ?? describeCriterion(track).chip;
+const TRACK_NOTES: Partial<Record<Exclude<GradingCriterion, "title">, string>> = {
   song: "Showing the song-name schedule.",
   "title+song": "Showing the anime + song schedule.",
 };
@@ -663,7 +666,7 @@ function setType(type: StatsType) {
             :aria-pressed="activeTrack === track"
             @click="setTrack(track)"
           >
-            {{ TRACK_LABELS[track] }}
+            {{ trackLabel(track) }}
           </button>
         </div>
         <div class="tab-seg" role="tablist">

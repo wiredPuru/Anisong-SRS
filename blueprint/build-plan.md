@@ -695,7 +695,7 @@ cleaned-up checkbox version before generating the project overview.
     changes meaning. Validation (deck PATCH, review POST, stats `track`)
     accepts any valid combination and rejects `slot` without `title`. No
     new UI, so the app behaves as it does today.
-  - [ ] 72b. **Deck control + Study grading for OP/ED and artist** - `/decks`
+  - [x] 72b. **Deck control + Study grading for OP/ED and artist** - `/decks`
     swaps the three-way criterion toggle for four category checkboxes. In
     Study with Typed Answers on, a required OP/ED number forces the existing
     OP/ED picker on and counts toward Pass/Fail. A required artist shows a new

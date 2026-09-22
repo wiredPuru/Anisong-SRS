@@ -214,7 +214,7 @@ Decks and Study session bullets, three §4 Data bullets), since a deck-level
 configuration and a second scheduling dimension are a product direction rather
 than a deepening of a documented one. Feature 72 (combined grading
 criteria, in three sub-features 72a-72c) was added to `build-plan.md` on
-2026-09-22; 72a is built and merged, 72b-72c are not yet built. It widens feature 71's three criteria into any
+2026-09-22; 72a and 72b are built and merged, 72c is not yet built. It widens feature 71's three criteria into any
 combination of the anime title, song name, Opening/Ending number, and artist,
 each combination its own Leitner track, still manual-deck-only. It amended
 `project-plan.md` §3's Decks bullet, which listed the allowed criteria; the §4
@@ -1507,7 +1507,7 @@ Data bullets name only "grading criterion" and still hold.
       its own criterion's pass rate. Home and artist/anime tiles stay
       title-only, and there is no combined "all tracks" view.
 72. **Combined grading criteria** - added to `build-plan.md` 2026-09-22, in
-    three sub-features; 72a is built and merged, 72b-72c are not. Extends feature 71 so a manual deck
+    three sub-features; 72a and 72b are built and merged, 72c is not. Extends feature 71 so a manual deck
     can grade on any combination of four categories - the anime title
     (`title`), the song name (`song`), the Opening/Ending number (`slot`),
     and the artist (`artist`) - instead of only title, song, or both. Asked
@@ -1533,12 +1533,19 @@ Data bullets name only "grading criterion" and still hold.
       2026-09-22. The canonical encoding (migration `0019`), the `both` rename migration, and validation in deck
       PATCH, review POST and the stats `track` param, rejecting `slot`
       without `title`. No UI change, so the app behaves as it does today.
-    - **72b. Deck control + Study grading for OP/ED and artist** - not built.
-      `/decks` swaps the three-way toggle for four category checkboxes. With
+    - **72b. Deck control + Study grading for OP/ED and artist** - done
+      2026-09-22. `/decks` swaps the three-way toggle for four category
+      checkboxes, saved per click; the last box, OP/ED without Anime title,
+      and Anime title while OP/ED is ticked are locked with a reason. With
       Typed Answers on, a required OP/ED number forces the existing picker on
-      and counts toward Pass/Fail, and a required artist shows a new
-      free-text artist box matched like song names (NFKC, case- and
-      whitespace-insensitive, no fuzzy matching).
+      (showing no pick until touched, since untouched grades as blank) and
+      counts toward Pass/Fail, and a required artist shows a new free-text
+      `StudyArtistAnswer` box matched like song names (NFKC, case- and
+      whitespace-insensitive, no fuzzy matching); both are required 0-point
+      result rows. A deck asking no anime makes the song, else the artist,
+      the round's main answer. `describeCriterion`
+      (`app/utils/criterionGrading.ts`) names any combination for Study's
+      prompt and track label, and is `/stats`' label fallback until 72c.
     - **72c. Stats for combined tracks** - not built. `/stats`' Track selector
       and the deck tiles list and label whichever combinations have data
       instead of the fixed Anime title / Song name / Both.

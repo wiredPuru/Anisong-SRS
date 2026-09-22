@@ -58,6 +58,13 @@ describe("buildBurstPlan", () => {
     expect(plan.map((b) => b.label)).toEqual(["+100", "+50 opening/ending"]);
   });
 
+  it("never bursts for a correct required artist", () => {
+    const plan = buildBurstPlan(grade({
+      bonusResults: [bonus({ category: "artist", required: true, pointsAwarded: 0, selectedLabel: "Yui Hori", correctLabel: "Yui Hori" })],
+    }));
+    expect(plan.map((b) => b.label)).toEqual(["+100"]);
+  });
+
   it("skips a bonus that scored nothing", () => {
     const plan = buildBurstPlan(grade({
       bonusResults: [bonus({ correct: false, pointsAwarded: 0 }), bonus({ category: "themeSlot" })],

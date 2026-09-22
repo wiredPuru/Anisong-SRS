@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { GradingCriterion } from "~/utils/criterionGrading";
 import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
 import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
@@ -109,19 +108,18 @@ const {
   refresh: refreshStudySession,
 } = useStudySession(scope, effectiveAudioOnly, clipSource);
 
-// Only a manual deck can grade on anything but the anime title (feature 71);
-// every string here is absent for the title criterion so those scopes render
-// exactly as before.
-const CRITERION_COPY: Record<Exclude<GradingCriterion, "title">, { chip: string; prompt: string; track: string }> = {
-  song: { chip: "Song name", prompt: "Grade yourself on the song name", track: "Song" },
-  "title+song": { chip: "Anime + song", prompt: "Grade yourself on the anime and the song name", track: "Anime + song" },
-};
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
 const showSongAnswer = computed(() => typedAnswerCategories.value.songName || requiredAnswers.value.songName);
-// A song-graded deck asks no anime question, so the song is the round's main
-// answer rather than a row under it.
-const songIsMainAnswer = computed(() => !requiredAnswers.value.anime);
-const criterionCopy = computed(() => (criterion.value === "title" ? null : CRITERION_COPY[criterion.value]));
+const showThemeSlotAnswer = computed(() => typedAnswerCategories.value.themeSlot || requiredAnswers.value.themeSlot);
+// A deck that asks no anime question makes the song, or failing that the
+// artist, the round's main answer rather than a row under it.
+const mainAnswer = computed<"anime" | "song" | "artist">(() =>
+  requiredAnswers.value.anime ? "anime" : requiredAnswers.value.songName ? "song" : "artist",
+);
+// Artist is never an optional bonus; it only shows when the deck grades it.
+const showArtistAnswer = computed(() => requiredAnswers.value.artist && mainAnswer.value !== "artist");
+// Absent for the title criterion so those scopes render exactly as before.
+const criterionCopy = computed(() => (criterion.value === "title" ? null : describeCriterion(criterion.value)));
 
 // Snapshotted only when a new presentation begins (StudyMediaPlayer fully
 // remounts on presentationKey), so toggling "Audio only" mid-card never
@@ -176,6 +174,7 @@ const themeSlotSelection = ref<ThemeSlotSelection | null>(null);
 // Whatever the Song name box holds at submit time, trimmed - null means the
 // category was skipped for this question, same rule as the picker above.
 const songAnswerText = ref<string | null>(null);
+const artistAnswerText = ref<string | null>(null);
 
 watch(scope, () => {
   sessionHistory.value = [];
@@ -241,6 +240,7 @@ watch([presentationKey, scope], () => {
   cardEditing.value = false;
   themeSlotSelection.value = null;
   songAnswerText.value = null;
+  artistAnswerText.value = null;
 });
 
 async function submitReview(result: "pass" | "fail") {
@@ -306,17 +306,34 @@ function songAnswerCorrect(reviewedCard: CardWithDetails): boolean | null {
   return songPick ? evaluateSongAnswer(reviewedCard, songPick) : null;
 }
 
+// Null while the picker is untouched: an OP/ED number the deck requires then
+// reads as unanswered, never as a guess of "OP1".
+function themeSlotAnswerCorrect(reviewedCard: CardWithDetails): boolean | null {
+  const pick = themeSlotSelection.value;
+  return pick ? evaluateThemeSlotAnswer(reviewedCard.themeSlot, pick) : null;
+}
+
+function artistAnswerCorrect(reviewedCard: CardWithDetails): boolean | null {
+  const pick = artistAnswerText.value?.trim();
+  return pick ? evaluateArtistAnswer(reviewedCard, pick) : null;
+}
+
+function expectedThemeSlotLabel(reviewedCard: CardWithDetails): string {
+  const normalized = normalizeThemeSlot(reviewedCard.themeSlot);
+  return normalized ? formatThemeSlot(normalized) : reviewedCard.themeSlot;
+}
+
 // Grades whatever each enabled bonus category currently holds and folds any
 // bonus points into quizScore. A category left blank at submit time is
-// skipped entirely - omitted from the result, not graded as wrong. A song
-// name the deck requires is part of the round's grade instead: it always
-// shows, blank or not, and never adds bonus points.
+// skipped entirely - omitted from the result, not graded as wrong. A category
+// the deck requires is part of the round's grade instead: it always shows,
+// blank or not, and never adds bonus points.
 function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResult[] {
   const results: BonusCategoryResult[] = [];
   const songPick = songAnswerText.value?.trim();
   // A song-graded round shows the song as its main answer (saveTypedAnswer),
   // so it gets no row here at all.
-  if (requiredAnswers.value.songName && !songIsMainAnswer.value) {
+  if (requiredAnswers.value.songName && mainAnswer.value !== "song") {
     results.push({
       category: "songName",
       correct: songAnswerCorrect(reviewedCard) === true,
@@ -325,7 +342,7 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
       correctLabel: reviewedCard.songTitle,
       required: true,
     });
-  } else if (songPick && !songIsMainAnswer.value) {
+  } else if (songPick && mainAnswer.value !== "song") {
     const correct = evaluateSongAnswer(reviewedCard, songPick);
     const transition = applyBonusCategory(quizScore.value, correct);
     quizScore.value = transition.score;
@@ -338,17 +355,35 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
     });
   }
   const themeSlotPick = themeSlotSelection.value;
-  if (themeSlotPick) {
+  if (requiredAnswers.value.themeSlot) {
+    results.push({
+      category: "themeSlot",
+      correct: themeSlotAnswerCorrect(reviewedCard) === true,
+      pointsAwarded: 0,
+      selectedLabel: themeSlotPick ? formatThemeSlot(themeSlotPick) : "(blank)",
+      correctLabel: expectedThemeSlotLabel(reviewedCard),
+      required: true,
+    });
+  } else if (themeSlotPick) {
     const correct = evaluateThemeSlotAnswer(reviewedCard.themeSlot, themeSlotPick);
     const transition = applyBonusCategory(quizScore.value, correct);
     quizScore.value = transition.score;
-    const normalizedExpected = normalizeThemeSlot(reviewedCard.themeSlot);
     results.push({
       category: "themeSlot",
       correct,
       pointsAwarded: transition.pointsAwarded,
       selectedLabel: formatThemeSlot(themeSlotPick),
-      correctLabel: normalizedExpected ? formatThemeSlot(normalizedExpected) : reviewedCard.themeSlot,
+      correctLabel: expectedThemeSlotLabel(reviewedCard),
+    });
+  }
+  if (showArtistAnswer.value) {
+    results.push({
+      category: "artist",
+      correct: artistAnswerCorrect(reviewedCard) === true,
+      pointsAwarded: 0,
+      selectedLabel: artistAnswerText.value?.trim() || "(blank)",
+      correctLabel: reviewedCard.artistName,
+      required: true,
     });
   }
   return results;
@@ -360,10 +395,14 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
   const result = gradeTypedRound(criterion.value, {
     anime: selectedTitle === null ? null : animeResult,
     song: songAnswerCorrect(reviewedCard),
+    themeSlot: themeSlotAnswerCorrect(reviewedCard),
+    artist: artistAnswerCorrect(reviewedCard),
   });
-  const shown = songIsMainAnswer.value
-    ? { selected: songAnswerText.value?.trim() || null, correct: reviewedCard.songTitle }
-    : { selected: selectedTitle, correct: correctAnimeTitle(reviewedCard) };
+  const shown = {
+    anime: { selected: selectedTitle, correct: correctAnimeTitle(reviewedCard) },
+    song: { selected: songAnswerText.value?.trim() || null, correct: reviewedCard.songTitle },
+    artist: { selected: artistAnswerText.value?.trim() || null, correct: reviewedCard.artistName },
+  }[mainAnswer.value];
   const presentation = presentationKey.value;
   const scopeKey = JSON.stringify(scope.value);
   const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
@@ -405,15 +444,18 @@ function submitTypedAnswer(selection: AnimeAnswerOption) {
   if (result !== "unavailable") void saveTypedAnswer(result, selection.titleEnglish || selection.titleRomaji || selection.titleNative);
 }
 
-function submitSongAnswer() {
+// The song or artist box as the main answer: no anime is asked, so the anime
+// result passed here is never read by gradeTypedRound.
+function submitMainAnswer() {
   if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
   void saveTypedAnswer("fail", null);
 }
 
 // Giving up must not be graded on whatever is still in the box.
-function giveUpSongAnswer() {
-  songAnswerText.value = null;
-  submitSongAnswer();
+function giveUpMainAnswer() {
+  if (mainAnswer.value === "artist") artistAnswerText.value = null;
+  else songAnswerText.value = null;
+  submitMainAnswer();
 }
 
 async function continueTypedAnswer() {
@@ -1080,7 +1122,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template #overlay>
               <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
                 <StudyTypedAnswer
-                  v-if="!songIsMainAnswer"
+                  v-if="mainAnswer === 'anime'"
                   :key="JSON.stringify(scope)"
                   overlay
                   :presentation-key="presentationKey"
@@ -1092,26 +1134,43 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   @typing-started="mediaPlayerRef?.playIfPaused()"
                 />
                 <StudySongAnswer
-                  v-if="songIsMainAnswer"
+                  v-if="mainAnswer === 'song'"
                   :key="`song-main-${presentationKey}`"
                   primary
                   :disabled="answerControlsDisabled"
                   @update:answer="songAnswerText = $event"
-                  @answer="submitSongAnswer"
-                  @give-up="giveUpSongAnswer"
+                  @answer="submitMainAnswer"
+                  @give-up="giveUpMainAnswer"
                   @typing-started="mediaPlayerRef?.playIfPaused()"
                 />
-                <div v-if="(showSongAnswer && !songIsMainAnswer) || typedAnswerCategories.themeSlot" class="bonus-answers">
+                <StudyArtistAnswer
+                  v-if="mainAnswer === 'artist'"
+                  :key="`artist-main-${presentationKey}`"
+                  primary
+                  :disabled="answerControlsDisabled"
+                  @update:answer="artistAnswerText = $event"
+                  @answer="submitMainAnswer"
+                  @give-up="giveUpMainAnswer"
+                  @typing-started="mediaPlayerRef?.playIfPaused()"
+                />
+                <div v-if="(showSongAnswer && mainAnswer !== 'song') || showThemeSlotAnswer || showArtistAnswer" class="bonus-answers">
                   <StudySongAnswer
-                    v-if="showSongAnswer && !songIsMainAnswer"
+                    v-if="showSongAnswer && mainAnswer !== 'song'"
                     :key="`song-${presentationKey}`"
                     :required="requiredAnswers.songName"
                     :disabled="answerControlsDisabled"
                     @update:answer="songAnswerText = $event"
                   />
+                  <StudyArtistAnswer
+                    v-if="showArtistAnswer"
+                    :key="`artist-${presentationKey}`"
+                    :disabled="answerControlsDisabled"
+                    @update:answer="artistAnswerText = $event"
+                  />
                   <StudyThemeSlotAnswer
-                    v-if="typedAnswerCategories.themeSlot"
+                    v-if="showThemeSlotAnswer"
                     :key="`slot-${presentationKey}`"
+                    :required="requiredAnswers.themeSlot"
                     :disabled="answerControlsDisabled"
                     @update:selection="themeSlotSelection = $event"
                   />
@@ -1694,13 +1753,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   transform: translateX(-50%);
 }
 
+/* Wraps only once it runs out of width, which a deck grading every category
+   does: song, artist and OP/ED together are wider than the frame. */
 .bonus-answers {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 8px;
 }
 
-.bonus-answers > :first-child {
+.bonus-answers > :first-child,
+.bonus-answers > .artist-answer {
   flex: 1 1 auto;
   min-width: 0;
 }

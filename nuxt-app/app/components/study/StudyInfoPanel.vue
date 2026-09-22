@@ -539,10 +539,13 @@ watch(
   font-size: 17px;
 }
 
+/* Shrinks only when a long track label (a deck grading several categories)
+   would otherwise push past the panel's edge; the label then wraps. */
 .learning {
   position: relative;
   margin-left: auto;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .learning-trigger {
@@ -555,6 +558,10 @@ watch(
   background: none;
   font-family: inherit;
   cursor: pointer;
+}
+
+.learning-trigger .label {
+  text-align: right;
 }
 
 .learning-trigger .name {

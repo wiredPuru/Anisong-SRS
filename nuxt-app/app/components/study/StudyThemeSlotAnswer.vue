@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { ThemeSlotSelection, ThemeSlotType } from "~/utils/themeSlotAnswer";
 
-defineProps<{
+const props = defineProps<{
   disabled: boolean;
+  required?: boolean;
 }>();
 const emit = defineEmits<{ "update:selection": [ThemeSlotSelection | null] }>();
 
@@ -14,6 +15,9 @@ const emit = defineEmits<{ "update:selection": [ThemeSlotSelection | null] }>();
 const type = ref<ThemeSlotType>("OP");
 const number = ref(1);
 const touched = ref(false);
+// A required answer left untouched is graded blank, so it must not look like
+// an "Opening" already picked.
+const showPick = computed(() => touched.value || !props.required);
 
 function emitSelection() {
   touched.value = true;
@@ -34,14 +38,14 @@ function onNumberInput(event: Event) {
 </script>
 
 <template>
-  <div class="theme-slot-answer" :class="{ touched }">
-    <span class="label">OP/ED</span>
+  <div class="theme-slot-answer" :class="{ touched, required }">
+    <span class="label">{{ required ? "OP/ED (required)" : "OP/ED" }}</span>
     <div class="seg" role="group" aria-label="Opening or Ending">
       <button
         type="button"
         class="seg-btn"
-        :class="{ on: type === 'OP' }"
-        :aria-pressed="type === 'OP'"
+        :class="{ on: showPick && type === 'OP' }"
+        :aria-pressed="showPick && type === 'OP'"
         :disabled="disabled"
         @click="chooseType('OP')"
       >
@@ -50,8 +54,8 @@ function onNumberInput(event: Event) {
       <button
         type="button"
         class="seg-btn"
-        :class="{ on: type === 'ED' }"
-        :aria-pressed="type === 'ED'"
+        :class="{ on: showPick && type === 'ED' }"
+        :aria-pressed="showPick && type === 'ED'"
         :disabled="disabled"
         @click="chooseType('ED')"
       >
@@ -151,7 +155,7 @@ function onNumberInput(event: Event) {
 }
 
 @media (max-width: 600px) {
-  .label {
+  .theme-slot-answer:not(.required) .label {
     display: none;
   }
 }

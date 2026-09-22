@@ -34,6 +34,7 @@ export interface BurstRect {
 const BONUS_LABELS: Record<BonusCategoryResult["category"], string> = {
   songName: "song name",
   themeSlot: "opening/ending",
+  artist: "artist",
 };
 
 /** The combo tag and the frame shake start at different streak lengths so the

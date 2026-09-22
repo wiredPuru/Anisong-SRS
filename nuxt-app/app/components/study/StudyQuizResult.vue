@@ -21,6 +21,7 @@ const heading = computed(() => (props.result === "pass" ? "Correct!" : props.sel
 const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
   songName: "Song name",
   themeSlot: "Opening/Ending",
+  artist: "Artist",
 };
 
 onMounted(() => nextTick(() => {

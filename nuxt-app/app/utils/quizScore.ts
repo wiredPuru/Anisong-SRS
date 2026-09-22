@@ -52,7 +52,7 @@ export function quizAccuracy(score: QuizScore): number | null {
 export const BONUS_CATEGORY_POINTS = 50;
 
 export interface BonusCategoryResult {
-  category: "themeSlot" | "songName";
+  category: "themeSlot" | "songName" | "artist";
   correct: boolean;
   pointsAwarded: number;
   selectedLabel: string;

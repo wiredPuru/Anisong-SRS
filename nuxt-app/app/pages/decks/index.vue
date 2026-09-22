@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GradingCriterion } from "~/utils/criterionGrading";
+import type { GradingCategory, GradingCriterion } from "~/utils/criterionGrading";
 
 interface ArtistDeck {
   id: number;
@@ -265,12 +265,41 @@ const deckCriterion = ref<GradingCriterion | null>(null);
 const savingCriterion = ref(false);
 const criterionError = ref<string | null>(null);
 
-const CRITERION_OPTIONS: { value: GradingCriterion; label: string; hint: string }[] = [
-  { value: "title", label: "Anime title", hint: "Passes here move each card's anime-title schedule, shared with every other deck." },
-  { value: "song", label: "Song name", hint: "Passes here move only each card's song-name schedule." },
-  { value: "title+song", label: "Both", hint: "A pass needs the anime and the song, on a schedule of its own." },
+const CRITERION_CATEGORY_OPTIONS: { category: GradingCategory; label: string }[] = [
+  { category: "title", label: "Anime title" },
+  { category: "song", label: "Song name" },
+  { category: "slot", label: "OP/ED number" },
+  { category: "artist", label: "Artist" },
 ];
-const criterionHint = computed(() => CRITERION_OPTIONS.find((o) => o.value === deckCriterion.value)?.hint ?? "");
+const checkedCategories = computed(() => (deckCriterion.value ? criterionCategories(deckCriterion.value) : []));
+const criterionHint = computed(() => {
+  if (!deckCriterion.value) return "";
+  if (deckCriterion.value === "title") return "Passes here move each card's anime-title schedule, shared with every other deck.";
+  return `A pass needs ${describeCriterion(deckCriterion.value).spoken}, on a schedule of its own.`;
+});
+
+// Why a box can't be flipped from where it is now. Anime title is locked
+// rather than taking OP/ED down with it, since that would quietly move the
+// deck onto a different track.
+function categoryLockReason(category: GradingCategory): string | null {
+  const checked = checkedCategories.value;
+  const isChecked = checked.includes(category);
+  if (isChecked && checked.length === 1) return "A deck grades at least one category.";
+  if (category === "slot" && !isChecked && !checked.includes("title")) return "OP/ED number needs Anime title: the number means nothing without the show.";
+  if (category === "title" && isChecked && checked.includes("slot")) return "Untick OP/ED number before Anime title.";
+  return null;
+}
+const criterionLockNotes = computed(() => [
+  ...new Set(CRITERION_CATEGORY_OPTIONS.map((o) => categoryLockReason(o.category)).filter((r): r is string => r !== null)),
+]);
+
+function toggleCriterionCategory(category: GradingCategory) {
+  if (categoryLockReason(category)) return;
+  const current = checkedCategories.value;
+  const next = current.includes(category) ? current.filter((c) => c !== category) : [...current, category];
+  const criterion = buildCriterion(next);
+  if (criterion) void setDeckCriterion(criterion);
+}
 
 async function setDeckCriterion(criterion: GradingCriterion) {
   if (savingCriterion.value || selectedId.value === null || criterion === deckCriterion.value) return;
@@ -912,21 +941,24 @@ function backToDecks() {
 
         <div v-if="activeType === 'created' && deckCriterion" class="criterion-block">
           <span class="criterion-label">Graded on</span>
-          <div class="tab-seg" role="group" aria-label="Graded on">
-            <button
-              v-for="option in CRITERION_OPTIONS"
-              :key="option.value"
-              type="button"
-              class="tab-seg-btn"
-              :class="{ active: deckCriterion === option.value }"
-              :aria-pressed="deckCriterion === option.value"
-              :disabled="savingCriterion"
-              @click="setDeckCriterion(option.value)"
+          <div class="criterion-options" role="group" aria-label="Graded on">
+            <label
+              v-for="option in CRITERION_CATEGORY_OPTIONS"
+              :key="option.category"
+              class="criterion-option"
+              :class="{ locked: categoryLockReason(option.category) }"
             >
+              <input
+                type="checkbox"
+                :checked="checkedCategories.includes(option.category)"
+                :disabled="savingCriterion || categoryLockReason(option.category) !== null"
+                @click.prevent="toggleCriterionCategory(option.category)"
+              />
               {{ option.label }}
-            </button>
+            </label>
           </div>
           <p class="criterion-hint">{{ criterionHint }}</p>
+          <p v-for="note in criterionLockNotes" :key="note" class="criterion-hint criterion-lock-note">{{ note }}</p>
           <p v-if="criterionError" class="export-error criterion-error">{{ criterionError }}</p>
         </div>
 
@@ -1295,9 +1327,30 @@ h2 {
   font-size: 13px;
 }
 
-.criterion-block .tab-seg-btn:disabled {
-  cursor: progress;
-  opacity: 0.6;
+.criterion-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.criterion-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.criterion-option:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.criterion-option.locked {
+  color: var(--muted);
+}
+
+.criterion-block .criterion-lock-note {
+  color: var(--faint);
 }
 
 .criterion-hint {
