@@ -57,6 +57,9 @@ export interface BonusCategoryResult {
   pointsAwarded: number;
   selectedLabel: string;
   correctLabel: string;
+  // Set when the deck grades on this category (feature 71): the row then
+  // explains the Pass/Fail instead of adding points, and always awards 0.
+  required?: boolean;
 }
 
 export function applyBonusCategory(current: QuizScore, correct: boolean): QuizScoreTransition {

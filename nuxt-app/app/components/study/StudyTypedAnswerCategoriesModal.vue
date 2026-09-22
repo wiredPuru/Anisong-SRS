@@ -1,9 +1,18 @@
 <script setup lang="ts">
+import type { RequiredCategories } from "~/utils/criterionGrading";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 
-defineProps<{
-  categories: TypedAnswerCategories;
-}>();
+// A manual deck graded on something other than the anime title (feature 71)
+// decides which categories a round asks, so those rows are locked here rather
+// than toggled. The stored preference underneath is left as it was.
+const props = withDefaults(
+  defineProps<{
+    categories: TypedAnswerCategories;
+    required?: RequiredCategories;
+  }>(),
+  { required: () => ({ anime: true, songName: false }) },
+);
+const titleGraded = computed(() => props.required.anime && !props.required.songName);
 const emit = defineEmits<{
   "update:categories": [TypedAnswerCategories];
   close: [];
@@ -26,12 +35,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="panel">
         <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
         <h2 class="title">Answer categories</h2>
-        <p class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
+        <p v-if="titleGraded" class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
+        <p v-else class="hint">This deck decides what each round is graded on. Opening/Ending number is still an optional bonus.</p>
         <div class="category-row locked">
           <span class="category-label">Anime name</span>
-          <span class="locked-badge">Always on</span>
+          <span class="locked-badge">{{ !required.anime ? "Not asked by this deck" : titleGraded ? "Always on" : "Required by this deck" }}</span>
         </div>
-        <div class="category-row">
+        <div v-if="required.songName" class="category-row locked">
+          <span class="category-label">Song name</span>
+          <span class="locked-badge">Required by this deck</span>
+        </div>
+        <div v-else class="category-row">
           <span class="category-label">Song name</span>
           <button
             type="button"

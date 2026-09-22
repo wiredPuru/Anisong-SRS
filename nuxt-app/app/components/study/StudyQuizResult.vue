@@ -37,7 +37,7 @@ onMounted(() => nextTick(() => {
     <div class="result-copy">
       <p class="eyebrow">Quiz result</p>
       <h2>{{ heading }}</h2>
-      <p v-if="result === 'fail' && selectedTitle" class="selected-answer">
+      <p v-if="result === 'fail' && selectedTitle && selectedTitle !== correctTitle" class="selected-answer">
         <span>Your answer</span>
         {{ selectedTitle }}
       </p>
@@ -54,11 +54,11 @@ onMounted(() => nextTick(() => {
           :style="{ animationDelay: `${140 + index * 180}ms` }"
         >
           <span class="bonus-icon" aria-hidden="true">{{ bonus.correct ? "✓" : "✕" }}</span>
-          <span class="bonus-label">{{ BONUS_CATEGORY_LABELS[bonus.category] }}</span>
+          <span class="bonus-label">{{ BONUS_CATEGORY_LABELS[bonus.category] }}<template v-if="bonus.required"> (required)</template></span>
           <span class="bonus-answer">
             {{ bonus.correct ? bonus.correctLabel : `${bonus.selectedLabel} → ${bonus.correctLabel}` }}
           </span>
-          <strong class="bonus-points" :class="{ empty: bonus.pointsAwarded === 0 }">
+          <strong v-if="!bonus.required" class="bonus-points" :class="{ empty: bonus.pointsAwarded === 0 }">
             {{ bonus.pointsAwarded > 0 ? `+${bonus.pointsAwarded}` : "+0" }}
           </strong>
         </li>

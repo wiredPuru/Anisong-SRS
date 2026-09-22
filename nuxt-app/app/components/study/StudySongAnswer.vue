@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import type { SongAnswerOption } from "~/composables/useSongAnswerSearch";
 
+// `primary` is a song-graded deck (feature 71): with no anime question asked,
+// this box owns the round's Submit / Give up and the first-keystroke playback
+// kick-off the anime box normally has. Outside it this stays a side guess.
 const props = defineProps<{
   disabled: boolean;
+  required?: boolean;
+  primary?: boolean;
 }>();
-const emit = defineEmits<{ "update:answer": [string | null] }>();
+const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: [] }>();
 const query = ref("");
+const input = ref<HTMLInputElement | null>(null);
+const playbackRequested = ref(false);
 const open = ref(false);
 const active = ref(-1);
 const composing = ref(false);
@@ -16,6 +23,7 @@ const status = computed(() => {
   if (loading.value) return "Searching songs...";
   if (error.value) return error.value;
   if (open.value && query.value.trim().length >= 2 && !results.value.length) return "No song found. Your typed answer still counts.";
+  if (props.primary) return "Start typing or press Space to play. Press Enter to submit, or give up.";
   return "";
 });
 
@@ -23,10 +31,17 @@ function publish() {
   emit("update:answer", query.value.trim() || null);
 }
 
+function requestPlayback() {
+  if (!props.primary || playbackRequested.value) return;
+  playbackRequested.value = true;
+  emit("typingStarted");
+}
+
 function search() {
   active.value = -1;
   open.value = true;
   publish();
+  if (query.value.trim()) requestPlayback();
   if (!composing.value) update(query.value);
 }
 
@@ -40,6 +55,11 @@ function choose(option: SongAnswerOption) {
 
 function onKeydown(event: KeyboardEvent) {
   if (shouldIgnoreAnswerKey(props.disabled, event.isComposing, composing.value, event.repeat)) return;
+  if (props.primary && event.key === " " && !query.value) {
+    event.preventDefault();
+    requestPlayback();
+    return;
+  }
   if (event.key === "Escape") { open.value = false; return; }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
@@ -50,20 +70,29 @@ function onKeydown(event: KeyboardEvent) {
       : (active.value + (event.key === "ArrowDown" ? 1 : -1) + results.value.length) % results.value.length;
     nextTick(() => document.getElementById(`${listId}-${active.value}`)?.scrollIntoView({ block: "nearest" }));
   } else if (event.key === "Enter") {
-    // Never submits the round - the anime box owns Submit/Give up. Here Enter
-    // only takes the highlighted suggestion, so a player reaching for it mid
-    // song-guess cannot accidentally answer the anime question.
+    // Outside primary mode this never submits the round - the anime box owns
+    // Submit/Give up, and Enter only takes the highlighted suggestion, so a
+    // player reaching for it mid song-guess cannot answer the anime question.
     event.preventDefault();
     const option = results.value[active.value];
     if (open.value && option) choose(option);
+    else if (props.primary && query.value.trim()) emit("answer");
   }
 }
+
+function focusIfPrimary() {
+  if (props.primary && !props.disabled) nextTick(() => input.value?.focus());
+}
+
+watch(() => props.disabled, focusIfPrimary);
+onMounted(focusIfPrimary);
 </script>
 
 <template>
-  <div class="song-answer">
+  <div class="song-answer" :class="{ primary }">
     <label :for="`${listId}-input`">Song name</label>
     <input
+      ref="input"
       :id="`${listId}-input`"
       v-model="query"
       role="combobox"
@@ -73,7 +102,7 @@ function onKeydown(event: KeyboardEvent) {
       :aria-controls="listId"
       :aria-activedescendant="open && active >= 0 ? `${listId}-${active}` : undefined"
       :disabled="disabled"
-      placeholder="Name the song for bonus points"
+      :placeholder="primary ? 'Type the song name' : required ? 'Name the song (required)' : 'Name the song for bonus points'"
       @input="search"
       @keydown.stop="onKeydown"
       @compositionstart="composing = true; reset()"
@@ -99,6 +128,10 @@ function onKeydown(event: KeyboardEvent) {
     <!-- Only rendered when it has something to say: the placeholder already
          covers the idle case, and the overlay has no room for a standing hint. -->
     <p v-if="status" class="answer-status" role="status" aria-live="polite">{{ status }}</p>
+    <div v-if="primary" class="primary-actions">
+      <button v-if="query.trim()" type="button" :disabled="disabled" @click="emit('answer')">Submit answer</button>
+      <button type="button" :disabled="disabled" @click="emit('giveUp')">Give up</button>
+    </div>
   </div>
 </template>
 
@@ -158,4 +191,31 @@ li.active, li:hover { background: var(--surface-raised); color: var(--accent); }
 small { display: block; font-size: 11px; color: var(--muted); }
 
 .answer-status { flex: none; margin: 0; font-size: 11px; color: var(--muted); }
+
+/* The round's only answer box, so it takes the anime box's size and wraps its
+   hint and buttons under the input rather than squeezing beside it. */
+.song-answer.primary {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+.song-answer.primary input { flex-basis: 60%; padding: 10px; font-size: 15px; }
+.song-answer.primary .answer-status { flex-basis: 100%; order: 3; font-size: 12px; }
+
+.primary-actions { display: flex; gap: 8px; }
+
+.primary-actions button {
+  font: inherit;
+  padding: 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.primary-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

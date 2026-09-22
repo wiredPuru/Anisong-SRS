@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RequiredCategories } from "~/utils/criterionGrading";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 
 type AutoRevealMode = "off" | "video" | "info" | "both";
@@ -14,6 +15,7 @@ defineProps<{
   typedAnswers: boolean;
   typedAnswersLocked: boolean;
   typedAnswerCategories: TypedAnswerCategories;
+  requiredCategories?: RequiredCategories;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
 }>();
@@ -155,6 +157,7 @@ const showTypedAnswerCategories = ref(false);
     <StudyTypedAnswerCategoriesModal
       v-if="showTypedAnswerCategories"
       :categories="typedAnswerCategories"
+      :required="requiredCategories"
       @update:categories="emit('update:typed-answer-categories', $event)"
       @close="showTypedAnswerCategories = false"
     />

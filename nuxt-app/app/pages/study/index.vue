@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { GradingCriterion } from "~/utils/criterionGrading";
 import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
 import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
@@ -102,10 +103,25 @@ const {
   newCardsToday,
   dueCount,
   withheldNewCount,
+  criterion,
   submit,
   studyNewCards,
   refresh: refreshStudySession,
 } = useStudySession(scope, effectiveAudioOnly, clipSource);
+
+// Only a manual deck can grade on anything but the anime title (feature 71);
+// every string here is absent for the title criterion so those scopes render
+// exactly as before.
+const CRITERION_COPY: Record<Exclude<GradingCriterion, "title">, { chip: string; prompt: string; track: string }> = {
+  song: { chip: "Song name", prompt: "Grade yourself on the song name", track: "Song" },
+  both: { chip: "Anime + song", prompt: "Grade yourself on the anime and the song name", track: "Anime + song" },
+};
+const requiredAnswers = computed(() => requiredCategories(criterion.value));
+const showSongAnswer = computed(() => typedAnswerCategories.value.songName || requiredAnswers.value.songName);
+// A song-graded deck asks no anime question, so the song is the round's main
+// answer rather than a row under it.
+const songIsMainAnswer = computed(() => !requiredAnswers.value.anime);
+const criterionCopy = computed(() => (criterion.value === "title" ? null : CRITERION_COPY[criterion.value]));
 
 // Snapshotted only when a new presentation begins (StudyMediaPlayer fully
 // remounts on presentationKey), so toggling "Audio only" mid-card never
@@ -283,13 +299,33 @@ function correctAnimeTitle(card: CardWithDetails): string {
   return card.animeTitleEnglish || card.animeTitleRomaji || card.animeTitleNative;
 }
 
+// Null when the song box was left blank, so a required song reads as
+// unanswered rather than wrong.
+function songAnswerCorrect(reviewedCard: CardWithDetails): boolean | null {
+  const songPick = songAnswerText.value?.trim();
+  return songPick ? evaluateSongAnswer(reviewedCard, songPick) : null;
+}
+
 // Grades whatever each enabled bonus category currently holds and folds any
 // bonus points into quizScore. A category left blank at submit time is
-// skipped entirely - omitted from the result, not graded as wrong.
+// skipped entirely - omitted from the result, not graded as wrong. A song
+// name the deck requires is part of the round's grade instead: it always
+// shows, blank or not, and never adds bonus points.
 function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResult[] {
   const results: BonusCategoryResult[] = [];
   const songPick = songAnswerText.value?.trim();
-  if (songPick) {
+  // A song-graded round shows the song as its main answer (saveTypedAnswer),
+  // so it gets no row here at all.
+  if (requiredAnswers.value.songName && !songIsMainAnswer.value) {
+    results.push({
+      category: "songName",
+      correct: songAnswerCorrect(reviewedCard) === true,
+      pointsAwarded: 0,
+      selectedLabel: songPick || "(blank)",
+      correctLabel: reviewedCard.songTitle,
+      required: true,
+    });
+  } else if (songPick && !songIsMainAnswer.value) {
     const correct = evaluateSongAnswer(reviewedCard, songPick);
     const transition = applyBonusCategory(quizScore.value, correct);
     quizScore.value = transition.score;
@@ -318,9 +354,16 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
   return results;
 }
 
-async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | null) {
+async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: string | null) {
   if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
+  const result = gradeTypedRound(criterion.value, {
+    anime: selectedTitle === null ? null : animeResult,
+    song: songAnswerCorrect(reviewedCard),
+  });
+  const shown = songIsMainAnswer.value
+    ? { selected: songAnswerText.value?.trim() || null, correct: reviewedCard.songTitle }
+    : { selected: selectedTitle, correct: correctAnimeTitle(reviewedCard) };
   const presentation = presentationKey.value;
   const scopeKey = JSON.stringify(scope.value);
   const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
@@ -337,7 +380,7 @@ async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | 
     sessionHistory.value.push({ card: reviewedCard, result });
     launchScoreBursts({
       result,
-      answered: selectedTitle !== null,
+      answered: shown.selected !== null,
       pointsAwarded: transition.pointsAwarded,
       combo: quizScore.value.combo,
       previousCombo,
@@ -346,8 +389,8 @@ async function saveTypedAnswer(result: "pass" | "fail", selectedTitle: string | 
     quizResult.value = {
       presentationKey: presentation,
       result,
-      selectedTitle,
-      correctTitle: correctAnimeTitle(reviewedCard),
+      selectedTitle: shown.selected,
+      correctTitle: shown.correct,
       pointsAwarded: transition.pointsAwarded,
       bonusResults,
     };
@@ -360,6 +403,17 @@ function submitTypedAnswer(selection: AnimeAnswerOption) {
   if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
   const result = evaluateAnimeAnswer(currentCard.value?.animeAniListId, selection.aniListId);
   if (result !== "unavailable") void saveTypedAnswer(result, selection.titleEnglish || selection.titleRomaji || selection.titleNative);
+}
+
+function submitSongAnswer() {
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
+  void saveTypedAnswer("fail", null);
+}
+
+// Giving up must not be graded on whatever is still in the box.
+function giveUpSongAnswer() {
+  songAnswerText.value = null;
+  submitSongAnswer();
 }
 
 async function continueTypedAnswer() {
@@ -977,6 +1031,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :typed-answers="typedAnswers"
             :typed-answers-locked="Boolean(quizResult)"
             :typed-answer-categories="typedAnswerCategories"
+            :required-categories="requiredAnswers"
             @toggle-typed-answers="!submissionBusy && !quizResult && (typedAnswers = !typedAnswers)"
             @update:typed-answer-categories="typedAnswerCategories = $event"
             v-model:auto-reveal-mode="autoRevealMode"
@@ -1025,6 +1080,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template #overlay>
               <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
                 <StudyTypedAnswer
+                  v-if="!songIsMainAnswer"
                   :key="JSON.stringify(scope)"
                   overlay
                   :presentation-key="presentationKey"
@@ -1035,10 +1091,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   @give-up="saveTypedAnswer('fail', null)"
                   @typing-started="mediaPlayerRef?.playIfPaused()"
                 />
-                <div v-if="typedAnswerCategories.songName || typedAnswerCategories.themeSlot" class="bonus-answers">
+                <StudySongAnswer
+                  v-if="songIsMainAnswer"
+                  :key="`song-main-${presentationKey}`"
+                  primary
+                  :disabled="answerControlsDisabled"
+                  @update:answer="songAnswerText = $event"
+                  @answer="submitSongAnswer"
+                  @give-up="giveUpSongAnswer"
+                  @typing-started="mediaPlayerRef?.playIfPaused()"
+                />
+                <div v-if="(showSongAnswer && !songIsMainAnswer) || typedAnswerCategories.themeSlot" class="bonus-answers">
                   <StudySongAnswer
-                    v-if="typedAnswerCategories.songName"
+                    v-if="showSongAnswer && !songIsMainAnswer"
                     :key="`song-${presentationKey}`"
+                    :required="requiredAnswers.songName"
                     :disabled="answerControlsDisabled"
                     @update:answer="songAnswerText = $event"
                   />
@@ -1092,6 +1159,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :box="currentCard.box"
                 :streak="currentCard.streak"
                 :streak-required="studySettings?.boxOneStreakRequired"
+                :track-label="criterionCopy?.track"
                 @streak-required-saved="onSettingsSaved"
               />
               <button
@@ -1131,6 +1199,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
           <p v-if="error" role="alert">{{ error }}</p>
           <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
+          <!-- Here rather than as a header chip: the header already has no
+               spare width at 1400px with Typed Answers on, and one more chip
+               pushed the score chip under the toggles. -->
+          <p v-if="criterionCopy" class="criterion-prompt">
+            {{ typedAnswers ? `Graded on: ${criterionCopy.chip}` : criterionCopy.prompt }}
+          </p>
           <StudyAnswerControls
             v-if="!typedAnswers"
             :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
@@ -1323,6 +1397,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
      .display-toggles' own flex-wrap never gets a chance to engage. */
   flex: 0 1 auto;
   min-width: 0;
+}
+
+.criterion-prompt {
+  margin: 0;
+  color: var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .chip {

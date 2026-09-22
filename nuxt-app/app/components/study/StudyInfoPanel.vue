@@ -19,6 +19,10 @@ const props = withDefaults(
     box?: number;
     streak?: number;
     streakRequired?: number;
+    // Names the schedule box/streak belong to when it is not the anime-title
+    // one (feature 71), so a song-graded deck's Learning count is not
+    // mistaken for the card's usual progress. Absent means the title track.
+    trackLabel?: string;
     blurred?: boolean;
     ambient?: boolean;
     immersive?: boolean;
@@ -210,7 +214,7 @@ watch(
           @focus="streakTooltipActive = true"
           @blur="streakTooltipActive = false"
         >
-          <span class="label">Learning</span>
+          <span class="label">Learning<template v-if="trackLabel"> &middot; {{ trackLabel }}</template></span>
           <span class="name">{{ streak ?? 0 }}/{{ streakRequired }}</span>
           <span class="tooltip"
             >Answer correctly {{ streakRequired }} times in a row to graduate this card out of the learning

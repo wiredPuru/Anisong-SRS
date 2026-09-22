@@ -205,7 +205,7 @@ is purely about which cards are visible/selectable in the library. No
 `project-plan.md` change - it deepens §3's existing "Flashcard CRUD" bullet
 rather than a new product direction, the same call feature 64 made. Feature 71
 (per-deck grading criteria, in three sub-features 71a-71c) was added to
-`build-plan.md` on 2026-09-22; 71a is built and merged, 71b-71c are not yet built. It is the first change to
+`build-plan.md` on 2026-09-22; 71a and 71b are built and merged, 71c is not yet built. It is the first change to
 the scheduling model since feature 6a locked it: Leitner state becomes keyed by
 `(card, criterion)` rather than by card alone, so a manual deck can be drilled
 for song names without its passes moving the same card's anime-title schedule
@@ -1429,7 +1429,7 @@ than a deepening of a documented one.
       being addable like a fully-matched one - so 70a's filter does not
       immediately start refilling with new unmatched cards.
 71. **Per-deck grading criteria** - added to `build-plan.md` 2026-09-22, in
-    three sub-features; 71a is built, 71b-71c are not. Today a card carries exactly one
+    three sub-features; 71a and 71b are built, 71c is not. Today a card carries exactly one
     Leitner track (`Card.box`/`streak`/`nextReviewAt`) and only the anime-title
     guess drives it: features 65/66's Song name and Opening/Ending categories
     are bonus points that never touch scheduling. That makes a card studied for
@@ -1477,12 +1477,16 @@ than a deepening of a documented one.
       `Card` row stays the title track, so there is no backfill and every
       existing query keeps working unchanged. Stats, Home, and the deck
       pass-rate tiles filter to the title track.
-    - **71b. Deck criterion setting + Study grading** - not built. The control
+    - **71b. Deck criterion setting + Study grading** - done 2026-09-22. The control
       on `/decks` that sets a manual deck's criterion, and Study grading by it:
       with Typed Answers on the criterion's categories are forced on and drive
       Pass/Fail (a blank required answer counts as a fail), with it off the
       manual prompt re-words. `StudyInfoPanel`'s box and learning-streak
       readout follows the active track.
+      As built, Study names the criterion with a one-line prompt beside the
+      answer controls rather than a header chip (the header had no spare
+      width with Typed Answers on), and a song-graded deck replaces the anime
+      box with the Song name box as the round's only answer.
     - **71c. Track-aware stats** - not built. Slices `/stats` and the deck
       pass-rate tiles by criterion instead of hiding non-title tracks, so song
       and combined drilling shows up in retention, leeches, and the activity

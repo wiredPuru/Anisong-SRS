@@ -51,6 +51,13 @@ describe("buildBurstPlan", () => {
     expect(new Set(delays).size).toBe(delays.length);
   });
 
+  it("never bursts for a correct required category, which is part of the grade rather than a bonus", () => {
+    const plan = buildBurstPlan(grade({
+      bonusResults: [bonus({ required: true, pointsAwarded: 0 }), bonus({ category: "themeSlot" })],
+    }));
+    expect(plan.map((b) => b.label)).toEqual(["+100", "+50 opening/ending"]);
+  });
+
   it("skips a bonus that scored nothing", () => {
     const plan = buildBurstPlan(grade({
       bonusResults: [bonus({ correct: false, pointsAwarded: 0 }), bonus({ category: "themeSlot" })],

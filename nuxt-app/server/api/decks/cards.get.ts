@@ -1,5 +1,5 @@
 import { listCardsByAnime, listCardsByArtist, listCardsByManualDeck } from "../../utils/cards.ts";
-import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/decks.ts";
+import { getAnimeLabel, getArtistLabel, getManualDeckCriterion, getManualDeckLabel } from "../../utils/decks.ts";
 import { PAGE_SIZE, parsePage } from "../../utils/pagination.ts";
 
 export default defineEventHandler((event) => {
@@ -26,7 +26,7 @@ export default defineEventHandler((event) => {
     const totalPages = Math.max(Math.ceil(first.total / PAGE_SIZE), 1);
     const page = Math.min(requestedPage, totalPages);
     const result = page === requestedPage ? first : listCardsByManualDeck(id, page, query);
-    return { deckLabel, cards: result.items, page, totalPages };
+    return { deckLabel, gradingCriterion: getManualDeckCriterion(id)!, cards: result.items, page, totalPages };
   }
 
   const deckLabel = type === "artist" ? getArtistLabel(id) : getAnimeLabel(id);

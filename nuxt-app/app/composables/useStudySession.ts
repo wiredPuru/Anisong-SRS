@@ -1,3 +1,5 @@
+import type { GradingCriterion } from "~/utils/criterionGrading";
+
 export type StudyScope =
   | { type: "all" }
   | { type: "artist"; id: number }
@@ -8,8 +10,6 @@ export interface NewCardsToday {
   introduced: number;
   limit: number | null;
 }
-
-type GradingCriterion = "title" | "song" | "both";
 
 export interface CardWithDetails {
   id: number;
@@ -160,6 +160,7 @@ export function useStudySession(
     newCardsToday,
     dueCount,
     withheldNewCount,
+    criterion,
     submit,
     studyNewCards,
     refresh: fetchNext,

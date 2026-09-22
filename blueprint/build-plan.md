@@ -672,7 +672,7 @@ cleaned-up checkbox version before generating the project overview.
     `recordReview` all resolve a criterion from the study scope and operate on
     that track. Stats, Home and the deck tiles filter to the title track so
     their numbers keep meaning what they mean today.
-  - [ ] 71b. **Deck criterion setting + Study grading** - the control that
+  - [x] 71b. **Deck criterion setting + Study grading** - the control that
     sets a manual deck's criterion on `/decks`, and Study actually grading by
     it. With Typed Answers on, the criterion's categories are forced on and
     drive Pass/Fail, a blank required answer counting as a fail; with it off,

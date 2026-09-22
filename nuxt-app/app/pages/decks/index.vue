@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { GradingCriterion } from "~/utils/criterionGrading";
+
 interface ArtistDeck {
   id: number;
   name: string;
@@ -21,6 +23,7 @@ interface ManualDeck {
   id: number;
   name: string;
   createdAt: string;
+  gradingCriterion: GradingCriterion;
   cardCount: number;
   passRate: number | null;
 }
@@ -257,6 +260,35 @@ function onCardSearchInput() {
 }
 
 const deckLabel = ref("");
+// Only a created deck stores one; null for artist and anime decks.
+const deckCriterion = ref<GradingCriterion | null>(null);
+const savingCriterion = ref(false);
+const criterionError = ref<string | null>(null);
+
+const CRITERION_OPTIONS: { value: GradingCriterion; label: string; hint: string }[] = [
+  { value: "title", label: "Anime title", hint: "Passes here move each card's anime-title schedule, shared with every other deck." },
+  { value: "song", label: "Song name", hint: "Passes here move only each card's song-name schedule." },
+  { value: "both", label: "Both", hint: "A pass needs the anime and the song, on a schedule of its own." },
+];
+const criterionHint = computed(() => CRITERION_OPTIONS.find((o) => o.value === deckCriterion.value)?.hint ?? "");
+
+async function setDeckCriterion(criterion: GradingCriterion) {
+  if (savingCriterion.value || selectedId.value === null || criterion === deckCriterion.value) return;
+  const deckId = selectedId.value;
+  savingCriterion.value = true;
+  criterionError.value = null;
+  try {
+    const res = await $fetch<{ deck: ManualDeck }>("/api/decks", {
+      method: "PATCH",
+      body: { id: deckId, gradingCriterion: criterion },
+    });
+    if (selectedId.value === deckId) deckCriterion.value = res.deck.gradingCriterion;
+  } catch (err) {
+    if (selectedId.value === deckId) criterionError.value = extractErrorMessage(err, "Failed to change what this deck grades.");
+  } finally {
+    savingCriterion.value = false;
+  }
+}
 const deckCards = ref<DeckCard[]>([]);
 const cardsInitialPending = ref(true);
 const cardsInitialError = ref(false);
@@ -275,7 +307,13 @@ async function loadFirstDeckCardsPage() {
   cardsInitialPending.value = true;
   cardsInitialError.value = false;
   try {
-    const res = await $fetch<{ deckLabel: string; cards: DeckCard[]; page: number; totalPages: number }>(
+    const res = await $fetch<{
+      deckLabel: string;
+      gradingCriterion?: GradingCriterion;
+      cards: DeckCard[];
+      page: number;
+      totalPages: number;
+    }>(
       "/api/decks/cards",
       {
         query: {
@@ -288,6 +326,8 @@ async function loadFirstDeckCardsPage() {
     );
     if (!isCurrent()) return;
     deckLabel.value = res.deckLabel;
+    deckCriterion.value = res.gradingCriterion ?? null;
+    criterionError.value = null;
     deckCards.value = res.cards;
     cardsNextPage.value = 2;
     cardsTotalPages.value = res.totalPages;
@@ -870,6 +910,26 @@ function backToDecks() {
           <h2>{{ deckLabel }}</h2>
         </div>
 
+        <div v-if="activeType === 'created' && deckCriterion" class="criterion-block">
+          <span class="criterion-label">Graded on</span>
+          <div class="tab-seg" role="group" aria-label="Graded on">
+            <button
+              v-for="option in CRITERION_OPTIONS"
+              :key="option.value"
+              type="button"
+              class="tab-seg-btn"
+              :class="{ active: deckCriterion === option.value }"
+              :aria-pressed="deckCriterion === option.value"
+              :disabled="savingCriterion"
+              @click="setDeckCriterion(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <p class="criterion-hint">{{ criterionHint }}</p>
+          <p v-if="criterionError" class="export-error criterion-error">{{ criterionError }}</p>
+        </div>
+
         <div v-if="activeType === 'created'" class="add-card-block">
           <h3>Add cards</h3>
           <input
@@ -1219,6 +1279,37 @@ h2 {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.criterion-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: -8px 0 20px;
+}
+
+.criterion-label {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.criterion-block .tab-seg-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.criterion-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.criterion-block .criterion-error {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .back-btn {

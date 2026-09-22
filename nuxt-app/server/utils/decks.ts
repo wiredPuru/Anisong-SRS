@@ -203,6 +203,7 @@ export interface ManualDeck {
   id: number;
   name: string;
   createdAt: Date;
+  gradingCriterion: GradingCriterion;
   cardCount: number;
   passRate: number | null;
 }
@@ -220,7 +221,13 @@ export function listManualDecks(page: number, query?: string): Paginated<ManualD
   const total = (condition ? totalBase.where(condition) : totalBase).get()!.count;
 
   const itemsBase = db
-    .select({ id: deck.id, name: deck.name, createdAt: deck.createdAt, cardCount: count(deckCard.id) })
+    .select({
+      id: deck.id,
+      name: deck.name,
+      createdAt: deck.createdAt,
+      gradingCriterion: deck.gradingCriterion,
+      cardCount: count(deckCard.id),
+    })
     .from(deck)
     .leftJoin(deckCard, eq(deck.id, deckCard.deckId));
   const items = (condition ? itemsBase.where(condition) : itemsBase)
@@ -292,6 +299,18 @@ export function renameManualDeck(id: number, rawName: string): ManualDeckResult 
 
   const updated = db.update(deck).set({ name }).where(eq(deck.id, id)).returning().get();
   return { deck: { ...updated, cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
+}
+
+export function setManualDeckCriterion(id: number, criterion: GradingCriterion): ManualDeckResult {
+  const updated = db.update(deck).set({ gradingCriterion: criterion }).where(eq(deck.id, id)).returning().get();
+  if (!updated) {
+    return { notFound: true };
+  }
+  return { deck: { ...updated, cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
+}
+
+export function getManualDeckCriterion(id: number): GradingCriterion | undefined {
+  return db.select({ criterion: deck.gradingCriterion }).from(deck).where(eq(deck.id, id)).get()?.criterion;
 }
 
 export function deleteManualDeck(id: number): boolean {
