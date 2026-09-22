@@ -120,6 +120,13 @@
       "when": 1790031881149,
       "tag": "0016_unknown_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1790040554984,
+      "tag": "0017_cynical_anthem",
+      "breakpoints": true
     }
   ]
 }

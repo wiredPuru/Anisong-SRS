@@ -1,4 +1,5 @@
 import { countCardsToRefresh } from "../utils/cardSourceRefresh.ts";
+import { countUncheckedSongs } from "../utils/animethemesMatch.ts";
 import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
@@ -26,6 +27,7 @@ export default defineEventHandler(() => {
     themesOnly: getThemesOnly(),
     clipSource: getClipSource(),
     missingCoverCount: countAnimeMissingCover(),
+    animethemesUncheckedCount: countUncheckedSongs(),
     animethemesSourcedCardCount: countCardsToRefresh(),
   };
 });

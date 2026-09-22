@@ -1,0 +1,1 @@
+ALTER TABLE `song` ADD `animethemes_checked_at` integer;

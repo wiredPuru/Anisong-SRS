@@ -11,6 +11,7 @@ const { data, pending, error, refresh } = await useFetch<{
   themesOnly: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
+  animethemesUncheckedCount: number;
   animethemesSourcedCardCount: number;
 }>("/api/media-library");
 
@@ -283,7 +284,11 @@ async function importDeck() {
                 Off (default): add, download, and study any song, including ones only AnisongDB has. On: Study only
                 serves songs that AnimeThemes.moe also has, and songs it lacks cannot be added. Clips still come from
                 the Clip source above; your library and existing cards are never changed.
+                <template v-if="data.animethemesUncheckedCount">
+                  Check the songs below first, or this mode will also hide cards nobody has checked yet.
+                </template>
               </p>
+              <SettingsAnimeThemesMatchControl :unchecked-count="data.animethemesUncheckedCount" @saved="refresh" />
               <SettingsThemesOnlyControl :enabled="data.themesOnly" @saved="refresh" />
             </template>
 

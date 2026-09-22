@@ -1554,6 +1554,17 @@ Singleton row (`id` always `1`).
   otherwise that gate is inactive. Imports still record the AnimeThemes match
   either way.
 
+`Song.animethemesCheckedAt` (nullable datetime, added by the
+`animethemes-match-backfill` fix, 2026-09-22) - separates "AnimeThemes.moe
+was probed and has nothing" from "never checked", since `themesOnly` and
+feature 70a's library filter both read `animethemesThemeId IS NULL` as
+absent. Cards imported before feature 70b's match lookup existed had a null
+id nobody had ever checked; an explicit Settings action (mirroring the
+cover-art and clip-source backfills) probes them once, one AnimeThemes
+lookup per anime, and stamps checked-at whether or not a match is found so a
+genuine miss is never re-probed. Run once against the live library on
+2026-09-22: 103 unchecked songs, 73 matched, 30 genuinely absent.
+
 > **Artist/Anime decks stay derived** - query-time groupings of `Card` joined
 > through `Song` by `artistId` or `animeId`, not a stored entity. Manual
 > decks (feature 13) are the one deck type that *is* stored, via the

@@ -31,6 +31,7 @@ export const song = sqliteTable(
     titleNative: text("title_native"),
     themeSlot: text("theme_slot").notNull(),
     animethemesThemeId: integer("animethemes_theme_id"),
+    animethemesCheckedAt: integer("animethemes_checked_at", { mode: "timestamp_ms" }),
   },
   (table) => [unique("song_anime_theme_slot_unique").on(table.animeId, table.themeSlot)],
 );
