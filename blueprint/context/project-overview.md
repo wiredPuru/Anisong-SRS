@@ -214,7 +214,7 @@ Decks and Study session bullets, three §4 Data bullets), since a deck-level
 configuration and a second scheduling dimension are a product direction rather
 than a deepening of a documented one. Feature 72 (combined grading
 criteria, in three sub-features 72a-72c) was added to `build-plan.md` on
-2026-09-22; 72a and 72b are built and merged, 72c is not yet built. It widens feature 71's three criteria into any
+2026-09-22; all three are built and merged. It widens feature 71's three criteria into any
 combination of the anime title, song name, Opening/Ending number, and artist,
 each combination its own Leitner track, still manual-deck-only. It amended
 `project-plan.md` §3's Decks bullet, which listed the allowed criteria; the §4
@@ -1499,7 +1499,8 @@ Data bullets name only "grading criterion" and still hold.
       charts. Last of the three because it is the only one that touches feature
       68's whole surface.
       As built, `/stats` gains a Track selector (Anime title / Song name /
-      Both) kept in `?track=`, shown only once a non-title track has a review,
+      Both at the time; a dropdown naming any combination since 72c) kept in
+      `?track=`, shown only once a non-title track has a review,
       schedule row or deck; `GET /api/stats` takes `track` on every type plus
       `type=tracks`. Collection health and the forecast count a non-title
       track's population - cards with a `card_track` row or in a deck graded on
@@ -1507,7 +1508,7 @@ Data bullets name only "grading criterion" and still hold.
       its own criterion's pass rate. Home and artist/anime tiles stay
       title-only, and there is no combined "all tracks" view.
 72. **Combined grading criteria** - added to `build-plan.md` 2026-09-22, in
-    three sub-features; 72a and 72b are built and merged, 72c is not. Extends feature 71 so a manual deck
+    three sub-features, all built and merged. Extends feature 71 so a manual deck
     can grade on any combination of four categories - the anime title
     (`title`), the song name (`song`), the Opening/Ending number (`slot`),
     and the artist (`artist`) - instead of only title, song, or both. Asked
@@ -1545,10 +1546,16 @@ Data bullets name only "grading criterion" and still hold.
       result rows. A deck asking no anime makes the song, else the artist,
       the round's main answer. `describeCriterion`
       (`app/utils/criterionGrading.ts`) names any combination for Study's
-      prompt and track label, and is `/stats`' label fallback until 72c.
-    - **72c. Stats for combined tracks** - not built. `/stats`' Track selector
-      and the deck tiles list and label whichever combinations have data
-      instead of the fixed Anime title / Song name / Both.
+      prompt and track label.
+    - **72c. Stats for combined tracks** - done 2026-09-22. `/stats`' Track
+      control is now a labelled dropdown listing whichever tracks have data
+      (`listAvailableTracks` in `server/utils/stats.ts`: title first, then
+      `GRADING_CRITERIA` order), each named by `describeCriterion`, so
+      `title+song` reads "Anime + song" rather than "Both"; the track note
+      names what a non-title track grades. A created deck's `/decks` tile not
+      graded on the title shows "Graded on <name>" under its pass rate, and
+      changing a deck's criterion updates its already-loaded tile in place.
+      No server query changed.
 
 ## Data model
 

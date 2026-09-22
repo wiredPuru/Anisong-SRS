@@ -38,6 +38,8 @@ interface DeckItem {
   cardCount: number;
   passRate: number | null;
   dueCount: number | null;
+  // Only created decks store one; null for artist and anime decks.
+  criterion: GradingCriterion | null;
 }
 
 interface DeckCard {
@@ -202,6 +204,7 @@ const deckItems = computed<DeckItem[]>(() => {
       cardCount: d.cardCount,
       passRate: d.passRate,
       dueCount: d.dueCount,
+      criterion: null,
     }));
   }
   if (activeType.value === "created") {
@@ -213,6 +216,7 @@ const deckItems = computed<DeckItem[]>(() => {
       cardCount: d.cardCount,
       passRate: d.passRate,
       dueCount: null,
+      criterion: d.gradingCriterion,
     }));
   }
   return (rawDecks.value as AnimeDeck[]).map((d) => ({
@@ -223,8 +227,15 @@ const deckItems = computed<DeckItem[]>(() => {
     cardCount: d.cardCount,
     passRate: d.passRate,
     dueCount: d.dueCount,
+    criterion: null,
   }));
 });
+
+// The tile's pass rate is for this track, so a created deck not graded on the
+// anime title says which one.
+function tileCriterionLabel(item: DeckItem): string | null {
+  return item.criterion && item.criterion !== "title" ? `Graded on ${describeCriterion(item.criterion).chip}` : null;
+}
 
 function formatPassRate(passRate: number | null): string | null {
   return passRate === null ? null : `${Math.round(passRate * 100)}%`;
@@ -312,6 +323,10 @@ async function setDeckCriterion(criterion: GradingCriterion) {
       body: { id: deckId, gradingCriterion: criterion },
     });
     if (selectedId.value === deckId) deckCriterion.value = res.deck.gradingCriterion;
+    // Going back to the grid does not refetch it, and the tile names this
+    // criterion and shows its pass rate.
+    const tile = activeType.value === "created" ? (rawDecks.value as ManualDeck[]).find((d) => d.id === deckId) : undefined;
+    if (tile) Object.assign(tile, { gradingCriterion: res.deck.gradingCriterion, passRate: res.deck.passRate });
   } catch (err) {
     if (selectedId.value === deckId) criterionError.value = extractErrorMessage(err, "Failed to change what this deck grades.");
   } finally {
@@ -838,6 +853,9 @@ function backToDecks() {
                 <span class="deck-tile-count">
                   {{ item.cardCount }} card{{ item.cardCount === 1 ? "" : "s" }}
                   <template v-if="formatPassRate(item.passRate)"> &middot; {{ formatPassRate(item.passRate) }}</template>
+                </span>
+                <span v-if="tileCriterionLabel(item)" class="deck-tile-criterion" :title="tileCriterionLabel(item) ?? undefined">
+                  {{ tileCriterionLabel(item) }}
                 </span>
               </div>
               <div v-if="activeType === 'created'" class="deck-tile-actions" @click.stop>
@@ -1528,6 +1546,14 @@ h2 {
 .deck-tile-count {
   font-size: 12px;
   color: var(--faint);
+}
+
+.deck-tile-criterion {
+  font-size: 12px;
+  color: var(--accent-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .deck-tile-actions {

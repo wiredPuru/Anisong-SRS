@@ -68,12 +68,17 @@ export function reviewsOfCardFor(criterion: GradingCriterion = DEFAULT_GRADING_C
 // review, schedule row, or manual deck uses it. A deck switched back to title
 // keeps its old track listed while its reviews are still in the log.
 export function getAvailableTracks(): GradingCriterion[] {
-  const used = new Set<GradingCriterion>([
+  return listAvailableTracks([
     ...db.selectDistinct({ criterion: reviewLog.criterion }).from(reviewLog).all().map((row) => row.criterion),
     ...db.selectDistinct({ criterion: cardTrack.criterion }).from(cardTrack).all().map((row) => row.criterion),
     ...db.selectDistinct({ criterion: deck.gradingCriterion }).from(deck).all().map((row) => row.criterion),
   ]);
-  return GRADING_CRITERIA.filter((criterion) => criterion === DEFAULT_GRADING_CRITERION || used.has(criterion));
+}
+
+/** The title track first, then every valid used criterion in GRADING_CRITERIA order. /stats lists them in this order. */
+export function listAvailableTracks(used: Iterable<string>): GradingCriterion[] {
+  const seen = new Set(used);
+  return GRADING_CRITERIA.filter((criterion) => criterion === DEFAULT_GRADING_CRITERION || seen.has(criterion));
 }
 
 export const passCountExpr = sql<number>`coalesce(sum(case when ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`;

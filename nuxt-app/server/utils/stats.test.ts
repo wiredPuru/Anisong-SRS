@@ -11,6 +11,7 @@ import {
   failStreakFromResults,
   forecastDayKeys,
   heatmapDayKeys,
+  listAvailableTracks,
   longestStreakFromDates,
   rollingPassRates,
   shapeCollectionHealth,
@@ -960,5 +961,34 @@ describe("shapeTroubleCards", () => {
     const rows = [...reviews(1, ["fail", "fail"]), ...reviews(2, ["fail", "fail"])];
     const result = shapeTroubleCards(rows, (want) => load(want.filter((id) => id !== 1)));
     expect(ids(result.mostFailed)).toEqual([2]);
+  });
+});
+
+describe("listAvailableTracks", () => {
+  it("always lists the title track, even with nothing used", () => {
+    expect(listAvailableTracks([])).toEqual(["title"]);
+  });
+
+  it("lists title once and first whether or not it was used", () => {
+    expect(listAvailableTracks(["song", "title"])).toEqual(["title", "song"]);
+    expect(listAvailableTracks(["song"])).toEqual(["title", "song"]);
+  });
+
+  it("orders combinations as GRADING_CRITERIA does, not as they were found", () => {
+    expect(listAvailableTracks(["title+song+slot+artist", "artist", "title+slot", "song"])).toEqual([
+      "title",
+      "song",
+      "artist",
+      "title+slot",
+      "title+song+slot+artist",
+    ]);
+  });
+
+  it("de-duplicates", () => {
+    expect(listAvailableTracks(["artist", "artist", "title", "title"])).toEqual(["title", "artist"]);
+  });
+
+  it("ignores unknown values, non-canonical orders and the retired both", () => {
+    expect(listAvailableTracks(["nope", "song+title", "both", "slot"])).toEqual(["title"]);
   });
 });

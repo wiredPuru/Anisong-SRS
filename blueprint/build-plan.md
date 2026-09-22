@@ -681,7 +681,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 71c. **Track-aware stats** - slice `/stats` and the deck pass-rate
     tiles by criterion instead of hiding non-title tracks, so song and
     combined drilling shows up in retention, leeches and the activity charts.
-- [ ] 72. **Combined grading criteria** - extend feature 71 so a manual deck
+- [x] 72. **Combined grading criteria** - extend feature 71 so a manual deck
   can grade on any combination of the anime title, the song name, the
   Opening/Ending number, and the artist, instead of only title, song, or
   both. Each combination is its own Leitner track, exactly as 71's three
@@ -702,7 +702,7 @@ cleaned-up checkbox version before generating the project overview.
     free-text artist box, matched like song names (case- and
     space-insensitive, no fuzzy matching). With Typed Answers off, the manual
     prompt names every required category.
-  - [ ] 72c. **Stats for combined tracks** - `/stats`' Track selector and the
+  - [x] 72c. **Stats for combined tracks** - `/stats`' Track selector and the
     deck tiles list and label whichever combinations have data, instead of
     the fixed Anime title / Song name / Both.
 

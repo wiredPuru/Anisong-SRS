@@ -193,16 +193,9 @@ const router = useRouter();
 const activeType = computed<StatsType>(() => (route.query.type === "anime" ? "anime" : "artist"));
 
 // Feature 71: which scheduling track every section reads. Only offered once a
-// song or title+song track has anything in it; an unknown or unavailable ?track=
-// falls back to the anime-title view rather than an empty page.
-// Combinations beyond these three are labelled properly by 72c; until then
-// they fall back to Study's name for them rather than a blank button.
-const TRACK_LABELS: Partial<Record<GradingCriterion, string>> = { title: "Anime title", song: "Song name", "title+song": "Both" };
-const trackLabel = (track: GradingCriterion) => TRACK_LABELS[track] ?? describeCriterion(track).chip;
-const TRACK_NOTES: Partial<Record<Exclude<GradingCriterion, "title">, string>> = {
-  song: "Showing the song-name schedule.",
-  "title+song": "Showing the anime + song schedule.",
-};
+// non-title track has anything in it; an unknown or unavailable ?track= falls
+// back to the anime-title view rather than an empty page. Named the way Study
+// and /decks name the same criterion.
 
 const { data: tracksData, refresh: refreshTracks } = await useFetch<{ tracks: GradingCriterion[] }>("/api/stats", {
   query: { type: "tracks" },
@@ -212,7 +205,9 @@ const activeTrack = computed<GradingCriterion>(() => {
   const requested = route.query.track;
   return availableTracks.value.find((track) => track === requested) ?? "title";
 });
-const activeTrackNote = computed(() => (activeTrack.value === "title" ? null : TRACK_NOTES[activeTrack.value]));
+const activeTrackNote = computed(() =>
+  activeTrack.value === "title" ? null : `Showing the schedule graded on ${describeCriterion(activeTrack.value).spoken}.`,
+);
 // Omitted for the title track so its requests stay exactly what they were.
 const trackQuery = computed(() => (activeTrack.value === "title" ? {} : { track: activeTrack.value }));
 
@@ -656,19 +651,20 @@ function setType(type: StatsType) {
     <header class="stats-header">
       <h1>Review stats</h1>
       <div class="header-controls">
-        <div v-if="availableTracks.length > 1" class="tab-seg" role="group" aria-label="Track">
-          <button
-            v-for="track in availableTracks"
-            :key="track"
-            type="button"
-            class="tab-seg-btn"
-            :class="{ active: activeTrack === track }"
-            :aria-pressed="activeTrack === track"
-            @click="setTrack(track)"
+        <!-- A select rather than a segmented control: up to 11 combinations,
+             some as long as "Anime + song + OP/ED + artist". -->
+        <label v-if="availableTracks.length > 1" class="track-picker">
+          <span class="track-picker-label">Track</span>
+          <select
+            class="track-select"
+            :value="activeTrack"
+            @change="setTrack(($event.target as HTMLSelectElement).value as GradingCriterion)"
           >
-            {{ trackLabel(track) }}
-          </button>
-        </div>
+            <option v-for="track in availableTracks" :key="track" :value="track">
+              {{ describeCriterion(track).chip }}
+            </option>
+          </select>
+        </label>
         <div class="tab-seg" role="tablist">
           <button type="button" class="tab-seg-btn" :class="{ active: range === '30' }" @click="setRange('30')">
             30d
@@ -1280,6 +1276,35 @@ function setType(type: StatsType) {
 .tab-seg-btn.active {
   background: var(--surface-raised);
   color: var(--text);
+}
+
+.track-picker {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.track-picker-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.track-select {
+  min-width: 0;
+  max-width: 260px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 .refresh-btn {
