@@ -1,7 +1,7 @@
-import { and, eq, getTableName, lte, sql } from "drizzle-orm";
+import { and, eq, getTableName, lt, lte, or, sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db } from "../db/client.ts";
-import { card, cardTrack } from "../db/schema.ts";
+import { card, cardTrack, deck, deckCard } from "../db/schema.ts";
 import { isTitleCriterion, type GradingCriterion } from "./gradingCriterion.ts";
 
 // A card with no row for the criterion being studied is new and immediately
@@ -57,6 +57,25 @@ export function trackNextReviewAtExpr(criterion: GradingCriterion) {
 export function trackDueCondition(criterion: GradingCriterion, now: Date = new Date()) {
   if (isTitleCriterion(criterion)) return lte(card.nextReviewAt, now);
   return sql`${trackNextReviewAtExpr(criterion)} <= ${Math.floor(now.getTime() / 1000)}`;
+}
+
+// Strictly before, for a forecast window's exclusive end; same seconds
+// conversion as trackDueCondition above.
+export function trackDueBeforeCondition(criterion: GradingCriterion, before: Date) {
+  if (isTitleCriterion(criterion)) return lt(card.nextReviewAt, before);
+  return sql`${trackNextReviewAtExpr(criterion)} < ${Math.floor(before.getTime() / 1000)}`;
+}
+
+// Which cards a track's collection health and forecast count. Every card has a
+// title track. A song or both track exists for a card once it has a row, and
+// also for every card in a manual deck graded on it, so a deck just switched to
+// that criterion shows its cards as never reviewed instead of hiding them.
+export function trackPopulationCondition(criterion: GradingCriterion) {
+  if (isTitleCriterion(criterion)) return undefined;
+  return or(
+    sql`exists (select 1 from ${cardTrack} where ${qualified(cardTrack.cardId)} = ${qualified(card.id)} and ${qualified(cardTrack.criterion)} = ${criterion})`,
+    sql`exists (select 1 from ${deckCard} inner join ${deck} on ${qualified(deck.id)} = ${qualified(deckCard.deckId)} where ${qualified(deckCard.cardId)} = ${qualified(card.id)} and ${qualified(deck.gradingCriterion)} = ${criterion})`,
+  );
 }
 
 export function readTrackState(cardId: number, criterion: GradingCriterion): TrackState | undefined {

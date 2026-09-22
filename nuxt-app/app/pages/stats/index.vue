@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { GradingCriterion } from "~/utils/criterionGrading";
 import type { ReviewHeatmap } from "~/utils/monthHeatmap";
 
 interface OverallStats {
@@ -191,13 +192,38 @@ const router = useRouter();
 
 const activeType = computed<StatsType>(() => (route.query.type === "anime" ? "anime" : "artist"));
 
+// Feature 71: which scheduling track every section reads. Only offered once a
+// song or both track has anything in it; an unknown or unavailable ?track=
+// falls back to the anime-title view rather than an empty page.
+const TRACK_LABELS: Record<GradingCriterion, string> = { title: "Anime title", song: "Song name", both: "Both" };
+const TRACK_NOTES: Record<Exclude<GradingCriterion, "title">, string> = {
+  song: "Showing the song-name schedule.",
+  both: "Showing the anime + song schedule.",
+};
+
+const { data: tracksData, refresh: refreshTracks } = await useFetch<{ tracks: GradingCriterion[] }>("/api/stats", {
+  query: { type: "tracks" },
+});
+const availableTracks = computed<GradingCriterion[]>(() => tracksData.value?.tracks ?? ["title"]);
+const activeTrack = computed<GradingCriterion>(() => {
+  const requested = route.query.track;
+  return availableTracks.value.find((track) => track === requested) ?? "title";
+});
+const activeTrackNote = computed(() => (activeTrack.value === "title" ? null : TRACK_NOTES[activeTrack.value]));
+// Omitted for the title track so its requests stay exactly what they were.
+const trackQuery = computed(() => (activeTrack.value === "title" ? {} : { track: activeTrack.value }));
+
+function setTrack(track: GradingCriterion) {
+  router.push({ query: { ...route.query, track: track === "title" ? undefined : track } });
+}
+
 const {
   data: overall,
   pending: overallPending,
   error: overallError,
   refresh: refreshOverall,
 } = await useFetch<OverallStats>("/api/stats", {
-  query: { type: "overall" },
+  query: computed(() => ({ type: "overall", ...trackQuery.value })),
 });
 
 const {
@@ -206,7 +232,7 @@ const {
   error,
   refresh: refreshRows,
 } = await useFetch<{ stats: ArtistStats[] | AnimeStats[] }>("/api/stats", {
-  query: computed(() => ({ type: activeType.value })),
+  query: computed(() => ({ type: activeType.value, ...trackQuery.value })),
 });
 
 const {
@@ -215,7 +241,7 @@ const {
   error: collectionError,
   refresh: refreshCollection,
 } = await useFetch<CollectionHealth>("/api/stats", {
-  query: { type: "collection" },
+  query: computed(() => ({ type: "collection", ...trackQuery.value })),
 });
 
 // Box 1 is several stages deep (a card needs boxOneStreakRequired passes to
@@ -275,7 +301,7 @@ const {
   error: forecastError,
   refresh: refreshForecast,
 } = await useFetch<ReviewForecast>("/api/stats", {
-  query: { type: "forecast" },
+  query: computed(() => ({ type: "forecast", ...trackQuery.value })),
 });
 
 const forecastDays = computed(() => forecast.value?.days ?? []);
@@ -297,7 +323,7 @@ const {
   error: retentionError,
   refresh: refreshRetention,
 } = await useFetch<RetentionStats>("/api/stats", {
-  query: { type: "retention" },
+  query: computed(() => ({ type: "retention", ...trackQuery.value })),
 });
 
 const retentionTotal = computed(() =>
@@ -322,7 +348,7 @@ const {
   error: trendsError,
   refresh: refreshTrends,
 } = await useFetch<TrendStats>("/api/stats", {
-  query: { type: "trends" },
+  query: computed(() => ({ type: "trends", ...trackQuery.value })),
 });
 
 const {
@@ -331,7 +357,7 @@ const {
   error: recordsError,
   refresh: refreshRecords,
 } = await useFetch<StudyRecords>("/api/stats", {
-  query: { type: "records" },
+  query: computed(() => ({ type: "records", ...trackQuery.value })),
 });
 
 function pluralize(count: number, word: string): string {
@@ -352,7 +378,7 @@ const {
   error: rhythmError,
   refresh: refreshRhythm,
 } = await useFetch<StudyRhythm>("/api/stats", {
-  query: { type: "rhythm" },
+  query: computed(() => ({ type: "rhythm", ...trackQuery.value })),
 });
 
 const {
@@ -361,7 +387,7 @@ const {
   error: troubleError,
   refresh: refreshTrouble,
 } = await useFetch<TroubleCards>("/api/stats", {
-  query: { type: "trouble" },
+  query: computed(() => ({ type: "trouble", ...trackQuery.value })),
 });
 
 type TroubleTab = "mostFailed" | "onFailStreak" | "neverPassed";
@@ -458,7 +484,7 @@ const {
   error: heatmapError,
   refresh: refreshHeatmap,
 } = await useFetch<ReviewHeatmap>("/api/stats", {
-  query: { type: "heatmap" },
+  query: computed(() => ({ type: "heatmap", ...trackQuery.value })),
 });
 
 const weekOverWeek = computed(() => trends.value?.weekOverWeek ?? null);
@@ -500,7 +526,7 @@ const {
   error: timelineError,
   refresh: refreshTimeline,
 } = await useFetch<{ entries: TimelineEntry[]; rolling: RollingPassRate[] }>("/api/stats", {
-  query: computed(() => ({ type: "timeline", range: range.value })),
+  query: computed(() => ({ type: "timeline", range: range.value, ...trackQuery.value })),
 });
 
 const timelineEntries = computed(() => timeline.value?.entries ?? []);
@@ -539,6 +565,7 @@ async function refreshStats() {
   refreshing.value = true;
   try {
     await Promise.all([
+      refreshTracks(),
       refreshOverall(),
       refreshRows(),
       refreshTimeline(),
@@ -617,7 +644,7 @@ function passRateTier(passRate: number | null): "pass" | "warning" | "fail" | "e
 }
 
 function setType(type: StatsType) {
-  router.push({ query: { type } });
+  router.push({ query: { ...route.query, type } });
 }
 </script>
 
@@ -626,6 +653,19 @@ function setType(type: StatsType) {
     <header class="stats-header">
       <h1>Review stats</h1>
       <div class="header-controls">
+        <div v-if="availableTracks.length > 1" class="tab-seg" role="group" aria-label="Track">
+          <button
+            v-for="track in availableTracks"
+            :key="track"
+            type="button"
+            class="tab-seg-btn"
+            :class="{ active: activeTrack === track }"
+            :aria-pressed="activeTrack === track"
+            @click="setTrack(track)"
+          >
+            {{ TRACK_LABELS[track] }}
+          </button>
+        </div>
         <div class="tab-seg" role="tablist">
           <button type="button" class="tab-seg-btn" :class="{ active: range === '30' }" @click="setRange('30')">
             30d
@@ -645,14 +685,16 @@ function setType(type: StatsType) {
             <button
               type="button"
               class="clear-btn"
-              :disabled="!overall || overall.totalReviews === 0"
+              :disabled="!overall || (overall.totalReviews === 0 && availableTracks.length === 1)"
               @click="armClear"
             >
               Clear history
             </button>
           </template>
           <template v-else>
-            <span class="clear-confirm-label">Delete all review history?</span>
+            <span class="clear-confirm-label">{{
+              availableTracks.length > 1 ? "Delete all review history, on every track?" : "Delete all review history?"
+            }}</span>
             <button type="button" class="clear-confirm-btn" :disabled="clearing" @click="confirmClear">
               {{ clearing ? "Clearing..." : "Confirm" }}
             </button>
@@ -663,6 +705,7 @@ function setType(type: StatsType) {
     </header>
 
     <div class="stats-body">
+    <p v-if="activeTrackNote" class="track-note">{{ activeTrackNote }}</p>
     <p v-if="clearError" class="inline-error">{{ clearError }}</p>
 
     <div v-if="overallPending" class="state">
@@ -1185,6 +1228,13 @@ function setType(type: StatsType) {
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
+}
+
+.track-note {
+  margin: 0 0 16px;
+  color: var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .stats-header h1 {

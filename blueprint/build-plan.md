@@ -654,7 +654,7 @@ cleaned-up checkbox version before generating the project overview.
     Anime/Song/Artist add-candidate search shows disabled with a note
     explaining why, mirroring feature 64b's pattern, instead of being
     addable like normal.
-- [ ] 71. **Per-deck grading criteria** - let a manual deck declare what its
+- [x] 71. **Per-deck grading criteria** - let a manual deck declare what its
   cards are graded on - the anime title (today's behaviour, and the default),
   the song name, or both - and give each criterion its own Leitner scheduling
   track, so the same card can sit in one deck you drill for titles and another
@@ -678,7 +678,7 @@ cleaned-up checkbox version before generating the project overview.
     drive Pass/Fail, a blank required answer counting as a fail; with it off,
     the manual prompt re-words to name what you are grading yourself on. The
     info panel's box and learning-streak readout follows the active track.
-  - [ ] 71c. **Track-aware stats** - slice `/stats` and the deck pass-rate
+  - [x] 71c. **Track-aware stats** - slice `/stats` and the deck pass-rate
     tiles by criterion instead of hiding non-title tracks, so song and
     combined drilling shows up in retention, leeches and the activity charts.
 

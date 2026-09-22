@@ -4,7 +4,7 @@ import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/sche
 import { baseDueCondition, type Paginated, type StudyScope } from "./cards.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
 import { PAGE_SIZE } from "./pagination.ts";
-import { deriveCounts, passCountExpr, titleReviewsOfCard } from "./stats.ts";
+import { deriveCounts, passCountExpr, reviewsOfCardFor } from "./stats.ts";
 
 export interface ArtistDeck {
   id: number;
@@ -35,7 +35,7 @@ function passRatesByArtist(ids: number[]): Map<number, number | null> {
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor())
     .where(inArray(artist.id, ids))
     .groupBy(artist.id)
     .all();
@@ -49,7 +49,7 @@ function passRatesByAnime(ids: number[]): Map<number, number | null> {
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor())
     .where(inArray(anime.id, ids))
     .groupBy(anime.id)
     .all();
@@ -58,7 +58,8 @@ function passRatesByAnime(ids: number[]): Map<number, number | null> {
 
 // Manual decks have no existing stats query to reuse (they aren't grouped by
 // artist/anime), so this joins through deckCard instead - same grouped shape
-// otherwise.
+// otherwise. Each deck counts the reviews of the track it grades (feature 71),
+// so a song-graded deck's tile is its song pass rate.
 function passRatesByManualDeck(ids: number[]): Map<number, number | null> {
   if (ids.length === 0) return new Map();
   const rows = db
@@ -66,7 +67,7 @@ function passRatesByManualDeck(ids: number[]): Map<number, number | null> {
     .from(deckCard)
     .innerJoin(deck, eq(deckCard.deckId, deck.id))
     .innerJoin(card, eq(deckCard.cardId, card.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, and(eq(reviewLog.cardId, card.id), eq(reviewLog.criterion, deck.gradingCriterion)))
     .where(inArray(deck.id, ids))
     .groupBy(deck.id)
     .all();

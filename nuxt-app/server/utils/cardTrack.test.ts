@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
-import { trackBoxExpr, trackDueCondition, trackNextReviewAtExpr, trackStreakExpr } from "./cardTrack.ts";
+import {
+  trackBoxExpr,
+  trackDueBeforeCondition,
+  trackDueCondition,
+  trackNextReviewAtExpr,
+  trackPopulationCondition,
+  trackStreakExpr,
+} from "./cardTrack.ts";
 
 const NON_TITLE = ["song", "both"] as const;
 
@@ -58,5 +65,39 @@ describe("trackDueCondition", () => {
     const { sql: text, params } = conditionSql(criterion, NOW);
     expect(text).toContain("card_track");
     expect(params).toContain(Math.floor(NOW.getTime() / 1000));
+  });
+});
+
+describe("trackPopulationCondition", () => {
+  const whereSql = (criterion: "title" | "song" | "both") =>
+    db.select({ id: card.id }).from(card).where(trackPopulationCondition(criterion)).toSQL();
+
+  it("adds nothing for the title track, which every card has", () => {
+    expect(trackPopulationCondition("title")).toBeUndefined();
+    expect(whereSql("title").sql).not.toContain("where");
+  });
+
+  it.each(NON_TITLE)("counts cards with a %s track row or in a deck graded on it", (criterion) => {
+    const { sql: text, params } = whereSql(criterion);
+    expect(text).toContain('"card_track"."card_id" = "card"."id"');
+    expect(text).toContain('"deck"."grading_criterion" = ?');
+    expect(params).toEqual([criterion, criterion]);
+  });
+});
+
+describe("trackDueBeforeCondition", () => {
+  const before = new Date("2026-10-01T00:00:00.000Z");
+
+  it("compares the card row's own column for the title track", () => {
+    const { sql: text } = db.select({ id: card.id }).from(card).where(trackDueBeforeCondition("title", before)).toSQL();
+    expect(text).toContain('"next_review_at" < ?');
+    expect(text).not.toContain("card_track");
+  });
+
+  it.each(NON_TITLE)("compares the %s track's due date in unix seconds, strictly", (criterion) => {
+    const { sql: text, params } = db.select({ id: card.id }).from(card).where(trackDueBeforeCondition(criterion, before)).toSQL();
+    expect(text).toContain("card_track");
+    expect(text).toMatch(/\) < \?$/);
+    expect(params).toContain(Math.floor(before.getTime() / 1000));
   });
 });

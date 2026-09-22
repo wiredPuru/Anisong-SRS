@@ -1,8 +1,17 @@
-import { and, count, desc, eq, gte, lt, lte, notInArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { anime, artist, card, reviewLog, song } from "../db/schema.ts";
+import { anime, artist, card, cardTrack, deck, reviewLog, song } from "../db/schema.ts";
+import {
+  trackBoxExpr,
+  trackDueBeforeCondition,
+  trackDueCondition,
+  trackNextReviewAtExpr,
+  trackPopulationCondition,
+  trackStreakExpr,
+} from "./cardTrack.ts";
 import { getCardsByIds, getDueCardCount } from "./cards.ts";
 import type { CardWithDetails } from "./cards.ts";
+import { DEFAULT_GRADING_CRITERION, GRADING_CRITERIA, type GradingCriterion } from "./gradingCriterion.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
 
 export interface OverallStats {
@@ -42,16 +51,29 @@ export interface AnimeStats {
 }
 
 // Feature 71 gives a card extra scheduling tracks (song, both) whose reviews
-// land in the same log. Until stats slice by criterion (71c) every figure here
-// reads the title track alone, so each keeps meaning what it meant before.
-export function titleReviews() {
-  return eq(reviewLog.criterion, "title");
+// land in the same log. Every figure here reads one track at a time, the
+// anime-title one unless a caller asks otherwise, because summing tracks would
+// count one clip once per schedule.
+export function reviewsFor(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION) {
+  return eq(reviewLog.criterion, criterion);
 }
 
-// A join condition rather than a where clause, so a card with no title reviews
-// still produces its row with zero counts instead of dropping out.
-export function titleReviewsOfCard() {
-  return and(eq(reviewLog.cardId, card.id), titleReviews());
+// A join condition rather than a where clause, so a card with no reviews on
+// the track still produces its row with zero counts instead of dropping out.
+export function reviewsOfCardFor(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION) {
+  return and(eq(reviewLog.cardId, card.id), reviewsFor(criterion));
+}
+
+// The tracks /stats should offer: the title track always, and another once any
+// review, schedule row, or manual deck uses it. A deck switched back to title
+// keeps its old track listed while its reviews are still in the log.
+export function getAvailableTracks(): GradingCriterion[] {
+  const used = new Set<GradingCriterion>([
+    ...db.selectDistinct({ criterion: reviewLog.criterion }).from(reviewLog).all().map((row) => row.criterion),
+    ...db.selectDistinct({ criterion: cardTrack.criterion }).from(cardTrack).all().map((row) => row.criterion),
+    ...db.selectDistinct({ criterion: deck.gradingCriterion }).from(deck).all().map((row) => row.criterion),
+  ]);
+  return GRADING_CRITERIA.filter((criterion) => criterion === DEFAULT_GRADING_CRITERION || used.has(criterion));
 }
 
 export const passCountExpr = sql<number>`coalesce(sum(case when ${reviewLog.result} = 'pass' then 1 else 0 end), 0)`;
@@ -66,14 +88,14 @@ export function deriveCounts(totalReviews: number, rawPassCount: number) {
   };
 }
 
-export function getOverallStats(): OverallStats {
+export function getOverallStats(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): OverallStats {
   const row = db
     .select({ totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .get()!;
 
-  return { ...deriveCounts(row.totalReviews, row.passCount), streakDays: getStudyStreak() };
+  return { ...deriveCounts(row.totalReviews, row.passCount), streakDays: getStudyStreak(criterion) };
 }
 
 // SQLite's date() treats a bare integer as a Julian day, not unix seconds, so
@@ -117,11 +139,11 @@ export function currentStreakFromDates(dates: Iterable<string>, todayKey: string
   return streak;
 }
 
-export function getStudyStreak(): number {
+export function getStudyStreak(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): number {
   const rows = db
     .selectDistinct({ date: reviewDateExpr })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .all();
   return currentStreakFromDates(
     rows.map((r) => r.date),
@@ -129,16 +151,19 @@ export function getStudyStreak(): number {
   );
 }
 
-export function getReviewTimeline(range: ReviewTimelineRange): ReviewTimelineEntry[] {
+export function getReviewTimeline(
+  range: ReviewTimelineRange,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): ReviewTimelineEntry[] {
   const query = db
     .select({ date: reviewDateExpr, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog);
 
   const rows =
     range === "all"
-      ? query.where(titleReviews()).groupBy(reviewDateExpr).orderBy(reviewDateExpr).all()
+      ? query.where(reviewsFor(criterion)).groupBy(reviewDateExpr).orderBy(reviewDateExpr).all()
       : query
-          .where(and(titleReviews(), gte(reviewLog.reviewedAt, daysAgo(Number(range) - 1))))
+          .where(and(reviewsFor(criterion), gte(reviewLog.reviewedAt, daysAgo(Number(range) - 1))))
           .groupBy(reviewDateExpr)
           .orderBy(reviewDateExpr)
           .all();
@@ -199,20 +224,20 @@ function daysAgo(days: number): Date {
   return d;
 }
 
-export function listArtistStats(): ArtistStats[] {
+export function listArtistStats(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): ArtistStats[] {
   return db
     .select({ id: artist.id, name: artist.name, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor(criterion))
     .groupBy(artist.id)
     .orderBy(artist.name)
     .all()
     .map((row) => ({ id: row.id, name: row.name, ...deriveCounts(row.totalReviews, row.passCount) }));
 }
 
-export function listAnimeStats(): AnimeStats[] {
+export function listAnimeStats(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): AnimeStats[] {
   return db
     .select({
       id: anime.id,
@@ -224,7 +249,7 @@ export function listAnimeStats(): AnimeStats[] {
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor(criterion))
     .groupBy(anime.id)
     .orderBy(anime.titleEnglish)
     .all()
@@ -257,13 +282,17 @@ export interface WeakestDeckEntry {
 // Pools artist and anime groupings into one ranked list (manual decks have no
 // per-deck stats to rank, same gap the by-artist/by-title breakdown already
 // has). minReviews filters out noisy low-sample decks before ranking.
-export function getWeakestDecks(limit: number, minReviews: number): WeakestDeckEntry[] {
+export function getWeakestDecks(
+  limit: number,
+  minReviews: number,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): WeakestDeckEntry[] {
   const artistRows = db
     .select({ id: artist.id, name: artist.name, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor(criterion))
     .groupBy(artist.id)
     .all();
 
@@ -278,7 +307,7 @@ export function getWeakestDecks(limit: number, minReviews: number): WeakestDeckE
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .leftJoin(reviewLog, titleReviewsOfCard())
+    .leftJoin(reviewLog, reviewsOfCardFor(criterion))
     .groupBy(anime.id)
     .all();
 
@@ -379,25 +408,30 @@ function sumFrom(counts: Map<number, number>, from: number): number {
   return total;
 }
 
-export function getCollectionHealth(): CollectionHealth {
+export function getCollectionHealth(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): CollectionHealth {
+  const boxExpr = trackBoxExpr(criterion);
+  const streakExpr = trackStreakExpr(criterion);
+  const population = trackPopulationCondition(criterion);
+
   const boxCounts = db
-    .select({ box: card.box, count: count(card.id) })
+    .select({ box: boxExpr, count: count(card.id) })
     .from(card)
-    .groupBy(card.box)
+    .where(population)
+    .groupBy(boxExpr)
     .all();
 
   const boxOneStreakCounts = db
-    .select({ streak: card.streak, count: count(card.id) })
+    .select({ streak: streakExpr, count: count(card.id) })
     .from(card)
-    .where(eq(card.box, 1))
-    .groupBy(card.streak)
+    .where(and(population, eq(boxExpr, 1)))
+    .groupBy(streakExpr)
     .all();
 
-  const reviewedCardIds = db.selectDistinct({ id: reviewLog.cardId }).from(reviewLog).where(titleReviews());
+  const reviewedCardIds = db.selectDistinct({ id: reviewLog.cardId }).from(reviewLog).where(reviewsFor(criterion));
   const neverReviewed = db
     .select({ count: count(card.id) })
     .from(card)
-    .where(notInArray(card.id, reviewedCardIds))
+    .where(and(population, notInArray(card.id, reviewedCardIds)))
     .get()!.count;
 
   return shapeCollectionHealth({
@@ -466,33 +500,36 @@ export function shapeForecast(input: ReviewForecastInput): ReviewForecast {
   };
 }
 
-export function getReviewForecast(): ReviewForecast {
+export function getReviewForecast(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): ReviewForecast {
   const dayKeys = forecastDayKeys(new Date(), FORECAST_DAYS);
   const endExclusive = new Date();
   endExclusive.setHours(0, 0, 0, 0);
   endExclusive.setDate(endExclusive.getDate() + FORECAST_DAYS);
+  const population = trackPopulationCondition(criterion);
 
-  const dueDateExpr = sql<string>`date(${card.nextReviewAt}, 'unixepoch', 'localtime')`;
+  const dueDateExpr = sql<string>`date(${trackNextReviewAtExpr(criterion)}, 'unixepoch', 'localtime')`;
   const dueByDate = db
     .select({ date: dueDateExpr, count: count(card.id) })
     .from(card)
-    .where(lt(card.nextReviewAt, endExclusive))
+    .where(and(population, trackDueBeforeCondition(criterion, endExclusive)))
     .groupBy(dueDateExpr)
     .all();
 
   const backlog = db
     .select({ count: count(card.id) })
     .from(card)
-    .where(lte(card.nextReviewAt, new Date()))
+    .where(and(population, trackDueCondition(criterion)))
     .get()!.count;
 
   return shapeForecast({
     dueByDate,
     dayKeys,
-    // The one number Study itself answers with, so the two surfaces cannot
-    // disagree about what is due: it honours the daily new-card cap, which a
-    // plain nextReviewAt count does not.
-    dueNow: getDueCardCount({ type: "all" }),
+    // For the title track, the one number Study itself answers with, so the
+    // two surfaces cannot disagree about what is due: it honours the daily
+    // new-card cap, which a plain nextReviewAt count does not. Other tracks
+    // are only studied deck by deck, so there is no such session to agree
+    // with and the uncapped backlog is the honest answer.
+    dueNow: criterion === DEFAULT_GRADING_CRITERION ? getDueCardCount({ type: "all" }) : backlog,
     backlog,
   });
 }
@@ -557,13 +594,13 @@ export function shapeRetention(input: RetentionInput): RetentionStats {
   return { byBox, byThemeKind };
 }
 
-export function getRetentionStats(): RetentionStats {
+export function getRetentionStats(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): RetentionStats {
   // boxBefore, not boxAfter: the question is whether a card held at the box it
   // had already reached, which boxAfter has already answered by moving it.
   const byBox = db
     .select({ box: reviewLog.boxBefore, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(reviewLog.boxBefore)
     .all();
 
@@ -572,7 +609,7 @@ export function getRetentionStats(): RetentionStats {
     .from(reviewLog)
     .innerJoin(card, eq(reviewLog.cardId, card.id))
     .innerJoin(song, eq(card.songId, song.id))
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(song.themeSlot)
     .all();
 
@@ -612,23 +649,27 @@ export function shapeWeekOverWeek(input: WeekOverWeekInput): WeekOverWeek {
   };
 }
 
-function reviewTotalsBetween(from: Date, to: Date | null): { totalReviews: number; passCount: number } {
+function reviewTotalsBetween(
+  from: Date,
+  to: Date | null,
+  criterion: GradingCriterion,
+): { totalReviews: number; passCount: number } {
   const row = db
     .select({ totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog)
-    .where(and(titleReviews(), gte(reviewLog.reviewedAt, from), to ? lt(reviewLog.reviewedAt, to) : undefined))
+    .where(and(reviewsFor(criterion), gte(reviewLog.reviewedAt, from), to ? lt(reviewLog.reviewedAt, to) : undefined))
     .get()!;
 
   return { totalReviews: row.totalReviews, passCount: Number(row.passCount) };
 }
 
-export function getWeekOverWeek(): WeekOverWeek {
+export function getWeekOverWeek(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): WeekOverWeek {
   const currentStart = daysAgo(WEEK_DAYS - 1);
   const previousStart = daysAgo(WEEK_DAYS * 2 - 1);
 
   return shapeWeekOverWeek({
-    current: reviewTotalsBetween(currentStart, null),
-    previous: reviewTotalsBetween(previousStart, currentStart),
+    current: reviewTotalsBetween(currentStart, null, criterion),
+    previous: reviewTotalsBetween(previousStart, currentStart, criterion),
   });
 }
 
@@ -711,7 +752,7 @@ function windowCountExprs(cutoffSeconds: number) {
   };
 }
 
-export function getDeckTrends(): DeckTrends {
+export function getDeckTrends(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): DeckTrends {
   const cutoffSeconds = Math.floor(daysAgo(TREND_RECENT_DAYS - 1).getTime() / 1000);
   const windows = windowCountExprs(cutoffSeconds);
 
@@ -721,7 +762,7 @@ export function getDeckTrends(): DeckTrends {
     .innerJoin(card, eq(reviewLog.cardId, card.id))
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(artist.id)
     .all();
 
@@ -731,7 +772,7 @@ export function getDeckTrends(): DeckTrends {
     .innerJoin(card, eq(reviewLog.cardId, card.id))
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(anime.id)
     .all();
 
@@ -831,7 +872,7 @@ export function shapeReviewHeatmap(input: ReviewHeatmapInput): ReviewHeatmap {
 
 const HEATMAP_WEEKS = 53;
 
-export function getReviewHeatmap(): ReviewHeatmap {
+export function getReviewHeatmap(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): ReviewHeatmap {
   const today = new Date();
   const dayKeys = heatmapDayKeys(today, HEATMAP_WEEKS);
   const [y, m, d] = dayKeys[0]!.split("-").map(Number);
@@ -840,7 +881,7 @@ export function getReviewHeatmap(): ReviewHeatmap {
   const countsByDate = db
     .select({ date: reviewDateExpr, count: count(reviewLog.id) })
     .from(reviewLog)
-    .where(and(titleReviews(), gte(reviewLog.reviewedAt, startDate)))
+    .where(and(reviewsFor(criterion), gte(reviewLog.reviewedAt, startDate)))
     .groupBy(reviewDateExpr)
     .all();
 
@@ -907,11 +948,11 @@ export function shapeStudyRecords(input: StudyRecordsInput): StudyRecords {
   };
 }
 
-export function getStudyRecords(): StudyRecords {
+export function getStudyRecords(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): StudyRecords {
   const dayCounts = db
     .select({ date: reviewDateExpr, count: count(reviewLog.id) })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(reviewDateExpr)
     .all();
 
@@ -978,7 +1019,7 @@ export function shapeStudyRhythm(input: StudyRhythmInput): StudyRhythm {
   return { minReviews: RHYTHM_MIN_REVIEWS, hours, weekdays };
 }
 
-export function getStudyRhythm(): StudyRhythm {
+export function getStudyRhythm(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): StudyRhythm {
   const clockPart = (format: "%H" | "%w") =>
     sql<number>`cast(strftime(${format}, ${reviewLog.reviewedAt}, 'unixepoch', 'localtime') as integer)`;
   const hourExpr = clockPart("%H");
@@ -987,14 +1028,14 @@ export function getStudyRhythm(): StudyRhythm {
   const hourRows = db
     .select({ hour: hourExpr, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(hourExpr)
     .all();
 
   const weekdayRows = db
     .select({ weekday: weekdayExpr, totalReviews: count(reviewLog.id), passCount: passCountExpr })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .groupBy(weekdayExpr)
     .all();
 
@@ -1129,11 +1170,11 @@ export function shapeTroubleCards(
   };
 }
 
-export function getTroubleCards(): TroubleCards {
+export function getTroubleCards(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): TroubleCards {
   const rows = db
     .select({ id: reviewLog.id, cardId: reviewLog.cardId, result: reviewLog.result, reviewedAt: reviewLog.reviewedAt })
     .from(reviewLog)
-    .where(titleReviews())
+    .where(reviewsFor(criterion))
     .orderBy(desc(reviewLog.reviewedAt), desc(reviewLog.id))
     .all();
   return shapeTroubleCards(rows, getCardsByIds);
