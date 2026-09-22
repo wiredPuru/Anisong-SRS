@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, statSync, unlinkSync } from "node:fs";
 import { Readable } from "node:stream";
 import { getCardWithDetails, updateCard } from "../../utils/cards.ts";
 import { assertClipUrlAllowed } from "../../utils/clipSourceGuard.ts";
+import { acquireDownloadGuard, downloadGuardKey, releaseDownloadGuard } from "../../utils/downloadGuard.ts";
 import { buildDownloadBaseName, downloadMediaFile } from "../../utils/mediaDownload.ts";
 import { getDefaultDownloadFolder } from "../../utils/mediaLibrary.ts";
 
@@ -12,27 +13,56 @@ async function* streamDownloadResponse(
   ext: string,
   cardId: number,
   kind: "video" | "audio",
+  guardKey: string,
 ): AsyncGenerator<string> {
-  for await (const event of downloadMediaFile(sourceUrl, destDir, baseName, ext)) {
-    if (event.type === "progress") {
-      yield `${JSON.stringify({ type: "progress", loaded: event.loaded, total: event.total })}\n`;
-      continue;
-    }
-    if (event.type === "error") {
-      yield `${JSON.stringify({ type: "error", message: event.message })}\n`;
-      return;
-    }
+  try {
+    for await (const event of downloadMediaFile(sourceUrl, destDir, baseName, ext)) {
+      if (event.type === "progress") {
+        yield `${JSON.stringify({ type: "progress", loaded: event.loaded, total: event.total })}\n`;
+        continue;
+      }
+      if (event.type === "error") {
+        yield `${JSON.stringify({ type: "error", message: event.message })}\n`;
+        return;
+      }
 
-    const updateResult = updateCard(
-      kind === "video" ? { id: cardId, localVideoPath: event.path } : { id: cardId, localAudioPath: event.path },
-    );
-    if ("error" in updateResult || "notFound" in updateResult) {
-      if (existsSync(event.path)) unlinkSync(event.path);
-      yield `${JSON.stringify({ type: "error", message: "Downloaded the file but failed to save it to the card." })}\n`;
-      return;
+      const updateResult = updateCard(
+        kind === "video" ? { id: cardId, localVideoPath: event.path } : { id: cardId, localAudioPath: event.path },
+      );
+      if ("error" in updateResult || "notFound" in updateResult) {
+        if (existsSync(event.path)) unlinkSync(event.path);
+        yield `${JSON.stringify({ type: "error", message: "Downloaded the file but failed to save it to the card." })}\n`;
+        return;
+      }
+      yield `${JSON.stringify({ type: "done", card: updateResult.card })}\n`;
     }
-    yield `${JSON.stringify({ type: "done", card: updateResult.card })}\n`;
+  } finally {
+    releaseDownloadGuard(guardKey);
   }
+}
+
+// Throws on any configuration problem, so callers can release the in-flight
+// guard before rethrowing - unlike the streaming generator above, this runs
+// before the response stream (and its own guard release) ever starts.
+function resolveDestDir(): string {
+  const destDir = getDefaultDownloadFolder();
+  if (!destDir) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "No default download folder is configured. Set one in Settings.",
+    });
+  }
+  if (existsSync(destDir)) {
+    if (!statSync(destDir).isDirectory()) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Default download folder path is not a directory. Set a valid folder in Settings.",
+      });
+    }
+  } else {
+    mkdirSync(destDir, { recursive: true });
+  }
+  return destDir;
 }
 
 export default defineEventHandler(async (event) => {
@@ -68,22 +98,22 @@ export default defineEventHandler(async (event) => {
   }
   assertClipUrlAllowed(sourceUrl);
 
-  const destDir = getDefaultDownloadFolder();
-  if (!destDir) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "No default download folder is configured. Set one in Settings.",
-    });
+  // Guards against a concurrent request for the same card+kind (e.g. Auto
+  // Download racing a manual/Preview download) that would otherwise also
+  // pass the "no local path yet" check above. Released either by the
+  // streaming generator's finally once the download settles, or by the
+  // catch below if a pre-flight check fails before streaming ever starts.
+  const guardKey = downloadGuardKey(card.id, kind);
+  if (!acquireDownloadGuard(guardKey)) {
+    throw createError({ statusCode: 409, statusMessage: "A download for this card is already in progress." });
   }
-  if (existsSync(destDir)) {
-    if (!statSync(destDir).isDirectory()) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "Default download folder path is not a directory. Set a valid folder in Settings.",
-      });
-    }
-  } else {
-    mkdirSync(destDir, { recursive: true });
+
+  let destDir: string;
+  try {
+    destDir = resolveDestDir();
+  } catch (err) {
+    releaseDownloadGuard(guardKey);
+    throw err;
   }
 
   const { baseName, ext } = buildDownloadBaseName({
@@ -95,5 +125,8 @@ export default defineEventHandler(async (event) => {
   });
 
   setResponseHeader(event, "content-type", "application/x-ndjson");
-  return sendStream(event, Readable.from(streamDownloadResponse(sourceUrl, destDir, baseName, ext, card.id, kind)));
+  return sendStream(
+    event,
+    Readable.from(streamDownloadResponse(sourceUrl, destDir, baseName, ext, card.id, kind, guardKey)),
+  );
 });
