@@ -5,7 +5,7 @@ import {
   getUpcomingDueCards,
   getWithheldNewCount,
 } from "../../utils/cards.ts";
-import { getAnimeLabel, getArtistLabel, getManualDeckLabel } from "../../utils/decks.ts";
+import { getAnimeLabel, getArtistLabel, getManualDeckLabel, resolveScopeCriterion } from "../../utils/decks.ts";
 import { parseStudyScope } from "../../utils/studyScope.ts";
 
 const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
@@ -29,13 +29,18 @@ export default defineEventHandler((event) => {
     }
   }
 
-  const nextCard = getNextDueCard(scope, includeNewBeyondLimit);
+  // Resolved once per request: every count below has to describe the same
+  // track as the card being served, and re-reading the deck per call would
+  // let a criterion changed mid-request split them.
+  const criterion = resolveScopeCriterion(scope);
+  const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion);
 
   return {
     card: nextCard ?? null,
-    newCardsToday: getNewCardsTodayInfo(),
-    dueCount: getDueCardCount(scope, includeNewBeyondLimit),
-    withheldNewCount: getWithheldNewCount(scope),
-    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2, includeNewBeyondLimit),
+    criterion,
+    newCardsToday: getNewCardsTodayInfo(criterion),
+    dueCount: getDueCardCount(scope, includeNewBeyondLimit, criterion),
+    withheldNewCount: getWithheldNewCount(scope, criterion),
+    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2, includeNewBeyondLimit, criterion),
   };
 });

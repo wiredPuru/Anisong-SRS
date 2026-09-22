@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { card, reviewLog } from "../db/schema.ts";
+import { reviewLog } from "../db/schema.ts";
+import { readTrackState, writeTrackState } from "./cardTrack.ts";
 import { getCardWithDetails } from "./cards.ts";
 import type { CardWithDetails } from "./cards.ts";
+import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
 
 const MAX_BOX = 5;
@@ -41,8 +42,12 @@ export function computeNextBoxState(
 
 export type RecordReviewResult = { notFound: true } | { card: CardWithDetails };
 
-export function recordReview(cardId: number, result: "pass" | "fail"): RecordReviewResult {
-  const existing = db.select().from(card).where(eq(card.id, cardId)).get();
+export function recordReview(
+  cardId: number,
+  result: "pass" | "fail",
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): RecordReviewResult {
+  const existing = readTrackState(cardId, criterion);
   if (!existing) {
     return { notFound: true };
   }
@@ -54,8 +59,8 @@ export function recordReview(cardId: number, result: "pass" | "fail"): RecordRev
     getBoxOneStreakRequired(),
   );
 
-  db.update(card).set({ box, nextReviewAt, streak }).where(eq(card.id, cardId)).run();
-  db.insert(reviewLog).values({ cardId, result, boxBefore: existing.box, boxAfter: box }).run();
+  writeTrackState(cardId, criterion, { box, streak, nextReviewAt });
+  db.insert(reviewLog).values({ cardId, result, boxBefore: existing.box, boxAfter: box, criterion }).run();
 
-  return { card: getCardWithDetails(cardId)! };
+  return { card: getCardWithDetails(cardId, criterion)! };
 }

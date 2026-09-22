@@ -9,6 +9,8 @@ export interface NewCardsToday {
   limit: number | null;
 }
 
+type GradingCriterion = "title" | "song" | "both";
+
 export interface CardWithDetails {
   id: number;
   songId: number;
@@ -62,6 +64,9 @@ export function useStudySession(
   // and reset on scope change below, never persisted. The daily limit setting
   // itself is never written to - this only widens what this session asks for.
   const includeNewBeyondLimit = ref(false);
+  // Echoed back to /api/study/review so a review advances the same track the
+  // card was served from, rather than the server re-resolving the deck.
+  const criterion = ref<GradingCriterion>("title");
 
   async function fetchNext(): Promise<boolean> {
     if (!scope.value) return false;
@@ -70,6 +75,7 @@ export function useStudySession(
     try {
       const result = await $fetch<{
         card: CardWithDetails | null;
+        criterion: GradingCriterion;
         newCardsToday: NewCardsToday;
         dueCount: number;
         withheldNewCount: number;
@@ -81,6 +87,7 @@ export function useStudySession(
         },
       });
       currentCard.value = result.card;
+      criterion.value = result.criterion;
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
       dueCount.value = result.dueCount;
@@ -110,7 +117,7 @@ export function useStudySession(
     try {
       await $fetch("/api/study/review", {
         method: "POST",
-        body: { cardId: currentCard.value.id, result },
+        body: { cardId: currentCard.value.id, result, criterion: criterion.value },
       });
       reviewedCount.value += 1;
       return true;

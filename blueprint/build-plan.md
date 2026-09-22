@@ -654,6 +654,33 @@ cleaned-up checkbox version before generating the project overview.
     Anime/Song/Artist add-candidate search shows disabled with a note
     explaining why, mirroring feature 64b's pattern, instead of being
     addable like normal.
+- [ ] 71. **Per-deck grading criteria** - let a manual deck declare what its
+  cards are graded on - the anime title (today's behaviour, and the default),
+  the song name, or both - and give each criterion its own Leitner scheduling
+  track, so the same card can sit in one deck you drill for titles and another
+  you drill for song names without either deck's pass/fail moving the other's
+  interval. Artist and Anime decks are query-time groupings with nowhere to
+  store a setting, so this is manual-deck-only; every existing deck keeps
+  grading by title and keeps the exact scheduling state it has now.
+  - [x] 71a. **Criterion-keyed scheduling tracks** - the schema and server
+    plumbing, with no way to set a criterion yet, so the app behaves exactly
+    as it does today. A `gradingCriterion` on `deck`; a `card_track` table
+    holding box/streak/nextReviewAt per (card, criterion) for non-title
+    criteria only, so the `card` row stays the title track and nothing is
+    backfilled; a `criterion` column on `review_log` defaulting to `title`.
+    The due query, due count, prefetch lookahead, new-card counting and
+    `recordReview` all resolve a criterion from the study scope and operate on
+    that track. Stats, Home and the deck tiles filter to the title track so
+    their numbers keep meaning what they mean today.
+  - [ ] 71b. **Deck criterion setting + Study grading** - the control that
+    sets a manual deck's criterion on `/decks`, and Study actually grading by
+    it. With Typed Answers on, the criterion's categories are forced on and
+    drive Pass/Fail, a blank required answer counting as a fail; with it off,
+    the manual prompt re-words to name what you are grading yourself on. The
+    info panel's box and learning-streak readout follows the active track.
+  - [ ] 71c. **Track-aware stats** - slice `/stats` and the deck pass-rate
+    tiles by criterion instead of hiding non-title tracks, so song and
+    combined drilling shows up in retention, leeches and the activity charts.
 
 ## Plan maintenance
 

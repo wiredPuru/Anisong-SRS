@@ -1,16 +1,13 @@
 import { recordReview } from "../../utils/study.ts";
+import { parseReviewBody } from "../../utils/studyReview.ts";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
-
-  if (!body || typeof body.cardId !== "number") {
-    throw createError({ statusCode: 400, statusMessage: "cardId is required and must be a number" });
-  }
-  if (body.result !== "pass" && body.result !== "fail") {
-    throw createError({ statusCode: 400, statusMessage: "result must be 'pass' or 'fail'" });
+  const parsed = parseReviewBody(await readBody(event));
+  if ("error" in parsed) {
+    throw createError({ statusCode: 400, statusMessage: parsed.error });
   }
 
-  const result = recordReview(body.cardId, body.result);
+  const result = recordReview(parsed.cardId, parsed.result, parsed.criterion);
   if ("notFound" in result) {
     throw createError({ statusCode: 404, statusMessage: "Card not found" });
   }

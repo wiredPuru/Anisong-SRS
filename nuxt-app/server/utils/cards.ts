@@ -4,6 +4,8 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, lte, ne, n
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { trackBoxExpr, trackDueCondition, trackNextReviewAtExpr, trackStreakExpr } from "./cardTrack.ts";
+import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { removeCachedStream } from "./streamCache.ts";
@@ -38,7 +40,12 @@ export interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
-const cardSelection = {
+// box/streak/nextReviewAt describe whichever track was asked for, so the same
+// CardWithDetails shape serves both /api/cards (always the title track) and
+// /api/study/next (the active scope's track). The criterion travels alongside
+// in the study response rather than being added to the card shape, which is
+// hand-mirrored client-side (F-09) and must not drift.
+const cardSelection = (criterion: GradingCriterion) => ({
   id: card.id,
   songId: card.songId,
   localVideoPath: card.localVideoPath,
@@ -46,9 +53,9 @@ const cardSelection = {
   animethemesVideoUrl: card.animethemesVideoUrl,
   animethemesAudioUrl: card.animethemesAudioUrl,
   notes: card.notes,
-  box: card.box,
-  streak: card.streak,
-  nextReviewAt: card.nextReviewAt,
+  box: trackBoxExpr(criterion),
+  streak: trackStreakExpr(criterion),
+  nextReviewAt: trackNextReviewAtExpr(criterion),
   createdAt: card.createdAt,
   songTitle: song.title,
   songTitleNative: sql<string>`coalesce(${song.titleNative}, ${song.title})`,
@@ -61,11 +68,11 @@ const cardSelection = {
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,
   animeCoverImageUrl: anime.coverImageUrl,
-};
+});
 
-function cardQuery() {
+function cardQuery(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION) {
   return db
-    .select(cardSelection)
+    .select(cardSelection(criterion))
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
@@ -129,8 +136,11 @@ export function listCardIds(query: string, missingAnimeThemesMatch?: boolean): n
     .map((row) => row.id);
 }
 
-export function getCardWithDetails(id: number): CardWithDetails | undefined {
-  return cardQuery().where(eq(card.id, id)).get();
+export function getCardWithDetails(
+  id: number,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): CardWithDetails | undefined {
+  return cardQuery(criterion).where(eq(card.id, id)).get();
 }
 
 export function cardExistsForSong(songId: number): boolean {
@@ -227,18 +237,21 @@ export type StudyScope =
   | { type: "anime"; id: number }
   | { type: "created"; id: number };
 
-function countCardsIntroducedToday(): number {
+function countCardsIntroducedToday(criterion: GradingCriterion): number {
   const startOfTodaySeconds = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000);
   return db
     .select({ cardId: reviewLog.cardId })
     .from(reviewLog)
     .groupBy(reviewLog.cardId)
+    .where(eq(reviewLog.criterion, criterion))
     .having(sql`min(${reviewLog.reviewedAt}) >= ${startOfTodaySeconds}`)
     .all().length;
 }
 
-export function getNewCardsTodayInfo(): { introduced: number; limit: number | null } {
-  return { introduced: countCardsIntroducedToday(), limit: getDailyNewCardLimit() };
+export function getNewCardsTodayInfo(
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): { introduced: number; limit: number | null } {
+  return { introduced: countCardsIntroducedToday(criterion), limit: getDailyNewCardLimit() };
 }
 
 // The due/new-card-limit condition shared by every due query, with no scope
@@ -249,17 +262,25 @@ export function getNewCardsTodayInfo(): { introduced: number; limit: number | nu
 // (Study's "Study new cards" action). It defaults to false so every other
 // caller - deck-tile due counts, the Home dashboard - keeps honouring the
 // limit without opting out.
-export function baseDueCondition(includeNewBeyondLimit = false) {
-  const isDue = lte(card.nextReviewAt, new Date());
+export function baseDueCondition(
+  includeNewBeyondLimit = false,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+) {
+  const isDue = trackDueCondition(criterion);
   // A subquery, not a join, so the callers sharing this condition keep their
   // own join lists (deck tile counts group by artist/anime id).
   const dueCondition = getThemesOnly()
     ? and(isDue, inArray(card.songId, db.select({ id: song.id }).from(song).where(isNotNull(song.animethemesThemeId))))
     : isDue;
 
-  const { introduced, limit } = getNewCardsTodayInfo();
+  const { introduced, limit } = getNewCardsTodayInfo(criterion);
   if (!includeNewBeyondLimit && limit !== null && introduced >= limit) {
-    const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+    // Scoped to this criterion: a card already reviewed for its title is still
+    // a new card the first time it comes up for its song.
+    const reviewedCardIds = db
+      .select({ id: reviewLog.cardId })
+      .from(reviewLog)
+      .where(eq(reviewLog.criterion, criterion));
     return and(dueCondition, inArray(card.id, reviewedCardIds));
   }
 
@@ -277,9 +298,13 @@ function scopeFilter(scope: StudyScope) {
   return undefined;
 }
 
-function dueCardCondition(scope: StudyScope, includeNewBeyondLimit = false) {
+function dueCardCondition(
+  scope: StudyScope,
+  includeNewBeyondLimit = false,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+) {
   const scopeCondition = scopeFilter(scope);
-  const base = baseDueCondition(includeNewBeyondLimit);
+  const base = baseDueCondition(includeNewBeyondLimit, criterion);
   return scopeCondition ? and(base, scopeCondition) : base;
 }
 
@@ -344,8 +369,15 @@ export function pickRandomDueOrder<T extends { id: number; nextReviewAt: Date }>
   return picks;
 }
 
-export function getNextDueCard(scope: StudyScope, includeNewBeyondLimit = false): CardWithDetails | undefined {
-  const pool = cardQuery().where(dueCardCondition(scope, includeNewBeyondLimit)).orderBy(asc(card.nextReviewAt)).all();
+export function getNextDueCard(
+  scope: StudyScope,
+  includeNewBeyondLimit = false,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): CardWithDetails | undefined {
+  const pool = cardQuery(criterion)
+    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion))
+    .orderBy(asc(trackNextReviewAtExpr(criterion)))
+    .all();
   return pickRandomDueOrder(pool, 1)[0];
 }
 
@@ -359,21 +391,26 @@ export function getUpcomingDueCards(
   excludeCardId: number | undefined,
   limit: number,
   includeNewBeyondLimit = false,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
 ): CardWithDetails[] {
-  const base = dueCardCondition(scope, includeNewBeyondLimit);
+  const base = dueCardCondition(scope, includeNewBeyondLimit, criterion);
   const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
-  const pool = cardQuery().where(condition).orderBy(asc(card.nextReviewAt)).all();
+  const pool = cardQuery(criterion).where(condition).orderBy(asc(trackNextReviewAtExpr(criterion))).all();
   return pickRandomDueOrder(pool, limit);
 }
 
-export function getDueCardCount(scope: StudyScope, includeNewBeyondLimit = false): number {
+export function getDueCardCount(
+  scope: StudyScope,
+  includeNewBeyondLimit = false,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): number {
   return db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(dueCardCondition(scope, includeNewBeyondLimit))
+    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion))
     .get()!.count;
 }
 
@@ -381,18 +418,24 @@ export function getDueCardCount(scope: StudyScope, includeNewBeyondLimit = false
 // is what decides whether Study offers its "Study new cards" action at all.
 // Zero when no limit is set or the limit is not yet spent: in both of those
 // cases new cards are already being served normally, so nothing is withheld.
-export function getWithheldNewCount(scope: StudyScope): number {
-  const { introduced, limit } = getNewCardsTodayInfo();
+export function getWithheldNewCount(
+  scope: StudyScope,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+): number {
+  const { introduced, limit } = getNewCardsTodayInfo(criterion);
   if (limit === null || introduced < limit) return 0;
 
-  const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+  const reviewedCardIds = db
+    .select({ id: reviewLog.cardId })
+    .from(reviewLog)
+    .where(eq(reviewLog.criterion, criterion));
   return db
     .select({ count: count(card.id) })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(and(dueCardCondition(scope, true), notInArray(card.id, reviewedCardIds)))
+    .where(and(dueCardCondition(scope, true, criterion), notInArray(card.id, reviewedCardIds)))
     .get()!.count;
 }
 
@@ -400,7 +443,10 @@ export function getWithheldNewCount(scope: StudyScope): number {
 // a failed card also resets to box 1, and that isn't "new".
 export function getDueCardBreakdown(scope: StudyScope): { due: number; new: number } {
   const condition = dueCardCondition(scope);
-  const reviewedCardIds = db.select({ id: reviewLog.cardId }).from(reviewLog);
+  const reviewedCardIds = db
+    .select({ id: reviewLog.cardId })
+    .from(reviewLog)
+    .where(eq(reviewLog.criterion, DEFAULT_GRADING_CRITERION));
 
   const due = db
     .select({ count: count(card.id) })

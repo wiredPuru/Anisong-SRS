@@ -1,9 +1,10 @@
 import { and, count, countDistinct, eq, inArray, like, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/schema.ts";
-import { baseDueCondition, type Paginated } from "./cards.ts";
+import { baseDueCondition, type Paginated, type StudyScope } from "./cards.ts";
+import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
 import { PAGE_SIZE } from "./pagination.ts";
-import { deriveCounts, passCountExpr } from "./stats.ts";
+import { deriveCounts, passCountExpr, titleReviewsOfCard } from "./stats.ts";
 
 export interface ArtistDeck {
   id: number;
@@ -34,7 +35,7 @@ function passRatesByArtist(ids: number[]): Map<number, number | null> {
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
-    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .leftJoin(reviewLog, titleReviewsOfCard())
     .where(inArray(artist.id, ids))
     .groupBy(artist.id)
     .all();
@@ -48,7 +49,7 @@ function passRatesByAnime(ids: number[]): Map<number, number | null> {
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .leftJoin(reviewLog, titleReviewsOfCard())
     .where(inArray(anime.id, ids))
     .groupBy(anime.id)
     .all();
@@ -65,7 +66,7 @@ function passRatesByManualDeck(ids: number[]): Map<number, number | null> {
     .from(deckCard)
     .innerJoin(deck, eq(deckCard.deckId, deck.id))
     .innerJoin(card, eq(deckCard.cardId, card.id))
-    .leftJoin(reviewLog, eq(reviewLog.cardId, card.id))
+    .leftJoin(reviewLog, titleReviewsOfCard())
     .where(inArray(deck.id, ids))
     .groupBy(deck.id)
     .all();
@@ -234,6 +235,17 @@ export function listManualDecks(page: number, query?: string): Paginated<ManualD
     items: items.map((item) => ({ ...item, passRate: passRates.get(item.id) ?? null })),
     total,
   };
+}
+
+// Only a manual deck stores a criterion. Artist and anime decks are
+// query-time groupings (feature 5) with no row to hold a setting, and "all" is
+// not a deck at all, so those three return before the lookup runs.
+export function resolveScopeCriterion(scope: StudyScope): GradingCriterion {
+  if (scope.type !== "created") return DEFAULT_GRADING_CRITERION;
+  const row = db.select({ criterion: deck.gradingCriterion }).from(deck).where(eq(deck.id, scope.id)).get();
+  // A deck that no longer exists is the caller's 404 to report, not ours to
+  // guess at: fall back to the default rather than throwing from a resolver.
+  return row?.criterion ?? DEFAULT_GRADING_CRITERION;
 }
 
 export function getManualDeckLabel(id: number): string | undefined {

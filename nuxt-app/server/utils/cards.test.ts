@@ -4,10 +4,11 @@ import { card } from "../db/schema.ts";
 import { baseDueCondition, pathsToRemove, pickRandomDueOrder } from "./cards.ts";
 
 const themesOnly = vi.hoisted(() => ({ value: false }));
+const dailyNewCardLimit = vi.hoisted(() => ({ value: null as number | null }));
 vi.mock("./mediaLibrary.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./mediaLibrary.ts")>()),
   getThemesOnly: () => themesOnly.value,
-  getDailyNewCardLimit: () => null,
+  getDailyNewCardLimit: () => dailyNewCardLimit.value,
 }));
 
 describe("baseDueCondition themes-only filter", () => {
@@ -115,5 +116,52 @@ describe("pickRandomDueOrder", () => {
     const pickedOnSeedDay = pickRandomDueOrder(pool, 1, seedDay)[0].id;
     const pickedOnNextSeedDay = pickRandomDueOrder(pool, 1, nextSeedDay)[0].id;
     expect(pickedOnSeedDay).not.toBe(pickedOnNextSeedDay);
+  });
+});
+
+describe("baseDueCondition grading criterion", () => {
+  const dueSql = (criterion: Parameters<typeof baseDueCondition>[1]) =>
+    db.select().from(card).where(baseDueCondition(false, criterion)).toSQL();
+
+  it("defaults to the title track stored on the card row", () => {
+    const { sql: text } = dueSql(undefined);
+    expect(text).toContain(`"card"."next_review_at" <=`);
+    expect(text).not.toContain("card_track");
+  });
+
+  it.each(["song", "both"] as const)("reads the %s track from card_track", (criterion) => {
+    const { sql: text, params } = dueSql(criterion);
+    expect(text).toContain(`"card_track"."next_review_at"`);
+    expect(text).toContain(`"card_track"."card_id" = "card"."id"`);
+    expect(params).toContain(criterion);
+  });
+});
+
+describe("baseDueCondition daily new-card cap", () => {
+  // The cap holds back cards never reviewed *for this criterion*: a card
+  // already known by title is still new the first time it is asked by song.
+  const cappedSql = (criterion: Parameters<typeof baseDueCondition>[1]) => {
+    dailyNewCardLimit.value = 0;
+    try {
+      return db.select().from(card).where(baseDueCondition(false, criterion)).toSQL();
+    } finally {
+      dailyNewCardLimit.value = null;
+    }
+  };
+
+  it("scopes the already-reviewed subquery to the active criterion", () => {
+    const { sql: text, params } = cappedSql("song");
+    expect(text).toMatch(/from "review_log" where "review_log"\."criterion" = \?/);
+    expect(params).toContain("song");
+  });
+
+  it("scopes it to the title track by default", () => {
+    const { params } = cappedSql(undefined);
+    expect(params).toContain("title");
+  });
+
+  it("does not filter by criterion when the cap is not in force", () => {
+    dailyNewCardLimit.value = null;
+    expect(db.select().from(card).where(baseDueCondition(false, "song")).toSQL().sql).not.toContain("review_log");
   });
 });

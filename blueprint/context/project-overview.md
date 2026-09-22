@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 2bcab819ec69a756e9312375f632ff15a44db946061d916730de950337c409ac -->
+<!-- blueprint:source-hash 4d600f26d39a1cfb657a45d5da997e3928119ebf5257e30c1507926b2fb9ffab -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -203,7 +203,16 @@ branch) - so it needs no schema change and no new provider calls. It does
 not touch Clip source (feature 64), which governs playback host only; this
 is purely about which cards are visible/selectable in the library. No
 `project-plan.md` change - it deepens §3's existing "Flashcard CRUD" bullet
-rather than a new product direction, the same call feature 64 made.
+rather than a new product direction, the same call feature 64 made. Feature 71
+(per-deck grading criteria, in three sub-features 71a-71c) was added to
+`build-plan.md` on 2026-09-22; 71a is built and merged, 71b-71c are not yet built. It is the first change to
+the scheduling model since feature 6a locked it: Leitner state becomes keyed by
+`(card, criterion)` rather than by card alone, so a manual deck can be drilled
+for song names without its passes moving the same card's anime-title schedule
+in another deck. Unlike features 66-70 it did amend `project-plan.md` (§3's
+Decks and Study session bullets, three §4 Data bullets), since a deck-level
+configuration and a second scheduling dimension are a product direction rather
+than a deepening of a documented one.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1394,7 +1403,8 @@ rather than a new product direction, the same call feature 64 made.
     `tab-seg`/`tab-seg-btn` toggle (the same convention `/decks` and
     `/stats` already use) switches to the unchanged year view and back.
 70. **Filter cards without an AnimeThemes.moe match** - added to
-    `build-plan.md` 2026-09-20, in two sub-features, neither built yet. AMQ's
+    `build-plan.md` 2026-09-20, in two sub-features, both now built and
+    merged. AMQ's
     faster clip hosting (feature 60) means AnisongDB is now the preferred
     metadata/clip source, but its catalog is broader than AnimeThemes.moe's
     curated one, so a theme can be added to a card's library with no
@@ -1402,7 +1412,7 @@ rather than a new product direction, the same call feature 64 made.
     and remove those cards while leaving Clip source (feature 64) exactly as
     configured - it is about which cards are visible/selectable, never about
     which host serves a clip.
-    - [ ] 70a. **Library filter + bulk cleanup** - a toggle on `/cards`
+    - **70a. Library filter + bulk cleanup** - a toggle on `/cards`
       (`missingAnimeThemes` query param, mirroring the existing `?q=`
       round-trip) narrows the list, and the existing "Delete all N matching"
       bulk action, to cards whose `Song.animethemesThemeId` is null. That
@@ -1412,12 +1422,72 @@ rather than a new product direction, the same call feature 64 made.
       never accidentally match the whole library. Deck-detail views
       (`/decks`) are unaffected - this is a `/cards`-library-only surface,
       like feature 61b/61c's bulk-select UI before it.
-    - [ ] 70b. **Import-time gate** - an AnisongDB-only result in the
+    - **70b. Import-time gate** - an AnisongDB-only result in the
       Anime/Song/Artist add-candidate search on `/cards` shows disabled with
       a note explaining why, mirroring feature 64b's "a theme left with no
       allowed clip still shows in results, disabled" pattern, instead of
       being addable like a fully-matched one - so 70a's filter does not
       immediately start refilling with new unmatched cards.
+71. **Per-deck grading criteria** - added to `build-plan.md` 2026-09-22, in
+    three sub-features; 71a is built, 71b-71c are not. Today a card carries exactly one
+    Leitner track (`Card.box`/`streak`/`nextReviewAt`) and only the anime-title
+    guess drives it: features 65/66's Song name and Opening/Ending categories
+    are bonus points that never touch scheduling. That makes a card studied for
+    two different skills share one schedule, so passing the title pushes the
+    song review out by days. This lets a manual deck declare what its cards are
+    graded on - `title` (the default, today's behaviour), `song`, or `both` -
+    and keys scheduling state by `(card, criterion)` so each skill advances
+    independently. Manual decks only: artist and anime decks are query-time
+    groupings (feature 5) with no row to hold a setting, and a user who wants
+    an artist drilled by song makes a manual deck. Amended `project-plan.md`
+    §3's Decks and Study session bullets and three §4 Data bullets, since it
+    adds a deck-level configuration and a second scheduling dimension rather
+    than deepening a documented capability.
+
+    Four decisions were made before the feature was added, and the spec rests
+    on them:
+    - **No per-deck isolation toggle.** Tracks key on `(card, criterion)`, not
+      `(card, deck)`. Two song-graded decks holding the same card share one
+      track. The original request also asked for optional per-deck isolation of
+      the same criterion (cram one deck without disturbing the long-term
+      schedule); it was dropped as unneeded once criteria have their own
+      tracks, and is not a build target.
+    - **Title track only outside a configured deck.** `{ type: "all" }`,
+      artist, and anime scopes keep serving the title track exactly as they do
+      now, so the same clip can never appear two or three times in one session
+      and `dueCount` keeps counting cards rather than tracks.
+    - **Works with Typed Answers on or off.** Nothing forces feature 65's mode
+      on; with it off the manual Pass/Fail prompt only re-words to name what is
+      being self-graded.
+    - **Stats stay title-only until 71c**, enforced by an explicit
+      `criterion = 'title'` filter added in 71a rather than left to drift.
+
+    Two smaller calls, recorded here because they are not obvious from the
+    sub-feature lines: a card with no `CardTrack` row for the active criterion
+    is treated as new and immediately due, so it starts fresh at box 1 (knowing
+    a title says nothing about knowing the song), and changing a deck's
+    criterion later keeps the old track's rows rather than deleting them.
+    - **71a. Criterion-keyed scheduling tracks** - done 2026-09-22. The schema and
+      server plumbing, with no way to set a criterion yet, so the app behaves
+      exactly as it does today. `Deck.gradingCriterion`, the `CardTrack` table,
+      and `ReviewLog.criterion`; `dueCardCondition`/`getNextDueCard`/
+      `getDueCardCount`/`getUpcomingDueCards`, the daily new-card counting in
+      `getNewCardsTodayInfo`/`getWithheldNewCount`, and `recordReview` all
+      resolve a criterion from the study scope and operate on that track. The
+      `Card` row stays the title track, so there is no backfill and every
+      existing query keeps working unchanged. Stats, Home, and the deck
+      pass-rate tiles filter to the title track.
+    - **71b. Deck criterion setting + Study grading** - not built. The control
+      on `/decks` that sets a manual deck's criterion, and Study grading by it:
+      with Typed Answers on the criterion's categories are forced on and drive
+      Pass/Fail (a blank required answer counts as a fail), with it off the
+      manual prompt re-words. `StudyInfoPanel`'s box and learning-streak
+      readout follows the active track.
+    - **71c. Track-aware stats** - not built. Slices `/stats` and the deck
+      pass-rate tiles by criterion instead of hiding non-title tracks, so song
+      and combined drilling shows up in retention, leeches, and the activity
+      charts. Last of the three because it is the only one that touches feature
+      68's whole surface.
 
 ## Data model
 
@@ -1525,6 +1595,31 @@ Backs the guess-rate stats feature (7) and is written by every
 - `result` (`"pass"` | `"fail"`)
 - `boxBefore` (integer)
 - `boxAfter` (integer)
+- `criterion` (text, not null, default `"title"`, values `"title" | "song" |
+  "both"`) - added in feature 71a. Which scheduling track this review advanced.
+  Every pre-71 row defaults to `"title"`, which is what they all were. Stats
+  and the daily new-card count filter on it.
+
+### CardTrack
+
+Feature 71a. One Leitner scheduling track per `(card, criterion)`, for
+**non-title criteria only**. The `Card` row itself is the `title` track, so
+this table starts empty, nothing is backfilled, and every query written before
+feature 71 keeps working untouched.
+
+- `id` (integer, PK)
+- `cardId` (FK -> Card, cascades on delete)
+- `criterion` (text, `"song" | "both"`) - never `"title"`; that track lives on
+  `Card`
+- `box` (integer, default `1`)
+- `streak` (integer, default `0`)
+- `nextReviewAt` (datetime, default now)
+- Unique on `(cardId, criterion)`
+
+A card with no row for the criterion being studied is new and immediately due,
+so it starts at box 1 rather than inheriting the title track's progress.
+Changing a deck's `gradingCriterion` leaves existing rows in place; nothing
+prunes a track whose deck no longer uses it.
 
 ### MediaLibrarySettings
 
@@ -1577,6 +1672,11 @@ Feature 13a. A user-created, flat (no parent/child) named deck.
 - `id` (integer, PK)
 - `name` (string, unique) - trimmed and duplicate-checked before insert, not
   relying on the DB constraint as the primary validation path
+- `gradingCriterion` (text, not null, default `"title"`, values `"title" |
+  "song" | "both"`) - added in feature 71a. What a card is graded on while
+  studying this deck, and therefore which `CardTrack` its reviews read and
+  write. Manual decks only; artist and anime decks are derived and have no row
+  to hold this.
 - `createdAt` (datetime)
 
 ### DeckCard
@@ -1631,6 +1731,11 @@ and the original archive at
 Box 1's 0-day interval is what lets a failed card resurface later in the
 same study session purely by calling `/api/study/next` again - there is no
 stored session queue.
+
+Feature 71a (built 2026-09-22) does not change any of the above. It changes
+only *where* that state is stored: the same 5 boxes and intervals, applied per
+`(card, criterion)` track instead of once per card. `computeNextBoxState` is
+already pure and takes box/streak as arguments, so it is reused unchanged.
 
 ## Tech stack
 

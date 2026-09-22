@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import type { ClipSource } from "../utils/clipSource.ts";
+import type { GradingCriterion } from "../utils/gradingCriterion.ts";
 
 export const anime = sqliteTable("anime", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -67,11 +68,33 @@ export const reviewLog = sqliteTable("review_log", {
   result: text("result").notNull().$type<"pass" | "fail">(),
   boxBefore: integer("box_before").notNull(),
   boxAfter: integer("box_after").notNull(),
+  criterion: text("criterion").$type<GradingCriterion>().notNull().default("title"),
 });
+
+// One Leitner track per (card, criterion), for non-title criteria only: the
+// `card` row itself is the title track, which is why feature 71a needed no
+// backfill and why every query written before it stayed correct untouched.
+export const cardTrack = sqliteTable(
+  "card_track",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    cardId: integer("card_id")
+      .notNull()
+      .references(() => card.id, { onDelete: "cascade" }),
+    criterion: text("criterion").$type<Exclude<GradingCriterion, "title">>().notNull(),
+    box: integer("box").notNull().default(1),
+    streak: integer("streak").notNull().default(0),
+    nextReviewAt: integer("next_review_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [unique("card_track_unique").on(table.cardId, table.criterion)],
+);
 
 export const deck = sqliteTable("deck", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  gradingCriterion: text("grading_criterion").$type<GradingCriterion>().notNull().default("title"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -130,3 +153,6 @@ export type NewDeck = typeof deck.$inferInsert;
 
 export type DeckCard = typeof deckCard.$inferSelect;
 export type NewDeckCard = typeof deckCard.$inferInsert;
+
+export type CardTrack = typeof cardTrack.$inferSelect;
+export type NewCardTrack = typeof cardTrack.$inferInsert;

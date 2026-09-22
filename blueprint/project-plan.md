@@ -46,12 +46,17 @@ instance against their own local media and database.
   artist) or by Anime Title (all songs in the DB for that anime), plus
   user-created manual decks: named, flat (no nesting), and a card can belong
   to any number of manual decks at once. A library view browses/groups decks
-  by Created (manual), Artist, or Anime.
+  by Created (manual), Artist, or Anime. A manual deck can also declare what
+  its cards are graded on - the anime title (the default), the song name, or
+  both - and each criterion carries its own Leitner state, so drilling one
+  skill never moves another's schedule.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right
   arrow (pass), matching the Anki/Migaku convention. Fail returns a card to a
-  shorter review interval; pass advances it to a longer one. Optional typed
+  shorter review interval; pass advances it to a longer one. Leitner state is
+  kept per grading criterion, so a card studied in a song-graded deck and in a
+  title-graded deck advances independently. Optional typed
   anime answers (feature 65) use a wider online catalogue with filtering
   suggestions, then automatically grade and save Pass/Fail. Submission reveals
   a lively result state with points and combo feedback while the song keeps
@@ -81,14 +86,17 @@ instance against their own local media and database.
 - Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED info),
   cached locally from AniList/animethemes.moe lookups.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
-  reference, current Leitner box/interval state.
+  reference, current Leitner box/interval state (one track per grading
+  criterion; the card's own columns are the anime-title track).
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
-  can belong to zero or more manual decks).
+  can belong to zero or more manual decks). A manual deck also stores the
+  grading criterion its cards are studied under.
 - Song metadata gains a native-Japanese title field, alongside its existing
   title.
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
-  artist and by anime title.
+  artist and by anime title. Each logged review records which grading criterion
+  it was for.
 - User-configured media library folder path(s).
 
 ## 5. Tech - What stack are we using?
