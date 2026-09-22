@@ -22,6 +22,6 @@ export function parseReviewBody(body: unknown): ReviewBody | { error: string } {
 
   if (criterionRaw === undefined) return { cardId, result, criterion: DEFAULT_GRADING_CRITERION };
   const criterion = parseGradingCriterion(criterionRaw);
-  if (!criterion) return { error: "criterion must be 'title', 'song', or 'both'" };
+  if (!criterion) return { error: "criterion must be a valid grading criterion, such as 'title' or 'title+song'" };
   return { cardId, result, criterion };
 }

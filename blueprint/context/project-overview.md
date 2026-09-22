@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 4d600f26d39a1cfb657a45d5da997e3928119ebf5257e30c1507926b2fb9ffab -->
+<!-- blueprint:source-hash a9b078839fb23363553b98c7f36593adc33d760edfdb279153b044c5330c6f97 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -212,7 +212,13 @@ for song names without its passes moving the same card's anime-title schedule
 in another deck. Unlike features 66-70 it did amend `project-plan.md` (§3's
 Decks and Study session bullets, three §4 Data bullets), since a deck-level
 configuration and a second scheduling dimension are a product direction rather
-than a deepening of a documented one.
+than a deepening of a documented one. Feature 72 (combined grading
+criteria, in three sub-features 72a-72c) was added to `build-plan.md` on
+2026-09-22; 72a is built and merged, 72b-72c are not yet built. It widens feature 71's three criteria into any
+combination of the anime title, song name, Opening/Ending number, and artist,
+each combination its own Leitner track, still manual-deck-only. It amended
+`project-plan.md` §3's Decks bullet, which listed the allowed criteria; the §4
+Data bullets name only "grading criterion" and still hold.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1500,6 +1506,42 @@ than a deepening of a documented one.
       it - and that forecast's due-now is uncapped. A manual deck's tile reports
       its own criterion's pass rate. Home and artist/anime tiles stay
       title-only, and there is no combined "all tracks" view.
+72. **Combined grading criteria** - added to `build-plan.md` 2026-09-22, in
+    three sub-features; 72a is built and merged, 72b-72c are not. Extends feature 71 so a manual deck
+    can grade on any combination of four categories - the anime title
+    (`title`), the song name (`song`), the Opening/Ending number (`slot`),
+    and the artist (`artist`) - instead of only title, song, or both. Asked
+    for so that, for example, some Yui Hori cards are drilled on the show
+    alone and others on the show plus OP/ED number plus artist; per-card
+    criteria were considered and rejected in favour of per-deck, so mixing
+    styles means one manual deck per style. Decisions made before the
+    feature was added:
+    - **Canonical `+`-joined strings.** A criterion is its categories joined
+      by `+` in the fixed order `title`, `song`, `slot`, `artist`
+      (`title+slot+artist`). Each distinct combination is its own
+      `CardTrack`, exactly as 71's three were.
+    - **`both` is renamed, not aliased.** A migration rewrites stored `both`
+      to `title+song` in `deck`, `card_track` and `review_log`, so there is
+      one naming scheme.
+    - **`slot` requires `title`.** An OP/ED number is meaningless without the
+      show, so 11 of the 15 non-empty subsets are valid.
+    - **Artist is graded only.** It is not added to feature 66's bonus
+      category menu; an artist bonus would be a separate item.
+    - **Typed Answers on or off.** As with 71b, with it off the manual prompt
+      names every required category.
+    - **72a. Combination criteria in the data and server** - done
+      2026-09-22. The canonical encoding (migration `0019`), the `both` rename migration, and validation in deck
+      PATCH, review POST and the stats `track` param, rejecting `slot`
+      without `title`. No UI change, so the app behaves as it does today.
+    - **72b. Deck control + Study grading for OP/ED and artist** - not built.
+      `/decks` swaps the three-way toggle for four category checkboxes. With
+      Typed Answers on, a required OP/ED number forces the existing picker on
+      and counts toward Pass/Fail, and a required artist shows a new
+      free-text artist box matched like song names (NFKC, case- and
+      whitespace-insensitive, no fuzzy matching).
+    - **72c. Stats for combined tracks** - not built. `/stats`' Track selector
+      and the deck tiles list and label whichever combinations have data
+      instead of the fixed Anime title / Song name / Both.
 
 ## Data model
 
@@ -1608,7 +1650,9 @@ Backs the guess-rate stats feature (7) and is written by every
 - `boxBefore` (integer)
 - `boxAfter` (integer)
 - `criterion` (text, not null, default `"title"`, values `"title" | "song" |
-  "both"`) - added in feature 71a. Which scheduling track this review advanced.
+  "both"`, widened by feature 72a to any canonical combination such as
+  `"title+slot+artist"`, with `"both"` migrated to `"title+song"`) - added in
+  feature 71a. Which scheduling track this review advanced.
   Every pre-71 row defaults to `"title"`, which is what they all were. Stats
   and the daily new-card count filter on it.
 
@@ -1621,7 +1665,8 @@ feature 71 keeps working untouched.
 
 - `id` (integer, PK)
 - `cardId` (FK -> Card, cascades on delete)
-- `criterion` (text, `"song" | "both"`) - never `"title"`; that track lives on
+- `criterion` (text, `"song" | "both"`, widened by feature 72a to any
+  non-title canonical combination) - never `"title"`; that track lives on
   `Card`
 - `box` (integer, default `1`)
 - `streak` (integer, default `0`)
@@ -1685,7 +1730,9 @@ Feature 13a. A user-created, flat (no parent/child) named deck.
 - `name` (string, unique) - trimmed and duplicate-checked before insert, not
   relying on the DB constraint as the primary validation path
 - `gradingCriterion` (text, not null, default `"title"`, values `"title" |
-  "song" | "both"`) - added in feature 71a. What a card is graded on while
+  "song" | "both"`; feature 72a widens this to any valid canonical
+  combination of `title`/`song`/`slot`/`artist`, `slot` only with `title`) -
+  added in feature 71a. What a card is graded on while
   studying this deck, and therefore which `CardTrack` its reviews read and
   write. Manual decks only; artist and anime decks are derived and have no row
   to hold this.

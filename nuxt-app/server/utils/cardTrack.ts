@@ -67,7 +67,7 @@ export function trackDueBeforeCondition(criterion: GradingCriterion, before: Dat
 }
 
 // Which cards a track's collection health and forecast count. Every card has a
-// title track. A song or both track exists for a card once it has a row, and
+// title track. Any other track exists for a card once it has a row, and
 // also for every card in a manual deck graded on it, so a deck just switched to
 // that criterion shows its cards as never reviewed instead of hiding them.
 export function trackPopulationCondition(criterion: GradingCriterion) {

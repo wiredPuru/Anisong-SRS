@@ -6,15 +6,15 @@ describe("parseDeckPatchBody", () => {
     expect(parseDeckPatchBody({ id: 3, name: "Bangers" })).toEqual({ id: 3, name: "Bangers" });
   });
 
-  it.each(["title", "song", "both"])("accepts the %s criterion alone", (gradingCriterion) => {
+  it.each(["title", "song", "title+song", "title+slot+artist"])("accepts the %s criterion alone", (gradingCriterion) => {
     expect(parseDeckPatchBody({ id: 3, gradingCriterion })).toEqual({ id: 3, gradingCriterion });
   });
 
   it("accepts a name and a criterion together", () => {
-    expect(parseDeckPatchBody({ id: 3, name: "Bangers", gradingCriterion: "both" })).toEqual({
+    expect(parseDeckPatchBody({ id: 3, name: "Bangers", gradingCriterion: "title+song" })).toEqual({
       id: 3,
       name: "Bangers",
-      gradingCriterion: "both",
+      gradingCriterion: "title+song",
     });
   });
 
@@ -33,11 +33,11 @@ describe("parseDeckPatchBody", () => {
     expect(parseDeckPatchBody({ id: 3, name: 7 })).toHaveProperty("error");
   });
 
-  it.each([["artist"], ["Song"], [""], [null], [2]])("rejects criterion %j", (gradingCriterion) => {
+  it.each([["both"], ["slot"], ["slot+song"], ["song+title"], ["Song"], [""], [null], [2]])("rejects criterion %j", (gradingCriterion) => {
     expect(parseDeckPatchBody({ id: 3, gradingCriterion })).toHaveProperty("error");
   });
 
   it("rejects a bad criterion even alongside a valid name", () => {
-    expect(parseDeckPatchBody({ id: 3, name: "Bangers", gradingCriterion: "artist" })).toHaveProperty("error");
+    expect(parseDeckPatchBody({ id: 3, name: "Bangers", gradingCriterion: "slot" })).toHaveProperty("error");
   });
 });

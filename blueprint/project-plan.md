@@ -47,9 +47,10 @@ instance against their own local media and database.
   user-created manual decks: named, flat (no nesting), and a card can belong
   to any number of manual decks at once. A library view browses/groups decks
   by Created (manual), Artist, or Anime. A manual deck can also declare what
-  its cards are graded on - the anime title (the default), the song name, or
-  both - and each criterion carries its own Leitner state, so drilling one
-  skill never moves another's schedule.
+  its cards are graded on - any combination of the anime title (the
+  default), the song name, the Opening/Ending number (only with the title),
+  and the artist - and each criterion carries its own Leitner state, so
+  drilling one skill never moves another's schedule.
 - **Study session** - Leitner-box spaced repetition, scoped to one deck at a
   time with an "all decks" option to pull from every due card across decks.
   Two outcomes per card: pass/fail, presented as left arrow (fail) / right

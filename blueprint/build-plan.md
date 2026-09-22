@@ -681,6 +681,30 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 71c. **Track-aware stats** - slice `/stats` and the deck pass-rate
     tiles by criterion instead of hiding non-title tracks, so song and
     combined drilling shows up in retention, leeches and the activity charts.
+- [ ] 72. **Combined grading criteria** - extend feature 71 so a manual deck
+  can grade on any combination of the anime title, the song name, the
+  Opening/Ending number, and the artist, instead of only title, song, or
+  both. Each combination is its own Leitner track, exactly as 71's three
+  are. The OP/ED number can only be graded alongside the anime title, since
+  "OP2" means nothing without knowing which show. Still manual-deck-only;
+  every existing deck keeps its criterion and scheduling state.
+  - [x] 72a. **Combination criteria in the data and server** - a criterion
+    becomes a canonical `+`-joined set in fixed order (`title`, `song`,
+    `title+slot+artist`, ...). A migration renames stored `both` to
+    `title+song` in `deck`, `card_track` and `review_log`, so nothing else
+    changes meaning. Validation (deck PATCH, review POST, stats `track`)
+    accepts any valid combination and rejects `slot` without `title`. No
+    new UI, so the app behaves as it does today.
+  - [ ] 72b. **Deck control + Study grading for OP/ED and artist** - `/decks`
+    swaps the three-way criterion toggle for four category checkboxes. In
+    Study with Typed Answers on, a required OP/ED number forces the existing
+    OP/ED picker on and counts toward Pass/Fail. A required artist shows a new
+    free-text artist box, matched like song names (case- and
+    space-insensitive, no fuzzy matching). With Typed Answers off, the manual
+    prompt names every required category.
+  - [ ] 72c. **Stats for combined tracks** - `/stats`' Track selector and the
+    deck tiles list and label whichever combinations have data, instead of
+    the fixed Anime title / Song name / Both.
 
 ## Plan maintenance
 

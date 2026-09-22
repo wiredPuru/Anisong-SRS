@@ -114,7 +114,7 @@ const {
 // exactly as before.
 const CRITERION_COPY: Record<Exclude<GradingCriterion, "title">, { chip: string; prompt: string; track: string }> = {
   song: { chip: "Song name", prompt: "Grade yourself on the song name", track: "Song" },
-  both: { chip: "Anime + song", prompt: "Grade yourself on the anime and the song name", track: "Anime + song" },
+  "title+song": { chip: "Anime + song", prompt: "Grade yourself on the anime and the song name", track: "Anime + song" },
 };
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
 const showSongAnswer = computed(() => typedAnswerCategories.value.songName || requiredAnswers.value.songName);

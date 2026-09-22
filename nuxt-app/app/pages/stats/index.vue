@@ -193,12 +193,12 @@ const router = useRouter();
 const activeType = computed<StatsType>(() => (route.query.type === "anime" ? "anime" : "artist"));
 
 // Feature 71: which scheduling track every section reads. Only offered once a
-// song or both track has anything in it; an unknown or unavailable ?track=
+// song or title+song track has anything in it; an unknown or unavailable ?track=
 // falls back to the anime-title view rather than an empty page.
-const TRACK_LABELS: Record<GradingCriterion, string> = { title: "Anime title", song: "Song name", both: "Both" };
+const TRACK_LABELS: Record<GradingCriterion, string> = { title: "Anime title", song: "Song name", "title+song": "Both" };
 const TRACK_NOTES: Record<Exclude<GradingCriterion, "title">, string> = {
   song: "Showing the song-name schedule.",
-  both: "Showing the anime + song schedule.",
+  "title+song": "Showing the anime + song schedule.",
 };
 
 const { data: tracksData, refresh: refreshTracks } = await useFetch<{ tracks: GradingCriterion[] }>("/api/stats", {

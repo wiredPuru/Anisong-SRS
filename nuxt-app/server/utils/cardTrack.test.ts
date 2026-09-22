@@ -10,7 +10,7 @@ import {
   trackStreakExpr,
 } from "./cardTrack.ts";
 
-const NON_TITLE = ["song", "both"] as const;
+const NON_TITLE = ["song", "title+song", "title+slot+artist"] as const;
 
 const selectSql = (expr: Parameters<typeof db.select>[0][string]) =>
   db.select({ value: expr }).from(card).toSQL();
@@ -69,7 +69,7 @@ describe("trackDueCondition", () => {
 });
 
 describe("trackPopulationCondition", () => {
-  const whereSql = (criterion: "title" | "song" | "both") =>
+  const whereSql = (criterion: "title" | (typeof NON_TITLE)[number]) =>
     db.select({ id: card.id }).from(card).where(trackPopulationCondition(criterion)).toSQL();
 
   it("adds nothing for the title track, which every card has", () => {

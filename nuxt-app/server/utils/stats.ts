@@ -50,7 +50,7 @@ export interface AnimeStats {
   passRate: number | null;
 }
 
-// Feature 71 gives a card extra scheduling tracks (song, both) whose reviews
+// Feature 71 gives a card extra scheduling tracks (song, title+song, ...) whose reviews
 // land in the same log. Every figure here reads one track at a time, the
 // anime-title one unless a caller asks otherwise, because summing tracks would
 // count one clip once per schedule.

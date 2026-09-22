@@ -1,4 +1,4 @@
-export type GradingCriterion = "title" | "song" | "both";
+export type GradingCriterion = "title" | "song" | "title+song";
 
 export interface RequiredCategories {
   anime: boolean;

@@ -268,7 +268,7 @@ const criterionError = ref<string | null>(null);
 const CRITERION_OPTIONS: { value: GradingCriterion; label: string; hint: string }[] = [
   { value: "title", label: "Anime title", hint: "Passes here move each card's anime-title schedule, shared with every other deck." },
   { value: "song", label: "Song name", hint: "Passes here move only each card's song-name schedule." },
-  { value: "both", label: "Both", hint: "A pass needs the anime and the song, on a schedule of its own." },
+  { value: "title+song", label: "Both", hint: "A pass needs the anime and the song, on a schedule of its own." },
 ];
 const criterionHint = computed(() => CRITERION_OPTIONS.find((o) => o.value === deckCriterion.value)?.hint ?? "");
 

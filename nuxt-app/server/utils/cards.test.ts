@@ -129,7 +129,7 @@ describe("baseDueCondition grading criterion", () => {
     expect(text).not.toContain("card_track");
   });
 
-  it.each(["song", "both"] as const)("reads the %s track from card_track", (criterion) => {
+  it.each(["song", "title+song", "title+slot+artist"] as const)("reads the %s track from card_track", (criterion) => {
     const { sql: text, params } = dueSql(criterion);
     expect(text).toContain(`"card_track"."next_review_at"`);
     expect(text).toContain(`"card_track"."card_id" = "card"."id"`);

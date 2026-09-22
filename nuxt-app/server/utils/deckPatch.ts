@@ -25,7 +25,7 @@ export function parseDeckPatchBody(body: unknown): DeckPatchBody | { error: stri
   if (name !== undefined) parsed.name = name;
   if (criterionRaw !== undefined) {
     const criterion = parseGradingCriterion(criterionRaw);
-    if (!criterion) return { error: "gradingCriterion must be 'title', 'song', or 'both'" };
+    if (!criterion) return { error: "gradingCriterion must be a valid grading criterion, such as 'title' or 'title+song'" };
     parsed.gradingCriterion = criterion;
   }
   return parsed;

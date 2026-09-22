@@ -6,7 +6,7 @@ describe("parseReviewBody", () => {
     expect(parseReviewBody({ cardId: 4, result: "pass" })).toEqual({ cardId: 4, result: "pass", criterion: "title" });
   });
 
-  it.each(["title", "song", "both"])("accepts the %s criterion", (criterion) => {
+  it.each(["title", "song", "title+song", "title+slot+artist"])("accepts the %s criterion", (criterion) => {
     expect(parseReviewBody({ cardId: 4, result: "fail", criterion })).toEqual({ cardId: 4, result: "fail", criterion });
   });
 
@@ -22,7 +22,7 @@ describe("parseReviewBody", () => {
     expect(parseReviewBody({ cardId: 4, result })).toHaveProperty("error");
   });
 
-  it.each([["artist"], ["Song"], [""], [null], [2]])("rejects criterion %j", (criterion) => {
+  it.each([["both"], ["slot"], ["slot+song"], ["song+title"], ["Song"], [""], [null], [2]])("rejects criterion %j", (criterion) => {
     expect(parseReviewBody({ cardId: 4, result: "pass", criterion })).toHaveProperty("error");
   });
 });

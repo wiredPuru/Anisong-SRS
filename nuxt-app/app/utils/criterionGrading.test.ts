@@ -5,7 +5,7 @@ describe("requiredCategories", () => {
   it.each([
     ["title", { anime: true, songName: false }],
     ["song", { anime: false, songName: true }],
-    ["both", { anime: true, songName: true }],
+    ["title+song", { anime: true, songName: true }],
   ] as const)("%s requires %j", (criterion, expected) => {
     expect(requiredCategories(criterion)).toEqual(expected);
   });
@@ -27,12 +27,12 @@ describe("gradeTypedRound", () => {
     ["song", "fail", true, "pass"],
     ["song", "pass", false, "fail"],
     ["song", "pass", null, "fail"],
-    // both: both required, a blank either way fails
-    ["both", "pass", true, "pass"],
-    ["both", "pass", false, "fail"],
-    ["both", "pass", null, "fail"],
-    ["both", "fail", true, "fail"],
-    ["both", null, true, "fail"],
+    // title+song: both required, a blank either way fails
+    ["title+song", "pass", true, "pass"],
+    ["title+song", "pass", false, "fail"],
+    ["title+song", "pass", null, "fail"],
+    ["title+song", "fail", true, "fail"],
+    ["title+song", null, true, "fail"],
   ] as const)("%s with anime %s and song %s is %s", (criterion, anime, song, expected) => {
     expect(gradeTypedRound(criterion, { anime, song })).toBe(expected);
   });

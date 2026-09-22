@@ -9,11 +9,11 @@ describe("parseStatsTrack", () => {
     expect(parseStatsTrack(undefined)).toBe("title");
   });
 
-  it.each(["title", "song", "both"])("accepts %s", (track) => {
+  it.each(["title", "song", "title+song", "title+slot+artist"])("accepts %s", (track) => {
     expect(parseStatsTrack(track)).toBe(track);
   });
 
-  it.each([["nope"], ["Song"], [""], [["song"]], [null]])("rejects %j", (track) => {
+  it.each([["nope"], ["both"], ["slot"], ["song+title"], ["Song"], [""], [["song"]], [null]])("rejects %j", (track) => {
     expect(parseStatsTrack(track)).toHaveProperty("error");
   });
 });
@@ -28,7 +28,7 @@ describe("reviewsFor", () => {
     expect(params).toEqual(["title"]);
   });
 
-  it.each(["song", "both"] as const)("filters to the %s track when asked", (criterion) => {
+  it.each(["song", "title+song", "title+slot+artist"] as const)("filters to the %s track when asked", (criterion) => {
     expect(whereSql(reviewsFor(criterion)).params).toEqual([criterion]);
   });
 });
