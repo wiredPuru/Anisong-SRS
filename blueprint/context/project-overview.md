@@ -1546,7 +1546,12 @@ Data bullets name only "grading criterion" and still hold.
       result rows. A deck asking no anime makes the song, else the artist,
       the round's main answer. `describeCriterion`
       (`app/utils/criterionGrading.ts`) names any combination for Study's
-      prompt and track label.
+      prompt and track label. The `typed-answers-match-criterion` fix
+      (2026-09-22) made a non-title deck ask exactly its categories: feature
+      66's optional Song name / OP/ED bonuses show only on the anime-title
+      track (`visibleAnswerCategories`), and the answer-categories modal
+      shows a non-title deck's categories as Required / Not asked with no
+      toggles. The stored bonus preference is never rewritten.
     - **72c. Stats for combined tracks** - done 2026-09-22. `/stats`' Track
       control is now a labelled dropdown listing whichever tracks have data
       (`listAvailableTracks` in `server/utils/stats.ts`: title first, then

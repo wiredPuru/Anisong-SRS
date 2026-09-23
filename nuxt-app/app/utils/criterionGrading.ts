@@ -1,3 +1,5 @@
+import type { TypedAnswerCategories } from "./typedAnswerCategories";
+
 // Client copy of server/utils/gradingCriterion.ts's list (F-09), same order.
 export const GRADING_CATEGORIES = ["title", "song", "slot", "artist"] as const;
 export type GradingCategory = (typeof GRADING_CATEGORIES)[number];
@@ -43,6 +45,17 @@ export function requiredCategories(criterion: GradingCriterion): RequiredCategor
     themeSlot: categories.includes("slot"),
     artist: categories.includes("artist"),
   };
+}
+
+/**
+ * Which answer boxes a typed round shows beside the main answer. Only the
+ * anime-title track offers feature 66's optional bonuses; a deck graded on
+ * anything else asks exactly what it grades, whatever the stored preference.
+ */
+export function visibleAnswerCategories(criterion: GradingCriterion, stored: TypedAnswerCategories): TypedAnswerCategories {
+  if (criterion === "title") return { ...stored };
+  const required = requiredCategories(criterion);
+  return { themeSlot: required.themeSlot, songName: required.songName };
 }
 
 /**

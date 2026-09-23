@@ -109,8 +109,9 @@ const {
 } = useStudySession(scope, effectiveAudioOnly, clipSource);
 
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
-const showSongAnswer = computed(() => typedAnswerCategories.value.songName || requiredAnswers.value.songName);
-const showThemeSlotAnswer = computed(() => typedAnswerCategories.value.themeSlot || requiredAnswers.value.themeSlot);
+const visibleAnswers = computed(() => visibleAnswerCategories(criterion.value, typedAnswerCategories.value));
+const showSongAnswer = computed(() => visibleAnswers.value.songName);
+const showThemeSlotAnswer = computed(() => visibleAnswers.value.themeSlot);
 // A deck that asks no anime question makes the song, or failing that the
 // artist, the round's main answer rather than a row under it.
 const mainAnswer = computed<"anime" | "song" | "artist">(() =>

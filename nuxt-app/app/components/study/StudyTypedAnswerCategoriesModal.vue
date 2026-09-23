@@ -3,8 +3,9 @@ import type { RequiredCategories } from "~/utils/criterionGrading";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 
 // A manual deck graded on something other than the anime title (feature 71)
-// decides which categories a round asks, so those rows are locked here rather
-// than toggled. The stored preference underneath is left as it was.
+// decides exactly which categories a round asks, so every row is locked here
+// and no bonus can be toggled on. The stored preference underneath is left as
+// it was, for the next title-graded session.
 const props = withDefaults(
   defineProps<{
     categories: TypedAnswerCategories;
@@ -13,6 +14,12 @@ const props = withDefaults(
   { required: () => ({ anime: true, songName: false, themeSlot: false, artist: false }) },
 );
 const titleGraded = computed(() => props.required.anime && !props.required.songName && !props.required.themeSlot && !props.required.artist);
+const deckRows = computed(() => [
+  { label: "Anime name", required: props.required.anime },
+  { label: "Song name", required: props.required.songName },
+  { label: "Opening/Ending number", required: props.required.themeSlot },
+  { label: "Artist", required: props.required.artist },
+]);
 const emit = defineEmits<{
   "update:categories": [TypedAnswerCategories];
   close: [];
@@ -35,48 +42,44 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="panel">
         <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
         <h2 class="title">Answer categories</h2>
-        <p v-if="titleGraded" class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
-        <p v-else class="hint">This deck decides what each round is graded on.<template v-if="!required.themeSlot"> Opening/Ending number is still an optional bonus.</template></p>
-        <div class="category-row locked">
-          <span class="category-label">Anime name</span>
-          <span class="locked-badge">{{ !required.anime ? "Not asked by this deck" : titleGraded ? "Always on" : "Required by this deck" }}</span>
-        </div>
-        <div v-if="required.songName" class="category-row locked">
-          <span class="category-label">Song name</span>
-          <span class="locked-badge">Required by this deck</span>
-        </div>
-        <div v-else class="category-row">
-          <span class="category-label">Song name</span>
-          <button
-            type="button"
-            class="category-toggle"
-            :class="{ on: categories.songName }"
-            :aria-pressed="categories.songName"
-            @click="emit('update:categories', { ...categories, songName: !categories.songName })"
-          >
-            {{ categories.songName ? "On" : "Off" }}
-          </button>
-        </div>
-        <div v-if="required.artist" class="category-row locked">
-          <span class="category-label">Artist</span>
-          <span class="locked-badge">Required by this deck</span>
-        </div>
-        <div v-if="required.themeSlot" class="category-row locked">
-          <span class="category-label">Opening/Ending number</span>
-          <span class="locked-badge">Required by this deck</span>
-        </div>
-        <div v-else class="category-row">
-          <span class="category-label">Opening/Ending number</span>
-          <button
-            type="button"
-            class="category-toggle"
-            :class="{ on: categories.themeSlot }"
-            :aria-pressed="categories.themeSlot"
-            @click="emit('update:categories', { ...categories, themeSlot: !categories.themeSlot })"
-          >
-            {{ categories.themeSlot ? "On" : "Off" }}
-          </button>
-        </div>
+        <template v-if="titleGraded">
+          <p class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
+          <div class="category-row locked">
+            <span class="category-label">Anime name</span>
+            <span class="locked-badge">Always on</span>
+          </div>
+          <div class="category-row">
+            <span class="category-label">Song name</span>
+            <button
+              type="button"
+              class="category-toggle"
+              :class="{ on: categories.songName }"
+              :aria-pressed="categories.songName"
+              @click="emit('update:categories', { ...categories, songName: !categories.songName })"
+            >
+              {{ categories.songName ? "On" : "Off" }}
+            </button>
+          </div>
+          <div class="category-row">
+            <span class="category-label">Opening/Ending number</span>
+            <button
+              type="button"
+              class="category-toggle"
+              :class="{ on: categories.themeSlot }"
+              :aria-pressed="categories.themeSlot"
+              @click="emit('update:categories', { ...categories, themeSlot: !categories.themeSlot })"
+            >
+              {{ categories.themeSlot ? "On" : "Off" }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <p class="hint">This deck decides what each round asks.</p>
+          <div v-for="row in deckRows" :key="row.label" class="category-row locked">
+            <span class="category-label">{{ row.label }}</span>
+            <span class="locked-badge">{{ row.required ? "Required by this deck" : "Not asked by this deck" }}</span>
+          </div>
+        </template>
       </div>
     </div>
   </Teleport>

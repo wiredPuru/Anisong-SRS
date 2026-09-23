@@ -6,6 +6,7 @@ import {
   describeCriterion,
   gradeTypedRound,
   requiredCategories,
+  visibleAnswerCategories,
 } from "./criterionGrading";
 
 describe("criterionCategories / buildCriterion", () => {
@@ -115,5 +116,35 @@ describe("describeCriterion", () => {
       spoken: "the anime, the OP/ED number and the artist",
     });
     expect(describeCriterion("title+song+slot+artist").chip).toBe("Anime + song + OP/ED + artist");
+  });
+});
+
+describe("visibleAnswerCategories", () => {
+  const storedCombinations = [
+    { themeSlot: false, songName: false },
+    { themeSlot: true, songName: false },
+    { themeSlot: false, songName: true },
+    { themeSlot: true, songName: true },
+  ];
+
+  it.each(storedCombinations)("title echoes the stored bonuses %j", (stored) => {
+    expect(visibleAnswerCategories("title", stored)).toEqual(stored);
+  });
+
+  it.each([
+    ["song", { themeSlot: false, songName: true }],
+    ["artist", { themeSlot: false, songName: false }],
+    ["title+song", { themeSlot: false, songName: true }],
+    ["title+slot", { themeSlot: true, songName: false }],
+    ["title+song+slot+artist", { themeSlot: true, songName: true }],
+  ] as const)("%s shows exactly its required categories whatever is stored", (criterion, expected) => {
+    for (const stored of storedCombinations) {
+      expect(visibleAnswerCategories(criterion, stored)).toEqual(expected);
+    }
+  });
+
+  it("never hands back the stored object itself", () => {
+    const stored = { themeSlot: true, songName: true };
+    expect(visibleAnswerCategories("title", stored)).not.toBe(stored);
   });
 });
