@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GradingCategory, GradingCriterion } from "~/utils/criterionGrading";
+import type { CopyCardsResult } from "~/components/deck/DeckCopyCardsModal.vue";
 
 interface ArtistDeck {
   id: number;
@@ -485,6 +486,19 @@ async function createDeck() {
   }
 }
 
+const createWithImportOpen = ref(false);
+const createdViaImport = ref(false);
+
+// The new tile only appears on a grid reload, which waits until the modal closes
+// so the grid does not shift behind it.
+async function closeCreateWithImport() {
+  createWithImportOpen.value = false;
+  if (!createdViaImport.value) return;
+  createdViaImport.value = false;
+  cancelNewDeck();
+  await loadFirstPage();
+}
+
 function cancelNewDeck() {
   showNewDeckForm.value = false;
   newDeckName.value = "";
@@ -712,6 +726,16 @@ function openAddAnimeModal(result: AniListResult) {
   addAnimeModalTarget.value = result;
 }
 
+const copyCardsModalOpen = ref(false);
+
+// Imported cards can land anywhere in createdAt order, so reload the list fresh.
+// The grid's tile count is bumped in place, since going back to the grid does not refetch it.
+async function onCardsCopied(result: CopyCardsResult) {
+  const deck = (rawDecks.value as { id: number; cardCount: number }[]).find((d) => d.id === selectedId.value);
+  if (deck) deck.cardCount += result.added;
+  await Promise.all([loadFirstDeckCardsPage(), refreshMemberships()]);
+}
+
 async function closeAddAnimeModal() {
   addAnimeModalTarget.value = null;
   resetAddCardSearch();
@@ -893,6 +917,14 @@ function backToDecks() {
                   >
                     {{ isCreatingDeck ? "Creating..." : "Create" }}
                   </button>
+                  <button
+                    type="button"
+                    class="rename-btn"
+                    :disabled="isCreatingDeck"
+                    @click="createWithImportOpen = true"
+                  >
+                    Import cards...
+                  </button>
                   <button type="button" class="rename-btn" :disabled="isCreatingDeck" @click="cancelNewDeck">
                     Cancel
                   </button>
@@ -981,7 +1013,10 @@ function backToDecks() {
         </div>
 
         <div v-if="activeType === 'created'" class="add-card-block">
-          <h3>Add cards</h3>
+          <div class="add-card-head">
+            <h3>Add cards</h3>
+            <button type="button" class="rename-btn" @click="copyCardsModalOpen = true">Import from deck</button>
+          </div>
           <input
             v-model="addCardQuery"
             type="text"
@@ -1203,6 +1238,23 @@ function backToDecks() {
       :target="addAnimeModalTarget"
       :deck-id="selectedId"
       @close="closeAddAnimeModal"
+    />
+
+    <DeckCopyCardsModal
+      :open="copyCardsModalOpen"
+      :deck-id="selectedId"
+      :deck-name="deckLabel"
+      @close="copyCardsModalOpen = false"
+      @copied="onCardsCopied"
+    />
+
+    <DeckCopyCardsModal
+      :open="createWithImportOpen"
+      :deck-id="null"
+      :deck-name="newDeckName.trim()"
+      create
+      @close="closeCreateWithImport"
+      @created="createdViaImport = true"
     />
   </main>
 </template>
@@ -1594,6 +1646,7 @@ h2 {
 
 .deck-tile-new-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1893,8 +1946,16 @@ h2 {
   border: 1px solid var(--border);
 }
 
+.add-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .add-card-block h3 {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 16px;
   font-weight: 800;
 }

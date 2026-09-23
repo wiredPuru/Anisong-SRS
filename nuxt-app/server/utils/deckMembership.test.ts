@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BULK_DECK_ADD_MAX, parseDeckCardsBody } from "./deckMembership.ts";
+import { BULK_DECK_ADD_MAX, COPY_SOURCES_MAX, parseCopyCardsBody, parseDeckCardsBody } from "./deckMembership.ts";
 
 describe("parseDeckCardsBody", () => {
   it("accepts a single cardId", () => {
@@ -49,5 +49,65 @@ describe("parseDeckCardsBody", () => {
   it("accepts exactly the bulk limit", () => {
     const cardIds = Array.from({ length: BULK_DECK_ADD_MAX }, (_, i) => i + 1);
     expect(parseDeckCardsBody({ deckId: 2, cardIds })).toEqual({ kind: "bulk", deckId: 2, cardIds });
+  });
+});
+
+describe("parseCopyCardsBody", () => {
+  it("accepts every source type", () => {
+    const sources = [
+      { type: "artist", id: 1 },
+      { type: "anime", id: 2 },
+      { type: "created", id: 3 },
+    ];
+    expect(parseCopyCardsBody({ deckId: 9, sources })).toEqual({ deckId: 9, sources });
+  });
+
+  it("dedupes repeated sources and drops extra keys", () => {
+    const sources = [
+      { type: "artist", id: 1, name: "Yui Hori" },
+      { type: "artist", id: 1 },
+      { type: "anime", id: 1 },
+    ];
+    expect(parseCopyCardsBody({ deckId: 9, sources })).toEqual({
+      deckId: 9,
+      sources: [
+        { type: "artist", id: 1 },
+        { type: "anime", id: 1 },
+      ],
+    });
+  });
+
+  it.each([[null], [undefined], ["deckId=2"], [{ sources: [{ type: "artist", id: 1 }] }], [{ deckId: 0, sources: [] }]])(
+    "rejects a malformed body %j",
+    (body) => {
+      expect(parseCopyCardsBody(body)).toHaveProperty("error");
+    },
+  );
+
+  it("rejects an empty or missing sources list", () => {
+    expect(parseCopyCardsBody({ deckId: 9, sources: [] })).toHaveProperty("error");
+    expect(parseCopyCardsBody({ deckId: 9 })).toHaveProperty("error");
+  });
+
+  it.each([[{ type: "song", id: 1 }], [{ type: "artist", id: 0 }], [{ type: "anime", id: "2" }], [{ id: 3 }], [7]])(
+    "rejects a bad source %j",
+    (source) => {
+      expect(parseCopyCardsBody({ deckId: 9, sources: [source] })).toHaveProperty("error");
+    },
+  );
+
+  it("rejects importing a deck into itself", () => {
+    expect(parseCopyCardsBody({ deckId: 9, sources: [{ type: "created", id: 9 }] })).toHaveProperty("error");
+  });
+
+  it("allows an artist or anime id equal to the target deck id", () => {
+    expect(parseCopyCardsBody({ deckId: 9, sources: [{ type: "artist", id: 9 }] })).not.toHaveProperty("error");
+  });
+
+  it("enforces the source limit after deduping", () => {
+    const many = Array.from({ length: COPY_SOURCES_MAX + 1 }, (_, i) => ({ type: "anime", id: i + 1 }));
+    expect(parseCopyCardsBody({ deckId: 9, sources: many })).toHaveProperty("error");
+    const dupes = Array.from({ length: COPY_SOURCES_MAX + 10 }, () => ({ type: "anime", id: 1 }));
+    expect(parseCopyCardsBody({ deckId: 9, sources: dupes })).not.toHaveProperty("error");
   });
 });

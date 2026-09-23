@@ -705,6 +705,16 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 72c. **Stats for combined tracks** - `/stats`' Track selector and the
     deck tiles list and label whichever combinations have data, instead of
     the fixed Anime title / Song name / Both.
+- [x] 73. **Import cards from another deck** - when creating a manual deck,
+  optionally pick one or more source decks (artist, anime, or another manual
+  deck) and copy all their cards into the new deck in one action, instead of
+  adding cards one at a time. The same "Import from deck" action is also on
+  an existing manual deck's detail view. Cards are linked, not duplicated:
+  it only adds `DeckCard` rows, so a card's scheduling and any other deck
+  memberships are untouched. The copy is resolved on the server from the
+  source deck, so it has no per-request size cap. Cards already in the
+  target deck are skipped, and a one-time snapshot is taken, so the new deck
+  doesn't follow later changes to the source.
 
 ## Plan maintenance
 

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a9b078839fb23363553b98c7f36593adc33d760edfdb279153b044c5330c6f97 -->
+<!-- blueprint:source-hash 0a2edd04d1a939f83e280ac3897b565463b5aaa5c597b03183f7fd03a4147718 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -179,9 +179,8 @@ sub-features 68a-68d) was added to `build-plan.md` the same day; it reads
 only data already stored - `ReviewLog`'s `boxBefore`/`boxAfter` and the
 clock time of `reviewedAt`, plus `Card`'s `box`/`streak`/`nextReviewAt` - so
 it needs no migration and no `project-plan.md` change, §3's existing
-"Review stats" bullet already covering the surface it deepens. Sub-feature
-68a (collection health + review forecast) is built and merged; 68b-68d are
-not yet built. Feature 69 (a GitHub-contribution-style study activity
+"Review stats" bullet already covering the surface it deepens. All four
+sub-features (68a-68d) are built and merged. Feature 69 (a GitHub-contribution-style study activity
 heatmap on the Home dashboard) was added to `build-plan.md` and built the
 same day, 2026-09-20; it is purely additive next to feature 50f's existing
 "Last 30 days" panel, reads the same `ReviewLog.reviewedAt` data via the
@@ -194,7 +193,7 @@ API call) rather than opening on the full 53-week grid, with a Month/Year
 toggle - matching the `tab-seg` convention `/decks` and `/stats` already
 use - to switch to the unchanged year view. Feature 70 (filtering cards
 without an AnimeThemes.moe match, in two sub-features 70a-70b) was added to
-`build-plan.md` on 2026-09-20; neither sub-feature is built yet. It reads
+`build-plan.md` on 2026-09-20; both sub-features are built and merged. It reads
 `Song.animethemesThemeId`, which `resolveThemes()` (`server/utils/
 themeSource.ts`) already sets to `null` exactly when a theme was resolved
 via AnisongDB alone (no AnimeThemes.moe counterpart) - true across every
@@ -218,7 +217,14 @@ criteria, in three sub-features 72a-72c) was added to `build-plan.md` on
 combination of the anime title, song name, Opening/Ending number, and artist,
 each combination its own Leitner track, still manual-deck-only. It amended
 `project-plan.md` §3's Decks bullet, which listed the allowed criteria; the §4
-Data bullets name only "grading criterion" and still hold.
+Data bullets name only "grading criterion" and still hold. Feature 73
+(importing cards from another deck) was added to `build-plan.md` on
+2026-09-22 and is now built and merged. It copies every card of one or more
+source decks (artist, anime, or manual) into a manual deck, from the
+create form or an existing manual deck's detail view, by adding `DeckCard`
+rows only. No `project-plan.md` change: §3's Decks bullet already lets a
+manual deck hold any cards, so this speeds up filling one rather than
+adding a product direction.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1343,7 +1349,7 @@ Data bullets name only "grading criterion" and still hold.
     score/combo, so this sharpens a documented capability rather than adding
     a product direction, the same call feature 66 made.
 68. **Deeper review stats** - added to `build-plan.md` 2026-09-19, in four
-    sub-features; 68a is built and merged, 68b-68d are not yet built. Turns
+    sub-features, all built and merged. Turns
     `/stats` from three KPI tiles, one
     chart, and a By Artist / By Title breakdown into a real analytics page
     using only data already on disk. `server/utils/stats.ts` reads just
@@ -1561,6 +1567,25 @@ Data bullets name only "grading criterion" and still hold.
       graded on the title shows "Graded on <name>" under its pass rate, and
       changing a deck's criterion updates its already-loaded tile in place.
       No server query changed.
+73. **Import cards from another deck** - added to `build-plan.md`
+    2026-09-22, done 2026-09-23. When creating a manual deck, optionally pick
+    one or more source decks (artist, anime, or another manual deck) and
+    copy all their cards into it in one action; the same "Import from deck"
+    action also sits on an existing manual deck's detail view. Cards are
+    linked, not duplicated: only `DeckCard` rows are added, so a card's
+    scheduling (`Card` and `CardTrack`) and its other memberships are
+    untouched. The copy is resolved server-side from the source deck, so it
+    is not bound by `POST /api/decks/cards`' 500-id `cardIds` cap. Cards
+    already in the target are skipped (the insert is idempotent), and it is
+    a one-time snapshot: the target does not follow later changes to the
+    source. As built, `POST /api/decks/copy-cards` (`copyCardsFromDecks`,
+    `server/utils/decks.ts`) takes `{ deckId, sources }` (1-50 deduped
+    `{ type: "artist" | "anime" | "created", id }`, validated by
+    `parseCopyCardsBody`) and returns `{ added, alreadyInDeck,
+    missingSources }`. The UI is `DeckSourcePicker` inside
+    `DeckCopyCardsModal`: "Import from deck" on a manual deck's Add cards
+    block, and "Import cards..." on the "+ New deck" form, which creates the
+    deck first and keeps it if the copy then fails.
 
 ## Data model
 
@@ -1980,7 +2005,7 @@ Routes:
   by the empty state. Feature 61b's selection bar also carries a deck
   picker and "Add to deck" (`bulk-add-cards-to-deck` fix, 2026-09-14),
   backed by `POST /api/decks/cards` accepting `{ deckId, cardIds }`
-  alongside `{ deckId, cardId }`. Feature 70a (planned, not built) adds a
+  alongside `{ deckId, cardId }`. Feature 70a adds a
   toggle to filter the list to cards missing an AnimeThemes.moe match, and
   extends "Delete all N matching" to work from that toggle alone.
 - `/decks` - done. Artist and Anime-Title deck groupings, list + detail, plus
@@ -2061,7 +2086,7 @@ Routes:
   each row's guess rate. Feature 29 added a manual "Refresh" button and a
   destructive "Clear history" action (two-step inline confirm) that wipes
   `ReviewLog` only - `Card.box`/`Card.nextReviewAt` are untouched. Feature
-  68 (planned, not built) deepens this page into a sectioned analytics
+  68 deepens this page into a sectioned analytics
   surface - collection health and forecast, retention by box and trends,
   an activity heatmap and records, and a leech list - all from data
   already stored.

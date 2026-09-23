@@ -1,7 +1,8 @@
-import { and, count, countDistinct, eq, inArray, like, or } from "drizzle-orm";
+import { and, count, countDistinct, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/schema.ts";
 import { baseDueCondition, type Paginated, type StudyScope } from "./cards.ts";
+import type { DeckSource } from "./deckMembership.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { deriveCounts, passCountExpr, reviewsOfCardFor } from "./stats.ts";
@@ -366,6 +367,51 @@ export function addCardsToDeck(deckId: number, cardIds: readonly number[]): Bulk
   }
 
   return { added, notFound: cardIds.filter((id) => !present.has(id)) };
+}
+
+export type CopyCardsResult =
+  | { notFound: true }
+  | { added: number; alreadyInDeck: number; missingSources: DeckSource[] };
+
+function sourceExists(source: DeckSource): boolean {
+  const table = source.type === "artist" ? artist : source.type === "anime" ? anime : deck;
+  return db.select({ id: table.id }).from(table).where(eq(table.id, source.id)).get() !== undefined;
+}
+
+function sourceCardCondition(source: DeckSource): SQL {
+  if (source.type === "created") {
+    return inArray(card.id, db.select({ id: deckCard.cardId }).from(deckCard).where(eq(deckCard.deckId, source.id)));
+  }
+  const column = source.type === "artist" ? song.artistId : song.animeId;
+  return inArray(card.songId, db.select({ id: song.id }).from(song).where(eq(column, source.id)));
+}
+
+/** Links every card of the given source decks into a manual deck, as a one-time snapshot. */
+export function copyCardsFromDecks(deckId: number, sources: readonly DeckSource[]): CopyCardsResult {
+  const deckExists = db.select({ id: deck.id }).from(deck).where(eq(deck.id, deckId)).get();
+  if (!deckExists) {
+    return { notFound: true };
+  }
+
+  const missingSources = sources.filter((source) => !sourceExists(source));
+  const present = sources.filter((source) => !missingSources.includes(source));
+  if (!present.length) {
+    return { added: 0, alreadyInDeck: 0, missingSources };
+  }
+
+  const condition = or(...present.map(sourceCardCondition))!;
+
+  // INSERT ... SELECT keeps every card id inside SQLite, so a large artist deck
+  // never runs into the bound-parameter limit a cardIds list would.
+  return db.transaction(() => {
+    const distinctSourceCards = db.select({ n: count() }).from(card).where(condition).get()!.n;
+    const { changes } = db.run(
+      sql`insert into ${deckCard} (${sql.identifier(deckCard.deckId.name)}, ${sql.identifier(deckCard.cardId.name)})
+          select ${deckId}, ${card.id} from ${card} where ${condition}
+          on conflict do nothing`,
+    );
+    return { added: changes, alreadyInDeck: distinctSourceCards - changes, missingSources };
+  });
 }
 
 export function removeCardFromDeck(deckId: number, cardId: number): DeckCardMembershipResult {
