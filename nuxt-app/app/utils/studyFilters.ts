@@ -1,4 +1,11 @@
 export type StudyThemeType = "OP" | "ED";
+export type StudyListSite = "anilist" | "mal";
+
+export interface StudyListSource {
+  site: StudyListSite;
+  username: string;
+  fetchedAt: string;
+}
 
 // Hand-kept copy of the server's StudyFilters (server/utils/studyFilters.ts),
 // same field order.
@@ -14,6 +21,8 @@ export interface StudyFilters {
   tagsInclude: string[];
   tagsExclude: string[];
   tagMinRank: number;
+  listAniListIds: number[] | null;
+  listSource: StudyListSource | null;
 }
 
 export const STUDY_FILTERS_STORAGE_KEY = "gaqSrs:studyFilters";
@@ -30,6 +39,8 @@ export const EMPTY_STUDY_FILTERS: StudyFilters = {
   tagsInclude: [],
   tagsExclude: [],
   tagMinRank: 60,
+  listAniListIds: null,
+  listSource: null,
 };
 
 export const ANIME_FORMAT_LABELS: Record<string, string> = {
@@ -50,7 +61,8 @@ export function countActiveFilters(filters: StudyFilters): number {
     + Number(filters.formats.length > 0)
     + Number(filters.themeTypes.length > 0)
     + filters.genresInclude.length + filters.genresExclude.length
-    + filters.tagsInclude.length + filters.tagsExclude.length;
+    + filters.tagsInclude.length + filters.tagsExclude.length
+    + Number(filters.listAniListIds !== null);
 }
 
 export function filtersQueryValue(filters: StudyFilters): string | undefined {
@@ -80,6 +92,15 @@ const isStringList = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry.trim() !== "");
 const isBound = (value: unknown): value is number | null => value === null || typeof value === "number";
 
+function listFieldsValid(ids: unknown, source: unknown): boolean {
+  if (ids === null && source === null) return true;
+  if (!Array.isArray(ids) || !ids.every((id) => Number.isSafeInteger(id) && id > 0)) return false;
+  if (typeof source !== "object" || source === null) return false;
+  const { site, username, fetchedAt } = source as Record<string, unknown>;
+  return (site === "anilist" || site === "mal") && typeof username === "string" && username.trim() !== ""
+    && typeof fetchedAt === "string";
+}
+
 // Anything unreadable or no longer valid falls back to no filters rather than
 // a stored value the server would reject on every request.
 export function readStoredFilters(raw: string | null): StudyFilters {
@@ -96,7 +117,9 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED");
   const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
     && typeof stored.tagMinRank === "number";
-  if (!listsValid || !boundsValid || studyFiltersProblem(stored)) return { ...EMPTY_STUDY_FILTERS };
+  if (!listsValid || !boundsValid || !listFieldsValid(stored.listAniListIds, stored.listSource) || studyFiltersProblem(stored)) {
+    return { ...EMPTY_STUDY_FILTERS };
+  }
   return {
     yearMin: stored.yearMin,
     yearMax: stored.yearMax,
@@ -109,5 +132,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     tagsInclude: stored.tagsInclude,
     tagsExclude: stored.tagsExclude,
     tagMinRank: stored.tagMinRank,
+    listAniListIds: stored.listAniListIds,
+    listSource: stored.listSource,
   };
 }

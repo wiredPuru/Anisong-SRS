@@ -241,3 +241,34 @@ export async function fetchAnimeDetailsByIds(ids: number[]): Promise<Map<number,
   }
   return found;
 }
+
+const BY_MAL_IDS_QUERY = `
+  query ($ids: [Int], $perPage: Int) {
+    Page(perPage: $perPage) {
+      media(idMal_in: $ids, type: ANIME) {
+        id
+        idMal
+      }
+    }
+  }
+`;
+
+// Maps MyAnimeList ids to AniList ids 50 at a time, for callers that need only
+// the mapping. A MAL id with no AniList counterpart is absent from the map.
+export async function fetchAniListIdsByMalIds(malIds: number[]): Promise<Map<number, number>> {
+  const found = new Map<number, number>();
+  for (let start = 0; start < malIds.length; start += ANILIST_DETAILS_BATCH_SIZE) {
+    const batch = malIds.slice(start, start + ANILIST_DETAILS_BATCH_SIZE);
+    const media = await requestAniList(BY_MAL_IDS_QUERY, { ids: batch, perPage: ANILIST_DETAILS_BATCH_SIZE }, (data) => {
+      if (!isRecord(data?.Page) || !Array.isArray(data.Page.media)) throw new ProviderUnavailableError("AniList");
+      return data.Page.media;
+    });
+    for (const entry of media) {
+      if (!isRecord(entry) || !Number.isSafeInteger(entry.id) || !Number.isSafeInteger(entry.idMal)) {
+        throw new ProviderUnavailableError("AniList");
+      }
+      found.set(Number(entry.idMal), Number(entry.id));
+    }
+  }
+  return found;
+}

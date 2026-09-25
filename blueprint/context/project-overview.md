@@ -232,8 +232,7 @@ covers anime and song metadata cached from AniList/animethemes.moe lookups,
 which the two new slug columns are. Feature 75 (suggestions for every typed
 answer box) was added and built 2026-09-23; no `project-plan.md` change.
 Feature 76 (Study filters, in three sub-features 76a-76c) was added to
-`build-plan.md` on 2026-09-25; 76a and 76b are built and merged, 76c is not
-started. It amended
+`build-plan.md` on 2026-09-25 and is now built and merged in full. It amended
 `project-plan.md` §3's Study session bullet and §4's first Data bullet, since
 filtering a session by anime metadata is a new Study capability backed by
 newly stored anime fields.
@@ -1621,7 +1620,7 @@ newly stored anime fields.
     hide their artist subtitle when Artist is also asked, so no suggestion
     gives away another answer in the same round. A pick only fills the box;
     grading is unchanged.
-76. **Study filters** - in progress, three sub-features (76a and 76b done). Narrows any Study
+76. **Study filters** - done, in three sub-features. Narrows any Study
     session, on top of its scope (all, artist, anime, or manual deck), by
     anime year range, AniList score range, format, genres and tags (include
     and exclude), OP/ED, and membership in a public AniList/MAL user's list.
@@ -1654,9 +1653,17 @@ newly stored anime fields.
       `GET /api/study/filter-options` lists the years, formats, genres, and
       tags present among anime with cards. "All caught up" names active
       filters and offers Edit filters and Clear filters.
-    - **76c. User-list filter** - limit Study to anime on a public AniList or
-      MAL user's Completed list (feature 58's lookups), resolved once when
-      the filter is applied.
+    - **76c. User-list filter** - done 2026-09-25. An "Anime list" section in
+      the Filters popup takes an AniList or MyAnimeList username;
+      `GET /api/study/list-anime` (`resolveListAnimeIds`,
+      `server/utils/studyListFilter.ts`) fetches that Completed list once and
+      returns only the AniList ids of library anime that have cards. MAL ids
+      are mapped with batched `idMal_in` queries (`fetchAniListIdsByMalIds`),
+      not feature 58's one request per anime. `StudyFilters` gained
+      `listAniListIds` (null = off, [] = matched nothing) and `listSource`
+      (site, username, fetchedAt, for display), set together; the query
+      filters on `anime.aniListId`. The ids are a snapshot: anime added later
+      join only after Refresh.
 
 ## Data model
 

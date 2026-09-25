@@ -18,7 +18,9 @@ vi.mock("../db/client.ts", async () => {
 const EMPTY: StudyFilters = {
   yearMin: null, yearMax: null, scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
+  listAniListIds: null, listSource: null,
 };
+const SOURCE = { site: "anilist" as const, username: "Kyoto", fetchedAt: "2026-09-25T00:00:00.000Z" };
 
 function parse(value: Partial<StudyFilters> | string) {
   return parseStudyFilters(typeof value === "string" ? value : JSON.stringify(value));
@@ -58,6 +60,26 @@ describe("parseStudyFilters", () => {
     const result = parse(input as Partial<StudyFilters> | string);
     expect(result).toHaveProperty("error");
     expect((result as { error: string }).error).toContain(message);
+  });
+
+  it("accepts a list with its source, trimming the username, and treats it as active even when empty", () => {
+    expect(parse({ listAniListIds: [5, 5, 7], listSource: { ...SOURCE, username: " Kyoto " } })).toEqual({
+      filters: { ...EMPTY, listAniListIds: [5, 7], listSource: SOURCE },
+    });
+    expect(parse({ listAniListIds: [], listSource: SOURCE })).toEqual({ filters: { ...EMPTY, listAniListIds: [], listSource: SOURCE } });
+  });
+
+  it.each([
+    [{ listAniListIds: [1] }, "set together"],
+    [{ listSource: SOURCE }, "set together"],
+    [{ listAniListIds: [0], listSource: SOURCE }, "AniList ids"],
+    [{ listAniListIds: ["1"], listSource: SOURCE }, "AniList ids"],
+    [{ listAniListIds: Array.from({ length: 5001 }, (_, i) => i + 1), listSource: SOURCE }, "at most 5000"],
+    [{ listAniListIds: [1], listSource: { ...SOURCE, site: "kitsu" } }, "listSource"],
+    [{ listAniListIds: [1], listSource: { ...SOURCE, username: "  " } }, "listSource"],
+    [{ listAniListIds: [1], listSource: { ...SOURCE, username: "x".repeat(101) } }, "listSource"],
+  ] as const)("rejects list fields %o", (input, message) => {
+    expect((parse(input as unknown as Partial<StudyFilters>) as { error: string }).error).toContain(message);
   });
 
   it("rejects a non-string raw value", () => {
@@ -133,6 +155,12 @@ describe("studyFilterCondition", () => {
     expect(matching({ tagsInclude: ["Cute Girls Doing Cute Things"], tagMinRank: 30 })).toEqual(["azumanga", "kon"]);
     expect(matching({ tagsExclude: ["Ecchi"] })).toHaveLength(5);
     expect(matching({ tagsExclude: ["Ecchi"], tagMinRank: 10 })).not.toContain("eva");
+  });
+
+  it("keeps only anime on the user's list, and nothing for an empty list", () => {
+    const aniListIdOf = (key: string) => db.select({ id: anime.aniListId }).from(anime).where(eq(anime.titleRomaji, key)).get()!.id;
+    expect(matching({ listAniListIds: [aniListIdOf("kon"), aniListIdOf("eva")], listSource: SOURCE })).toEqual(["eva", "kon"]);
+    expect(matching({ listAniListIds: [], listSource: SOURCE })).toEqual([]);
   });
 
   it("combines filters, as in cute-girls shows from the 2000s", () => {

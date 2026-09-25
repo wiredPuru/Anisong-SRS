@@ -742,7 +742,7 @@ cleaned-up checkbox version before generating the project overview.
   must not reveal the anime or song. Matching and grading stay as they are
   (a pick only fills the box). OP/ED number already uses a picker and is
   out of scope.
-- [ ] 76. **Study filters** - narrow any Study session by anime metadata and
+- [x] 76. **Study filters** - narrow any Study session by anime metadata and
   theme type, on top of its scope (all, artist, anime, or manual deck): year
   range, AniList score range, format, genres and tags (include and exclude),
   OP/ED, and membership in a public AniList/MAL user's list. Filters narrow
@@ -760,7 +760,7 @@ cleaned-up checkbox version before generating the project overview.
     Reveal's settings popup) with an "N filters active" indicator; the server
     applies the filters inside the shared due-card condition, so `dueCount`, the
     next card, and the prefetch lookahead all respect them.
-  - [ ] 76c. **User-list filter** - limit Study to anime on a public AniList or
+  - [x] 76c. **User-list filter** - limit Study to anime on a public AniList or
     MAL user's list (Completed, reusing feature 58's lookups), resolved once when
     the filter is applied rather than on every card.
 

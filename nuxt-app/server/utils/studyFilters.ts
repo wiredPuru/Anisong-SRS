@@ -9,6 +9,18 @@ export const ANIME_FORMATS = ["TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA"
 export const DEFAULT_TAG_MIN_RANK = 60;
 const MAX_LIST_LENGTH = 50;
 const MAX_NAME_LENGTH = 100;
+// A Completed list is matched against the library before it is stored, so this
+// bounds the library, not the user's list.
+const MAX_LIST_ANIME = 5000;
+
+export const LIST_SITES = ["anilist", "mal"] as const;
+export type ListSite = (typeof LIST_SITES)[number];
+
+export interface StudyListSource {
+  site: ListSite;
+  username: string;
+  fetchedAt: string;
+}
 
 // Load-bearing: the client keeps a hand-written copy in app/utils/studyFilters.ts
 // (same field order), and 76c adds a list field.
@@ -24,6 +36,10 @@ export interface StudyFilters {
   tagsInclude: string[];
   tagsExclude: string[];
   tagMinRank: number;
+  // Feature 76c. Set together: the ids are what the query filters on, the
+  // source is only for showing and refreshing the list in the popup.
+  listAniListIds: number[] | null;
+  listSource: StudyListSource | null;
 }
 
 type Parsed<T> = { value: T } | { error: string };
@@ -50,7 +66,27 @@ function parseNames(raw: unknown, name: string, allowed?: readonly string[]): Pa
   return { value: [...new Set(raw as string[])] };
 }
 
+function parseListIds(raw: unknown): Parsed<number[] | null> {
+  if (raw == null) return { value: null };
+  if (!Array.isArray(raw) || raw.length > MAX_LIST_ANIME || !raw.every((id) => Number.isSafeInteger(id) && id > 0)) {
+    return { error: `listAniListIds must be a list of at most ${MAX_LIST_ANIME} AniList ids` };
+  }
+  return { value: [...new Set(raw as number[])] };
+}
+
+function parseListSource(raw: unknown): Parsed<StudyListSource | null> {
+  if (raw == null) return { value: null };
+  const source = raw as Record<string, unknown>;
+  if (typeof raw !== "object" || Array.isArray(raw) || !LIST_SITES.includes(source.site as ListSite) ||
+    typeof source.username !== "string" || !source.username.trim() || source.username.length > MAX_NAME_LENGTH ||
+    typeof source.fetchedAt !== "string" || source.fetchedAt.length > MAX_NAME_LENGTH) {
+    return { error: "listSource must name an AniList or MyAnimeList username" };
+  }
+  return { value: { site: source.site as ListSite, username: source.username.trim(), fetchedAt: source.fetchedAt } };
+}
+
 function isEmpty(filters: StudyFilters): boolean {
+  if (filters.listAniListIds !== null) return false;
   return [filters.yearMin, filters.yearMax, filters.scoreMin, filters.scoreMax].every((bound) => bound === null)
     && [filters.formats, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
       .every((list) => list.length === 0);
@@ -82,6 +118,8 @@ export function parseStudyFilters(raw: unknown): { filters: StudyFilters | null 
     tagsInclude: parseNames(body.tagsInclude, "tagsInclude"),
     tagsExclude: parseNames(body.tagsExclude, "tagsExclude"),
     tagMinRank: body.tagMinRank == null ? { value: DEFAULT_TAG_MIN_RANK } : parseBound(body.tagMinRank, "tagMinRank", 0, 100),
+    listAniListIds: parseListIds(body.listAniListIds),
+    listSource: parseListSource(body.listSource),
   };
   for (const field of Object.values(fields)) {
     if ("error" in field) return { error: field.error };
@@ -90,6 +128,9 @@ export function parseStudyFilters(raw: unknown): { filters: StudyFilters | null 
     Object.entries(fields).map(([key, field]) => [key, (field as { value: unknown }).value]),
   ) as unknown as StudyFilters;
 
+  if ((filters.listAniListIds === null) !== (filters.listSource === null)) {
+    return { error: "listAniListIds and listSource must be set together" };
+  }
   if (filters.yearMin !== null && filters.yearMax !== null && filters.yearMin > filters.yearMax) {
     return { error: "yearMin must not be after yearMax" };
   }
@@ -125,5 +166,10 @@ export function studyFilterCondition(filters: StudyFilters | null): SQL | undefi
   conditions.push(...filters.genresExclude.map((genre) => not(hasGenre(genre))));
   conditions.push(...filters.tagsInclude.map((tag) => hasTag(tag, filters.tagMinRank)));
   conditions.push(...filters.tagsExclude.map((tag) => not(hasTag(tag, filters.tagMinRank))));
+  // An empty list is a real answer (none of the user's anime are in the
+  // library), so it matches nothing rather than switching the filter off.
+  if (filters.listAniListIds !== null) {
+    conditions.push(filters.listAniListIds.length ? inArray(anime.aniListId, filters.listAniListIds) : sql`0 = 1`);
+  }
   return and(...conditions);
 }

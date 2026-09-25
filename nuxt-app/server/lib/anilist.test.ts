@@ -176,3 +176,20 @@ describe("AniList details", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("fetchAniListIdsByMalIds", () => {
+  it("maps MAL ids to AniList ids 50 at a time, leaving unmatched ids out", async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => i + 1);
+    fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [{ id: 101, idMal: 1 }, { id: 130, idMal: 30 }] } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Page: { media: [] } } }));
+    const found = await client.fetchAniListIdsByMalIds(ids);
+    expect([...found]).toEqual([[1, 101], [30, 130]]);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body).query).toContain("idMal_in");
+    expect(JSON.parse(fetch.mock.calls[1]![1].body).variables.ids).toEqual([51]);
+  });
+
+  it("rejects an entry without an idMal", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [{ id: 101, idMal: null }] } } }));
+    await expect(client.fetchAniListIdsByMalIds([1])).rejects.toMatchObject({ statusCode: 503 });
+  });
+});

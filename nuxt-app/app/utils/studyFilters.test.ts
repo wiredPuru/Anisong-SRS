@@ -23,6 +23,31 @@ describe("countActiveFilters", () => {
   });
 });
 
+describe("list filter fields", () => {
+  const source = { site: "mal" as const, username: "Xinil", fetchedAt: "2026-09-25T00:00:00.000Z" };
+
+  it("counts a list, even one that matched nothing, as one filter", () => {
+    expect(countActiveFilters(withFilters({ listAniListIds: [1, 2], listSource: source }))).toBe(1);
+    expect(countActiveFilters(withFilters({ listAniListIds: [], listSource: source }))).toBe(1);
+  });
+
+  it("restores a stored list with its source", () => {
+    expect(readStoredFilters(JSON.stringify({ listAniListIds: [7], listSource: source }))).toEqual(
+      withFilters({ listAniListIds: [7], listSource: source }),
+    );
+  });
+
+  it.each([
+    { listAniListIds: [7] },
+    { listSource: source },
+    { listAniListIds: [0], listSource: source },
+    { listAniListIds: [7], listSource: { ...source, site: "kitsu" } },
+    { listAniListIds: [7], listSource: { ...source, username: " " } },
+  ])("falls back to no filters for a broken list %o", (stored) => {
+    expect(readStoredFilters(JSON.stringify(stored))).toEqual(EMPTY_STUDY_FILTERS);
+  });
+});
+
 describe("filtersQueryValue", () => {
   it("omits the param when nothing is active", () => {
     expect(filtersQueryValue(EMPTY_STUDY_FILTERS)).toBeUndefined();

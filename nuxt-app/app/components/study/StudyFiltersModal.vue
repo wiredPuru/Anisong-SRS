@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StudyFilters, StudyThemeType } from "~/utils/studyFilters";
+import type { StudyFilters, StudyListSite, StudyThemeType } from "~/utils/studyFilters";
 
 interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
@@ -19,11 +19,23 @@ const THEME_TYPES: { value: StudyThemeType; label: string }[] = [
   { value: "ED", label: "Endings" },
 ];
 const TAG_SUGGESTION_LIMIT = 12;
+const LIST_SITE_LABELS: Record<StudyListSite, string> = { anilist: "AniList", mal: "MyAnimeList" };
+
+interface ListAnimeResult {
+  aniListIds: number[];
+  listSize: number;
+  matched: number;
+}
 
 const draft = ref<StudyFilters>(structuredClone(toRaw(props.filters)));
 const options = ref<StudyFilterOptions | null>(null);
 const optionsError = ref<string | null>(null);
 const tagQuery = ref("");
+const listSite = ref<StudyListSite>("anilist");
+const listUsername = ref("");
+const listLoading = ref(false);
+const listError = ref<string | null>(null);
+const listNote = ref<string | null>(null);
 
 // Fetched on every open rather than once, so tags from anime added since the
 // last open show up without a reload.
@@ -32,6 +44,8 @@ watch(() => props.open, async (open) => {
   draft.value = structuredClone(toRaw(props.filters));
   tagQuery.value = "";
   optionsError.value = null;
+  listError.value = null;
+  listNote.value = null;
   try {
     options.value = await $fetch<StudyFilterOptions>("/api/study/filter-options");
   } catch (err) {
@@ -93,6 +107,38 @@ function removeTag(name: string) {
   draft.value.tagsExclude = draft.value.tagsExclude.filter((entry) => entry !== name);
 }
 
+async function fetchList(site: StudyListSite, username: string) {
+  listLoading.value = true;
+  listError.value = null;
+  listNote.value = null;
+  try {
+    const result = await $fetch<ListAnimeResult>("/api/study/list-anime", { query: { site, username } });
+    draft.value.listAniListIds = result.aniListIds;
+    draft.value.listSource = { site, username, fetchedAt: new Date().toISOString() };
+    listNote.value = `${result.matched} of the ${result.listSize} anime on that Completed list ${result.matched === 1 ? "is" : "are"} in your library.`;
+  } catch (err) {
+    listError.value = extractErrorMessage(err, `Could not load that ${LIST_SITE_LABELS[site]} list.`);
+  } finally {
+    listLoading.value = false;
+  }
+}
+
+function useList() {
+  const username = listUsername.value.trim();
+  if (username) void fetchList(listSite.value, username);
+}
+
+function removeList() {
+  draft.value.listAniListIds = null;
+  draft.value.listSource = null;
+  listNote.value = null;
+}
+
+const listCheckedOn = computed(() => {
+  const fetchedAt = draft.value.listSource?.fetchedAt;
+  return fetchedAt ? new Date(fetchedAt).toLocaleDateString() : "";
+});
+
 function clearAll() {
   draft.value = { ...structuredClone(EMPTY_STUDY_FILTERS), tagMinRank: draft.value.tagMinRank };
 }
@@ -142,6 +188,39 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               {{ type.label }}
             </button>
           </div>
+        </section>
+
+        <section class="group">
+          <h3 class="group-title">Anime list <span class="group-hint">only shows on someone's Completed list</span></h3>
+          <template v-if="draft.listSource">
+            <div class="list-row">
+              <span class="list-chip">
+                {{ LIST_SITE_LABELS[draft.listSource.site] }} &middot; {{ draft.listSource.username }}
+                &middot; {{ draft.listAniListIds?.length ?? 0 }} in your library
+              </span>
+              <button
+                type="button"
+                class="text-btn"
+                :disabled="listLoading"
+                @click="fetchList(draft.listSource.site, draft.listSource.username)"
+              >
+                Refresh
+              </button>
+              <button type="button" class="text-btn" :disabled="listLoading" @click="removeList">Remove</button>
+            </div>
+            <p class="empty-hint">Checked {{ listCheckedOn }}. Anime added to your library since then join after Refresh.</p>
+          </template>
+          <form v-else class="list-row" @submit.prevent="useList">
+            <select v-model="listSite" class="list-site" aria-label="List site">
+              <option value="anilist">AniList</option>
+              <option value="mal">MyAnimeList</option>
+            </select>
+            <input v-model="listUsername" class="list-username" type="text" placeholder="Username" aria-label="List username" autocomplete="off">
+            <button type="submit" class="text-btn" :disabled="!listUsername.trim() || listLoading">Use list</button>
+          </form>
+          <ActivityStatus v-if="listLoading" label="Fetching that Completed list" request-key="study-list-anime" />
+          <p v-if="listError" class="control-error">{{ listError }}</p>
+          <p v-else-if="listNote" class="empty-hint">{{ listNote }}</p>
         </section>
 
         <section class="group">
@@ -438,8 +517,31 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 13px;
 }
 
+.list-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.list-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--pass);
+  color: var(--pass);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.list-username {
+  flex: 1;
+  min-width: 140px;
+}
+
 .bound-input,
-.tag-search {
+.tag-search,
+.list-site,
+.list-username {
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
