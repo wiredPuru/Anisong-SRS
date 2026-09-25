@@ -1,4 +1,5 @@
 import type { GradingCriterion } from "~/utils/criterionGrading";
+import type { StudyFilters } from "~/utils/studyFilters";
 
 export type StudyScope =
   | { type: "all" }
@@ -46,6 +47,7 @@ export function useStudySession(
   scope: ComputedRef<StudyScope | null>,
   audioOnly: ComputedRef<boolean>,
   clipSource: ComputedRef<"anisongdb" | "both" | "animethemes">,
+  filters: Ref<StudyFilters>,
 ) {
   const currentCard = ref<CardWithDetails | null>(null);
   const loading = ref(false);
@@ -86,6 +88,7 @@ export function useStudySession(
         query: {
           ...scopeQuery(scope.value),
           ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
+          filters: filtersQueryValue(filters.value),
         },
       });
       currentCard.value = result.card;
@@ -150,6 +153,12 @@ export function useStudySession(
     },
     { immediate: true },
   );
+
+  // Unlike a scope change, the session itself carries on: only the queue it
+  // draws from narrows or widens, so the card on screen is replaced.
+  watch(filters, () => {
+    if (scope.value) fetchNext();
+  });
 
   return {
     currentCard,

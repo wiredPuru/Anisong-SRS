@@ -1,0 +1,113 @@
+export type StudyThemeType = "OP" | "ED";
+
+// Hand-kept copy of the server's StudyFilters (server/utils/studyFilters.ts),
+// same field order.
+export interface StudyFilters {
+  yearMin: number | null;
+  yearMax: number | null;
+  scoreMin: number | null;
+  scoreMax: number | null;
+  formats: string[];
+  themeTypes: StudyThemeType[];
+  genresInclude: string[];
+  genresExclude: string[];
+  tagsInclude: string[];
+  tagsExclude: string[];
+  tagMinRank: number;
+}
+
+export const STUDY_FILTERS_STORAGE_KEY = "gaqSrs:studyFilters";
+
+export const EMPTY_STUDY_FILTERS: StudyFilters = {
+  yearMin: null,
+  yearMax: null,
+  scoreMin: null,
+  scoreMax: null,
+  formats: [],
+  themeTypes: [],
+  genresInclude: [],
+  genresExclude: [],
+  tagsInclude: [],
+  tagsExclude: [],
+  tagMinRank: 60,
+};
+
+export const ANIME_FORMAT_LABELS: Record<string, string> = {
+  TV: "TV",
+  TV_SHORT: "TV short",
+  MOVIE: "Movie",
+  SPECIAL: "Special",
+  OVA: "OVA",
+  ONA: "ONA",
+  MUSIC: "Music",
+};
+
+// Each bound pair, list-type choice, and genre or tag counts as one filter,
+// which is what the Filters badge shows.
+export function countActiveFilters(filters: StudyFilters): number {
+  return Number(filters.yearMin !== null || filters.yearMax !== null)
+    + Number(filters.scoreMin !== null || filters.scoreMax !== null)
+    + Number(filters.formats.length > 0)
+    + Number(filters.themeTypes.length > 0)
+    + filters.genresInclude.length + filters.genresExclude.length
+    + filters.tagsInclude.length + filters.tagsExclude.length;
+}
+
+export function filtersQueryValue(filters: StudyFilters): string | undefined {
+  return countActiveFilters(filters) ? JSON.stringify(filters) : undefined;
+}
+
+// Why a draft cannot be applied, or null when it can. The server rejects the
+// same cases with a 400, which would otherwise stall every Study fetch.
+export function studyFiltersProblem(filters: StudyFilters): string | null {
+  const bounds: [number | null, number, number][] = [
+    [filters.yearMin, 1900, 2100], [filters.yearMax, 1900, 2100],
+    [filters.scoreMin, 0, 100], [filters.scoreMax, 0, 100], [filters.tagMinRank, 0, 100],
+  ];
+  if (bounds.some(([value, min, max]) => value !== null && (!Number.isInteger(value) || value < min || value > max))) {
+    return "Years run from 1900 to 2100, and scores and relevance from 0 to 100.";
+  }
+  if (filters.yearMin !== null && filters.yearMax !== null && filters.yearMin > filters.yearMax) {
+    return "The start year is after the end year.";
+  }
+  if (filters.scoreMin !== null && filters.scoreMax !== null && filters.scoreMin > filters.scoreMax) {
+    return "The minimum score is above the maximum.";
+  }
+  return null;
+}
+
+const isStringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry.trim() !== "");
+const isBound = (value: unknown): value is number | null => value === null || typeof value === "number";
+
+// Anything unreadable or no longer valid falls back to no filters rather than
+// a stored value the server would reject on every request.
+export function readStoredFilters(raw: string | null): StudyFilters {
+  if (!raw) return { ...EMPTY_STUDY_FILTERS };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ...EMPTY_STUDY_FILTERS };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { ...EMPTY_STUDY_FILTERS };
+  const stored = { ...EMPTY_STUDY_FILTERS, ...(parsed as Partial<StudyFilters>) };
+  const listsValid = [stored.formats, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
+    .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED");
+  const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
+    && typeof stored.tagMinRank === "number";
+  if (!listsValid || !boundsValid || studyFiltersProblem(stored)) return { ...EMPTY_STUDY_FILTERS };
+  return {
+    yearMin: stored.yearMin,
+    yearMax: stored.yearMax,
+    scoreMin: stored.scoreMin,
+    scoreMax: stored.scoreMax,
+    formats: stored.formats,
+    themeTypes: stored.themeTypes,
+    genresInclude: stored.genresInclude,
+    genresExclude: stored.genresExclude,
+    tagsInclude: stored.tagsInclude,
+    tagsExclude: stored.tagsExclude,
+    tagMinRank: stored.tagMinRank,
+  };
+}

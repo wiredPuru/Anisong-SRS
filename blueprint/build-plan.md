@@ -756,7 +756,7 @@ cleaned-up checkbox version before generating the project overview.
     AniList average score, genres, and ranked tags on `Anime`, filled on every
     import and by a Settings backfill (batched AniList `id_in` queries, not one
     request per anime).
-  - [ ] 76b. **Study filter panel** - a filter popup on `/study` (like Auto
+  - [x] 76b. **Study filter panel** - a filter popup on `/study` (like Auto
     Reveal's settings popup) with an "N filters active" indicator; the server
     applies the filters inside the shared due-card condition, so `dueCount`, the
     next card, and the prefetch lookahead all respect them.

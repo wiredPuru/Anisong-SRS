@@ -3,6 +3,7 @@ import type { CardWithDetails, StudyScope } from "~/composables/useStudySession"
 import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 import type { ThemeSlotSelection } from "~/utils/themeSlotAnswer";
+import type { StudyFilters } from "~/utils/studyFilters";
 import type { BonusCategoryResult } from "~/utils/quizScore";
 import type { BurstRect } from "~/utils/scoreBurst";
 import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
@@ -91,6 +92,27 @@ const clipSource = computed(() => studySettings.value?.clipSource ?? "anisongdb"
 // audio streams). Resets every visit, like Hide Video/Hide Info/Random
 // start already do; never persisted to localStorage.
 const sessionAudioOnlyOverride = ref<boolean | null>(null);
+
+// Read during setup, not onMounted: the session's first fetch fires from an
+// immediate watch below, and has to go out already filtered.
+function loadStudyFilters(): StudyFilters {
+  if (!import.meta.client) return { ...EMPTY_STUDY_FILTERS };
+  try {
+    return readStoredFilters(localStorage.getItem(STUDY_FILTERS_STORAGE_KEY));
+  } catch {
+    return { ...EMPTY_STUDY_FILTERS };
+  }
+}
+const studyFilters = ref<StudyFilters>(loadStudyFilters());
+const activeFilterCount = computed(() => countActiveFilters(studyFilters.value));
+
+watch(studyFilters, (value) => {
+  try {
+    localStorage.setItem(STUDY_FILTERS_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Keep the current session usable when persistence is blocked.
+  }
+});
 const effectiveAudioOnly = computed(() => sessionAudioOnlyOverride.value ?? persistedAudioOnly.value);
 
 const {
@@ -107,7 +129,7 @@ const {
   submit,
   studyNewCards,
   refresh: refreshStudySession,
-} = useStudySession(scope, effectiveAudioOnly, clipSource);
+} = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters);
 
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
 const visibleAnswers = computed(() => visibleAnswerCategories(criterion.value, typedAnswerCategories.value));
@@ -247,7 +269,7 @@ watch([presentationKey, scope], () => {
 });
 
 async function submitReview(result: "pass" | "fail") {
-  if (submissionBusy.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
+  if (submissionBusy.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
   const presentation = presentationKey.value;
   const scopeKey = JSON.stringify(scope.value);
@@ -393,7 +415,7 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
 }
 
 async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: string | null) {
-  if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
+  if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
   const result = gradeTypedRound(criterion.value, {
     anime: selectedTitle === null ? null : animeResult,
@@ -442,7 +464,7 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
 }
 
 function submitTypedAnswer(selection: AnimeAnswerOption) {
-  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value) return;
   const result = evaluateAnimeAnswer(currentCard.value?.animeAniListId, selection.aniListId);
   if (result !== "unavailable") void saveTypedAnswer(result, selection.titleEnglish || selection.titleRomaji || selection.titleNative);
 }
@@ -450,7 +472,7 @@ function submitTypedAnswer(selection: AnimeAnswerOption) {
 // The song or artist box as the main answer: no anime is asked, so the anime
 // result passed here is never read by gradeTypedRound.
 function submitMainAnswer() {
-  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value) return;
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value) return;
   void saveTypedAnswer("fail", null);
 }
 
@@ -491,12 +513,22 @@ function revealCurrentCard() {
 const mediaPlayerRef = ref<{ pause: () => void; playIfPaused: () => void } | null>(null);
 const viewedHistoryEntry = ref<SessionHistoryEntry | null>(null);
 const showSessionLog = ref(false);
+const showFilters = ref(false);
+
+function applyStudyFilters(filters: StudyFilters) {
+  studyFilters.value = filters;
+  showFilters.value = false;
+}
+
+function clearStudyFilters() {
+  studyFilters.value = { ...EMPTY_STUDY_FILTERS };
+}
 
 // Every answer control in the overlay shares one gate, so the anime box and
 // the bonus controls can never disagree about whether the round is answerable.
 const answerControlsDisabled = computed(() =>
   cardEditing.value || submissionBusy.value || awaitingNextCard.value || loading.value
-  || viewedHistoryEntry.value !== null || showSessionLog.value,
+  || viewedHistoryEntry.value !== null || showSessionLog.value || showFilters.value,
 );
 
 function openHistoryCard(entry: SessionHistoryEntry) {
@@ -946,7 +978,7 @@ onUnmounted(() => setAmbientGlass(false));
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
-  if (isTypingTarget(event)) return;
+  if (isTypingTarget(event) || showFilters.value) return;
   if (quizResult.value) {
     if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
       event.preventDefault();
@@ -991,7 +1023,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="sessionComplete" class="state">
       <MascotTemi size="companion" class="state-mascot" />
       <strong class="completion-title">All caught up!</strong>
-      <span>Nothing due right now.</span>
+      <span v-if="activeFilterCount">Nothing due matches your study filters.</span>
+      <span v-else>Nothing due right now.</span>
+      <div v-if="activeFilterCount" class="filters-note">
+        <span>{{ activeFilterCount }} {{ activeFilterCount === 1 ? "filter is" : "filters are" }} on, so other due cards may be waiting.</span>
+        <div class="filters-note-actions">
+          <button type="button" class="filters-note-btn" @click="showFilters = true">Edit filters</button>
+          <button type="button" class="filters-note-btn" @click="clearStudyFilters">Clear filters</button>
+        </div>
+      </div>
       <div v-if="quizScore.answered > 0" class="quiz-summary" aria-label="Typed answer session summary">
         <p class="summary-kicker">Quiz complete</p>
         <div class="summary-score">{{ quizScore.score.toLocaleString() }} <small>points</small></div>
@@ -1091,6 +1131,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           />
           <button
             type="button"
+            class="filters-btn"
+            :class="{ active: activeFilterCount > 0 }"
+            :disabled="Boolean(quizResult) || submissionBusy"
+            @click="showFilters = true"
+          >
+            Filters<span v-if="activeFilterCount" class="filters-badge">{{ activeFilterCount }}</span>
+            <span class="tooltip">Narrow this session by year, score, format, genre, tag, or OP/ED</span>
+          </button>
+          <button
+            type="button"
             class="controls-toggle-btn"
             aria-label="Session log"
             :disabled="Boolean(quizResult)"
@@ -1129,7 +1179,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   :key="JSON.stringify(scope)"
                   overlay
                   :presentation-key="presentationKey"
-                  :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${cardEditing}`"
+                  :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${showFilters}:${cardEditing}`"
                   :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
                   :disabled="answerControlsDisabled"
                   @answer="submitTypedAnswer"
@@ -1232,7 +1282,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 type="button"
                 class="info-reveal-target"
                 aria-label="Reveal card information"
-                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters"
                 @click="revealCurrentCard"
                 @keydown.enter.stop
                 @keydown.space.stop
@@ -1272,7 +1322,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </p>
           <StudyAnswerControls
             v-if="!typedAnswers"
-            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters"
             :awaiting-reveal="hideInfo && !autoRevealedThisCard"
             @pass="submitReview('pass')"
             @fail="submitReview('fail')"
@@ -1323,6 +1373,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         @select="openHistoryCard"
       />
     </div>
+    <StudyFiltersModal
+      :open="showFilters"
+      :filters="studyFilters"
+      @close="showFilters = false"
+      @apply="applyStudyFilters"
+    />
   </main>
 </template>
 
@@ -1554,6 +1610,43 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   width: 240px;
 }
 
+.filters-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filters-btn.active {
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+}
+
+.filters-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.filters-badge {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-secondary);
+  color: var(--accent-secondary-ink);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
 .controls-toggle-btn {
   position: relative;
   display: flex;
@@ -1581,7 +1674,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: not-allowed;
 }
 
-.controls-toggle-btn .tooltip {
+.controls-toggle-btn .tooltip,
+.filters-btn .tooltip {
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
@@ -1602,7 +1696,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .controls-toggle-btn:hover .tooltip,
-.controls-toggle-btn:focus-visible .tooltip {
+.controls-toggle-btn:focus-visible .tooltip,
+.filters-btn:hover .tooltip,
+.filters-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
 }
@@ -1618,6 +1714,35 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 /* The primary action on the completion screen, so it takes the accent fill
    rather than the outlined treatment "Previous card" below it uses - the two
    sit together there and should not read as equal-weight choices. */
+.filters-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-secondary);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.filters-note-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.filters-note-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .study-new-btn {
   position: relative;
   align-self: center;

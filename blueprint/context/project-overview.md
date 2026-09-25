@@ -232,7 +232,7 @@ covers anime and song metadata cached from AniList/animethemes.moe lookups,
 which the two new slug columns are. Feature 75 (suggestions for every typed
 answer box) was added and built 2026-09-23; no `project-plan.md` change.
 Feature 76 (Study filters, in three sub-features 76a-76c) was added to
-`build-plan.md` on 2026-09-25; 76a is built and merged, 76b and 76c are not
+`build-plan.md` on 2026-09-25; 76a and 76b are built and merged, 76c is not
 started. It amended
 `project-plan.md` §3's Study session bullet and §4's first Data bullet, since
 filtering a session by anime metadata is a new Study capability backed by
@@ -1621,7 +1621,7 @@ newly stored anime fields.
     hide their artist subtitle when Artist is also asked, so no suggestion
     gives away another answer in the same round. A pick only fills the box;
     grading is unchanged.
-76. **Study filters** - in progress, three sub-features (76a done). Narrows any Study
+76. **Study filters** - in progress, three sub-features (76a and 76b done). Narrows any Study
     session, on top of its scope (all, artist, anime, or manual deck), by
     anime year range, AniList score range, format, genres and tags (include
     and exclude), OP/ED, and membership in a public AniList/MAL user's list.
@@ -1637,9 +1637,23 @@ newly stored anime fields.
       AniList average score, genres, and ranked tags stored on `Anime`,
       filled on every import and by a Settings backfill that batches AniList
       `id_in` queries rather than one request per anime.
-    - **76b. Study filter panel** - a filter popup on `/study` (like Auto
-      Reveal's) with the active-filter indicator; filters apply inside the
-      shared due-card condition.
+    - **76b. Study filter panel** - done 2026-09-25. A Filters button in
+      Study's header (with an active-count badge) opens `StudyFiltersModal`:
+      OP/ED, year and AniList-score ranges, format, genres (tap to require,
+      again to exclude), and a tag search with require/exclude chips and a
+      min-relevance slider. Edits are a draft applied with Apply. Filters
+      travel as one JSON `filters` param on `/api/study/next`, validated by
+      `parseStudyFilters` and applied by `studyFilterCondition`
+      (`server/utils/studyFilters.ts`) inside `dueCardCondition`, so the next
+      card, "N left", withheld-new count, and prefetch lookahead agree;
+      `baseDueCondition` stays filter-free, so Home, Decks, and Stats are
+      unfiltered. Saved in `localStorage` (`gaqSrs:studyFilters`) and read
+      during setup so the first fetch is already filtered. An active year,
+      score, or format filter drops anime whose value is unknown; require
+      lists need every entry; the tag rank applies to excludes too.
+      `GET /api/study/filter-options` lists the years, formats, genres, and
+      tags present among anime with cards. "All caught up" names active
+      filters and offers Edit filters and Clear filters.
     - **76c. User-list filter** - limit Study to anime on a public AniList or
       MAL user's Completed list (feature 58's lookups), resolved once when
       the filter is applied.

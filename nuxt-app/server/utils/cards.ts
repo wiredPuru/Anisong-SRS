@@ -9,6 +9,7 @@ import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCrite
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { removeCachedStream } from "./streamCache.ts";
+import { studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
 
 export interface Paginated<T> {
   items: T[];
@@ -302,14 +303,15 @@ function scopeFilter(scope: StudyScope) {
   return undefined;
 }
 
+// filters narrow Study only (feature 76b); baseDueCondition stays filter-free
+// because deck tiles and Home group by it.
 function dueCardCondition(
   scope: StudyScope,
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
 ) {
-  const scopeCondition = scopeFilter(scope);
-  const base = baseDueCondition(includeNewBeyondLimit, criterion);
-  return scopeCondition ? and(base, scopeCondition) : base;
+  return and(baseDueCondition(includeNewBeyondLimit, criterion), scopeFilter(scope), studyFilterCondition(filters));
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -377,9 +379,10 @@ export function getNextDueCard(
   scope: StudyScope,
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
 ): CardWithDetails | undefined {
   const pool = cardQuery(criterion)
-    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion))
+    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters))
     .orderBy(asc(trackNextReviewAtExpr(criterion)))
     .all();
   return pickRandomDueOrder(pool, 1)[0];
@@ -396,8 +399,9 @@ export function getUpcomingDueCards(
   limit: number,
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
 ): CardWithDetails[] {
-  const base = dueCardCondition(scope, includeNewBeyondLimit, criterion);
+  const base = dueCardCondition(scope, includeNewBeyondLimit, criterion, filters);
   const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
   const pool = cardQuery(criterion).where(condition).orderBy(asc(trackNextReviewAtExpr(criterion))).all();
   return pickRandomDueOrder(pool, limit);
@@ -407,6 +411,7 @@ export function getDueCardCount(
   scope: StudyScope,
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
 ): number {
   return db
     .select({ count: count(card.id) })
@@ -414,7 +419,7 @@ export function getDueCardCount(
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion))
+    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters))
     .get()!.count;
 }
 
@@ -425,6 +430,7 @@ export function getDueCardCount(
 export function getWithheldNewCount(
   scope: StudyScope,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
 ): number {
   const { introduced, limit } = getNewCardsTodayInfo(criterion);
   if (limit === null || introduced < limit) return 0;
@@ -439,7 +445,7 @@ export function getWithheldNewCount(
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(and(dueCardCondition(scope, true, criterion), notInArray(card.id, reviewedCardIds)))
+    .where(and(dueCardCondition(scope, true, criterion, filters), notInArray(card.id, reviewedCardIds)))
     .get()!.count;
 }
 
