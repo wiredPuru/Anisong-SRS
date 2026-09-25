@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   countActiveFilters,
+  countTags,
   EMPTY_STUDY_FILTERS,
   filtersQueryValue,
   readStoredFilters,
   studyFiltersProblem,
+  tagBreakdown,
   type StudyFilters,
 } from "./studyFilters.ts";
 
@@ -87,5 +89,33 @@ describe("readStoredFilters", () => {
     expect(readStoredFilters(JSON.stringify({ yearMin: 2000, tagsInclude: ["Moe"], extra: true }))).toEqual(
       withFilters({ yearMin: 2000, tagsInclude: ["Moe"] }),
     );
+  });
+});
+
+describe("tag counts", () => {
+  const tags = [
+    { name: "Moe", ranks: [60, 80, 40] },
+    { name: "Band", ranks: [90, 95] },
+    { name: "Idol", ranks: [70, 75] },
+    { name: "Tragedy", ranks: [99] },
+  ];
+
+  it("counts only shows at or above the relevance cutoff", () => {
+    expect(countTags(tags, 60, new Set())).toEqual([
+      { name: "Band", count: 2 },
+      { name: "Idol", count: 2 },
+      { name: "Moe", count: 2 },
+      { name: "Tragedy", count: 1 },
+    ]);
+    expect(countTags(tags, 0, new Set())[0]).toEqual({ name: "Moe", count: 3 });
+  });
+
+  it("breaks down only tags shared by two or more shows, minus chosen ones", () => {
+    expect(tagBreakdown(tags, 60, new Set(["Idol"]))).toEqual([
+      { name: "Band", count: 2 },
+      { name: "Moe", count: 2 },
+    ]);
+    expect(tagBreakdown(tags, 75, new Set())).toEqual([{ name: "Band", count: 2 }]);
+    expect(tagBreakdown([], 60, new Set())).toEqual([]);
   });
 });

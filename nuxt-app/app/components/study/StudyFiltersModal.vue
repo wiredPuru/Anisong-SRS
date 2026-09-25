@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { StudyFilters, StudyListSite, StudyThemeType } from "~/utils/studyFilters";
+import type { StudyFilters, StudyListSite, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
 interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
   formats: string[];
   genres: string[];
-  tags: { name: string; count: number }[];
+  tags: TagOption[];
   missingDetailsCount: number;
 }
 
@@ -84,13 +84,19 @@ const selectedTags = computed(() => [
   ...draft.value.tagsExclude.map((name) => ({ name, choice: "exclude" as Choice })),
 ]);
 
+const chosenTags = computed(() => new Set([...draft.value.tagsInclude, ...draft.value.tagsExclude]));
+
+// Searching reaches every tag, single-show ones included; the empty-search
+// breakdown lists only tags two or more shows share.
 const tagSuggestions = computed(() => {
-  const chosen = new Set([...draft.value.tagsInclude, ...draft.value.tagsExclude]);
   const query = tagQuery.value.trim().toLowerCase();
-  return (options.value?.tags ?? [])
-    .filter((tag) => !chosen.has(tag.name) && (!query || tag.name.toLowerCase().includes(query)))
+  if (!query) return [];
+  return countTags(options.value?.tags ?? [], draft.value.tagMinRank, chosenTags.value)
+    .filter((tag) => tag.name.toLowerCase().includes(query))
     .slice(0, TAG_SUGGESTION_LIMIT);
 });
+
+const sharedTags = computed(() => tagBreakdown(options.value?.tags ?? [], draft.value.tagMinRank, chosenTags.value));
 
 function addTag(name: string) {
   draft.value.tagsInclude.push(name);
@@ -319,12 +325,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </span>
           </div>
           <input v-model="tagQuery" class="tag-search" type="search" placeholder="Search tags, e.g. Cute Girls Doing Cute Things" aria-label="Search tags">
-          <div v-if="tagSuggestions.length" class="pill-row">
-            <button v-for="tag in tagSuggestions" :key="tag.name" type="button" class="pill" @click="addTag(tag.name)">
-              {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
-            </button>
-          </div>
-          <p v-else-if="tagQuery.trim() && options" class="empty-hint">No tag in your library matches that.</p>
+          <template v-if="tagQuery.trim()">
+            <div v-if="tagSuggestions.length" class="pill-row">
+              <button v-for="tag in tagSuggestions" :key="tag.name" type="button" class="pill" @click="addTag(tag.name)">
+                {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
+              </button>
+            </div>
+            <p v-else-if="options" class="empty-hint">No tag in your library matches that.</p>
+          </template>
+          <template v-else-if="options?.tags.length">
+            <p class="breakdown-label">Shared by 2+ shows <span class="tag-count">{{ sharedTags.length }}</span></p>
+            <div v-if="sharedTags.length" class="pill-row tag-breakdown">
+              <button v-for="tag in sharedTags" :key="tag.name" type="button" class="pill" @click="addTag(tag.name)">
+                {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
+              </button>
+            </div>
+            <p v-else class="empty-hint">No tag is shared by 2+ shows at this relevance.</p>
+          </template>
           <label class="rank-row">
             <span>Tag must be at least {{ draft.tagMinRank }}% relevant</span>
             <input v-model.number="draft.tagMinRank" type="range" min="0" max="100" step="5">
@@ -479,6 +496,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .tag-count {
   color: var(--faint);
   font-weight: 400;
+}
+
+.breakdown-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tag-breakdown {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 2px;
 }
 
 .tag-chip {

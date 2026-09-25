@@ -41,7 +41,7 @@ describe("getStudyFilterOptions", () => {
       yearRange: { min: 2002, max: 2009 },
       formats: ["TV"],
       genres: ["Comedy", "Music"],
-      tags: [{ name: "Moe", count: 2 }, { name: "Band", count: 1 }],
+      tags: [{ name: "Moe", ranks: [60, 80] }, { name: "Band", ranks: [90] }],
       missingDetailsCount: 1,
     });
   });

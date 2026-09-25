@@ -136,3 +136,21 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     listSource: stored.listSource,
   };
 }
+
+export interface TagOption {
+  name: string;
+  ranks: number[];
+}
+
+// Counts shows at the filter's own relevance cutoff, since a show below it
+// would never match. Most shared first.
+export function countTags(tags: TagOption[], minRank: number, chosen: ReadonlySet<string>): { name: string; count: number }[] {
+  return tags
+    .filter((tag) => !chosen.has(tag.name))
+    .map((tag) => ({ name: tag.name, count: tag.ranks.filter((rank) => rank >= minRank).length }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+export function tagBreakdown(tags: TagOption[], minRank: number, chosen: ReadonlySet<string>): { name: string; count: number }[] {
+  return countTags(tags, minRank, chosen).filter((tag) => tag.count >= 2);
+}

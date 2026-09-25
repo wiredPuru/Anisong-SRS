@@ -6,7 +6,9 @@ export interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
   formats: string[];
   genres: string[];
-  tags: { name: string; count: number }[];
+  // One relevance rank per show with the tag, so the client can count shows
+  // at whatever minimum relevance the filter is set to.
+  tags: { name: string; ranks: number[] }[];
   missingDetailsCount: number;
 }
 
@@ -27,18 +29,20 @@ export function getStudyFilterOptions(): StudyFilterOptions {
     .all();
 
   const years = rows.map((row) => row.year).filter((year): year is number => year !== null);
-  const tagCounts = new Map<string, number>();
+  const tagRanks = new Map<string, number[]>();
   for (const row of rows) {
-    for (const name of new Set(row.tags.map((tag) => tag.name))) tagCounts.set(name, (tagCounts.get(name) ?? 0) + 1);
+    const best = new Map<string, number>();
+    for (const tag of row.tags) best.set(tag.name, Math.max(best.get(tag.name) ?? 0, tag.rank));
+    for (const [name, rank] of best) tagRanks.set(name, [...(tagRanks.get(name) ?? []), rank]);
   }
 
   return {
     yearRange: years.length ? { min: Math.min(...years), max: Math.max(...years) } : null,
     formats: [...new Set(rows.map((row) => row.format).filter((format): format is string => format !== null))].sort(),
     genres: [...new Set(rows.flatMap((row) => row.genres))].sort(),
-    tags: [...tagCounts]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+    tags: [...tagRanks]
+      .map(([name, ranks]) => ({ name, ranks }))
+      .sort((a, b) => b.ranks.length - a.ranks.length || a.name.localeCompare(b.name)),
     missingDetailsCount: rows.filter((row) => row.checkedAt === null).length,
   };
 }
