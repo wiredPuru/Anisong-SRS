@@ -225,11 +225,18 @@ create form or an existing manual deck's detail view, by adding `DeckCard`
 rows only. No `project-plan.md` change: §3's Decks bullet already lets a
 manual deck hold any cards, so this speeds up filling one rather than
 adding a product direction. Feature 74 (external source links) was added to
-`build-plan.md` on 2026-09-23 and is built on its feature branch, pending merge. It adds AniList and
+`build-plan.md` on 2026-09-23 and is now built and merged. It adds AniList and
 AnimeThemes.moe links for a card's show and theme, but no AnisongDB link,
 because that site cannot be linked into. No `project-plan.md` change: §4 already
 covers anime and song metadata cached from AniList/animethemes.moe lookups,
-which the two new slug columns are.
+which the two new slug columns are. Feature 75 (suggestions for every typed
+answer box) was added and built 2026-09-23; no `project-plan.md` change.
+Feature 76 (Study filters, in three sub-features 76a-76c) was added to
+`build-plan.md` on 2026-09-25; 76a is built and merged, 76b and 76c are not
+started. It amended
+`project-plan.md` §3's Study session bullet and §4's first Data bullet, since
+filtering a session by anime metadata is a new Study capability backed by
+newly stored anime fields.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1591,7 +1598,7 @@ which the two new slug columns are.
     `DeckCopyCardsModal`: "Import from deck" on a manual deck's Add cards
     block, and "Import cards..." on the "+ New deck" form, which creates the
     deck first and keeps it if the copy then fails.
-74. **External source links** - built on its feature branch, pending merge.
+74. **External source links** - done.
     AniList and AnimeThemes.moe links for a card's show and theme,
     in `StudyInfoPanel` (so on `/study` and every card Preview) and in
     `/cards`' inspector. Inside the info panel they follow Hide Info and stay
@@ -1607,6 +1614,35 @@ which the two new slug columns are.
     falls back to the show page when no theme page is known. There is no
     AnisongDB link: anisongdb.com is a single-page app with no router that
     never reads its URL, so nothing it shows can be linked to.
+75. **Suggestions for every typed answer box** - done 2026-09-23. The Song
+    name and Artist answer boxes on Study get the same keyboard-and-mouse
+    suggestion dropdown as the anime box. Artist suggestions come from a
+    redacted response carrying only a key and a name, and Song suggestions
+    hide their artist subtitle when Artist is also asked, so no suggestion
+    gives away another answer in the same round. A pick only fills the box;
+    grading is unchanged.
+76. **Study filters** - in progress, three sub-features (76a done). Narrows any Study
+    session, on top of its scope (all, artist, anime, or manual deck), by
+    anime year range, AniList score range, format, genres and tags (include
+    and exclude), OP/ED, and membership in a public AniList/MAL user's list.
+    Filters narrow which due cards are served and counted (`dueCount`, the
+    next card, and the prefetch lookahead) and never change scheduling.
+    Decisions made when it was added: filters are remembered across sessions
+    with an "N filters active" indicator; a tag counts only at or above a
+    relevance rank (default 60%, adjustable), because AniList ranks each
+    tag's relevance per show; insert songs are out of scope, since every
+    import drops them today (feature 60a) and supporting them changes song
+    storage; saved filter presets are out of scope for now.
+    - **76a. Anime metadata cache + backfill** - done 2026-09-25. Season year, format,
+      AniList average score, genres, and ranked tags stored on `Anime`,
+      filled on every import and by a Settings backfill that batches AniList
+      `id_in` queries rather than one request per anime.
+    - **76b. Study filter panel** - a filter popup on `/study` (like Auto
+      Reveal's) with the active-filter indicator; filters apply inside the
+      shared due-card condition.
+    - **76c. User-list filter** - limit Study to anime on a public AniList or
+      MAL user's Completed list (feature 58's lookups), resolved once when
+      the filter is applied.
 
 ## Data model
 
@@ -1622,6 +1658,14 @@ which the two new slug columns are.
   has no native title
 - `animethemesSlug` (string, nullable) - feature 74. AnimeThemes'
   own anime slug, used to link the show's page.
+- `year`, `format`, `averageScore` (nullable), `genres` (JSON `string[]`),
+  `tags` (JSON `{ name, rank }[]`), and `aniListDetailsCheckedAt` (nullable
+  timestamp) - feature 76a. AniList metadata for Study filters: `year` is
+  `seasonYear`, falling back to `startDate.year`; `format` is AniList's
+  `MediaFormat` as sent; a tag's `rank` is AniList's 0-100 relevance. Written
+  by any import with fresh AniList data and by a Settings backfill (batched
+  `id_in`, 50 per request); `aniListDetailsCheckedAt` null means never
+  fetched, so an anime AniList does not return is stamped and not re-probed.
 
 ### Artist
 

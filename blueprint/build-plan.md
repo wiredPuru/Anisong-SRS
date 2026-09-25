@@ -742,6 +742,27 @@ cleaned-up checkbox version before generating the project overview.
   must not reveal the anime or song. Matching and grading stay as they are
   (a pick only fills the box). OP/ED number already uses a picker and is
   out of scope.
+- [ ] 76. **Study filters** - narrow any Study session by anime metadata and
+  theme type, on top of its scope (all, artist, anime, or manual deck): year
+  range, AniList score range, format, genres and tags (include and exclude),
+  OP/ED, and membership in a public AniList/MAL user's list. Filters narrow
+  which due cards are served and counted; they never change scheduling.
+  Filters are remembered across sessions, with an "N filters active"
+  indicator. A tag counts only at or above a relevance rank (default 60%,
+  adjustable). Insert songs and saved filter presets are out of scope:
+  imports drop insert songs today, and presets can follow if the same filters
+  keep being rebuilt.
+  - [x] 76a. **Anime metadata cache + backfill** - store season year, format,
+    AniList average score, genres, and ranked tags on `Anime`, filled on every
+    import and by a Settings backfill (batched AniList `id_in` queries, not one
+    request per anime).
+  - [ ] 76b. **Study filter panel** - a filter popup on `/study` (like Auto
+    Reveal's settings popup) with an "N filters active" indicator; the server
+    applies the filters inside the shared due-card condition, so `dueCount`, the
+    next card, and the prefetch lookahead all respect them.
+  - [ ] 76c. **User-list filter** - limit Study to anime on a public AniList or
+    MAL user's list (Completed, reusing feature 58's lookups), resolved once when
+    the filter is applied rather than on every card.
 
 ## Plan maintenance
 

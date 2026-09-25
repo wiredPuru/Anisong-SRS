@@ -112,3 +112,67 @@ describe("AniList availability and recovery", () => {
     expect(await client.fetchAniListCompletedList("empty")).toEqual([]);
   });
 });
+
+describe("AniList details", () => {
+  const details = {
+    seasonYear: 2006,
+    startDate: { year: 2006 },
+    format: "TV",
+    averageScore: 78,
+    genres: ["Comedy", "Slice of Life"],
+    tags: [{ name: "Cute Girls Doing Cute Things", rank: 92, isMediaSpoiler: false }],
+  };
+
+  it("parses details from both by-id queries and selects them in each", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }));
+    const expected = { year: 2006, format: "TV", averageScore: 78, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
+    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual(expected);
+    expect((await client.fetchAnimeFromAniListByMalId(1))?.details).toEqual(expected);
+    for (const call of fetch.mock.calls) expect(JSON.parse(call[1].body).query).toContain("tags { name rank }");
+  });
+
+  it("falls back to startDate.year and keeps unknown fields null", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: { year: 1998 }, format: null, averageScore: null, genres: [], tags: [] } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: null, format: null, averageScore: null, genres: [], tags: [] } } }));
+    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, format: null, averageScore: null, genres: [], tags: [] });
+    expect((await client.fetchAnimeFromAniList(1))?.details?.year).toBeNull();
+  });
+
+  it("leaves details undefined when a query did not select them", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [media] } } }));
+    expect((await client.searchAnimeOnAniList("Bebop"))[0]!.details).toBeUndefined();
+  });
+
+  it.each([{ genres: "Comedy" }, { tags: [{ name: "Moe" }] }, { averageScore: "78" }, { startDate: { year: "2006" } }])(
+    "opens the cooldown on malformed details (%o)",
+    async (bad) => {
+      fetch.mockResolvedValue(Response.json({ data: { Media: { ...media, ...details, ...bad } } }));
+      await expect(client.fetchAnimeFromAniList(1)).rejects.toMatchObject({ statusCode: 503 });
+      await expect(client.fetchAnimeFromAniList(1)).rejects.toMatchObject({ statusCode: 503 });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("batches ids 50 at a time and omits ids AniList did not return", async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => i + 1);
+    fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [{ id: 1, ...details }, { id: 7, ...details, averageScore: null }] } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Page: { media: [] } } }));
+    const found = await client.fetchAnimeDetailsByIds(ids);
+    expect([...found.keys()]).toEqual([1, 7]);
+    expect(found.get(7)?.averageScore).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body).variables.ids).toHaveLength(50);
+    expect(JSON.parse(fetch.mock.calls[1]![1].body).variables.ids).toEqual([51]);
+  });
+
+  it("rejects a batch entry without details", async () => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Page: { media: [{ id: 1 }] } } }));
+    await expect(client.fetchAnimeDetailsByIds([1])).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it("makes no request for an empty id list", async () => {
+    expect((await client.fetchAnimeDetailsByIds([])).size).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, song } from "../db/schema.ts";
 import type { Anime, Artist, Song } from "../db/schema.ts";
+import type { AniListDetails } from "../lib/anilist.ts";
 
 // Read-only lookups by natural key, for callers (deck import) that must not
 // clobber existing metadata with stale bundled values - see upsertAnime/
@@ -33,6 +34,9 @@ export function upsertAnime(data: {
   // Omitted (not null) means "leave the stored cover art alone" - callers that don't
   // have fresh AniList data (e.g. deck import) must not clobber an existing cover.
   coverImageUrl?: string | null;
+  // Same omitted-means-untouched rule as coverImageUrl: only a live AniList
+  // by-id lookup carries these.
+  details?: AniListDetails;
 }): Anime {
   const values: typeof anime.$inferInsert = {
     aniListId: data.aniListId,
@@ -52,6 +56,10 @@ export function upsertAnime(data: {
   if (data.coverImageUrl !== undefined) {
     values.coverImageUrl = data.coverImageUrl;
     set.coverImageUrl = data.coverImageUrl;
+  }
+  if (data.details) {
+    Object.assign(values, data.details, { aniListDetailsCheckedAt: new Date() });
+    Object.assign(set, data.details, { aniListDetailsCheckedAt: values.aniListDetailsCheckedAt });
   }
 
   return db.insert(anime).values(values).onConflictDoUpdate({ target: anime.aniListId, set }).returning().get();

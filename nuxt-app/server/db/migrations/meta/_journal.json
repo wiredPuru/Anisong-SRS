@@ -148,6 +148,13 @@
       "when": 1790194544591,
       "tag": "0020_animethemes_link_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1790370671214,
+      "tag": "0021_anime_anilist_details",
+      "breakpoints": true
     }
   ]
 }

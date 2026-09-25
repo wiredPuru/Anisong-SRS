@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,
     coverImageUrl: aniListAnime.coverImageUrl,
+    details: aniListAnime.details,
   });
 
   const artistRow = getOrCreateArtist(body.artistName ?? "Unknown Artist");

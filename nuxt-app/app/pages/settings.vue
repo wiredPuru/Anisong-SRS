@@ -11,6 +11,7 @@ const { data, pending, error, refresh } = await useFetch<{
   themesOnly: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
+  missingAnimeDetailsCount: number;
   animethemesUncheckedCount: number;
   animethemesMissingLinkCount: number;
   animethemesSourcedCardCount: number;
@@ -247,6 +248,8 @@ async function importDeck() {
               </div>
 
               <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
+
+              <SettingsAnimeDetailsControl :missing-count="data.missingAnimeDetailsCount" @saved="refresh" />
 
               <SettingsAnimeThemesLinksControl :missing-count="data.animethemesMissingLinkCount" @saved="refresh" />
 

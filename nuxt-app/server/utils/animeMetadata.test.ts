@@ -42,6 +42,7 @@ describe("metadata resolver during AniList downtime", () => {
   it("falls back for uncached anime and retains that choice in a long bulk import", async () => {
     const resolver = createResolver();
     expect(await resolver.byAniListId(1)).toMatchObject({ aniListId: 1, animethemesId: 501 });
+    expect(await resolver.byAniListId(1)).not.toHaveProperty("details");
     vi.advanceTimersByTime(120_000);
     expect(await resolver.byAniListId(2)).toMatchObject({ aniListId: 2 });
     expect(fetch.mock.calls.filter(([url]) => String(url).includes("anilist.co"))).toHaveLength(1);
@@ -109,6 +110,17 @@ describe("metadata resolver during AniList downtime", () => {
 
   it("uses title defaults and no cover for a fresh sparse row", () => {
     expect(upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Romaji", titleEnglish: null, titleNative: null })).toMatchObject({ titleEnglish: "Romaji", titleNative: "Romaji", coverImageUrl: null });
+  });
+
+  it("writes AniList details with a checked stamp and keeps them when a later upsert has none", () => {
+    const details = { year: 2006, format: "TV", averageScore: 78, genres: ["Comedy"], tags: [{ name: "Iyashikei", rank: 80 }] };
+    const base = { aniListId: 1, animethemesId: null, titleRomaji: "Romaji", titleEnglish: null, titleNative: null };
+    expect(upsertAnime(base)).toMatchObject({ year: null, genres: [], tags: [], aniListDetailsCheckedAt: null });
+    const fetched = upsertAnime({ ...base, details });
+    expect(fetched).toMatchObject(details);
+    expect(fetched.aniListDetailsCheckedAt).toBeInstanceOf(Date);
+    expect(upsertAnime({ ...base, titleRomaji: "Renamed" })).toMatchObject({ ...details, titleRomaji: "Renamed", aniListDetailsCheckedAt: fetched.aniListDetailsCheckedAt });
+    expect(upsertAnime({ ...base, details: { ...details, averageScore: null, genres: [] } })).toMatchObject({ averageScore: null, genres: [] });
   });
 });
 

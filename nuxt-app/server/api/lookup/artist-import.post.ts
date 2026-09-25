@@ -92,6 +92,7 @@ export default defineEventHandler(async (event) => {
           titleRomaji: aniListAnime.titleRomaji,
           titleNative: aniListAnime.titleNative,
           coverImageUrl: aniListAnime.coverImageUrl,
+          details: aniListAnime.details,
         });
 
         const matchIndex = await matchIndexes.get(aniListId);

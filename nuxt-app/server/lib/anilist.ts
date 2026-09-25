@@ -2,6 +2,19 @@ import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
+export interface AnimeTag {
+  name: string;
+  rank: number;
+}
+
+export interface AniListDetails {
+  year: number | null;
+  format: string | null;
+  averageScore: number | null;
+  genres: string[];
+  tags: AnimeTag[];
+}
+
 export interface AniListAnime {
   aniListId: number;
   malId: number | null;
@@ -9,6 +22,8 @@ export interface AniListAnime {
   titleEnglish: string | null;
   titleNative: string | null;
   coverImageUrl: string | null;
+  // Only the by-id queries select these; see DETAILS_FIELDS.
+  details?: AniListDetails;
 }
 
 let unavailableUntil = 0;
@@ -51,6 +66,17 @@ const SEARCH_QUERY = `
   }
 `;
 
+// Study filters (feature 76) read these. seasonYear is null for most movies
+// and OVAs, which is why startDate.year is selected as its fallback.
+const DETAILS_FIELDS = `
+      seasonYear
+      startDate { year }
+      format
+      averageScore
+      genres
+      tags { name rank }
+`;
+
 const BY_ID_QUERY = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
@@ -58,9 +84,37 @@ const BY_ID_QUERY = `
       idMal
       title { romaji english native }
       coverImage { large }
+      ${DETAILS_FIELDS}
     }
   }
 `;
+
+const isNullableInt = (value: unknown): value is number | null | undefined => value == null || (typeof value === "number" && Number.isSafeInteger(value));
+
+function isTag(tag: unknown): tag is AnimeTag {
+  return isRecord(tag) && typeof tag.name === "string" && typeof tag.rank === "number" && Number.isFinite(tag.rank);
+}
+
+// Undefined when the query did not select the details, so a search result is
+// never mistaken for an anime AniList reported as having no genres or tags.
+function toAniListDetails(media: Record<string, unknown>): AniListDetails | undefined {
+  if (!("genres" in media)) return undefined;
+  const { seasonYear, startDate, format, averageScore, genres, tags } = media;
+  if (!isNullableInt(seasonYear) || !isNullableInt(averageScore) || (format != null && typeof format !== "string") ||
+    (startDate != null && (!isRecord(startDate) || !isNullableInt(startDate.year))) ||
+    !Array.isArray(genres) || !genres.every((genre) => typeof genre === "string") ||
+    !Array.isArray(tags) || !tags.every(isTag)) {
+    throw new ProviderUnavailableError("AniList");
+  }
+  const startYear = isRecord(startDate) && typeof startDate.year === "number" ? startDate.year : null;
+  return {
+    year: seasonYear ?? startYear,
+    format: format ?? null,
+    averageScore: averageScore ?? null,
+    genres,
+    tags: tags.map(({ name, rank }) => ({ name, rank })),
+  };
+}
 
 function toAniListAnime(media: unknown): AniListAnime {
   if (!isRecord(media) || !Number.isSafeInteger(media.id) || Number(media.id) <= 0 ||
@@ -80,6 +134,7 @@ function toAniListAnime(media: unknown): AniListAnime {
     titleEnglish: typeof media.title.english === "string" ? media.title.english : null,
     titleNative: typeof media.title.native === "string" ? media.title.native : null,
     coverImageUrl: isRecord(media.coverImage) && typeof media.coverImage.large === "string" ? media.coverImage.large : null,
+    details: toAniListDetails(media),
   };
 }
 
@@ -140,6 +195,7 @@ const BY_MAL_ID_QUERY = `
       idMal
       title { romaji english native }
       coverImage { large }
+      ${DETAILS_FIELDS}
     }
   }
 `;
@@ -150,4 +206,38 @@ const BY_MAL_ID_QUERY = `
 // unique across AniList's anime/manga media pool on its own.
 export async function fetchAnimeFromAniListByMalId(malId: number): Promise<AniListAnime | null> {
   return requestAniList(BY_MAL_ID_QUERY, { idMal: malId }, parseAnime, true);
+}
+
+// AniList's Page caps perPage at 50.
+export const ANILIST_DETAILS_BATCH_SIZE = 50;
+
+const DETAILS_BATCH_QUERY = `
+  query ($ids: [Int], $perPage: Int) {
+    Page(perPage: $perPage) {
+      media(id_in: $ids, type: ANIME) {
+        id
+        ${DETAILS_FIELDS}
+      }
+    }
+  }
+`;
+
+// An id AniList does not return is simply absent from the map. Batches run
+// sequentially so a large library shares the rate-limit cooldown politely.
+export async function fetchAnimeDetailsByIds(ids: number[]): Promise<Map<number, AniListDetails>> {
+  const found = new Map<number, AniListDetails>();
+  for (let start = 0; start < ids.length; start += ANILIST_DETAILS_BATCH_SIZE) {
+    const batch = ids.slice(start, start + ANILIST_DETAILS_BATCH_SIZE);
+    const media = await requestAniList(DETAILS_BATCH_QUERY, { ids: batch, perPage: ANILIST_DETAILS_BATCH_SIZE }, (data) => {
+      if (!isRecord(data?.Page) || !Array.isArray(data.Page.media)) throw new ProviderUnavailableError("AniList");
+      return data.Page.media;
+    });
+    for (const entry of media) {
+      if (!isRecord(entry) || !Number.isSafeInteger(entry.id)) throw new ProviderUnavailableError("AniList");
+      const details = toAniListDetails(entry);
+      if (!details) throw new ProviderUnavailableError("AniList");
+      found.set(Number(entry.id), details);
+    }
+  }
+  return found;
 }
