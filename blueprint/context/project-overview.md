@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 8217c39c941475457f7acf43a9b4490ac921f07040257f9b798c03be9bf67f67 -->
+<!-- blueprint:source-hash 840d42ceba1f4befbc0f98c03e2e4f913c544c05f381754f6f4596b268e9c10a -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -236,6 +236,10 @@ Feature 76 (Study filters, in three sub-features 76a-76c) was added to
 `project-plan.md` §3's Study session bullet and §4's first Data bullet, since
 filtering a session by anime metadata is a new Study capability backed by
 newly stored anime fields.
+Feature 77 (building a manual deck from Study's filters, in two sub-features
+77a-77b) was added to `build-plan.md` on 2026-09-25; 77a is built and merged, 77b is not yet built. No
+`project-plan.md` change: like feature 73, it is a faster way to fill a manual
+deck, which §3's Decks bullet already allows to hold any cards.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1664,6 +1668,35 @@ newly stored anime fields.
       (site, username, fetchedAt, for display), set together; the query
       filters on `anime.aniListId`. The ids are a snapshot: anime added later
       join only after Refresh.
+77. **Build a deck from filters** - in progress, in two sub-features.
+    Reuses feature 76's filters (year, AniList score, format, genres and tags
+    with include/exclude and min rank, OP/ED, and a public AniList/MAL
+    Completed list) to fill a manual deck, from the "+ New deck" form or an
+    existing manual deck's detail view: filter, see the matching library anime
+    with cover and card count, tick the ones wanted (all ticked by default),
+    and add their cards in one action. Decisions made when it was added:
+    **snapshot, not a live smart deck** - it only adds `DeckCard` rows like
+    feature 73, the deck does not store its filters, cards already in the deck
+    are skipped, and shows imported later do not join by themselves (re-run to
+    top up); **library only** - a show appears only if it already has cards,
+    nothing is imported from AniList. OP/ED narrows which of a picked show's
+    cards are added. Study's own saved filters (`gaqSrs:studyFilters`) are not
+    touched.
+    - **77a. Shared filter form + filtered anime preview** - done
+      2026-09-25. The filter controls moved out of `StudyFiltersModal` into
+      `StudyFilterForm.vue` (`v-model: StudyFilters`, fetches its own options
+      on mount; Study unchanged). `listFilteredAnime` (`server/utils/
+      deckFilterPreview.ts`) joins card, song and anime under
+      `studyFilterCondition` and returns `{ anime: FilteredAnime[],
+      totalCards }`, each anime's `cardCount` counting only matching cards;
+      no active filter returns every anime with cards. `POST
+      /api/decks/filter-preview` takes `{ filters?: string }` (the
+      `/api/study/next` JSON-string format) and is POST only because a list
+      filter can carry 5000 ids.
+    - **77b. Pick shows + add to deck** - a "From filters" option next to
+      "Import from deck" on both deck surfaces; cards copied server-side with
+      INSERT ... SELECT as in 73, so no size cap; reports added and
+      already-in-deck counts.
 
 ## Data model
 
