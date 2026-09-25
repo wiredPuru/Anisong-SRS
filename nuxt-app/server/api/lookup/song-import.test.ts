@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getThemesOnly: vi.fn(),
   getCardsBySongIds: vi.fn(),
   loadMatchIndex: vi.fn(),
+  setAnimeAnimethemesSlug: vi.fn(),
 }));
 vi.mock("../../utils/animeMetadata.ts", () => ({ createAnimeMetadataResolver: () => mocks }));
 vi.mock("../../utils/cards.ts", () => ({ getCardsBySongIds: mocks.getCardsBySongIds }));
@@ -19,6 +20,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: (name: string) => ({ id: 1, name }),
   upsertAnime: mocks.upsertAnime,
   upsertSong: mocks.upsertSong,
+  setAnimeAnimethemesSlug: mocks.setAnimeAnimethemesSlug,
 }));
 vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 
@@ -34,6 +36,16 @@ const anisongBody = {
   videoUrl: "https://naedist.animemusicquiz.com/fast.webm",
   audioUrl: null,
 };
+
+function matchIndex(animethemesId: number | null, titles: Record<string, number> = {}, videoSlugs: Record<number, string> = {}) {
+  return {
+    status: "ok",
+    animethemesId,
+    animethemesSlug: animethemesId === null ? null : "beastars",
+    byTitle: new Map(Object.entries(titles)),
+    videoSlugByThemeId: new Map(Object.entries(videoSlugs).map(([id, slug]) => [Number(id), slug])),
+  };
+}
 
 async function importSong(body: unknown) {
   vi.stubGlobal("readBody", async () => body);
@@ -51,7 +63,7 @@ beforeEach(() => {
   mocks.getClipSource.mockReturnValue("both");
   mocks.getThemesOnly.mockReturnValue(true);
   mocks.getCardsBySongIds.mockReturnValue([]);
-  mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map([["kaibutsu", 9139]]) });
+  mocks.loadMatchIndex.mockResolvedValue(matchIndex(1502, { kaibutsu: 9139 }, { 9139: "OP1-NCBD1080" }));
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -106,20 +118,26 @@ describe("song import AnimeThemes match gate", () => {
     expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: 9139, themeSlot: "OP1" }));
   });
 
+  it("stores the AnimeThemes link slugs along with the match", async () => {
+    await importSong(anisongBody);
+    expect(mocks.setAnimeAnimethemesSlug).toHaveBeenCalledWith(7, "beastars");
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesVideoSlug: "OP1-NCBD1080" }));
+  });
+
   it("flags a song AnimeThemes does not have and leaves its id unset", async () => {
-    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map() });
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(1502));
     await expect(importSong(anisongBody)).resolves.toMatchObject({ songId: 42, noAnimethemesMatch: true, existingCard: null });
     expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
   });
 
   it("never flags a song when themes-only mode is off, but still records the id it finds", async () => {
     mocks.getThemesOnly.mockReturnValue(false);
-    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: 1502, byTitle: new Map() });
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(1502));
     await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
   });
 
   it("flags every song when AnimeThemes has no entry for the anime at all", async () => {
-    mocks.loadMatchIndex.mockResolvedValue({ status: "ok", animethemesId: null, byTitle: new Map() });
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(null));
     await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: true });
   });
 
@@ -129,22 +147,45 @@ describe("song import AnimeThemes match gate", () => {
     expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
   });
 
-  it("skips the lookup when the result already carries an AnimeThemes theme id", async () => {
+  it("fills links by the result's known theme id even when the title does not match", async () => {
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(1502, {}, { 9139: "OP2-NC" }));
     await expect(importSong({ ...anisongBody, animethemesThemeId: 9139 })).resolves.toMatchObject({ noAnimethemesMatch: false });
-    expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: 9139, animethemesVideoSlug: "OP2-NC" }));
   });
 
-  it("skips the lookup when an earlier import already stored the id", async () => {
+  it("uses the stored theme id ahead of a different title match when filling links", async () => {
     mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song, animethemesThemeId: 555 }));
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(1502, { kaibutsu: 9139 }, { 555: "ED2", 9139: "OP1" }));
     await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: 555, animethemesVideoSlug: "ED2" }));
+  });
+
+  it("skips the lookup when a known match already has both slugs", async () => {
+    mocks.upsertAnime.mockImplementation((anime) => ({ id: 7, ...anime, animethemesSlug: "beastars" }));
+    mocks.upsertSong.mockImplementation((song) => ({ id: 42, ...song, animethemesThemeId: 555, animethemesVideoSlug: "ED2" }));
+    await importSong(anisongBody);
     expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
   });
 
-  it("does not gate a song that already has a card", async () => {
+  it("fills links for an existing card without applying the match gate", async () => {
     const existingCard = { id: 5, songId: 42 };
     mocks.getCardsBySongIds.mockReturnValue([existingCard]);
     await expect(importSong(anisongBody)).resolves.toMatchObject({ existingCard, noAnimethemesMatch: false });
-    expect(mocks.loadMatchIndex).not.toHaveBeenCalled();
+    expect(mocks.loadMatchIndex).toHaveBeenCalledWith(114194);
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesVideoSlug: "OP1-NCBD1080" }));
+  });
+
+  it("does not gate an existing card when the link lookup finds no match", async () => {
+    mocks.getCardsBySongIds.mockReturnValue([{ id: 5, songId: 42 }]);
+    mocks.loadMatchIndex.mockResolvedValue(matchIndex(null));
+    await expect(importSong(anisongBody)).resolves.toMatchObject({ noAnimethemesMatch: false });
+  });
+
+  it("keeps a known match import usable when the link lookup is unavailable", async () => {
+    mocks.loadMatchIndex.mockResolvedValue({ status: "unavailable" });
+    await expect(importSong({ ...anisongBody, animethemesThemeId: 9139 })).resolves.toMatchObject({ noAnimethemesMatch: false });
+    expect(mocks.upsertSong).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 9139 }));
   });
 
   it("does not swallow a fault that is not an outage", async () => {

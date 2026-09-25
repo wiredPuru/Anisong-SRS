@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 0a2edd04d1a939f83e280ac3897b565463b5aaa5c597b03183f7fd03a4147718 -->
+<!-- blueprint:source-hash 8217c39c941475457f7acf43a9b4490ac921f07040257f9b798c03be9bf67f67 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -224,7 +224,12 @@ source decks (artist, anime, or manual) into a manual deck, from the
 create form or an existing manual deck's detail view, by adding `DeckCard`
 rows only. No `project-plan.md` change: §3's Decks bullet already lets a
 manual deck hold any cards, so this speeds up filling one rather than
-adding a product direction.
+adding a product direction. Feature 74 (external source links) was added to
+`build-plan.md` on 2026-09-23 and is built on its feature branch, pending merge. It adds AniList and
+AnimeThemes.moe links for a card's show and theme, but no AnisongDB link,
+because that site cannot be linked into. No `project-plan.md` change: §4 already
+covers anime and song metadata cached from AniList/animethemes.moe lookups,
+which the two new slug columns are.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1586,6 +1591,22 @@ adding a product direction.
     `DeckCopyCardsModal`: "Import from deck" on a manual deck's Add cards
     block, and "Import cards..." on the "+ New deck" form, which creates the
     deck first and keeps it if the copy then fails.
+74. **External source links** - built on its feature branch, pending merge.
+    AniList and AnimeThemes.moe links for a card's show and theme,
+    in `StudyInfoPanel` (so on `/study` and every card Preview) and in
+    `/cards`' inspector. Inside the info panel they follow Hide Info and stay
+    hidden until a typed answer is revealed, so they never give the answer
+    away. AniList is `https://anilist.co/anime/<aniListId>`, built from the
+    id already stored. AnimeThemes needs two new nullable columns,
+    `anime.animethemesSlug` (show page, `/anime/<slug>`) and
+    `song.animethemesVideoSlug` (theme page, `/anime/<slug>/<videoSlug>`).
+    Both are taken from AnimeThemes' own data on import and never built from
+    `Song.themeSlot`, because feature 60a found the two providers number
+    slots differently, so a slot-built link could open a different song. A
+    Settings backfill fills existing rows, one lookup per anime. The link
+    falls back to the show page when no theme page is known. There is no
+    AnisongDB link: anisongdb.com is a single-page app with no router that
+    never reads its URL, so nothing it shows can be linked to.
 
 ## Data model
 
@@ -1599,6 +1620,8 @@ adding a product direction.
 - `titleRomaji` (string)
 - `titleNative` (string, Japanese) - falls back to `titleRomaji` if AniList
   has no native title
+- `animethemesSlug` (string, nullable) - feature 74. AnimeThemes'
+  own anime slug, used to link the show's page.
 
 ### Artist
 
@@ -1623,6 +1646,9 @@ A specific OP/ED theme track.
 - `themeSlot` (string) - e.g. `"OP1"`, `"ED2"`
 - `animethemesThemeId` (integer, nullable) - external reference, used to
   re-fetch or re-link media later
+- `animethemesVideoSlug` (string, nullable) - feature 74.
+  AnimeThemes' page slug for this theme's video (e.g. `OP1-NCBD1080`), used
+  to link the exact theme page. Never derived from `themeSlot`.
 - Unique on `(animeId, themeSlot)`
 
 ### Card

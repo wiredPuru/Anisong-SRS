@@ -1,9 +1,9 @@
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { getCardsBySongIds } from "../../utils/cards.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
-import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
-import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex } from "../../utils/themeSource.ts";
+import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex, matchLinkSlugs } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -35,27 +35,31 @@ export default defineEventHandler(async (event) => {
 
   const artistRow = getOrCreateArtist(body.artistName ?? "Unknown Artist");
 
-  const upsertWith = (themeId: number | null) => upsertSong({
+  const upsertWith = (themeId: number | null, videoSlug: string | null = null) => upsertSong({
     animeId: animeRow.id,
     artistId: artistRow.id,
     title: body.songTitle ?? body.themeSlot,
     titleNative: body.songTitleNative,
     themeSlot: body.themeSlot,
     animethemesThemeId: themeId,
+    animethemesVideoSlug: videoSlug,
   });
 
   let songRow = upsertWith(animethemesThemeId);
   const existingCard = getCardsBySongIds([songRow.id])[0] ?? null;
 
-  // An AnisongDB result never says whether AnimeThemes has the song, so the
-  // answer costs one lookup for the anime. A song that already has a card, or
-  // whose stored id an earlier import found, is settled without it.
+  // A known match settles eligibility, but can still lack the page slugs.
+  const needsMatch = !existingCard && songRow.animethemesThemeId === null;
+  const needsLinks = !animeRow.animethemesSlug || !songRow.animethemesVideoSlug;
   let noAnimethemesMatch = false;
-  if (!existingCard && songRow.animethemesThemeId === null) {
+  if (needsMatch || needsLinks) {
     const index = await loadAnimeThemesMatchIndex(animeRow.aniListId);
-    const matchedThemeId = findThemeMatch(index, body.songTitle ?? null) ?? findThemeMatch(index, songRow.title);
-    if (matchedThemeId !== null) songRow = upsertWith(matchedThemeId);
-    noAnimethemesMatch = getThemesOnly() && isMissingAnimeThemesMatch({
+    const matchedThemeId = songRow.animethemesThemeId
+      ?? findThemeMatch(index, body.songTitle ?? null) ?? findThemeMatch(index, songRow.title);
+    const slugs = matchLinkSlugs(index, matchedThemeId);
+    setAnimeAnimethemesSlug(animeRow.id, slugs.animethemesSlug);
+    if (matchedThemeId !== null && index.status === "ok") songRow = upsertWith(matchedThemeId, slugs.animethemesVideoSlug);
+    noAnimethemesMatch = needsMatch && getThemesOnly() && isMissingAnimeThemesMatch({
       storedThemeId: matchedThemeId,
       unavailable: index.status === "unavailable",
     });
@@ -72,7 +76,7 @@ export default defineEventHandler(async (event) => {
     artistName: artistRow.name,
     videoUrl,
     audioUrl,
-    existingCard,
+    existingCard: existingCard ? getCardsBySongIds([songRow.id])[0] ?? existingCard : null,
     noAnimethemesMatch,
   };
 });

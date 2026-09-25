@@ -1,4 +1,5 @@
 import { countCardsToRefresh } from "../utils/cardSourceRefresh.ts";
+import { countAnimeMissingLinks } from "../utils/animethemesLinkBackfill.ts";
 import { countUncheckedSongs } from "../utils/animethemesMatch.ts";
 import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
@@ -28,6 +29,7 @@ export default defineEventHandler(() => {
     clipSource: getClipSource(),
     missingCoverCount: countAnimeMissingCover(),
     animethemesUncheckedCount: countUncheckedSongs(),
+    animethemesMissingLinkCount: countAnimeMissingLinks(),
     animethemesSourcedCardCount: countCardsToRefresh(),
   };
 });

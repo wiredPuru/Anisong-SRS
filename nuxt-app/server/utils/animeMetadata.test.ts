@@ -92,6 +92,21 @@ describe("metadata resolver during AniList downtime", () => {
       .toMatchObject({ id: original.id, titleNative: "タンク!", animethemesThemeId: 900 });
   });
 
+  it("keeps stored AnimeThemes link slugs when a re-import has none, and replaces them with new ones", () => {
+    const withSlug = { aniListId: 3, animethemesId: 503, titleRomaji: "Anime", titleEnglish: null, titleNative: null };
+    const stored = upsertAnime({ ...withSlug, animethemesSlug: "bocchi_the_rock" });
+    expect(upsertAnime({ ...withSlug, animethemesSlug: null })).toMatchObject({ id: stored.id, animethemesSlug: "bocchi_the_rock" });
+    expect(upsertAnime(withSlug)).toMatchObject({ animethemesSlug: "bocchi_the_rock" });
+    expect(upsertAnime({ ...withSlug, animethemesSlug: "renamed" })).toMatchObject({ animethemesSlug: "renamed" });
+
+    const base = { animeId: stored.id, artistId: getOrCreateArtist("Kessoku Band").id, themeSlot: "OP1", title: "Seishun Complex", animethemesThemeId: 900 };
+    const original = upsertSong({ ...base, animethemesVideoSlug: "OP1-NCBD1080" });
+    expect(upsertSong({ ...base, animethemesThemeId: null, animethemesVideoSlug: null }))
+      .toMatchObject({ id: original.id, animethemesVideoSlug: "OP1-NCBD1080" });
+    expect(upsertSong(base)).toMatchObject({ animethemesVideoSlug: "OP1-NCBD1080" });
+    expect(upsertSong({ ...base, animethemesVideoSlug: "OP1v2" })).toMatchObject({ animethemesVideoSlug: "OP1v2" });
+  });
+
   it("uses title defaults and no cover for a fresh sparse row", () => {
     expect(upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Romaji", titleEnglish: null, titleNative: null })).toMatchObject({ titleEnglish: "Romaji", titleNative: "Romaji", coverImageUrl: null });
   });

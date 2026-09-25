@@ -30,6 +30,8 @@ export interface CardWithDetails {
   artistName: string;
   animeId: number;
   animeAniListId: number;
+  animeAnimethemesSlug: string | null;
+  animethemesVideoSlug: string | null;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;

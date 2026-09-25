@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SourceLink } from "../../utils/sourceLinks";
+
 const props = withDefaults(
   defineProps<{
     songTitle: string;
@@ -16,6 +18,9 @@ const props = withDefaults(
     animeHref?: string;
     artistHref?: string;
     notes?: string | null;
+    // AniList/AnimeThemes links. Left out of the immersive overlay, which is
+    // chips over the video; the panel beside it is where they belong.
+    sourceLinks?: SourceLink[];
     box?: number;
     streak?: number;
     streakRequired?: number;
@@ -265,6 +270,10 @@ watch(
       <div v-if="notes" class="detail-row">
         <span class="label">Notes</span>
         <span class="value notes-value">{{ notes }}</span>
+      </div>
+      <div v-if="sourceLinks?.length && !immersive" class="detail-row">
+        <span class="label">Links</span>
+        <CardSourceLinks :links="sourceLinks" />
       </div>
     </div>
   </div>

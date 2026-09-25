@@ -12,9 +12,11 @@ vi.mock("../../utils/animeMetadata.ts", () => ({
 }));
 vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: () => ({ id: 1 }), upsertAnime: mocks.upsertAnime, upsertSong: mocks.upsertSong,
+  setAnimeAnimethemesSlug: vi.fn(),
 }));
 vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 vi.mock("../../lib/animethemes.ts", () => ({
+  fetchThemeTitlesByAniListIds: async () => new Map(),
   fetchArtistThemesBySlug: async () => ({ artistName: "Artist", entries: [1, 2, 3].map((id) => ({
     animeAniListId: id, animeAnimethemesId: id, songTitle: `Song ${id}`, themeSlot: "OP1", animethemesThemeId: id,
     videoUrl: null, audioUrl: null,

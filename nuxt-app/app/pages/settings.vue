@@ -12,6 +12,7 @@ const { data, pending, error, refresh } = await useFetch<{
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
   animethemesUncheckedCount: number;
+  animethemesMissingLinkCount: number;
   animethemesSourcedCardCount: number;
 }>("/api/media-library");
 
@@ -246,6 +247,8 @@ async function importDeck() {
               </div>
 
               <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
+
+              <SettingsAnimeThemesLinksControl :missing-count="data.animethemesMissingLinkCount" @saved="refresh" />
 
               <SettingsCardSourceControl
                 :count="data.animethemesSourcedCardCount"

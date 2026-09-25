@@ -34,6 +34,8 @@ export interface CardWithDetails {
   artistName: string;
   animeId: number;
   animeAniListId: number;
+  animeAnimethemesSlug: string | null;
+  animethemesVideoSlug: string | null;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -64,6 +66,8 @@ const cardSelection = (criterion: GradingCriterion) => ({
   artistName: artist.name,
   animeId: anime.id,
   animeAniListId: anime.aniListId,
+  animeAnimethemesSlug: anime.animethemesSlug,
+  animethemesVideoSlug: song.animethemesVideoSlug,
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,

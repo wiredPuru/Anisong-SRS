@@ -6,16 +6,20 @@ const checkedAt = new Date("2026-09-21T00:00:00.000Z");
 
 const candidate = (overrides: Partial<MatchCandidate> = {}): MatchCandidate => ({
   songId: 1,
+  animeId: 71,
   aniListId: 195,
   songTitle: "LOVE A RIDDLE",
   ...overrides,
 });
 
-const indexOf = (titles: Record<string, number>): AnimeThemesMatchIndex => ({
+const indexOf = (titles: Record<string, number>, videoSlugs: Record<number, string> = {}): AnimeThemesMatchIndex => ({
   status: "ok",
   animethemesId: 1502,
+  animethemesSlug: "onegai_teacher",
   byTitle: new Map(Object.entries(titles)),
+  videoSlugByThemeId: new Map(Object.entries(videoSlugs).map(([id, slug]) => [Number(id), slug])),
 });
+const noVideo = { animethemesSlug: "onegai_teacher", animethemesVideoSlug: null };
 
 function run(candidates: MatchCandidate[], indexes: Record<number, AnimeThemesMatchIndex>) {
   const store = vi.fn();
@@ -26,14 +30,17 @@ function run(candidates: MatchCandidate[], indexes: Record<number, AnimeThemesMa
 
 describe("backfillAnimeThemesMatches", () => {
   it("stores the theme id AnimeThemes has for the song", async () => {
-    const { result, store } = await run([candidate()], { 195: indexOf({ "loveariddle": 1633 }) });
-    expect(store).toHaveBeenCalledWith(1, 1633, checkedAt);
+    const { result, store } = await run([candidate()], { 195: indexOf({ "loveariddle": 1633 }, { 1633: "ED1-NCDVD480" }) });
+    expect(store).toHaveBeenCalledWith(candidate(), 1633, checkedAt, {
+      animethemesSlug: "onegai_teacher",
+      animethemesVideoSlug: "ED1-NCDVD480",
+    });
     expect(result).toEqual({ checked: 1, matched: 1, missing: 0, unavailable: 0 });
   });
 
   it("stamps a song AnimeThemes genuinely does not have, so it is not probed again", async () => {
     const { result, store } = await run([candidate()], { 195: indexOf({}) });
-    expect(store).toHaveBeenCalledWith(1, null, checkedAt);
+    expect(store).toHaveBeenCalledWith(candidate(), null, checkedAt, noVideo);
     expect(result).toEqual({ checked: 1, matched: 0, missing: 1, unavailable: 0 });
   });
 
@@ -53,7 +60,10 @@ describe("backfillAnimeThemesMatches", () => {
     );
 
     expect(loadIndexes).toHaveBeenCalledWith([195, 195]);
-    expect(store.mock.calls).toEqual([[1, 1633, checkedAt], [2, null, checkedAt]]);
+    expect(store.mock.calls.map(([stored, themeId, at, links]) => [stored.songId, themeId, at, links])).toEqual([
+      [1, 1633, checkedAt, noVideo],
+      [2, null, checkedAt, noVideo],
+    ]);
     expect(result).toMatchObject({ checked: 2, matched: 1, missing: 1 });
   });
 

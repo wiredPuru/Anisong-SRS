@@ -715,6 +715,33 @@ cleaned-up checkbox version before generating the project overview.
   source deck, so it has no per-request size cap. Cards already in the
   target deck are skipped, and a one-time snapshot is taken, so the new deck
   doesn't follow later changes to the source.
+- [x] 74. **External source links** - AniList and AnimeThemes.moe links for a
+  card's show and theme, shown in `StudyInfoPanel` (so on `/study` and every
+  card Preview) and in `/cards`' inspector. Inside the info panel they follow
+  Hide Info and stay hidden until a typed answer is revealed, so they never
+  give the answer away. AniList uses the stored AniList id. AnimeThemes needs
+  two new nullable columns, `anime.animethemes_slug` and
+  `song.animethemes_video_slug`, taken from AnimeThemes' own data on import
+  (never built from our `themeSlot`, which can be numbered differently), plus
+  a Settings backfill for existing cards, one lookup per anime. It falls back
+  to the show page when no theme page is known. No AnisongDB link: its site
+  has no URL it can be linked to.
+- [ ] 75. **Suggestions for every typed answer box** - the anime-title box on
+  Study shows a dropdown of suggestions while typing, but the other typed
+  boxes do not act the same way. Reported 2026-09-23: with Song name and
+  Artist both asked, typing in either showed no dropdown at all. The Artist
+  box (`StudyArtistAnswer.vue`, feature 72b) is free text by design, with no
+  suggestions. The Song name box (`StudySongAnswer.vue`, feature 66b) does
+  search online through `/api/lookup/song-answer-search`, so first find out
+  why no dropdown appeared (a provider failure, no results, or the list
+  being clipped inside the answer controls over the video). Then give
+  Artist the same keyboard-and-mouse dropdown as the anime box, and make
+  Song name reliable. Suggestions must never give away another answer
+  asked in the same round: song suggestions show the artist name today,
+  which would answer a required Artist question, and an artist suggestion
+  must not reveal the anime or song. Matching and grading stay as they are
+  (a pick only fills the box). OP/ED number already uses a picker and is
+  out of scope.
 
 ## Plan maintenance
 

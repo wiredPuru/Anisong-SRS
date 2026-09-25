@@ -2,10 +2,12 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, card, song } from "../db/schema.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
-import { findThemeMatch, startMatchIndexLoads, type AnimeThemesMatchIndex } from "./themeSource.ts";
+import { setAnimeAnimethemesSlug } from "./lookup.ts";
+import { findThemeMatch, matchLinkSlugs, startMatchIndexLoads, type AnimeThemesMatchIndex } from "./themeSource.ts";
 
 export interface MatchCandidate {
   songId: number;
+  animeId: number;
   aniListId: number;
   songTitle: string;
 }
@@ -36,7 +38,7 @@ export function countUncheckedSongs(): number {
 
 export function listMatchCandidates(): MatchCandidate[] {
   const rows = db
-    .selectDistinct({ songId: song.id, aniListId: anime.aniListId, songTitle: song.title })
+    .selectDistinct({ songId: song.id, animeId: anime.id, aniListId: anime.aniListId, songTitle: song.title })
     .from(song)
     .innerJoin(card, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
@@ -45,15 +47,22 @@ export function listMatchCandidates(): MatchCandidate[] {
   return rows;
 }
 
-export function storeMatchResult(songId: number, themeId: number | null, checkedAt: Date): void {
+export type MatchLinkSlugs = ReturnType<typeof matchLinkSlugs>;
+
+export function storeMatchResult(candidate: MatchCandidate, themeId: number | null, checkedAt: Date, links: MatchLinkSlugs): void {
   db.update(song)
-    .set({ animethemesThemeId: themeId, animethemesCheckedAt: checkedAt })
-    .where(eq(song.id, songId))
+    .set({
+      animethemesThemeId: themeId,
+      animethemesCheckedAt: checkedAt,
+      ...(links.animethemesVideoSlug ? { animethemesVideoSlug: links.animethemesVideoSlug } : {}),
+    })
+    .where(eq(song.id, candidate.songId))
     .run();
+  setAnimeAnimethemesSlug(candidate.animeId, links.animethemesSlug);
 }
 
 type IndexLoader = (aniListIds: number[]) => Map<number, Promise<AnimeThemesMatchIndex>>;
-type StoreMatch = (songId: number, themeId: number | null, checkedAt: Date) => void;
+type StoreMatch = (candidate: MatchCandidate, themeId: number | null, checkedAt: Date, links: MatchLinkSlugs) => void;
 
 // Injected the same way backfillMissingCovers takes its fetcher, so the tests
 // can drive a match, a genuine miss, and an outage without stubbing fetch.
@@ -80,7 +89,7 @@ export async function backfillAnimeThemesMatches(
       result.unavailable += 1;
     } else {
       const themeId = findThemeMatch(index, candidate.songTitle);
-      store(candidate.songId, themeId, now());
+      store(candidate, themeId, now(), matchLinkSlugs(index, themeId));
       if (themeId === null) result.missing += 1;
       else result.matched += 1;
     }

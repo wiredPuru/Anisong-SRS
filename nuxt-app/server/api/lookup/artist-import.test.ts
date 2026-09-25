@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   getThemesOnly: vi.fn(),
   upsertSong: vi.fn(),
   startLoads: vi.fn(),
+  setAnimeAnimethemesSlug: vi.fn(),
+  findSongByAnimeAndSlot: vi.fn(),
 }));
 vi.mock("../../utils/importProgress.ts", () => ({
   respondWithImportProgress: (_event: unknown, run: (report: ReportImportProgress) => Promise<unknown>) => run(mocks.report),
@@ -25,6 +27,8 @@ vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: (name: string) => ({ id: 1, name }),
   upsertAnime: (anime: { aniListId: number }) => ({ id: anime.aniListId, ...anime }),
   upsertSong: mocks.upsertSong,
+  setAnimeAnimethemesSlug: mocks.setAnimeAnimethemesSlug,
+  findSongByAnimeAndSlot: mocks.findSongByAnimeAndSlot,
 }));
 vi.mock("../../utils/themeSource.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../utils/themeSource.ts")>()),
@@ -32,8 +36,14 @@ vi.mock("../../utils/themeSource.ts", async (importOriginal) => ({
 }));
 vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
 
-const matchIndex = (titles: Record<string, number>) =>
-  Promise.resolve({ status: "ok", animethemesId: 1502, byTitle: new Map(Object.entries(titles)) });
+const matchIndex = (titles: Record<string, number>, videoSlugs: Record<number, string> = {}) =>
+  Promise.resolve({
+    status: "ok",
+    animethemesId: 1502,
+    animethemesSlug: "beastars",
+    byTitle: new Map(Object.entries(titles)),
+    videoSlugByThemeId: new Map(Object.entries(videoSlugs).map(([id, slug]) => [Number(id), slug])),
+  });
 
 const anisongCandidate = { source: "anisongdb", id: 8355, name: "YOASOBI", slug: null };
 
@@ -45,6 +55,7 @@ async function importArtist(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findSongByAnimeAndSlot.mockReturnValue(undefined);
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
   vi.stubGlobal("createError", (input: { statusMessage: string }) => Object.assign(new Error(input.statusMessage), input));
   mocks.byAniListId.mockResolvedValue({ aniListId: 114194, titleRomaji: "Beastars" });
@@ -65,7 +76,8 @@ beforeEach(() => {
   mocks.getClipSource.mockReturnValue("both");
   mocks.getThemesOnly.mockReturnValue(true);
   mocks.upsertSong.mockImplementation((song: object) => ({ id: 1, ...song }));
-  mocks.startLoads.mockImplementation((ids: number[]) => new Map(ids.map((id) => [id, matchIndex({ kaibutsu: 9139 })])));
+  mocks.startLoads.mockImplementation((ids: number[]) =>
+    new Map(ids.map((id) => [id, matchIndex({ kaibutsu: 9139 }, { 9139: "OP1-NCBD1080" })])));
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -149,6 +161,14 @@ describe("artist import AnimeThemes match gate", () => {
     expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 9139 }));
   });
 
+  it("stores the AnimeThemes link slugs from the match lookup", async () => {
+    resolveEntries(entry({ songTitle: "Kaibutsu" }), entry({ themeSlot: "ED1", songTitle: "Only On AnisongDB" }));
+    await run();
+    expect(mocks.setAnimeAnimethemesSlug).toHaveBeenCalledWith(114194, "beastars");
+    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ title: "Kaibutsu", animethemesVideoSlug: "OP1-NCBD1080" }));
+    expect(mocks.upsertSong).toHaveBeenLastCalledWith(expect.objectContaining({ animethemesThemeId: null, animethemesVideoSlug: null }));
+  });
+
   it("flags a song AnimeThemes does not have and stores no id for it", async () => {
     resolveEntries(entry({ songTitle: "Kaibutsu" }), entry({ themeSlot: "ED1", songTitle: "Only On AnisongDB" }));
     expect(await run()).toEqual([
@@ -175,11 +195,27 @@ describe("artist import AnimeThemes match gate", () => {
     expect(await run()).toEqual([expect.objectContaining({ noAnimethemesMatch: false })]);
   });
 
-  it("asks for no lookup at all when every entry already carries an AnimeThemes id", async () => {
+  it("fills slugs for entries that already carry an AnimeThemes id", async () => {
     resolveEntries(entry({ animethemesThemeId: 77 }));
+    mocks.startLoads.mockImplementation((ids: number[]) => new Map(ids.map((id) => [id, matchIndex({}, { 77: "OP2-NC" })])));
     expect(await run()).toEqual([expect.objectContaining({ noAnimethemesMatch: false })]);
-    expect(mocks.startLoads).toHaveBeenCalledWith([]);
-    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 77 }));
+    expect(mocks.startLoads).toHaveBeenCalledWith([114194]);
+    expect(mocks.setAnimeAnimethemesSlug).toHaveBeenCalledWith(114194, "beastars");
+    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 77, animethemesVideoSlug: "OP2-NC" }));
+  });
+
+  it("fills links by a stored id ahead of a different title match", async () => {
+    mocks.findSongByAnimeAndSlot.mockReturnValue({ animethemesThemeId: 555 });
+    mocks.startLoads.mockImplementation((ids: number[]) => new Map(ids.map((id) => [id, matchIndex({ kaibutsu: 9139 }, { 555: "ED2", 9139: "OP1" })])));
+    await run();
+    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 555, animethemesVideoSlug: "ED2" }));
+  });
+
+  it("preserves known matches during a link lookup outage", async () => {
+    resolveEntries(entry({ animethemesThemeId: 77 }));
+    mocks.startLoads.mockImplementation((ids: number[]) => new Map(ids.map((id) => [id, Promise.resolve({ status: "unavailable" })])));
+    expect(await run()).toEqual([expect.objectContaining({ noAnimethemesMatch: false })]);
+    expect(mocks.upsertSong).toHaveBeenCalledWith(expect.objectContaining({ animethemesThemeId: 77, animethemesVideoSlug: null }));
   });
 
   it("looks up each anime once, however many of its songs need checking", async () => {

@@ -3,9 +3,9 @@ import { AnimeLookupUnavailableError, createAnimeMetadataResolver } from "../../
 import { ProviderUnavailableError } from "../../lib/graphql.ts";
 import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
-import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
+import { findSongByAnimeAndSlot, getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
-import { findThemeMatch, isMissingAnimeThemesMatch, startMatchIndexLoads } from "../../utils/themeSource.ts";
+import { findThemeMatch, isMissingAnimeThemesMatch, matchLinkSlugs, startMatchIndexLoads } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -56,13 +56,8 @@ export default defineEventHandler(async (event) => {
       }[];
     }[] = [];
 
-    // AnisongDB entries carry no AnimeThemes id, so each such anime needs its own
-    // AnimeThemes lookup to say which of its songs AnimeThemes has.
-    const matchIndexes = startMatchIndexLoads(
-      [...entriesByAniListId]
-        .filter(([, entries]) => entries.some((entry) => entry.animethemesThemeId === null))
-        .map(([aniListId]) => aniListId),
-    );
+    // Even entries with known theme ids need the provider's page slugs.
+    const matchIndexes = startMatchIndexLoads([...entriesByAniListId.keys()]);
 
     const clipSource = getClipSource();
     const themesOnly = getThemesOnly();
@@ -100,15 +95,20 @@ export default defineEventHandler(async (event) => {
         });
 
         const matchIndex = await matchIndexes.get(aniListId);
+        if (matchIndex) setAnimeAnimethemesSlug(animeRow.id, matchLinkSlugs(matchIndex, null).animethemesSlug);
 
         const themes = entries.map((entry) => {
+          const themeId = entry.animethemesThemeId
+            ?? findSongByAnimeAndSlot(animeRow.id, entry.themeSlot)?.animethemesThemeId
+            ?? (matchIndex ? findThemeMatch(matchIndex, entry.songTitle) : null);
           const songRow = upsertSong({
             animeId: animeRow.id,
             artistId: artistRow.id,
             title: entry.songTitle ?? entry.themeSlot,
             titleNative: entry.songTitleNative,
             themeSlot: entry.themeSlot,
-            animethemesThemeId: entry.animethemesThemeId ?? (matchIndex ? findThemeMatch(matchIndex, entry.songTitle) : null),
+            animethemesThemeId: themeId,
+            animethemesVideoSlug: matchIndex ? matchLinkSlugs(matchIndex, themeId).animethemesVideoSlug : null,
           });
 
           const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(entry.videoUrl, entry.audioUrl, clipSource);

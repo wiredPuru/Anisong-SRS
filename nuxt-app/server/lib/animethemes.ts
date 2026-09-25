@@ -1,3 +1,4 @@
+import { animethemesVideoSlug } from "../utils/animethemesLinks.ts";
 import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
 
 const ANIMETHEMES_ENDPOINT = "https://graphql.animethemes.moe";
@@ -10,10 +11,12 @@ export interface AnimeThemeLookup {
   artistName: string | null;
   videoUrl: string | null;
   audioUrl: string | null;
+  animethemesVideoSlug: string | null;
 }
 
 export interface AnimeThemesResult {
   animethemesId: number;
+  animethemesSlug: string | null;
   themes: AnimeThemeLookup[];
 }
 
@@ -34,22 +37,28 @@ interface RawPerformance {
 interface RawVideoNode {
   link: string;
   audio: { link: string } | null;
+  tags?: unknown;
 }
 
 interface RawAnimeTheme {
   id: number;
   slug: string;
+  type?: unknown;
+  sequence?: unknown;
+  group?: unknown;
   song: {
     title: RawSongTitle;
     performances: RawPerformance[];
   } | null;
   animethemeentries: {
+    version?: unknown;
     videos: { nodes: RawVideoNode[] };
   }[];
 }
 
 interface RawAnime {
   id: number;
+  slug?: unknown;
   animethemes: RawAnimeTheme[];
 }
 
@@ -61,9 +70,13 @@ const FIND_BY_ANILIST_QUERY = `
   query ($anilistId: [Int!]) {
     findAnimeByExternalSite(site: ANILIST, id: $anilistId) {
       id
+      slug
       animethemes(first: 50) {
         id
         slug
+        type
+        sequence
+        group { slug }
         song {
           title { romaji native }
           performances {
@@ -71,9 +84,11 @@ const FIND_BY_ANILIST_QUERY = `
           }
         }
         animethemeentries(first: 1) {
+          version
           videos(first: 1) {
             nodes {
               link
+              tags
               audio { link }
             }
           }
@@ -82,6 +97,29 @@ const FIND_BY_ANILIST_QUERY = `
     }
   }
 `;
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function optionalInt(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+}
+
+// Names the page for the same entry and video the card's clip comes from. No
+// video means no page, so the link falls back to the show.
+function themeVideoSlug(theme: RawAnimeTheme): string | null {
+  const entry = theme.animethemeentries?.[0];
+  const video = entry?.videos?.nodes?.[0];
+  if (!video) return null;
+  return animethemesVideoSlug({
+    type: optionalString(theme.type),
+    sequence: optionalInt(theme.sequence),
+    groupSlug: isRecord(theme.group) ? optionalString(theme.group.slug) : null,
+    entryVersion: optionalInt(entry.version),
+    videoTags: optionalString(video.tags),
+  });
+}
 
 function toThemeLookup(theme: RawAnimeTheme): AnimeThemeLookup | null {
   const songTitle = theme.song?.title.romaji ?? theme.song?.title.native ?? null;
@@ -101,25 +139,36 @@ function toThemeLookup(theme: RawAnimeTheme): AnimeThemeLookup | null {
     artistName,
     videoUrl: video?.link ?? null,
     audioUrl: video?.audio?.link ?? null,
+    animethemesVideoSlug: themeVideoSlug(theme),
   };
 }
 
 export interface AnimeThemeTitles {
   animethemesId: number;
-  themes: { animethemesThemeId: number; songTitle: string }[];
+  animethemesSlug: string | null;
+  themes: { animethemesThemeId: number; songTitle: string; animethemesVideoSlug: string | null }[];
 }
 
-// Just enough of each anime to say which songs AnimeThemes has: no artists and
-// no video links, which is what lets one request cover dozens of anime in about
-// the time a single full lookup takes.
+// Just enough of each anime to say which songs AnimeThemes has, plus the
+// slug parts for linking them: no artists and no video links, which is what
+// lets one request cover dozens of anime in about the time a single full
+// lookup takes.
 const TITLES_BY_ANILIST_QUERY = `
   query ($anilistId: [Int!]) {
     findAnimeByExternalSite(site: ANILIST, id: $anilistId) {
       id
+      slug
       resources(site: ANILIST) { nodes { externalId } }
       animethemes(first: 50) {
         id
+        type
+        sequence
+        group { slug }
         song { title { romaji native } }
+        animethemeentries(first: 1) {
+          version
+          videos(first: 1) { nodes { tags } }
+        }
       }
     }
   }
@@ -138,12 +187,15 @@ export async function fetchThemeTitlesByAniListIds(aniListIds: number[]): Promis
 
     const themes = (record.animethemes as RawAnimeTheme[]).flatMap((theme) => {
       const songTitle = theme.song?.title.romaji ?? theme.song?.title.native ?? null;
-      return songTitle ? [{ animethemesThemeId: theme.id, songTitle }] : [];
+      return songTitle ? [{ animethemesThemeId: theme.id, songTitle, animethemesVideoSlug: themeVideoSlug(theme) }] : [];
     });
+    const animethemesSlug = optionalString(record.slug);
 
     for (const node of record.resources.nodes) {
       const externalId = isRecord(node) ? node.externalId : undefined;
-      if (isPositiveId(externalId) && wanted.has(externalId)) found.set(externalId, { animethemesId: record.id, themes });
+      if (isPositiveId(externalId) && wanted.has(externalId)) {
+        found.set(externalId, { animethemesId: record.id, animethemesSlug, themes });
+      }
     }
   }
   return found;
@@ -394,7 +446,7 @@ export async function fetchAnimeThemesByAniListId(aniListId: number): Promise<An
     .map(toThemeLookup)
     .filter((theme): theme is AnimeThemeLookup => theme !== null);
 
-  return { animethemesId: match.id, themes };
+  return { animethemesId: match.id, animethemesSlug: optionalString(match.slug), themes };
 }
 
 export interface AnimeThemesMetadata {

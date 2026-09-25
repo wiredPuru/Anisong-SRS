@@ -16,6 +16,8 @@ interface CardWithDetails {
   artistName: string;
   animeId: number;
   animeAniListId: number;
+  animeAnimethemesSlug: string | null;
+  animethemesVideoSlug: string | null;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -277,6 +279,7 @@ const {
 // instead of pinning a stale copy.
 const selectedId = ref<number | null>(null);
 const selectedCard = computed(() => cards.value.find((c) => c.id === selectedId.value) ?? null);
+const selectedSourceLinks = computed(() => (selectedCard.value ? buildSourceLinks(selectedCard.value) : []));
 
 // The inspector's own player state. Separate from anything the add-candidate
 // preview modal does, and reset per card so expanding one card does not carry
@@ -954,6 +957,11 @@ async function removeCard(id: number) {
             <div v-if="selectedCard.notes" class="inspector-block">
               <span class="block-label">Notes</span>
               <span class="notes-row">{{ selectedCard.notes }}</span>
+            </div>
+
+            <div v-if="selectedSourceLinks.length" class="inspector-block">
+              <span class="block-label">Links</span>
+              <CardSourceLinks :links="selectedSourceLinks" />
             </div>
 
             <div class="inspector-block">

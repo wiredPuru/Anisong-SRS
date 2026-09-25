@@ -11,36 +11,57 @@ export interface ResolvedTheme {
   videoUrl: string | null;
   audioUrl: string | null;
   animethemesThemeId: number | null;
+  animethemesVideoSlug: string | null;
   source: "anisongdb" | "animethemes" | "merged";
 }
 
 export interface ResolvedThemes {
   animethemesId: number | null;
+  animethemesSlug: string | null;
   animethemesUnavailable: boolean;
   themes: ResolvedTheme[];
 }
 
 export type AnimeThemesMatchIndex =
-  | { status: "ok"; animethemesId: number | null; byTitle: Map<string, number> }
+  | {
+      status: "ok";
+      animethemesId: number | null;
+      animethemesSlug: string | null;
+      byTitle: Map<string, number>;
+      videoSlugByThemeId: Map<number, string>;
+    }
   | { status: "unavailable" };
+
+interface MatchIndexSource {
+  animethemesId: number;
+  animethemesSlug: string | null;
+  themes: { animethemesThemeId: number; songTitle: string | null; animethemesVideoSlug: string | null }[];
+}
 
 // Titles are the identity here for the same reason resolveThemes pairs on them:
 // the providers do not agree on slot numbering.
-function buildMatchIndex(animethemesId: number | null, themes: { animethemesThemeId: number; songTitle: string | null }[]): AnimeThemesMatchIndex {
+function buildMatchIndex(source: MatchIndexSource | null): AnimeThemesMatchIndex {
   const byTitle = new Map<string, number>();
-  for (const theme of themes) {
+  const videoSlugByThemeId = new Map<number, string>();
+  for (const theme of source?.themes ?? []) {
     const key = titleKey(theme.songTitle);
     if (key && !byTitle.has(key)) byTitle.set(key, theme.animethemesThemeId);
+    if (theme.animethemesVideoSlug) videoSlugByThemeId.set(theme.animethemesThemeId, theme.animethemesVideoSlug);
   }
-  return { status: "ok", animethemesId, byTitle };
+  return {
+    status: "ok",
+    animethemesId: source?.animethemesId ?? null,
+    animethemesSlug: source?.animethemesSlug ?? null,
+    byTitle,
+    videoSlugByThemeId,
+  };
 }
 
 // One AnimeThemes request per anime, then any number of songs can be checked
 // against it.
 export async function loadAnimeThemesMatchIndex(aniListId: number): Promise<AnimeThemesMatchIndex> {
   try {
-    const result = await fetchAnimeThemesByAniListId(aniListId);
-    return buildMatchIndex(result?.animethemesId ?? null, result?.themes ?? []);
+    return buildMatchIndex(await fetchAnimeThemesByAniListId(aniListId));
   } catch (error) {
     if (error instanceof ProviderUnavailableError) return { status: "unavailable" };
     throw error;
@@ -52,8 +73,7 @@ async function loadMatchIndexChunk(aniListIds: number[]): Promise<Map<number, An
   try {
     const found = await fetchThemeTitlesByAniListIds(aniListIds);
     return new Map(aniListIds.map((id) => {
-      const anime = found.get(id);
-      return [id, buildMatchIndex(anime?.animethemesId ?? null, anime?.themes ?? [])];
+      return [id, buildMatchIndex(found.get(id) ?? null)];
     }));
   } catch (error) {
     if (error instanceof ProviderUnavailableError) return null;
@@ -118,6 +138,19 @@ export function findThemeMatch(index: AnimeThemesMatchIndex, songTitle: string |
   if (index.status !== "ok") return null;
   const key = titleKey(songTitle);
   return key ? index.byTitle.get(key) ?? null : null;
+}
+
+// What to link a matched song to. An anime slug is useful on its own (the show
+// page), so it comes back even when the song has no match.
+export function matchLinkSlugs(
+  index: AnimeThemesMatchIndex,
+  themeId: number | null,
+): { animethemesSlug: string | null; animethemesVideoSlug: string | null } {
+  if (index.status !== "ok") return { animethemesSlug: null, animethemesVideoSlug: null };
+  return {
+    animethemesSlug: index.animethemesSlug,
+    animethemesVideoSlug: themeId === null ? null : index.videoSlugByThemeId.get(themeId) ?? null,
+  };
 }
 
 // Fails open: with AnimeThemes unreachable there is no telling "no match" from
@@ -187,12 +220,19 @@ export async function resolveThemes({ aniListId, malId }: { aniListId: number; m
       // nothing; otherwise this is a song AnimeThemes labels differently and
       // adding it would overwrite a theme that is already correct.
       if (bySlot.has(theme.themeSlot)) continue;
-      bySlot.set(theme.themeSlot, { ...theme, songTitleNative: null, animethemesThemeId: null, source: "anisongdb" });
+      bySlot.set(theme.themeSlot, {
+        ...theme,
+        songTitleNative: null,
+        animethemesThemeId: null,
+        animethemesVideoSlug: null,
+        source: "anisongdb",
+      });
     }
   }
 
   return {
     animethemesId: animethemes?.animethemesId ?? null,
+    animethemesSlug: animethemes?.animethemesSlug ?? null,
     // settledValue rethrows anything but an outage, so a rejection here is one.
     animethemesUnavailable: animethemesResult.status === "rejected",
     themes: [...bySlot.values()],

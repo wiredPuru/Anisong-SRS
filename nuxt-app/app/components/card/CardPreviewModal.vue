@@ -17,6 +17,10 @@ interface CardWithDetails {
   artistName: string;
   animeId: number;
   animeAniListId: number;
+  // Optional: /decks and /stats open this modal with their own card copies,
+  // which do not carry the link slugs.
+  animeAnimethemesSlug?: string | null;
+  animethemesVideoSlug?: string | null;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -55,6 +59,16 @@ function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
 }
 
 const { isTypingTarget } = useHotkeyGuard();
+
+const sourceLinks = computed(() =>
+  props.card
+    ? buildSourceLinks({
+        animeAniListId: props.card.animeAniListId,
+        animeAnimethemesSlug: props.card.animeAnimethemesSlug ?? null,
+        animethemesVideoSlug: props.card.animethemesVideoSlug ?? null,
+      })
+    : [],
+);
 
 const immersive = ref(false);
 
@@ -351,6 +365,7 @@ watch(
           :anime-title-native="card.animeTitleNative"
           :theme-slot="card.themeSlot"
           :notes="card.notes"
+          :source-links="sourceLinks"
           :ambient="ambientMode"
         />
         <button type="button" class="edit-toggle-btn" @click="startEdit">Edit card</button>

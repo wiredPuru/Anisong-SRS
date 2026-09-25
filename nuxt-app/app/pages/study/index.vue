@@ -6,6 +6,7 @@ import type { ThemeSlotSelection } from "~/utils/themeSlotAnswer";
 import type { BonusCategoryResult } from "~/utils/quizScore";
 import type { BurstRect } from "~/utils/scoreBurst";
 import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
+import { buildSourceLinks } from "~/utils/sourceLinks";
 
 const route = useRoute();
 const typedAnswers = ref(false);
@@ -121,6 +122,7 @@ const mainAnswer = computed<"anime" | "song" | "artist">(() =>
 const showArtistAnswer = computed(() => requiredAnswers.value.artist && mainAnswer.value !== "artist");
 // Absent for the title criterion so those scopes render exactly as before.
 const criterionCopy = computed(() => (criterion.value === "title" ? null : describeCriterion(criterion.value)));
+const currentSourceLinks = computed(() => (currentCard.value ? buildSourceLinks(currentCard.value) : []));
 
 // Snapshotted only when a new presentation begins (StudyMediaPlayer fully
 // remounts on presentationKey), so toggling "Audio only" mid-card never
@@ -1216,6 +1218,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-native="currentCard.animeTitleNative"
                 :theme-slot="currentCard.themeSlot"
                 :notes="currentCard.notes"
+                :source-links="currentSourceLinks"
                 :box="currentCard.box"
                 :streak="currentCard.streak"
                 :streak-required="studySettings?.boxOneStreakRequired"

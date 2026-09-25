@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchAnimeMetadataFromAnimeThemes, fetchThemeTitlesByAniListIds, searchAnimeOnAnimeThemes } from "./animethemes.ts";
+import {
+  fetchAnimeMetadataFromAnimeThemes,
+  fetchAnimeThemesByAniListId,
+  fetchThemeTitlesByAniListIds,
+  searchAnimeOnAnimeThemes,
+} from "./animethemes.ts";
 
 const record = (id = 521, aniListId: unknown = 1) => ({ id, title: { romaji: "Cowboy Bebop", english: null, native: null }, resources: { nodes: [{ externalId: aniListId }] } });
 const fetch = vi.fn();
@@ -67,8 +72,8 @@ describe("AnimeThemes theme titles by AniList id", () => {
   it("maps each anime back to the AniList id it was asked for", async () => {
     answer([anime(521, [1], [theme(9, "Tank!")]), anime(522, [2], [theme(10, "Blue")])]);
     expect(await fetchThemeTitlesByAniListIds([1, 2])).toEqual(new Map([
-      [1, { animethemesId: 521, themes: [{ animethemesThemeId: 9, songTitle: "Tank!" }] }],
-      [2, { animethemesId: 522, themes: [{ animethemesThemeId: 10, songTitle: "Blue" }] }],
+      [1, { animethemesId: 521, animethemesSlug: null, themes: [{ animethemesThemeId: 9, songTitle: "Tank!", animethemesVideoSlug: null }] }],
+      [2, { animethemesId: 522, animethemesSlug: null, themes: [{ animethemesThemeId: 10, songTitle: "Blue", animethemesVideoSlug: null }] }],
     ]));
   });
 
@@ -79,7 +84,7 @@ describe("AnimeThemes theme titles by AniList id", () => {
 
   it("falls back to the native title, and drops a theme with no song title", async () => {
     answer([anime(521, [1], [theme(9, null, "タンク!"), theme(10, null, null)])]);
-    expect((await fetchThemeTitlesByAniListIds([1])).get(1)!.themes).toEqual([{ animethemesThemeId: 9, songTitle: "タンク!" }]);
+    expect((await fetchThemeTitlesByAniListIds([1])).get(1)!.themes).toEqual([{ animethemesThemeId: 9, songTitle: "タンク!", animethemesVideoSlug: null }]);
   });
 
   it.each([null, -1, 0, 1.5, "1"])("skips an invalid mapping (%s) rather than guessing", async (id) => {
@@ -92,6 +97,26 @@ describe("AnimeThemes theme titles by AniList id", () => {
     expect((await fetchThemeTitlesByAniListIds([1])).size).toBe(0);
   });
 
+  it("carries the anime slug and each theme's video slug for linking", async () => {
+    answer([{
+      ...anime(521, [1], [{
+        ...theme(9, "Tank!"),
+        type: "OP",
+        sequence: 1,
+        group: null,
+        animethemeentries: [{ version: 1, videos: { nodes: [{ tags: "NCBD1080" }] } }],
+      }]),
+      slug: "cowboy_bebop",
+    }]);
+    expect((await fetchThemeTitlesByAniListIds([1])).get(1)).toEqual({
+      animethemesId: 521,
+      animethemesSlug: "cowboy_bebop",
+      themes: [{ animethemesThemeId: 9, songTitle: "Tank!", animethemesVideoSlug: "OP1-NCBD1080" }],
+    });
+    const { query } = JSON.parse(fetch.mock.calls[0]![1].body);
+    for (const field of ["slug", "type", "sequence", "group { slug }", "version", "tags"]) expect(query).toContain(field);
+  });
+
   it("skips a malformed record but keeps the well-formed ones", async () => {
     answer([{ id: 1 }, anime(521, [1], [theme(9, "Tank!")])]);
     expect([...(await fetchThemeTitlesByAniListIds([1])).keys()]).toEqual([1]);
@@ -100,5 +125,49 @@ describe("AnimeThemes theme titles by AniList id", () => {
   it("treats a missing result list as an outage, not as nothing matching", async () => {
     fetch.mockResolvedValue(Response.json({ data: {} }));
     await expect(fetchThemeTitlesByAniListIds([1])).rejects.toMatchObject({ statusCode: 503 });
+  });
+});
+
+describe("AnimeThemes link slugs on anime import", () => {
+  const video = (tags: unknown = null) => ({ link: "https://v.animethemes.moe/Bocchi-OP1.webm", tags, audio: null });
+  const theme = (overrides: Record<string, unknown> = {}) => ({
+    id: 9,
+    slug: "OP1",
+    type: "OP",
+    sequence: 1,
+    group: null,
+    song: { title: { romaji: "Seishun Complex", native: null }, performances: [] },
+    animethemeentries: [{ version: 1, videos: { nodes: [video("NCBD1080")] } }],
+    ...overrides,
+  });
+  const answer = (record: Record<string, unknown>) =>
+    fetch.mockResolvedValue(Response.json({ data: { findAnimeByExternalSite: [{ id: 521, slug: "bocchi_the_rock", animethemes: [theme()], ...record }] } }));
+
+  it("asks for every part of the page slug", async () => {
+    answer({});
+    await fetchAnimeThemesByAniListId(1);
+    const { query } = JSON.parse(fetch.mock.calls[0]![1].body);
+    for (const field of ["slug", "type", "sequence", "group { slug }", "version", "tags"]) expect(query).toContain(field);
+  });
+
+  it("returns the anime slug and each theme's video slug", async () => {
+    answer({ animethemes: [theme(), theme({ id: 10, type: "ED", sequence: 2, group: { slug: "dub" }, animethemeentries: [{ version: 2, videos: { nodes: [video()] } }] })] });
+    const result = await fetchAnimeThemesByAniListId(1);
+    expect(result!.animethemesSlug).toBe("bocchi_the_rock");
+    expect(result!.themes.map((t) => t.animethemesVideoSlug)).toEqual(["OP1-NCBD1080", "ED2v2-dub"]);
+  });
+
+  it("leaves slugs null when fields are missing or malformed, without failing the import", async () => {
+    answer({
+      slug: 42,
+      animethemes: [
+        theme({ type: null }),
+        theme({ id: 10, animethemeentries: [] }),
+        theme({ id: 11, type: "OP", sequence: "2", group: "dub", animethemeentries: [{ version: "3", videos: { nodes: [video(7)] } }] }),
+      ],
+    });
+    const result = await fetchAnimeThemesByAniListId(1);
+    expect(result!.animethemesSlug).toBeNull();
+    expect(result!.themes.map((t) => t.animethemesVideoSlug)).toEqual([null, null, "OP1"]);
   });
 });

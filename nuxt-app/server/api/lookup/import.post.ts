@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
     titleEnglish: aniListAnime.titleEnglish,
     titleRomaji: aniListAnime.titleRomaji,
     titleNative: aniListAnime.titleNative,
+    animethemesSlug: resolved.animethemesSlug,
     coverImageUrl: aniListAnime.coverImageUrl,
   });
 
@@ -41,6 +42,7 @@ export default defineEventHandler(async (event) => {
       titleNative: theme.songTitleNative,
       themeSlot: theme.themeSlot,
       animethemesThemeId: theme.animethemesThemeId,
+      animethemesVideoSlug: theme.animethemesVideoSlug,
     });
 
     const { videoUrl, audioUrl, clipBlocked } = filterClipUrls(theme.videoUrl, theme.audioUrl, clipSource);

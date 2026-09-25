@@ -29,6 +29,7 @@ export function upsertAnime(data: {
   titleEnglish: string | null;
   titleRomaji: string;
   titleNative: string | null;
+  animethemesSlug?: string | null;
   // Omitted (not null) means "leave the stored cover art alone" - callers that don't
   // have fresh AniList data (e.g. deck import) must not clobber an existing cover.
   coverImageUrl?: string | null;
@@ -39,6 +40,7 @@ export function upsertAnime(data: {
     titleEnglish: data.titleEnglish ?? data.titleRomaji,
     titleRomaji: data.titleRomaji,
     titleNative: data.titleNative ?? data.titleRomaji,
+    animethemesSlug: data.animethemesSlug ?? null,
   };
   const set: Partial<typeof values> = { ...values };
   // Sparse provider metadata supplies defaults on insert, but cannot erase
@@ -46,6 +48,7 @@ export function upsertAnime(data: {
   if (data.titleEnglish === null) delete set.titleEnglish;
   if (data.titleNative === null) delete set.titleNative;
   if (data.animethemesId === null) delete set.animethemesId;
+  if (data.animethemesSlug == null) delete set.animethemesSlug;
   if (data.coverImageUrl !== undefined) {
     values.coverImageUrl = data.coverImageUrl;
     set.coverImageUrl = data.coverImageUrl;
@@ -64,6 +67,13 @@ export function setAnimeCoverImage(animeId: number, coverImageUrl: string): void
   db.update(anime).set({ coverImageUrl }).where(eq(anime.id, animeId)).run();
 }
 
+// For callers that learn the anime's AnimeThemes slug only after upserting it,
+// from a match lookup. A null never clears a stored slug.
+export function setAnimeAnimethemesSlug(animeId: number, animethemesSlug: string | null): void {
+  if (animethemesSlug === null) return;
+  db.update(anime).set({ animethemesSlug }).where(eq(anime.id, animeId)).run();
+}
+
 export function getOrCreateArtist(name: string): Artist {
   const existing = db.select().from(artist).where(eq(artist.name, name)).get();
   if (existing) {
@@ -80,12 +90,14 @@ export function upsertSong(data: {
   titleNative?: string | null;
   themeSlot: string;
   animethemesThemeId: number | null;
+  animethemesVideoSlug?: string | null;
 }): Song {
   const set: Partial<typeof song.$inferInsert> = {
     artistId: data.artistId,
     title: data.title,
     titleNative: data.titleNative,
     animethemesThemeId: data.animethemesThemeId,
+    animethemesVideoSlug: data.animethemesVideoSlug,
   };
   // Same rule as upsertAnime above: a provider that does not carry a field
   // supplies a default on insert but must not erase a richer value an earlier
@@ -93,6 +105,7 @@ export function upsertSong(data: {
   // theme id, so without this a re-import through it would clear both.
   if (data.titleNative == null) delete set.titleNative;
   if (data.animethemesThemeId === null) delete set.animethemesThemeId;
+  if (data.animethemesVideoSlug == null) delete set.animethemesVideoSlug;
 
   return db
     .insert(song)

@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderRequestError, ProviderUnavailableError } from "../lib/graphql.ts";
 import { fetchAnimeThemesByAniListId, fetchThemeTitlesByAniListIds } from "../lib/animethemes.ts";
 import { fetchThemesByMalId } from "../lib/anisongdb.ts";
-import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex, resolveThemes, startMatchIndexLoads } from "./themeSource.ts";
+import {
+  findThemeMatch,
+  isMissingAnimeThemesMatch,
+  loadAnimeThemesMatchIndex,
+  matchLinkSlugs,
+  resolveThemes,
+  startMatchIndexLoads,
+} from "./themeSource.ts";
 
 vi.mock("../lib/animethemes.ts", () => ({ fetchAnimeThemesByAniListId: vi.fn(), fetchThemeTitlesByAniListIds: vi.fn() }));
 vi.mock("../lib/anisongdb.ts", () => ({ fetchThemesByMalId: vi.fn() }));
@@ -19,6 +26,7 @@ const animethemesTheme = (overrides = {}) => ({
   artistName: "Seatbelts",
   videoUrl: "https://v.animethemes.moe/slow.webm",
   audioUrl: "https://a.animethemes.moe/slow.ogg",
+  animethemesVideoSlug: "OP1",
   ...overrides,
 });
 
@@ -37,7 +45,7 @@ beforeEach(() => {
   fromAnimeThemes.mockReset();
   fromAnisong.mockReset();
   titlesFromAnimeThemes.mockReset();
-  fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme()] });
+  fromAnimeThemes.mockResolvedValue({ animethemesId: 521, animethemesSlug: "cowboy_bebop", themes: [animethemesTheme()] });
   fromAnisong.mockResolvedValue([anisongTheme()]);
 });
 
@@ -57,6 +65,7 @@ describe("theme source resolution", () => {
   it("merges a slot both providers know about", async () => {
     expect(await resolve()).toEqual({
       animethemesId: 521,
+      animethemesSlug: "cowboy_bebop",
       animethemesUnavailable: false,
       themes: [{
         themeSlot: "OP1",
@@ -66,6 +75,7 @@ describe("theme source resolution", () => {
         videoUrl: "https://naedist.animemusicquiz.com/fast.webm",
         audioUrl: "https://naedist.animemusicquiz.com/fast.mp3",
         animethemesThemeId: 900,
+        animethemesVideoSlug: "OP1",
         source: "merged",
       }],
     });
@@ -90,7 +100,14 @@ describe("theme source resolution", () => {
     fromAnisong.mockResolvedValue([anisongTheme({ themeSlot: "OP1", songTitle: "Tank!" })]);
     expect((await resolve()).themes).toEqual([
       expect.objectContaining({ themeSlot: "ED1", songTitle: "Blue", source: "animethemes" }),
-      expect.objectContaining({ themeSlot: "OP1", songTitle: "Tank!", source: "anisongdb", songTitleNative: null, animethemesThemeId: null }),
+      expect.objectContaining({
+        themeSlot: "OP1",
+        songTitle: "Tank!",
+        source: "anisongdb",
+        songTitleNative: null,
+        animethemesThemeId: null,
+        animethemesVideoSlug: null,
+      }),
     ]);
   });
 
@@ -143,6 +160,7 @@ describe("theme source resolution", () => {
     fromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
     expect(await resolve()).toEqual({
       animethemesId: null,
+      animethemesSlug: null,
       animethemesUnavailable: true,
       themes: [expect.objectContaining({ source: "anisongdb", videoUrl: "https://naedist.animemusicquiz.com/fast.webm" })],
     });
@@ -167,7 +185,7 @@ describe("theme source resolution", () => {
   it("returns an empty list when neither provider has the anime", async () => {
     fromAnimeThemes.mockResolvedValue(null);
     fromAnisong.mockResolvedValue([]);
-    expect(await resolve()).toEqual({ animethemesId: null, animethemesUnavailable: false, themes: [] });
+    expect(await resolve()).toEqual({ animethemesId: null, animethemesSlug: null, animethemesUnavailable: false, themes: [] });
   });
 
   it("does not report AnimeThemes as unavailable when it simply has no entry for the anime", async () => {
@@ -220,7 +238,7 @@ describe("AnimeThemes match index", () => {
   it("returns an ok index with nothing in it when AnimeThemes has no entry for the anime", async () => {
     fromAnimeThemes.mockResolvedValue(null);
     const index = await load();
-    expect(index).toEqual({ status: "ok", animethemesId: null, byTitle: new Map() });
+    expect(index).toEqual({ status: "ok", animethemesId: null, animethemesSlug: null, byTitle: new Map(), videoSlugByThemeId: new Map() });
     expect(findThemeMatch(index, "Tank!")).toBeNull();
   });
 
@@ -283,10 +301,22 @@ describe("bulk match index loading", () => {
     expect(findThemeMatch(await loads.get(2)!, "Blue")).toBe(902);
   });
 
+  it("carries link slugs into the index, and matchLinkSlugs reads them back", async () => {
+    titlesFromAnimeThemes.mockResolvedValue(new Map([[1, {
+      animethemesId: 501,
+      animethemesSlug: "cowboy_bebop",
+      themes: [{ animethemesThemeId: 901, songTitle: "Tank!", animethemesVideoSlug: "OP1-NCBD1080" }],
+    }]]));
+    const index = await start([1]).get(1)!;
+    expect(matchLinkSlugs(index, findThemeMatch(index, "Tank!"))).toEqual({ animethemesSlug: "cowboy_bebop", animethemesVideoSlug: "OP1-NCBD1080" });
+    expect(matchLinkSlugs(index, null)).toEqual({ animethemesSlug: "cowboy_bebop", animethemesVideoSlug: null });
+    expect(matchLinkSlugs({ status: "unavailable" }, 901)).toEqual({ animethemesSlug: null, animethemesVideoSlug: null });
+  });
+
   it("gives an anime AnimeThemes has no entry for an ok index with nothing in it", async () => {
     titlesFromAnimeThemes.mockResolvedValue(new Map([titles(1)]));
     const missing = await start([1, 2]).get(2)!;
-    expect(missing).toEqual({ status: "ok", animethemesId: null, byTitle: new Map() });
+    expect(missing).toEqual({ status: "ok", animethemesId: null, animethemesSlug: null, byTitle: new Map(), videoSlugByThemeId: new Map() });
   });
 
   it("never runs more requests at once than the concurrency bound", async () => {
