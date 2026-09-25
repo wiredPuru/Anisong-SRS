@@ -726,7 +726,7 @@ cleaned-up checkbox version before generating the project overview.
   a Settings backfill for existing cards, one lookup per anime. It falls back
   to the show page when no theme page is known. No AnisongDB link: its site
   has no URL it can be linked to.
-- [ ] 75. **Suggestions for every typed answer box** - the anime-title box on
+- [x] 75. **Suggestions for every typed answer box** - the anime-title box on
   Study shows a dropdown of suggestions while typing, but the other typed
   boxes do not act the same way. Reported 2026-09-23: with Song name and
   Artist both asked, typing in either showed no dropdown at all. The Artist

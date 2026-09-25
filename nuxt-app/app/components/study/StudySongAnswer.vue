@@ -8,6 +8,9 @@ const props = defineProps<{
   disabled: boolean;
   required?: boolean;
   primary?: boolean;
+  // Set when Artist is also an answer this round, so a song suggestion
+  // cannot hand it over.
+  hideArtist?: boolean;
 }>();
 const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: [] }>();
 const query = ref("");
@@ -122,7 +125,7 @@ onMounted(focusIfPrimary);
         @click="choose(option)"
       >
         <span>{{ option.songTitle }}</span>
-        <small v-if="option.artistName">{{ option.artistName }}</small>
+        <small v-if="option.artistName && !hideArtist">{{ option.artistName }}</small>
       </li>
     </ul>
     <!-- Only rendered when it has something to say: the placeholder already
@@ -218,4 +221,15 @@ small { display: block; font-size: 11px; color: var(--muted); }
 }
 
 .primary-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* On narrow Study layouts the answer stack is pinned to the top of the
+   clipped player frame. Keep primary suggestions below the input, inside that
+   frame, instead of positioning them above the frame where they are hidden. */
+@media (max-width: 600px) {
+  .song-answer.primary ul {
+    top: 48px;
+    bottom: auto;
+    max-height: min(46px, 9vh);
+  }
+}
 </style>

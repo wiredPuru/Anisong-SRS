@@ -1140,6 +1140,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   v-if="mainAnswer === 'song'"
                   :key="`song-main-${presentationKey}`"
                   primary
+                  :hide-artist="requiredAnswers.artist"
                   :disabled="answerControlsDisabled"
                   @update:answer="songAnswerText = $event"
                   @answer="submitMainAnswer"
@@ -1161,6 +1162,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                     v-if="showSongAnswer && mainAnswer !== 'song'"
                     :key="`song-${presentationKey}`"
                     :required="requiredAnswers.songName"
+                    :hide-artist="requiredAnswers.artist"
                     :disabled="answerControlsDisabled"
                     @update:answer="songAnswerText = $event"
                   />
@@ -1763,6 +1765,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
+  min-width: 0;
   gap: 8px;
 }
 
