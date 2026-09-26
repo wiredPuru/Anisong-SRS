@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { KaiPose } from "~/components/mascot/MascotKai.vue";
 
-type Mood = "ready" | "paused" | "listening" | "loading" | "error";
+type Mood = "ready" | "paused" | "listening" | "guess" | "loading" | "error";
 
 const props = defineProps<{ mood: Mood; text?: string }>();
 
@@ -9,6 +9,7 @@ const POSES: Record<Mood, KaiPose> = {
   ready: "ready",
   paused: "shy",
   listening: "clap",
+  guess: "think",
   loading: "peek",
   error: "slump",
 };

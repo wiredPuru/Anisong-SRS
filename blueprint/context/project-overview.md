@@ -1895,8 +1895,16 @@ surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
       expanded); the controls are a floating outlined pill with SVG play,
       pause, and speaker icons and a pink gradient scrub fill. Motion stops
       under `prefers-reduced-motion`. Playback logic unchanged.
-    - **84d. Answer feedback** - CORRECT! / WRONG... / GUESS? / Nice Guess!
-      banners with matching Kai poses on Study.
+    - **84d. Answer feedback** - done 2026-09-26. Global `.kai-banner`
+      (`-pass`, `-fail`, `-neutral`) classes in `main.css`. `StudyQuizResult`
+      shows Kai (`cheer` / `slump` / `think`) instead of the check circle, a
+      banner heading ("Correct!", "Wrong..." (was "Not quite"), "Answer
+      revealed"), and a "Nice Guess!" sticker when a bonus row scores. A
+      manual Pass/Fail shows `StudyGradeSticker` over the player for 1.1s
+      (`GRADE_STICKER_MS`, riding `flashGrade`), with the player's own Kai
+      hidden meanwhile. `StudyMediaPlayer`'s new `guessing` prop (a typed
+      round is open) makes the playing veil read "Guess?" with Kai thinking
+      and raises all veil content above the answer boxes.
     - **84e. Site-wide pass** - rail, Home, Cards, Decks, Stats, Settings,
       modals, and empty and loading states on the new components.
 

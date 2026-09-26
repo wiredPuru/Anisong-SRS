@@ -297,6 +297,41 @@ a.deck-link:focus-visible {
   text-decoration: underline;
 }
 
+/* Kai's lettered banners (84d), after the CORRECT! / WRONG... / GUESS? plates
+   on her sheet: chunky display lettering in an outlined rounded plate. Global
+   so Study's result panel, its grade sticker, and any later surface share one
+   look. The text is real DOM text, uppercased only visually. */
+.kai-banner {
+  display: inline-block;
+  margin: 0;
+  padding: 0.28em 0.9em 0.32em;
+  border: 3px solid var(--kai-banner-edge, var(--outline));
+  border-radius: 0.55em;
+  background: var(--kai-banner-fill, var(--surface));
+  color: var(--kai-banner-ink, var(--text));
+  font-family: var(--font-display);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 0 var(--kai-banner-edge, var(--outline)), var(--shadow-soft);
+}
+
+.kai-banner-pass {
+  --kai-banner-edge: var(--accent);
+  --kai-banner-ink: var(--accent);
+}
+
+.kai-banner-fail {
+  --kai-banner-edge: var(--fail);
+  --kai-banner-fill: color-mix(in srgb, var(--fail) 16%, var(--surface));
+  --kai-banner-ink: var(--fail);
+}
+
+.kai-banner-neutral {
+  --kai-banner-edge: var(--outline);
+  --kai-banner-ink: var(--text);
+}
+
 /* A list row whose only control is one button: the whole row fires it. The
    edge is an inset shadow rather than a border so the row does not shift. */
 .row-clickable {

@@ -22,6 +22,8 @@ const props = defineProps<{
   audioOnly?: boolean;
   hideCover?: boolean;
   hideListeningLabel?: boolean;
+  // A typed-answer round is open: Kai thinks instead of just listening.
+  guessing?: boolean;
   autoDownload?: boolean;
   clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
@@ -317,8 +319,11 @@ const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value |
 
 // "Ready?" until this clip has actually played once, "Paused" after that.
 const hasStarted = ref(false);
-const idleMood = computed(() => (isPlaying.value ? "listening" : hasStarted.value ? "paused" : "ready"));
-const IDLE_TEXT = { listening: "Listening...", paused: "Paused", ready: "Ready?" } as const;
+const idleMood = computed(() => {
+  if (isPlaying.value) return props.guessing ? "guess" : "listening";
+  return hasStarted.value ? "paused" : "ready";
+});
+const IDLE_TEXT = { listening: "Listening...", guess: "Guess?", paused: "Paused", ready: "Ready?" } as const;
 const progressPercent = computed(() => (duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0));
 
 function formatTime(seconds: number): string {
@@ -981,8 +986,8 @@ onUnmounted(() => stopDrag?.());
         :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
       />
 
-      <div v-if="errorMessage" class="veil error-veil">
-        <StudyPlayerKai mood="error" />
+      <div v-if="errorMessage" class="veil error-veil" :class="{ raised: guessing }">
+        <StudyPlayerKai v-if="!guessing" mood="error" />
         <p>{{ errorMessage }}</p>
         <div class="failure-actions">
           <button type="button" class="download-btn" @click="retryLoad">Try again</button>
@@ -1039,7 +1044,7 @@ onUnmounted(() => stopDrag?.());
       <div
         v-else-if="showVeil"
         class="veil"
-        :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
+        :class="[quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil', { raised: guessing }]"
         @click="togglePlay"
       >
         <template v-if="showLoadingMessage">
@@ -1400,6 +1405,13 @@ onUnmounted(() => stopDrag?.());
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+
+/* A typed-answer round covers the frame's lower half with its answer boxes,
+   so the veil's content moves to the top instead of sitting under them. */
+.veil.raised {
+  justify-content: flex-start;
+  padding-top: clamp(10px, 2.5cqw, 36px);
 }
 
 .paused-veil {

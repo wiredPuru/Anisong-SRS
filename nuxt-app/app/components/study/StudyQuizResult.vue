@@ -16,7 +16,12 @@ const emit = defineEmits<{ continue: [] }>();
 const resultPanel = ref<HTMLElement | null>(null);
 const continueButton = ref<HTMLButtonElement | null>(null);
 
-const heading = computed(() => (props.result === "pass" ? "Correct!" : props.selectedTitle ? "Not quite" : "Answer revealed"));
+const heading = computed(() => (props.result === "pass" ? "Correct!" : props.selectedTitle ? "Wrong..." : "Answer revealed"));
+const kaiPose = computed(() => (props.result === "pass" ? "cheer" : props.selectedTitle ? "slump" : "think"));
+const bannerClass = computed(() =>
+  props.result === "pass" ? "kai-banner-pass" : props.selectedTitle ? "kai-banner-fail" : "kai-banner-neutral",
+);
+const niceGuess = computed(() => props.bonusResults.some((bonus) => bonus.pointsAwarded > 0));
 
 const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
   songName: "Song name",
@@ -32,12 +37,14 @@ onMounted(() => nextTick(() => {
 
 <template>
   <section ref="resultPanel" class="quiz-result" :class="result" role="status" aria-live="polite" aria-atomic="true">
-    <div class="result-burst" aria-hidden="true">
-      <span>{{ result === "pass" ? "✓" : "!" }}</span>
+    <div class="result-kai" aria-hidden="true">
+      <span v-if="result === 'pass'" class="kai-stars"><span>★</span><span>★</span><span>★</span></span>
+      <MascotKai :pose="kaiPose" size="companion" />
     </div>
+    <p v-if="niceGuess" class="nice-guess" aria-hidden="true">Nice Guess!</p>
     <div class="result-copy">
       <p class="eyebrow">Quiz result</p>
-      <h2>{{ heading }}</h2>
+      <h2 class="kai-banner" :class="bannerClass">{{ heading }}</h2>
       <p v-if="result === 'fail' && selectedTitle && selectedTitle !== correctTitle" class="selected-answer">
         <span>Your answer</span>
         {{ selectedTitle }}
@@ -87,11 +94,11 @@ onMounted(() => nextTick(() => {
   isolation: isolate;
   flex: none;
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
+  grid-template-columns: 124px minmax(0, 1fr);
   gap: 18px;
   overflow: hidden;
   padding: 20px;
-  border: 1px solid var(--result-color);
+  border: 2px solid var(--result-color);
   border-radius: var(--radius);
   background:
     radial-gradient(circle at 8% 15%, color-mix(in srgb, var(--result-color) 22%, transparent), transparent 34%),
@@ -103,24 +110,68 @@ onMounted(() => nextTick(() => {
 .quiz-result.pass { --result-color: var(--pass); --result-ink: var(--pass-ink); }
 .quiz-result.fail { --result-color: var(--fail); --result-ink: var(--fail-ink); }
 
-.result-burst {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: var(--result-color);
-  color: var(--result-ink);
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--result-color) 14%, transparent),
-    0 0 28px color-mix(in srgb, var(--result-color) 45%, transparent);
-  font-family: var(--font-display);
-  font-size: 38px;
+.result-kai {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   animation: result-burst 480ms cubic-bezier(0.15, 1.3, 0.35, 1);
 }
 
+.result-kai :deep(.mascot-kai) {
+  max-width: 100%;
+  height: auto;
+  max-height: 110px;
+}
+
+.kai-stars span {
+  position: absolute;
+  z-index: 1;
+  color: var(--star);
+  font-size: 18px;
+  animation: star-twinkle 1.4s ease-in-out infinite;
+}
+
+.kai-stars span:nth-child(1) { top: -6px; left: 0; }
+.kai-stars span:nth-child(2) { top: 30px; right: -4px; font-size: 14px; animation-delay: 0.4s; }
+.kai-stars span:nth-child(3) { top: 74px; left: -6px; font-size: 12px; animation-delay: 0.8s; }
+
+@keyframes star-twinkle {
+  0%, 100% { transform: scale(0.8) rotate(-10deg); opacity: 0.7; }
+  50% { transform: scale(1.15) rotate(10deg); opacity: 1; }
+}
+
+/* the sheet's tilted pink "Nice Guess!" lettering, stuck on the corner */
+.nice-guess {
+  position: absolute;
+  top: 4px;
+  right: 14px;
+  z-index: 1;
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 18px;
+  transform: rotate(-8deg);
+  text-shadow: 0 2px 0 var(--surface), 0 0 10px var(--accent-glow);
+  animation: nice-guess-in 420ms 300ms both cubic-bezier(0.2, 1.4, 0.3, 1);
+}
+
+.nice-guess::before,
+.nice-guess::after {
+  content: "★";
+  position: absolute;
+  color: var(--star);
+  font-size: 12px;
+}
+
+.nice-guess::before { top: -8px; left: -12px; }
+.nice-guess::after { bottom: -6px; right: -12px; }
+
+@keyframes nice-guess-in { from { opacity: 0; transform: rotate(-24deg) scale(0.4); } }
+
 .result-copy { min-width: 0; }
 .eyebrow { margin: 0 0 2px; color: var(--result-color); font-size: 10px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; }
-h2 { margin: 0 0 12px; color: var(--text); font-family: var(--font-display); font-size: clamp(24px, 3vw, 34px); line-height: 1; }
+h2 { max-width: 100%; margin: 2px 0 14px; font-size: clamp(18px, 1.9vw, 26px); overflow-wrap: anywhere; }
 .selected-answer, .correct-answer { margin: 6px 0; color: var(--text); overflow-wrap: anywhere; }
 .selected-answer { color: var(--muted); }
 .selected-answer span, .correct-answer span { display: block; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -182,11 +233,11 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
 
 @media (max-width: 520px) {
   .quiz-result { grid-template-columns: 1fr; }
-  .result-burst { width: 58px; height: 58px; font-size: 30px; }
+  .result-kai { justify-content: flex-start; }
   button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quiz-result, .result-burst, .points, .bonus-row { animation: none; }
+  .quiz-result, .result-kai, .points, .bonus-row, .nice-guess, .kai-stars span { animation: none; }
 }
 </style>

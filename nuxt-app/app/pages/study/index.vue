@@ -228,6 +228,9 @@ function readBurstOrigin(): BurstRect {
 // Session-only visual feedback for the moment a grade lands - never persisted,
 // cleared on its own after the CSS animation finishes.
 const gradeFlash = ref<"pass" | "fail" | null>(null);
+// The glow's own animation is 500ms; Kai's sticker rides the same element and
+// needs longer to be read.
+const GRADE_STICKER_MS = 1100;
 let gradeFlashTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function flashGrade(result: "pass" | "fail") {
@@ -240,7 +243,7 @@ function flashGrade(result: "pass" | "fail") {
     gradeFlash.value = result;
     gradeFlashTimeout = setTimeout(() => {
       gradeFlash.value = null;
-    }, 500);
+    }, GRADE_STICKER_MS);
   });
 }
 
@@ -1213,6 +1216,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :auto-download="autoDownload"
             :clip-source="clipSource"
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
+            :guessing="typedAnswers && !quizResult"
+            :hide-listening-label="gradeFlash !== null"
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"
             @local-path-updated="onLocalPathUpdated"
@@ -1281,7 +1286,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               </div>
             </template>
           </StudyMediaPlayer>
-        <div v-if="gradeFlash" class="grade-flash" :class="gradeFlash" aria-hidden="true" />
+        <template v-if="gradeFlash">
+          <div class="grade-flash" :class="gradeFlash" aria-hidden="true" />
+          <StudyGradeSticker :result="gradeFlash" />
+        </template>
         </div>
         <div class="side">
           <StudyQuizResult

@@ -892,7 +892,7 @@ cleaned-up checkbox version before generating the project overview.
     volume restyled after the sheet's player icons, a "Ready?" speech box with
     Kai before a clip starts, and a loading bar with Kai peeking over it while
     a clip buffers. Playback behaviour is unchanged.
-  - [ ] 84d. **Answer feedback** - CORRECT! / WRONG... banners with Kai's
+  - [x] 84d. **Answer feedback** - CORRECT! / WRONG... banners with Kai's
     cheering and slumped poses on Study's result panel and after a manual
     Pass/Fail, a GUESS? Kai beside the typed answer box, and "Nice Guess!"
     on bonus points. Motion is turned off under `prefers-reduced-motion`.
