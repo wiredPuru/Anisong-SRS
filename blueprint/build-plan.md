@@ -863,6 +863,44 @@ cleaned-up checkbox version before generating the project overview.
   library; SQLite stays the only record. Looking up unmatched files online is
   out of scope.
 
+- [ ] 84. **Kai mascot overhaul** - a new mascot, Kai (a pink-twintailed
+  girl in bunny-eared headphones and a black sailor uniform, drawn in a flat
+  sticker style), replaces Temi and becomes the look of the whole app, per
+  `blueprint/reference/mascot-v2/` (`kai-sheet-transparent.png`, the
+  transparent expression sheet; `kai-hero.png`, the hero illustration;
+  `mascot-desk.png`). The sheet sets the vibe: sakura pink and cream, candy
+  yellow stars and music notes, periwinkle blue for a wrong answer, chunky
+  rounded outlined lettering, and pill banners with soft outlines. Two themes,
+  chosen in a new Settings > Appearance section and remembered: a light "Kai"
+  theme on the sheet's pink-and-cream ground (the default), and a dark theme
+  that retunes feature 62's gruvbox palette toward Kai's pinks. Reverses
+  feature 63's rule that the mascot stays off working surfaces: Kai reacts on
+  the Study player and result panel. Presentation only: no data model, route,
+  scoring, or scheduling change.
+  - [x] 84a. **Kai assets** - cut each expression from the transparent sheet
+    into optimized WebP files under `public/mascot/`, plus the hero art and a
+    new favicon and touch icon. A `MascotKai` component with a `pose` prop
+    replaces `MascotTemi` in its four current spots, and the Temi files are
+    removed from `public/`.
+  - [ ] 84b. **Themes and tokens** - a light Kai palette and a retuned dark
+    one as `main.css` token sets switched by a `data-theme` attribute on
+    `<html>`, applied before first paint so there is no flash. Chunky rounded
+    Japanese-capable display type, outlined pill buttons and banners. The
+    choice (Light, Dark, or System) is a per-browser setting in a new
+    Settings > Appearance section.
+  - [ ] 84c. **Study player** - the player frame, control bar, scrub and
+    volume restyled after the sheet's player icons, a "Ready?" speech box with
+    Kai before a clip starts, and a loading bar with Kai peeking over it while
+    a clip buffers. Playback behaviour is unchanged.
+  - [ ] 84d. **Answer feedback** - CORRECT! / WRONG... banners with Kai's
+    cheering and slumped poses on Study's result panel and after a manual
+    Pass/Fail, a GUESS? Kai beside the typed answer box, and "Nice Guess!"
+    on bonus points. Motion is turned off under `prefers-reduced-motion`.
+  - [ ] 84e. **Site-wide pass** - the rail, Home (with the hero art),
+    Cards, Decks, Stats, Settings, modals, and empty and loading states moved
+    onto the new components, with Kai poses on empty, loading, and
+    all-caught-up states.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

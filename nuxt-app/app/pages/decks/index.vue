@@ -954,7 +954,7 @@ function backToDecks() {
         </div>
         <p v-else-if="searchQuery" class="state">No decks match "{{ searchQuery }}".</p>
         <p v-else class="state state-empty">
-          <MascotTemi size="companion" />
+          <MascotKai pose="point" />
           <span>No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</span>
         </p>
         <p v-if="renameDeckError" class="export-error create-deck-error">{{ renameDeckError }}</p>

@@ -139,21 +139,24 @@ Non-profit. No monetization planned.
 
 ## 7. UI/UX - How should this look and feel?
 
-- Cute and moe first: soft, playful, a little cartoony, read through a
-  lo-fi gruvbox-inspired palette - a warm charcoal-brown ground, cream text,
-  and muted pastel accents (rose primary, light sky blue secondary) in place
-  of neon. Playful, handwritten Japanese-capable type (Yusei Magic for
-  display, Klee One for body). Cute/moe takes priority over the
-  Akihabara arcade signage direction build 50 introduced, which this
-  supersedes (build 62).
+- Kai's world: the app looks like its mascot's sticker sheet - sakura pink
+  and cream, candy-yellow stars and music notes, periwinkle blue for a wrong
+  answer, chunky rounded outlined display lettering, and pill buttons and
+  banners with soft outlines, over cute and moe first (build 84, superseding
+  build 62's gruvbox-only look and build 50's arcade signage before it).
+- Two themes, picked in Settings > Appearance and remembered per browser: a
+  light Kai theme on a pink-and-cream ground (the default) and a dark theme,
+  build 62's warm gruvbox palette retuned toward Kai's pinks, plus a System
+  option that follows the OS (build 84).
 - Rounded corners on panels and controls, with full pills kept for buttons
-  and badges. Reverses build 50's tight radii back toward the earlier
-  rounded-throughout look (build 62).
-- A mascot, Temi - a pink-twintailed girl in headphones at a quiz-buzzer
-  desk - is the app's face: its favicon, the hero art on Home, and a small
-  companion on empty and all-caught-up states. She stays out of working
-  surfaces (the rail, the Study player, tables), so the screens that are
-  used most stay uncluttered (build 63).
+  and badges (build 62).
+- A mascot, Kai - a pink-twintailed girl in bunny-eared headphones and a
+  black sailor uniform - is the app's face and shows up often: the favicon,
+  Home's hero art, the rail, empty, loading, and all-caught-up states, and on
+  working surfaces too, reacting on the Study player ("Ready?", a peeking
+  loading bar) and the answer result (CORRECT!, WRONG..., Nice Guess!).
+  Replaces build 63's mascot Temi and reverses its rule that the mascot
+  stays off working surfaces (build 84).
 - App layout: a persistent left rail for navigation, with content in split
   panes that use the full window width, rather than a centered single column.
   Past roughly 2560px of viewport width, the main content column caps and

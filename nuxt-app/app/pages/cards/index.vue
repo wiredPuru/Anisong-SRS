@@ -655,7 +655,7 @@ watch(
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
           <p v-else-if="missingAnimeThemesMatch" class="state">No cards without an AnimeThemes.moe match.</p>
           <p v-else class="state state-empty">
-            <MascotTemi size="companion" />
+            <MascotKai pose="laptop" />
             <span>No cards yet. Search above to find and add one.</span>
           </p>
           <div v-if="cards.length" ref="sentinelRef" class="scroll-sentinel">

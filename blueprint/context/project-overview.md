@@ -262,6 +262,13 @@ chooses, never on its own. Both sub-features are built and merged.
 Feature 83 (library scan) was added to `build-plan.md` on 2026-09-26 and is
 now built and merged. No `project-plan.md` change: like feature 80, it adds a
 route into §3's existing Flashcard CRUD rather than a product direction.
+Feature 84 (the Kai mascot overhaul, in five sub-features 84a-84e) was added
+to `build-plan.md` on 2026-09-26. A new mascot, Kai, replaces feature 63's
+Temi, and her sticker sheet (`blueprint/reference/mascot-v2/`) becomes the
+look of the whole app, with a light Kai theme (the default) and a dark theme
+retuning feature 62's gruvbox palette, chosen in a new Settings > Appearance
+section. It reverses feature 63's rule that the mascot stays off working
+surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1849,6 +1856,30 @@ route into §3's existing Flashcard CRUD rather than a product direction.
     start at box 1; review history, notes, and deck membership are not
     recoverable. Unmatched files are listed for re-adding through `/cards`
     search. No sidecar file is written to the library.
+84. **Kai mascot overhaul** - in progress, five sub-features. Kai (a
+    pink-twintailed girl in bunny-eared headphones and a black sailor
+    uniform) replaces Temi as the mascot, and her expression sheet sets the
+    look everywhere: sakura pink and cream, yellow stars and music notes,
+    periwinkle blue for a wrong answer, chunky rounded outlined lettering,
+    and soft-outlined pill banners. Presentation only: no data, route,
+    scoring, or scheduling change.
+    - **84a. Kai assets** - done 2026-09-26. 13 pose cutouts
+      (`public/mascot/kai-<pose>.webp`: cheer, slump, think, point, clap,
+      surprised, laptop, giggle, sleepy, shy, peek, ready, wave), hero art
+      (`kai-hero-1056/528.webp`), and a face-crop favicon and touch icon.
+      `MascotKai.vue` (`pose`, `size`: hero 150 / companion 96 / small 56px
+      tall, `alt`) replaced `MascotTemi`: Home hero `wave`, all caught up
+      `sleepy`, empty `/cards` `laptop`, empty `/decks` `point`. The sheet's
+      lettered banners were not cut; they become DOM text in 84d.
+    - **84b. Themes and tokens** - light Kai and retuned dark token sets on
+      `<html data-theme>`, applied before first paint, picked (Light, Dark,
+      System) in Settings > Appearance and stored per browser.
+    - **84c. Study player** - restyled frame and controls, a "Ready?" box
+      with Kai before a clip starts, and a peeking-Kai loading bar.
+    - **84d. Answer feedback** - CORRECT! / WRONG... / GUESS? / Nice Guess!
+      banners with matching Kai poses on Study.
+    - **84e. Site-wide pass** - rail, Home, Cards, Decks, Stats, Settings,
+      modals, and empty and loading states on the new components.
 
 ## Data model
 
@@ -2191,7 +2222,9 @@ signage style feature 50 introduced. Every color a component uses comes from a
 native form controls; keyboard focus shows one sky-blue ring everywhere.
 Temi, the mascot (feature 63), appears on Home's hero, on `/study`'s
 all-caught-up state and the empty `/cards` and `/decks` states, and as the
-favicon, never on working surfaces.
+favicon, never on working surfaces. Feature 84 (in progress) replaces Temi with Kai,
+adds a light Kai theme beside a retuned dark one, and lets the mascot onto
+working surfaces.
 
 **Before 62a (feature 50):** Akihabara arcade signage - the same
 otaku-culture reference, read through neon storefronts and game-centre

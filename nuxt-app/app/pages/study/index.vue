@@ -1068,7 +1068,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     </div>
     <div v-else-if="error && !currentCard" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">
-      <MascotTemi size="companion" class="state-mascot" />
+      <MascotKai pose="sleepy" class="state-mascot" />
       <strong class="completion-title">All caught up!</strong>
       <span v-if="activeFilterCount">Nothing due matches your study filters.</span>
       <span v-else>Nothing due right now.</span>

@@ -97,7 +97,7 @@ function formatRelativeTime(iso: string): string {
       <div v-else-if="data" class="dashboard-grid">
         <div class="hero-panel">
           <div class="hero-glow" />
-          <MascotTemi size="hero" alt="Temi, the GAQ SRS mascot" class="hero-mascot" />
+          <MascotKai pose="wave" size="hero" alt="Kai, the GAQ SRS mascot, waving" class="hero-mascot" />
           <div class="hero-text">
             <span class="hero-eyebrow">Ready to go</span>
             <span class="hero-headline">{{ heroHeadline }}</span>
