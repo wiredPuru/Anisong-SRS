@@ -797,6 +797,36 @@ cleaned-up checkbox version before generating the project overview.
   even to most movies and OVAs), as the year filter already does for an
   unknown year. It applies wherever
   the filters do: Study, and building a deck from filters (feature 77).
+- [x] 79. **Auto Reveal for typed answers** - Auto Reveal (features 38/46) is
+  switched off entirely while Typed Answers (feature 65) is on. Turn it on
+  there too, reusing the same popup, modes, and interval: when the countdown
+  runs out, the round is submitted as it stands, as if the user pressed
+  Submit. Every answer box is graded on what it holds right now. An anime box
+  with text but no picked suggestion counts as blank, and a blank required
+  answer is a fail, as today. The usual result panel, score, and combo follow.
+  Video and Both keep the clip (or cover) veiled during the countdown and
+  unveil it on the result panel. Info adds nothing beyond the timer, since
+  typed mode already hides the info panel until the result. The countdown
+  pauses with playback, as it does today. It holds while a popup, the card
+  editor, or a history Preview is open, so the round is never submitted
+  behind an overlay. Submitting early cancels it. Off by default, and
+  nothing changes for a user who never turns Auto Reveal on.
+- [ ] 80. **Library health check** - a Settings scan listing cards that will
+  stall a session: a local video/audio path whose file is missing on disk
+  (left out of scope by feature 42), and cards with no source the Clip source
+  setting (feature 64) allows them to play. Each row names the problem and
+  offers the matching fix: clear the missing path and re-download it (feature
+  8's download refuses to write over a set path), re-source it (60c), or
+  delete the card (61). Read-only until a fix is clicked. Nothing is changed
+  automatically.
+- [ ] 81. **Deck detail uses the Cards view** - a deck's song list (artist,
+  anime, and manual decks) reuses `/cards`' layout: the dense table with
+  cover, song/artist, anime + slot, source badges, and due date, plus the
+  inspector rail on the right for preview, edit, and actions, instead of
+  today's row list with per-row buttons. Keeps each deck type's own actions
+  (Remove from deck on manual decks, Study this deck, export) and the deck's
+  search and infinite scroll. Built by extracting `/cards`' table and
+  inspector into shared components rather than copying them.
 
 ## Plan maintenance
 

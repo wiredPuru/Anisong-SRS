@@ -1,23 +1,16 @@
-export function canAutoReveal(typedAnswers: boolean, mode: string, started: boolean, revealed: boolean): boolean {
-  return !typedAnswers && mode !== "off" && started && !revealed;
+// answerable is false for a typed round that cannot be submitted (the card has
+// no AniList id to grade against), so no countdown runs toward a dead end.
+export function canAutoReveal(mode: string, started: boolean, revealed: boolean, answerable: boolean): boolean {
+  return mode !== "off" && started && !revealed && answerable;
 }
 
-export interface TypedAnswerVideoState {
-  hideVideo: boolean;
-  hiddenBeforeTypedAnswers: boolean | null;
-}
+export type AutoRevealExpiryAction = "reveal" | "submit" | "hold" | "none";
 
-export function transitionTypedAnswerVideo(
-  enabled: boolean,
-  autoRevealTargetsVideo: boolean,
-  hideVideo: boolean,
-  hiddenBeforeTypedAnswers: boolean | null,
-): TypedAnswerVideoState {
-  if (enabled && autoRevealTargetsVideo) {
-    return { hideVideo: false, hiddenBeforeTypedAnswers: hideVideo };
-  }
-  if (!enabled && hiddenBeforeTypedAnswers !== null) {
-    return { hideVideo: hiddenBeforeTypedAnswers, hiddenBeforeTypedAnswers: null };
-  }
-  return { hideVideo, hiddenBeforeTypedAnswers };
+// What the countdown does when it runs out. A typed round is submitted rather
+// than revealed, and waits ("hold") while an overlay blocks answering so it is
+// never submitted behind one.
+export function autoRevealExpiryAction(state: { typedAnswers: boolean; blocked: boolean; resultShown: boolean }): AutoRevealExpiryAction {
+  if (!state.typedAnswers) return "reveal";
+  if (state.resultShown) return "none";
+  return state.blocked ? "hold" : "submit";
 }

@@ -244,6 +244,16 @@ Feature 78 (a season filter) was added to `build-plan.md` on 2026-09-25 and
 is now built and merged. It amended `project-plan.md` §3's Study session bullet and
 §4's first Data bullet, the same two feature 76 amended, since it adds a
 filter and a stored anime field.
+Feature 79 (Auto Reveal for typed answers) was added to `build-plan.md` on
+2026-09-26 and is now built and merged. It reverses feature 65's rule that Auto Reveal
+stays suppressed while Typed Answers is on. No `project-plan.md` change: §7
+already describes Auto Reveal's popup, modes, and interval, and this only
+removes a restriction on when they apply.
+Features 80 (a library health check) and 81 (deck detail reusing the
+`/cards` table and inspector) were added to `build-plan.md` on 2026-09-26 and
+are not yet built. Neither changes `project-plan.md`: 80 gathers existing
+clear, download, re-source, and delete actions behind one scan, and 81
+restyles an existing surface.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1727,6 +1737,34 @@ filter and a stored anime field.
     too; only 3 have none). An active season filter drops anime with no
     season. AniList's season is the broadcast season, so a late-December
     premiere counts as Winter of the next year.
+79. **Auto Reveal for typed answers** - done 2026-09-26. Added to
+    `build-plan.md` 2026-09-26. Auto Reveal (features 38/46) runs while Typed
+    Answers (feature 65) is on, using the same popup, modes, and interval.
+    When the countdown runs out, the round is submitted as it stands, graded
+    exactly as a manual Submit: an anime box with text but no picked
+    suggestion counts as blank, and a blank required answer is a fail. The
+    usual result panel, score, and combo follow. Video and Both keep the clip
+    or cover veiled during the countdown and unveil it on the result panel.
+    Info adds only the timer, since typed mode already hides the info panel
+    until the result. The countdown pauses with playback, holds while a popup,
+    the card editor, or a history Preview is open, and is cancelled by an
+    early submit. Client-only: no server, schema, or scoring change.
+80. **Library health check** - not yet built. Added 2026-09-26. A Settings
+    scan listing cards whose local video/audio file is missing on disk
+    (feature 42 left that case out of scope) and cards with no source the
+    Clip source setting (feature 64) allows. Each row offers the matching
+    fix: clear the missing path and re-download (feature 8 refuses to
+    download over a set path), re-source (60c), or delete (61). Nothing is
+    changed until a fix is clicked. A card whose only source is a missing
+    local file cannot simply be cleared, since a card must keep at least one
+    source (feature 4), so its fix is re-download or delete.
+81. **Deck detail uses the Cards view** - not yet built. Added 2026-09-26.
+    A deck's card list (artist, anime, and manual) reuses `/cards`' dense
+    table and inspector rail (feature 50c) in place of the row list with
+    per-row buttons, via components extracted from `/cards` rather than a
+    copy. Each deck type keeps its own actions (Remove on manual decks, Study
+    this deck, export) along with the deck's search and infinite scroll
+    (35c).
 
 ## Data model
 

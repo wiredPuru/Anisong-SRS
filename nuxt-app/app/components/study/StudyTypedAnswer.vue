@@ -83,6 +83,14 @@ function clearAnswer() {
   if (!props.disabled && props.available) nextTick(() => input.value?.focus());
 }
 
+// Auto Reveal's timeout submits the round as it stands: the picked suggestion
+// if there is one, otherwise a blank answer, even with unpicked text typed.
+function submitCurrent() {
+  if (selected.value && props.available) emit("answer", selected.value);
+  else emit("giveUp");
+}
+defineExpose({ submitCurrent });
+
 watch(() => [props.presentationKey, props.contextKey], ([presentationKey], [previousPresentationKey]) => {
   if (presentationKey !== previousPresentationKey) playbackRequested.value = false;
   clearAnswer();

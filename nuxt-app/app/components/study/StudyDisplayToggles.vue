@@ -107,14 +107,13 @@ const showTypedAnswerCategories = ref(false);
     <button
       type="button"
       class="toggle-btn"
-      :disabled="typedAnswers"
       :class="{ on: autoRevealMode !== 'off' }"
       :aria-pressed="autoRevealMode !== 'off'"
       @click="showAutoRevealSettings = true"
     >
       Auto reveal
       <span class="tooltip">
-        {{ typedAnswers ? "Paused while Typed Answers is on" : "Choose what it hides (video/cover, info, or both) and its timer" }}
+        {{ typedAnswers ? "Submits your answer when its timer runs out" : "Choose what it hides (video/cover, info, or both) and its timer" }}
       </span>
     </button>
     <button

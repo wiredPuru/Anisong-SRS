@@ -750,9 +750,18 @@ watch(autoRevealSeconds, (value) => {
 
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
-const autoRevealCountdownActive = computed(
-  () => canAutoReveal(typedAnswers.value, autoRevealMode.value, hasStartedPlaybackThisCard.value, autoRevealedThisCard.value),
+// A typed round the card cannot grade (no AniList id) has no working Submit,
+// so no countdown runs toward it.
+const autoRevealAnswerable = computed(() =>
+  !typedAnswers.value || mainAnswer.value !== "anime"
+  || evaluateAnimeAnswer(currentCard.value?.animeAniListId, currentCard.value?.animeAniListId) !== "unavailable",
 );
+const autoRevealCountdownActive = computed(() => canAutoReveal(
+  autoRevealMode.value,
+  hasStartedPlaybackThisCard.value,
+  autoRevealedThisCard.value || quizResult.value !== null,
+  autoRevealAnswerable.value,
+));
 // Mirrors the media player's actual play/pause state (see onPlaybackStarted/
 // onPlaybackPaused below) - distinct from hasStartedPlaybackThisCard, which
 // is a one-way "has this card ever played" latch that a later pause doesn't
@@ -791,6 +800,13 @@ function startAutoRevealTimeout(durationMs: number) {
     autoRevealedThisCard.value = true;
     stopAutoRevealTimeout();
     autoRevealRemainingMs = null;
+    const action = autoRevealExpiryAction({
+      typedAnswers: typedAnswers.value,
+      blocked: answerControlsDisabled.value,
+      resultShown: quizResult.value !== null,
+    });
+    if (action === "submit") submitRoundNow();
+    else if (action === "hold") autoSubmitPending = true;
   }, durationMs);
   autoRevealDisplayTick = setInterval(syncAutoRevealDisplay, AUTO_REVEAL_DISPLAY_TICK_MS);
   syncAutoRevealDisplay();
@@ -814,7 +830,8 @@ function syncAutoRevealDisplay() {
 // playback resume. No-ops harmlessly when Auto Reveal is off, nothing has
 // played yet, or this card already revealed.
 function maybeStartOrResumeAutoReveal() {
-  if (!canAutoReveal(typedAnswers.value, autoRevealMode.value, hasStartedPlaybackThisCard.value, autoRevealedThisCard.value)) return;
+  if (!autoRevealCountdownActive.value) return;
+  if (typedAnswers.value && answerControlsDisabled.value) return;
   startAutoRevealTimeout(autoRevealRemainingMs ?? autoRevealSeconds.value * 1000);
 }
 
@@ -831,12 +848,53 @@ function onPlaybackStarted() {
 // start) can pick up where this left off.
 function onPlaybackPaused() {
   isPlaybackActive.value = false;
+  suspendAutoReveal();
+}
+
+function suspendAutoReveal() {
   if (autoRevealTimeout === null) return;
   const elapsed = Date.now() - autoRevealArmedAt;
   autoRevealRemainingMs = Math.max(0, autoRevealArmedDurationMs - elapsed);
   stopAutoRevealTimeout();
   syncAutoRevealDisplay();
 }
+
+// Set when a typed countdown ran out while answering was blocked; the round is
+// submitted as soon as it unblocks.
+let autoSubmitPending = false;
+
+const typedAnswerRef = ref<{ submitCurrent: () => void } | null>(null);
+
+function submitRoundNow() {
+  if (mainAnswer.value === "anime") typedAnswerRef.value?.submitCurrent();
+  else submitMainAnswer();
+}
+
+// Opening the card editor, a history Preview, the session log, or the filters
+// clears the typed anime box, so a typed countdown pauses while one is open
+// rather than running out and submitting a blank the moment it closes.
+watch(answerControlsDisabled, (disabled) => {
+  if (!typedAnswers.value) return;
+  if (disabled) {
+    suspendAutoReveal();
+    return;
+  }
+  if (autoSubmitPending) {
+    autoSubmitPending = false;
+    if (quizResult.value === null) submitRoundNow();
+    return;
+  }
+  if (isPlaybackActive.value) maybeStartOrResumeAutoReveal();
+});
+
+// Any submit, manual or automatic, ends this card's countdown.
+watch(quizResult, (result) => {
+  if (result === null) return;
+  autoSubmitPending = false;
+  stopAutoRevealTimeout();
+  autoRevealRemainingMs = null;
+  autoRevealedThisCard.value = true;
+});
 
 // Forces the newly-targeted Hide toggle(s) on, and reverts whichever
 // toggle(s) the *previous* mode had targeted but the new one doesn't -
@@ -853,7 +911,6 @@ const AUTO_REVEAL_MODE_TARGETS: Record<AutoRevealMode, { visual: boolean; info: 
 watch(
   autoRevealMode,
   (mode, previousMode) => {
-    if (typedAnswers.value) return;
     const targets = AUTO_REVEAL_MODE_TARGETS[mode];
     const previousTargets = previousMode ? AUTO_REVEAL_MODE_TARGETS[previousMode] : { visual: false, info: false };
     if (targets.visual) {
@@ -929,6 +986,7 @@ watch(
     stopAutoRevealTimeout();
     autoRevealRemainingMs = null;
     autoRevealedThisCard.value = false;
+    autoSubmitPending = false;
     syncAutoRevealDisplay();
 
     // Turning Auto Reveal on, switching mode, or changing the seconds value
@@ -945,20 +1003,9 @@ watch(typedAnswers, () => {
   stopAutoRevealTimeout();
   autoRevealRemainingMs = null;
   autoRevealedThisCard.value = false;
+  autoSubmitPending = false;
   syncAutoRevealDisplay();
-  if (!typedAnswers.value && isPlaybackActive.value) maybeStartOrResumeAutoReveal();
-});
-
-let hideVideoBeforeTypedAnswers: boolean | null = null;
-watch(typedAnswers, (enabled) => {
-  const state = transitionTypedAnswerVideo(
-    enabled,
-    autoRevealTargetsVisual.value,
-    hideVideo.value,
-    hideVideoBeforeTypedAnswers,
-  );
-  hideVideo.value = state.hideVideo;
-  hideVideoBeforeTypedAnswers = state.hiddenBeforeTypedAnswers;
+  if (isPlaybackActive.value) maybeStartOrResumeAutoReveal();
 });
 
 onUnmounted(stopAutoRevealTimeout);
@@ -1157,7 +1204,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             ref="mediaPlayerRef"
             :key="presentationKey"
             :card="currentCard"
-            :hide-video="typedAnswers ? (hideVideo && !quizResult) : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
+            :hide-video="typedAnswers ? (hideVideo || autoRevealTargetsVisual) && !quizResult : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
             :random-start="randomStart"
             :ambient="ambientMode"
             :hide-theme-badge="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
@@ -1176,6 +1223,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
                 <StudyTypedAnswer
                   v-if="mainAnswer === 'anime'"
+                  ref="typedAnswerRef"
                   :key="JSON.stringify(scope)"
                   overlay
                   :presentation-key="presentationKey"
