@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 840d42ceba1f4befbc0f98c03e2e4f913c544c05f381754f6f4596b268e9c10a -->
+<!-- blueprint:source-hash 978e7c24185b9b3dd5f1c46f1b434181e1265351cd2e2347cff751c14d9dc2d0 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -237,7 +237,7 @@ Feature 76 (Study filters, in three sub-features 76a-76c) was added to
 filtering a session by anime metadata is a new Study capability backed by
 newly stored anime fields.
 Feature 77 (building a manual deck from Study's filters, in two sub-features
-77a-77b) was added to `build-plan.md` on 2026-09-25; 77a is built and merged, 77b is not yet built. No
+77a-77b) was added to `build-plan.md` on 2026-09-25 and is now built and merged in full. No
 `project-plan.md` change: like feature 73, it is a faster way to fill a manual
 deck, which §3's Decks bullet already allows to hold any cards.
 
@@ -1668,7 +1668,7 @@ deck, which §3's Decks bullet already allows to hold any cards.
       (site, username, fetchedAt, for display), set together; the query
       filters on `anime.aniListId`. The ids are a snapshot: anime added later
       join only after Refresh.
-77. **Build a deck from filters** - in progress, in two sub-features.
+77. **Build a deck from filters** - done, in two sub-features.
     Reuses feature 76's filters (year, AniList score, format, genres and tags
     with include/exclude and min rank, OP/ED, and a public AniList/MAL
     Completed list) to fill a manual deck, from the "+ New deck" form or an
@@ -1693,10 +1693,20 @@ deck, which §3's Decks bullet already allows to hold any cards.
       /api/decks/filter-preview` takes `{ filters?: string }` (the
       `/api/study/next` JSON-string format) and is POST only because a list
       filter can carry 5000 ids.
-    - **77b. Pick shows + add to deck** - a "From filters" option next to
-      "Import from deck" on both deck surfaces; cards copied server-side with
-      INSERT ... SELECT as in 73, so no size cap; reports added and
-      already-in-deck counts.
+    - **77b. Pick shows + add to deck** - done 2026-09-25.
+      `DeckFilterCardsModal.vue` puts `StudyFilterForm` beside a live list of
+      matching shows (refetched 300ms after a change, stale answers dropped),
+      each with a checkbox, all ticked by default; unticks are kept as a set so
+      a newly matching show arrives ticked. Add sends the filters behind the
+      list on screen plus the ticked anime ids to `POST
+      /api/decks/copy-filtered` (`{ deckId, animeIds, filters? }` ->
+      `{ added, alreadyInDeck }`, `copyFilteredCards` in
+      `server/utils/deckFilterPreview.ts`), one INSERT ... SELECT over the same
+      join and `studyFilterCondition` as the preview, so it adds exactly the
+      cards counted. Reached from "From filters" on a manual deck's Add cards
+      block and "From filters..." on the "+ New deck" form, whose `create` mode
+      makes the deck first and keeps it if the copy fails, like feature 73.
+      Unlike "Import from deck", Escape closes it even from a field.
 
 ## Data model
 

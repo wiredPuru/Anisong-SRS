@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
-import { anime, card, song } from "../db/schema.ts";
+import { eq } from "drizzle-orm";
+import { anime, card, deck, deckCard, song } from "../db/schema.ts";
 import type { AniListDetails } from "../lib/anilist.ts";
-import { listFilteredAnime } from "./deckFilterPreview.ts";
+import { copyFilteredCards, listFilteredAnime, parseCopyFilteredBody } from "./deckFilterPreview.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import type { StudyFilters } from "./studyFilters.ts";
 
@@ -48,6 +49,7 @@ function titles(result: ReturnType<typeof listFilteredAnime>) {
 }
 
 afterEach(() => {
+  db.delete(deckCard).run(); db.delete(deck).run();
   db.delete(card).run(); db.delete(song).run(); db.delete(anime).run();
 });
 
@@ -111,5 +113,93 @@ describe("listFilteredAnime", () => {
     addAnime(3, "aria", {}, ["OP1"]);
 
     expect(listFilteredAnime(null).anime.map((row) => row.aniListId)).toEqual([2, 3, 1]);
+  });
+});
+
+function makeDeck(name = "Deck") {
+  return db.insert(deck).values({ name }).returning({ id: deck.id }).get().id;
+}
+
+function deckSlots(deckId: number) {
+  return db
+    .select({ slot: song.themeSlot, anime: song.animeId })
+    .from(deckCard)
+    .innerJoin(card, eq(deckCard.cardId, card.id))
+    .innerJoin(song, eq(card.songId, song.id))
+    .where(eq(deckCard.deckId, deckId))
+    .all();
+}
+
+describe("copyFilteredCards", () => {
+  it("adds exactly the cards the preview counted for the picked anime", () => {
+    const kon = addAnime(1, "K-On!", { tags: [{ name: "CGDCT", rank: 90 }] }, ["OP1", "OP2", "ED1"]);
+    addAnime(2, "Lucky Star", { tags: [{ name: "CGDCT", rank: 80 }] }, ["OP1"]);
+    addAnime(3, "Berserk", {}, ["OP1"]);
+    const tagged = filters({ tagsInclude: ["CGDCT"] });
+    const deckId = makeDeck();
+
+    const preview = listFilteredAnime(tagged).anime.find((row) => row.id === kon)!;
+    expect(copyFilteredCards(deckId, [kon], tagged)).toEqual({ added: preview.cardCount, alreadyInDeck: 0 });
+    expect(new Set(deckSlots(deckId).map((row) => row.anime))).toEqual(new Set([kon]));
+  });
+
+  it("adds only the theme type an OP/ED filter allows", () => {
+    const kon = addAnime(1, "K-On!", {}, ["OP1", "OP2", "ED1"]);
+    const deckId = makeDeck();
+
+    expect(copyFilteredCards(deckId, [kon], filters({ themeTypes: ["OP"] }))).toEqual({ added: 2, alreadyInDeck: 0 });
+    expect(deckSlots(deckId).map((row) => row.slot).sort()).toEqual(["OP1", "OP2"]);
+  });
+
+  it("adds nothing on a second run and counts every card as already in the deck", () => {
+    const kon = addAnime(1, "K-On!", {}, ["OP1", "ED1"]);
+    const deckId = makeDeck();
+
+    copyFilteredCards(deckId, [kon], null);
+    expect(copyFilteredCards(deckId, [kon], null)).toEqual({ added: 0, alreadyInDeck: 2 });
+  });
+
+  it("counts a card already in the deck from elsewhere as already in it", () => {
+    const kon = addAnime(1, "K-On!", {}, ["OP1", "ED1"]);
+    const deckId = makeDeck();
+    const [first] = db.select({ id: card.id }).from(card).all();
+    db.insert(deckCard).values({ deckId, cardId: first!.id }).run();
+
+    expect(copyFilteredCards(deckId, [kon], null)).toEqual({ added: 1, alreadyInDeck: 1 });
+  });
+
+  it("reports an unknown deck as not found", () => {
+    const kon = addAnime(1, "K-On!", {}, ["OP1"]);
+    expect(copyFilteredCards(9999, [kon], null)).toEqual({ notFound: true });
+  });
+
+  it("adds nothing for an anime id that no longer exists", () => {
+    addAnime(1, "K-On!", {}, ["OP1"]);
+    expect(copyFilteredCards(makeDeck(), [9999], null)).toEqual({ added: 0, alreadyInDeck: 0 });
+  });
+});
+
+describe("parseCopyFilteredBody", () => {
+  it("accepts a body, deduping anime ids and parsing filters", () => {
+    expect(parseCopyFilteredBody({ deckId: 3, animeIds: [5, 7, 5], filters: JSON.stringify({ themeTypes: ["OP"] }) })).toEqual({
+      deckId: 3,
+      animeIds: [5, 7],
+      filters: { ...EMPTY, themeTypes: ["OP"] },
+    });
+    expect(parseCopyFilteredBody({ deckId: 3, animeIds: [5] })).toEqual({ deckId: 3, animeIds: [5], filters: null });
+  });
+
+  it.each([
+    [null, "deckId and animeIds are required"],
+    [{ animeIds: [1] }, "deckId must be a positive integer"],
+    [{ deckId: 0, animeIds: [1] }, "deckId must be a positive integer"],
+    [{ deckId: 1, animeIds: [] }, "animeIds must be a non-empty array"],
+    [{ deckId: 1 }, "animeIds must be a non-empty array"],
+    [{ deckId: 1, animeIds: [1.5] }, "animeIds must all be positive integers"],
+    [{ deckId: 1, animeIds: ["2"] }, "animeIds must all be positive integers"],
+    [{ deckId: 1, animeIds: Array.from({ length: 5001 }, (_, i) => i + 1) }, "animeIds may hold at most 5000 entries"],
+    [{ deckId: 1, animeIds: [1], filters: JSON.stringify({ yearMin: 2020, yearMax: 2010 }) }, "yearMin must not be after yearMax"],
+  ])("rejects %j", (body, error) => {
+    expect(parseCopyFilteredBody(body)).toEqual({ error });
   });
 });

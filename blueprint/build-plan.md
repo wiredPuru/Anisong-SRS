@@ -763,7 +763,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 76c. **User-list filter** - limit Study to anime on a public AniList or
     MAL user's list (Completed, reusing feature 58's lookups), resolved once when
     the filter is applied rather than on every card.
-- [ ] 77. **Build a deck from filters** - when creating a manual deck, or from
+- [x] 77. **Build a deck from filters** - when creating a manual deck, or from
   an existing manual deck's detail view, filter the library's anime with the
   same filters as Study (feature 76: year, AniList score, format, genres and
   tags with include/exclude and min rank, OP/ED, and a public AniList/MAL
@@ -781,7 +781,7 @@ cleaned-up checkbox version before generating the project overview.
     keeps working exactly as it does now), plus a read-only server route that
     applies `parseStudyFilters`/`studyFilterCondition` to the library and
     returns the matching anime with how many cards each would add.
-  - [ ] 77b. **Pick shows + add to deck** - a "From filters" option next to
+  - [x] 77b. **Pick shows + add to deck** - a "From filters" option next to
     "Import from deck" on the "+ New deck" form and on a manual deck's
     detail view: filter, tick shows, confirm. Cards are copied on the server
     (INSERT ... SELECT, as in 73), so a large pick has no size cap. It
