@@ -255,17 +255,6 @@ async function toggleDeckMembership(cardId: number, deckId: number, checked: boo
   }
 }
 
-const editingId = ref<number | null>(null);
-const editVideoPath = ref("");
-const editAudioPath = ref("");
-const editNotes = ref("");
-const editSaving = ref(false);
-const editError = ref<string | null>(null);
-const clearingField = reactive<Record<string, boolean>>({});
-const removeCardError = reactive<Record<number, string | null>>({});
-const confirmingRemoveId = ref<number | null>(null);
-const removingCard = ref(false);
-
 const {
   containerRef: cardsBodyRef,
   width: inspectorWidth,
@@ -279,33 +268,6 @@ const {
 // instead of pinning a stale copy.
 const selectedId = ref<number | null>(null);
 const selectedCard = computed(() => cards.value.find((c) => c.id === selectedId.value) ?? null);
-const selectedSourceLinks = computed(() => (selectedCard.value ? buildSourceLinks(selectedCard.value) : []));
-
-// The inspector's own player state. Separate from anything the add-candidate
-// preview modal does, and reset per card so expanding one card does not carry
-// into the next selection.
-const inspectorImmersive = ref(false);
-watch(selectedId, () => {
-  inspectorImmersive.value = false;
-});
-
-function onInspectorLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
-  const current = selectedCard.value;
-  if (!current) return;
-  replaceCard({
-    ...current,
-    ...(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath }),
-  });
-}
-
-function onInspectorLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
-  const current = selectedCard.value;
-  if (!current) return;
-  replaceCard({
-    ...current,
-    ...(kind === "video" ? { localVideoPath: null } : { localAudioPath: null }),
-  });
-}
 
 // Multi-select for bulk actions, separate from selectedId (the inspector's
 // single subject). Replaced rather than mutated so Vue sees each change.
@@ -470,37 +432,6 @@ function previewInInspector(card: CardWithDetails) {
   selectedId.value = card.id;
 }
 
-const DAY_MS = 86_400_000;
-
-// "new" for a card that has never been reviewed (still box 1 at its creation
-// default), otherwise a relative day count. Compared at day granularity so a
-// card due in a few hours still reads "Today" rather than "in 0d".
-function dueLabel(c: CardWithDetails): string {
-  const due = new Date(c.nextReviewAt).getTime();
-  if (!Number.isFinite(due)) return "-";
-  const startOfToday = new Date().setHours(0, 0, 0, 0);
-  const days = Math.round((new Date(due).setHours(0, 0, 0, 0) - startOfToday) / DAY_MS);
-  if (days <= 0) return "Today";
-  return `in ${days}d`;
-}
-
-function isDueNow(c: CardWithDetails): boolean {
-  return new Date(c.nextReviewAt).getTime() <= Date.now();
-}
-
-// Compact chips for the table, where the column is 140px. The inspector keeps
-// sourceBadges()' full "Local video" wording, which has room for it. Local
-// wins over remote for a kind the card has both ways, since local is what
-// actually plays.
-function compactSourceBadges(c: CardWithDetails): string[] {
-  const badges: string[] = [];
-  if (c.localVideoPath) badges.push("VID");
-  else if (c.animethemesVideoUrl) badges.push("VID*");
-  if (c.localAudioPath) badges.push("AUD");
-  else if (c.animethemesAudioUrl) badges.push("AUD*");
-  return badges;
-}
-
 const pendingCardPreview = useState<CardWithDetails | null>("pendingCardPreview", () => null);
 // NavBar's global search hands a card over to be shown here. The inspector
 // replaced the preview modal for cards in the library, so select it in the
@@ -515,104 +446,6 @@ watch(
   },
   { immediate: true },
 );
-
-const {
-  downloading,
-  downloadProgress,
-  downloadError,
-  downloadKey,
-  canDownload,
-  hasAnyDownloadableSource,
-  downloadMedia: downloadMediaBase,
-} = useCardDownloads();
-
-async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
-  const updated = await downloadMediaBase<CardWithDetails>(c.id, c.id, kind);
-  if (updated) {
-    replaceCard(updated);
-    if (editingId.value === c.id) {
-      editVideoPath.value = updated.localVideoPath ?? "";
-      editAudioPath.value = updated.localAudioPath ?? "";
-    }
-  }
-}
-
-function sourceBadges(c: CardWithDetails): string[] {
-  const badges: string[] = [];
-  if (c.localVideoPath) badges.push("Local video");
-  if (c.localAudioPath) badges.push("Local audio");
-  if (c.animethemesVideoUrl) badges.push("Remote video");
-  if (c.animethemesAudioUrl) badges.push("Remote audio");
-  return badges;
-}
-
-function startEdit(c: CardWithDetails) {
-  editingId.value = c.id;
-  editVideoPath.value = c.localVideoPath ?? "";
-  editAudioPath.value = c.localAudioPath ?? "";
-  editNotes.value = c.notes ?? "";
-  editError.value = null;
-}
-
-function cancelEdit() {
-  editingId.value = null;
-  editError.value = null;
-}
-
-async function saveEdit(id: number) {
-  editError.value = null;
-  editSaving.value = true;
-  try {
-    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", {
-      method: "PATCH",
-      body: {
-        id,
-        localVideoPath: editVideoPath.value.trim() === "" ? null : editVideoPath.value.trim(),
-        localAudioPath: editAudioPath.value.trim() === "" ? null : editAudioPath.value.trim(),
-        notes: editNotes.value.trim() === "" ? null : editNotes.value.trim(),
-      },
-    });
-    editingId.value = null;
-    replaceCard(result.card);
-  } catch (err) {
-    editError.value = extractErrorMessage(err, "Failed to update card.");
-  } finally {
-    editSaving.value = false;
-  }
-}
-
-async function clearLocalPath(c: CardWithDetails, kind: "video" | "audio") {
-  const key = `${c.id}-${kind}`;
-  editError.value = null;
-  clearingField[key] = true;
-  try {
-    const body = kind === "video" ? { id: c.id, localVideoPath: null } : { id: c.id, localAudioPath: null };
-    const result = await $fetch<{ card: CardWithDetails }>("/api/cards", { method: "PATCH", body });
-    if (kind === "video") editVideoPath.value = "";
-    else editAudioPath.value = "";
-    replaceCard(result.card);
-  } catch (err) {
-    editError.value = extractErrorMessage(err, "Failed to clear local file.");
-  } finally {
-    clearingField[key] = false;
-  }
-}
-
-async function removeCard(id: number) {
-  removeCardError[id] = null;
-  removingCard.value = true;
-  try {
-    await $fetch("/api/cards", { method: "DELETE", body: { id } });
-    // Also closes the inspector, which resolves its subject out of cards and
-    // would otherwise silently blank the rail rather than showing its prompt.
-    dropDeletedCards([id]);
-  } catch (err) {
-    removeCardError[id] = extractErrorMessage(err, "Failed to delete card.");
-  } finally {
-    removingCard.value = false;
-    confirmingRemoveId.value = null;
-  }
-}
 </script>
 
 <template>
@@ -810,58 +643,15 @@ async function removeCard(id: number) {
             <p v-if="addToDeckError" class="edit-error selection-error">{{ addToDeckError }}</p>
             <p v-else-if="addToDeckNotice" class="selection-notice">{{ addToDeckNotice }}</p>
           </div>
-          <div v-if="cards.length" class="card-table">
-            <div class="row-line">
-              <label class="row-check">
-                <input
-                  type="checkbox"
-                  :checked="headerCheckState === 'all'"
-                  :indeterminate="headerCheckState === 'some'"
-                  aria-label="Select all loaded cards"
-                  @change="toggleCheckAllLoaded"
-                />
-              </label>
-              <div class="table-head">
-                <span />
-                <span>Song</span>
-                <span class="col-anime">Anime</span>
-                <span class="col-sources">Sources</span>
-                <span>Due</span>
-              </div>
-            </div>
-            <div v-for="c in cards" :key="c.id" class="row-line">
-              <label class="row-check">
-                <input
-                  type="checkbox"
-                  :checked="checkedIds.has(c.id)"
-                  :aria-label="`Select ${c.songTitle}`"
-                  @click="onRowCheckClick(c.id, $event)"
-                />
-              </label>
-              <button
-                type="button"
-                class="card-row"
-                :class="{ selected: selectedId === c.id, checked: checkedIds.has(c.id) }"
-                :aria-pressed="selectedId === c.id"
-                @click="selectCard(c.id)"
-              >
-                <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
-                <span v-else class="cover-thumb cover-thumb-empty" />
-                <span class="cell-song">
-                  <span class="song-title">{{ c.songTitle }}</span>
-                  <span class="song-artist">{{ c.artistName }}</span>
-                </span>
-                <span class="cell-anime">
-                  {{ c.animeTitleEnglish }} <span class="slot">{{ c.themeSlot }}</span>
-                </span>
-                <span class="cell-sources">
-                  <span v-for="badge in compactSourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
-                  <span v-if="!compactSourceBadges(c).length" class="badge badge-none">No source</span>
-                </span>
-                <span class="cell-due" :class="{ 'due-now': isDueNow(c) }">{{ dueLabel(c) }}</span>
-              </button>
-            </div>
-          </div>
+          <CardTable
+            v-if="cards.length"
+            :cards="cards"
+            :selected-id="selectedId"
+            :checked-ids="checkedIds"
+            @select="selectCard"
+            @check-click="onRowCheckClick"
+            @toggle-all="toggleCheckAllLoaded"
+          />
           <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
           <p v-else-if="missingAnimeThemesMatch" class="state">No cards without an AnimeThemes.moe match.</p>
           <p v-else class="state state-empty">
@@ -908,177 +698,20 @@ async function removeCard(id: number) {
       />
 
       <aside class="inspector">
-        <p v-if="!selectedCard" class="inspector-empty">Select a card to see its details.</p>
-        <template v-else>
-          <!-- The rail is the preview now: a real player rather than a still.
-               A card with no source at all has nothing to play, so it keeps
-               the plain cover tile. -->
-          <StudyMediaPlayer
-            v-if="sourceBadges(selectedCard).length"
-            :key="selectedCard.id"
-            :card="selectedCard"
-            :audio-only="audioOnly"
-            :has-default-download-folder="hasDefaultDownloadFolder"
-            :auto-download="autoDownload"
-            :clip-source="clipSource"
-            :allow-expand="true"
-            v-model:immersive="inspectorImmersive"
-            @local-path-updated="onInspectorLocalPathUpdated"
-            @local-path-cleared="onInspectorLocalPathCleared"
-          />
-          <div v-else class="inspector-cover">
-            <img v-if="selectedCard.animeCoverImageUrl" :src="selectedCard.animeCoverImageUrl" alt="" />
-            <span class="inspector-slot">{{ selectedCard.themeSlot }}</span>
-          </div>
-          <div class="inspector-body">
-            <div class="inspector-titles">
-              <span class="inspector-song">{{ selectedCard.songTitle }}</span>
-              <NuxtLink :to="artistDeckPath(selectedCard.artistId)" class="inspector-meta deck-link">{{
-                selectedCard.artistName
-              }}</NuxtLink>
-              <NuxtLink :to="animeDeckPath(selectedCard.animeId)" class="inspector-meta deck-link">{{
-                selectedCard.animeTitleEnglish
-              }}</NuxtLink>
-            </div>
-
-            <div class="inspector-tiles">
-              <div class="tile">
-                <span class="tile-value" :class="{ 'due-now': isDueNow(selectedCard) }">{{
-                  dueLabel(selectedCard)
-                }}</span>
-                <span class="tile-label">Due</span>
-              </div>
-              <div class="tile">
-                <span class="tile-value tile-value-box">Box {{ selectedCard.box }}</span>
-                <span class="tile-label">Leitner</span>
-              </div>
-            </div>
-
-            <div v-if="selectedCard.notes" class="inspector-block">
-              <span class="block-label">Notes</span>
-              <span class="notes-row">{{ selectedCard.notes }}</span>
-            </div>
-
-            <div v-if="selectedSourceLinks.length" class="inspector-block">
-              <span class="block-label">Links</span>
-              <CardSourceLinks :links="selectedSourceLinks" />
-            </div>
-
-            <div class="inspector-block">
-              <span class="block-label">Sources</span>
-              <span v-for="badge in sourceBadges(selectedCard)" :key="badge" class="source-row">{{ badge }}</span>
-              <span v-if="!sourceBadges(selectedCard).length" class="source-row source-row-none">No source</span>
-            </div>
-
-            <div v-if="hasAnyDownloadableSource(selectedCard)" class="download-section">
-              <div v-if="hasDefaultDownloadFolder" class="download-actions">
-                <template v-for="kind in (['video', 'audio'] as const)" :key="kind">
-                  <template v-if="canDownload(selectedCard, kind)">
-                    <DownloadProgress
-                      v-if="downloading[downloadKey(selectedCard.id, kind)]"
-                      :label="`Downloading ${kind}`"
-                      :request-key="downloadKey(selectedCard.id, kind)"
-                      :progress="downloadProgress[downloadKey(selectedCard.id, kind)]"
-                    />
-                    <button v-else type="button" class="download-btn" @click="downloadMedia(selectedCard, kind)">
-                      Download {{ kind }}
-                    </button>
-                  </template>
-                </template>
-              </div>
-              <p v-else class="download-hint">
-                Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
-              </p>
-              <p v-if="downloadError[selectedCard.id]" class="edit-error">{{ downloadError[selectedCard.id] }}</p>
-            </div>
-
-            <div class="inspector-block">
-              <span class="block-label">Decks</span>
-              <DeckMembershipPanel
-                :card-id="selectedCard.id"
-                :decks="manualDecks"
-                :memberships="membershipsData?.memberships ?? {}"
-                :toggling="togglingMembership"
-                :error="deckToggleError"
-                @toggle="(deckId, checked) => toggleDeckMembership(selectedCard!.id, deckId, checked)"
-              />
-            </div>
-
-            <div v-if="editingId === selectedCard.id" class="edit-form">
-              <div class="path-row">
-                <input
-                  v-model="editVideoPath"
-                  type="text"
-                  placeholder="Local video path (blank to clear)"
-                  :disabled="editSaving"
-                  class="path-input"
-                />
-                <button
-                  type="button"
-                  class="clear-btn"
-                  :disabled="!selectedCard.localVideoPath || editSaving || clearingField[`${selectedCard.id}-video`]"
-                  @click="clearLocalPath(selectedCard, 'video')"
-                >
-                  {{ clearingField[`${selectedCard.id}-video`] ? "Clearing..." : "Clear" }}
-                </button>
-              </div>
-              <div class="path-row">
-                <input
-                  v-model="editAudioPath"
-                  type="text"
-                  placeholder="Local audio path (blank to clear)"
-                  :disabled="editSaving"
-                  class="path-input"
-                />
-                <button
-                  type="button"
-                  class="clear-btn"
-                  :disabled="!selectedCard.localAudioPath || editSaving || clearingField[`${selectedCard.id}-audio`]"
-                  @click="clearLocalPath(selectedCard, 'audio')"
-                >
-                  {{ clearingField[`${selectedCard.id}-audio`] ? "Clearing..." : "Clear" }}
-                </button>
-              </div>
-              <div class="notes-field">
-                <span class="block-label">Notes</span>
-                <textarea
-                  v-model="editNotes"
-                  rows="3"
-                  placeholder="A memory hook for this card"
-                  :disabled="editSaving"
-                  class="path-input"
-                />
-              </div>
-              <div class="edit-actions">
-                <button type="button" class="save-btn" :disabled="editSaving" @click="saveEdit(selectedCard.id)">
-                  Save
-                </button>
-                <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
-              </div>
-              <p v-if="editError" class="edit-error">{{ editError }}</p>
-            </div>
-
-            <div v-else-if="confirmingRemoveId === selectedCard.id" class="inspector-actions">
-              <span class="confirm-label">Delete this card? This also removes its downloaded files.</span>
-              <button type="button" class="confirm-btn" :disabled="removingCard" @click="removeCard(selectedCard.id)">
-                {{ removingCard ? "Deleting..." : "Confirm" }}
-              </button>
-              <button
-                type="button"
-                class="selection-clear-btn"
-                :disabled="removingCard"
-                @click="confirmingRemoveId = null"
-              >
-                Cancel
-              </button>
-            </div>
-            <div v-else class="inspector-actions">
-              <button type="button" class="edit-btn" @click="startEdit(selectedCard)">Edit card</button>
-              <button type="button" class="remove-btn" @click="confirmingRemoveId = selectedCard.id">Delete</button>
-            </div>
-            <p v-if="removeCardError[selectedCard.id]" class="edit-error">{{ removeCardError[selectedCard.id] }}</p>
-          </div>
-        </template>
+        <CardInspector
+          :card="selectedCard"
+          :audio-only="audioOnly"
+          :has-default-download-folder="hasDefaultDownloadFolder"
+          :auto-download="autoDownload"
+          :clip-source="clipSource"
+          :manual-decks="manualDecks"
+          :memberships="membershipsData?.memberships ?? {}"
+          :toggling-membership="togglingMembership"
+          :membership-error="deckToggleError"
+          @updated="replaceCard"
+          @deleted="dropDeletedCards([$event])"
+          @toggle-deck="toggleDeckMembership"
+        />
       </aside>
     </div>
   </main>
@@ -1175,184 +808,6 @@ h1 {
   overflow-y: auto;
   background: var(--surface-sunken);
   border-left: 1px solid var(--border);
-}
-
-.inspector-empty {
-  margin: 0;
-  padding: 26px;
-  color: var(--faint);
-  font-size: 13px;
-}
-
-/* The player fills the top of the rail as one flush tile, like the artboard's
-   preview block - no card padding, no rounded corners, just a bottom edge.
-   Skipped while expanded, where it is a fixed full-viewport overlay. */
-.inspector > :deep(.player-card:not(.expanded)) {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.inspector > :deep(.player-card:not(.expanded)) .player-frame {
-  border: 0;
-  border-radius: 0;
-}
-
-.inspector-cover {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  background:
-    radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
-    radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
-    var(--surface);
-  border-bottom: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.inspector-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.85;
-}
-
-.inspector-slot {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 3px 10px;
-  border-radius: calc(var(--radius-sm) - 1px);
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  border: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent-secondary);
-}
-
-.inspector-body {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.inspector-titles {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.inspector-song {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 400;
-  line-height: 1.2;
-}
-
-.inspector-meta {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.inspector-tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.tile {
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.tile-value {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1;
-  color: var(--muted);
-}
-
-.tile-value.due-now {
-  color: var(--accent);
-}
-
-.tile-value-box {
-  color: var(--pass);
-}
-
-.tile-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.inspector-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.block-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.source-row {
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: 13px;
-}
-
-.source-row-none {
-  color: var(--fail);
-  border-color: var(--fail);
-}
-
-/* Free text rather than a badge, so it wraps and keeps the line breaks the
-   user typed instead of the single-line treatment .source-row gets. */
-.notes-row {
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: 13px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.inspector-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.inspector-actions .preview-btn,
-.inspector-actions .edit-btn {
-  flex: 1;
-}
-
-.inspector-actions .confirm-label {
-  flex-basis: 100%;
-}
-
-.inspector-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .import-panel {
@@ -1508,15 +963,6 @@ h1 {
   border-color: var(--fail);
 }
 
-/* Dense table: one grid line per card, actions demoted to the inspector.
-   The same template-columns string is on the header row and every card row -
-   keep them in step. */
-.card-table {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
 .selection-bar {
   position: sticky;
   top: -16px;
@@ -1606,155 +1052,7 @@ h1 {
   color: var(--accent);
 }
 
-.row-line {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-}
-
-.row-check {
-  display: flex;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.row-check input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  cursor: pointer;
-}
-
-.table-head,
-.card-row {
-  display: grid;
-  grid-template-columns: 46px 1fr 200px 140px 92px;
-  gap: 14px;
-  align-items: center;
-}
-
-.table-head {
-  padding: 0 14px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.card-row {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid transparent;
-  font-family: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.card-row:hover {
-  border-color: var(--border);
-}
-
-.card-row.checked {
-  background: color-mix(in srgb, var(--accent-secondary) 8%, var(--surface));
-}
-
-.card-row.selected {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
-}
-
-.cover-thumb {
-  width: 34px;
-  height: 48px;
-  border-radius: var(--radius-xs);
-  object-fit: cover;
-}
-
-.cover-thumb-empty {
-  display: block;
-  background: var(--surface-raised);
-}
-
-.cell-song {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.song-title {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.song-artist,
-.cell-anime {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.cell-anime .slot {
-  color: var(--faint);
-}
-
-.cell-song > span,
-.cell-anime {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cell-sources {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
-.cell-due {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.cell-due.due-now {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.badge {
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent-secondary);
-  white-space: nowrap;
-}
-
-.badge-none {
-  color: var(--fail);
-  border-color: var(--fail);
-}
-
-.preview-btn,
-.edit-btn,
-.save-btn {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.remove-btn,
-.cancel-btn {
+.remove-btn {
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--fail);
@@ -1763,115 +1061,12 @@ h1 {
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
-}
-
-.save-btn:disabled,
-.cancel-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.edit-form {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 320px;
-}
-
-.path-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.notes-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-textarea.path-input {
-  resize: vertical;
-}
-
-.path-input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 14px;
-}
-
-.path-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--shadow-accent);
-}
-
-.clear-btn {
-  flex: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--fail);
-  background: transparent;
-  color: var(--fail);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.clear-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .edit-error {
   margin: 0;
   color: var(--fail);
   font-size: 13px;
-}
-
-.download-section {
-  margin-top: 6px;
-}
-
-.download-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.download-btn {
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-secondary);
-  background: transparent;
-  color: var(--accent-secondary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.download-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.download-hint a {
-  color: var(--accent);
 }
 
 /* 50h: same breakpoint and stacking pattern as .study-grid. Placed last so
@@ -1897,18 +1092,6 @@ textarea.path-input {
   .inspector {
     border-left: none;
     border-top: 1px solid var(--border);
-  }
-
-  .table-head,
-  .card-row {
-    grid-template-columns: 46px 1fr 92px;
-  }
-
-  .cell-anime,
-  .col-anime,
-  .cell-sources,
-  .col-sources {
-    display: none;
   }
 }
 </style>

@@ -50,6 +50,7 @@ interface DeckCard {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  notes: string | null;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -59,6 +60,8 @@ interface DeckCard {
   artistName: string;
   animeId: number;
   animeAniListId: number;
+  animeAnimethemesSlug: string | null;
+  animethemesVideoSlug: string | null;
   animeTitleEnglish: string;
   animeTitleRomaji: string;
   animeTitleNative: string;
@@ -87,13 +90,6 @@ const selectedId = computed<number | null>(() => {
   const id = Number(raw);
   return Number.isFinite(id) ? id : null;
 });
-
-// Every row in an artist deck names that same artist, so linking it back to
-// the page you are already on is noise - those names stay plain text and only
-// the cross-link to the other grouping is clickable.
-function isCurrentDeck(type: "artist" | "anime", id: number): boolean {
-  return activeType.value === type && selectedId.value === id;
-}
 
 const searchInput = ref("");
 const searchQuery = ref("");
@@ -185,6 +181,35 @@ onUnmounted(() => {
 const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
   memberships: Record<number, number[]>;
 }>("/api/decks/memberships");
+
+const { data: manualDecksData, refresh: refreshManualDecks } = await useFetch<{
+  decks: { id: number; name: string }[];
+}>("/api/decks", { query: { type: "created" } });
+const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
+
+const togglingMembership = reactive<Record<string, boolean>>({});
+const deckToggleError = ref<string | null>(null);
+
+// Unticking the deck being viewed is the same as Remove, so the row goes too.
+async function toggleDeckMembership(cardId: number, deckId: number, checked: boolean) {
+  const key = `${cardId}-${deckId}`;
+  deckToggleError.value = null;
+  togglingMembership[key] = true;
+  try {
+    await $fetch("/api/decks/cards", {
+      method: checked ? "POST" : "DELETE",
+      body: { deckId, cardId },
+    });
+    if (!checked && activeType.value === "created" && deckId === selectedId.value) {
+      deckCards.value = deckCards.value.filter((c) => c.id !== cardId);
+    }
+  } catch (err) {
+    deckToggleError.value = extractErrorMessage(err, "Failed to update deck membership.");
+  } finally {
+    await refreshMemberships();
+    togglingMembership[key] = false;
+  }
+}
 
 function isCardInDeck(cardId: number): boolean {
   if (selectedId.value === null) return false;
@@ -411,8 +436,34 @@ function replaceDeckCard(updated: DeckCard) {
   if (idx !== -1) deckCards.value[idx] = updated;
 }
 
+const {
+  containerRef: deckBodyRef,
+  width: inspectorWidth,
+  dragging: inspectorDragging,
+  onPointerDown: onResizerPointerDown,
+  reset: resetInspectorWidth,
+} = useResizablePane();
+
+// Held as an id, like /cards, so an in-place list update re-resolves to the
+// fresh row, and a row that leaves the list empties the rail.
+const selectedCardId = ref<number | null>(null);
+const selectedCard = computed(() => deckCards.value.find((c) => c.id === selectedCardId.value) ?? null);
+
+watch(selectedId, () => {
+  selectedCardId.value = null;
+});
+
+function selectCard(id: number) {
+  selectedCardId.value = selectedCardId.value === id ? null : id;
+}
+
+// /api/decks/cards carries the Card row's schedule, which is the anime-title
+// track, so a deck graded on anything else would show the wrong box and due date.
+const showSchedule = computed(() => activeType.value !== "created" || deckCriterion.value === "title");
+
+const currentDeck = computed(() => (selectedId.value === null ? null : { type: activeType.value, id: selectedId.value }));
+
 watch([selectedId, cardSearchQuery], ([id]) => {
-  confirmingDeleteCardId.value = null;
   if (id !== null) {
     loadFirstDeckCardsPage();
   }
@@ -446,23 +497,6 @@ const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audio
 const autoDownload = computed(() => mediaLibraryData.value?.autoDownload ?? false);
 const clipSource = computed(() => mediaLibraryData.value?.clipSource ?? "anisongdb");
 
-const {
-  downloading,
-  downloadProgress,
-  downloadError,
-  downloadKey,
-  canDownload,
-  hasAnyDownloadableSource,
-  downloadMedia: downloadMediaBase,
-} = useCardDownloads();
-
-async function downloadMedia(c: DeckCard, kind: "video" | "audio") {
-  const updated = await downloadMediaBase<DeckCard>(c.id, c.id, kind);
-  if (updated) {
-    replaceDeckCard(updated);
-  }
-}
-
 const newDeckName = ref("");
 const isCreatingDeck = ref(false);
 const createDeckError = ref<string | null>(null);
@@ -478,7 +512,7 @@ async function createDeck() {
     await $fetch("/api/decks", { method: "POST", body: { name } });
     newDeckName.value = "";
     showNewDeckForm.value = false;
-    await loadFirstPage();
+    await Promise.all([loadFirstPage(), refreshManualDecks()]);
   } catch (err) {
     createDeckError.value = extractErrorMessage(err, "Failed to create deck.");
   } finally {
@@ -498,7 +532,7 @@ async function closeCreateWithImport() {
   if (!createdViaImport.value) return;
   createdViaImport.value = false;
   cancelNewDeck();
-  await loadFirstPage();
+  await Promise.all([loadFirstPage(), refreshManualDecks()]);
 }
 
 function cancelNewDeck() {
@@ -532,7 +566,7 @@ async function saveRenameDeck(id: number) {
   try {
     await $fetch("/api/decks", { method: "PATCH", body: { id, name } });
     editingDeckId.value = null;
-    await loadFirstPage();
+    await Promise.all([loadFirstPage(), refreshManualDecks()]);
   } catch (err) {
     renameDeckError.value = extractErrorMessage(err, "Failed to rename deck.");
   } finally {
@@ -548,7 +582,7 @@ async function deleteDeck(id: number) {
   deletingDeckId.value = id;
   try {
     await $fetch("/api/decks", { method: "DELETE", body: { id } });
-    await loadFirstPage();
+    await Promise.all([loadFirstPage(), refreshManualDecks()]);
   } catch (err) {
     deleteDeckError.value = extractErrorMessage(err, "Failed to delete deck.");
   } finally {
@@ -588,13 +622,6 @@ async function exportDeck() {
   }
 }
 
-const previewCard = ref<DeckCard | null>(null);
-
-async function onPreviewCardUpdated(updated: DeckCard) {
-  previewCard.value = updated;
-  replaceDeckCard(updated);
-}
-
 const removingCardId = ref<number | null>(null);
 const removeCardError = ref<string | null>(null);
 
@@ -613,26 +640,14 @@ async function removeCardFromManualDeck(cardId: number) {
   }
 }
 
-const confirmingDeleteCardId = ref<number | null>(null);
-const deletingCardId = ref<number | null>(null);
-
-// Unlike Remove, this deletes the card from the library. The grid's count for
-// this deck is decremented in place, since going back to the grid does not refetch it.
-async function deleteDeckCard(cardId: number) {
-  removeCardError.value = null;
-  deletingCardId.value = cardId;
-  try {
-    await $fetch("/api/cards", { method: "DELETE", body: { id: cardId } });
-    deckCards.value = deckCards.value.filter((c) => c.id !== cardId);
-    if (previewCard.value?.id === cardId) previewCard.value = null;
-    const deck = (rawDecks.value as { id: number; cardCount: number }[]).find((d) => d.id === selectedId.value);
-    if (deck) deck.cardCount = Math.max(0, deck.cardCount - 1);
-    confirmingDeleteCardId.value = null;
-  } catch (err) {
-    removeCardError.value = extractErrorMessage(err, "Failed to delete card.");
-  } finally {
-    deletingCardId.value = null;
-  }
+// The inspector has already deleted the card from the library. The grid's
+// count for this deck is decremented in place, since going back to the grid
+// does not refetch it.
+async function onCardDeleted(cardId: number) {
+  deckCards.value = deckCards.value.filter((c) => c.id !== cardId);
+  const deck = (rawDecks.value as { id: number; cardCount: number }[]).find((d) => d.id === selectedId.value);
+  if (deck) deck.cardCount = Math.max(0, deck.cardCount - 1);
+  await refreshMemberships();
 }
 
 const addCardQuery = ref("");
@@ -743,15 +758,6 @@ async function closeAddAnimeModal() {
   addAnimeModalTarget.value = null;
   resetAddCardSearch();
   await Promise.all([loadFirstDeckCardsPage(), refreshMemberships()]);
-}
-
-function sourceBadges(c: DeckCard): string[] {
-  const badges: string[] = [];
-  if (c.localVideoPath) badges.push("Local video");
-  if (c.localAudioPath) badges.push("Local audio");
-  if (c.animethemesVideoUrl) badges.push("Remote video");
-  if (c.animethemesAudioUrl) badges.push("Remote audio");
-  return badges;
 }
 
 function setType(type: DeckType) {
@@ -989,263 +995,197 @@ function backToDecks() {
         <span class="header-spacer" aria-hidden="true" />
       </header>
 
-      <div class="decks-body">
-      <div v-if="cardsInitialPending" class="state">
-        <ActivityStatus :request-key="`${selectedId}:${cardSearchQuery}`" label="Loading deck cards" />
-      </div>
-      <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
-      <template v-else>
-        <div class="deck-detail-title">
-          <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
-          <h2>{{ deckLabel }}</h2>
-        </div>
-
-        <div v-if="activeType === 'created' && deckCriterion" class="criterion-block">
-          <span class="criterion-label">Graded on</span>
-          <div class="criterion-options" role="group" aria-label="Graded on">
-            <label
-              v-for="option in CRITERION_CATEGORY_OPTIONS"
-              :key="option.category"
-              class="criterion-option"
-              :class="{ locked: categoryLockReason(option.category) }"
-            >
-              <input
-                type="checkbox"
-                :checked="checkedCategories.includes(option.category)"
-                :disabled="savingCriterion || categoryLockReason(option.category) !== null"
-                @click.prevent="toggleCriterionCategory(option.category)"
-              />
-              {{ option.label }}
-            </label>
+      <div
+        ref="deckBodyRef"
+        class="deck-detail-body"
+        :class="{ resizing: inspectorDragging }"
+        :style="{ '--inspector-width': `${inspectorWidth}px` }"
+      >
+        <div class="list-pane">
+          <div v-if="cardsInitialPending" class="state">
+            <ActivityStatus :request-key="`${selectedId}:${cardSearchQuery}`" label="Loading deck cards" />
           </div>
-          <p class="criterion-hint">{{ criterionHint }}</p>
-          <p v-for="note in criterionLockNotes" :key="note" class="criterion-hint criterion-lock-note">{{ note }}</p>
-          <p v-if="criterionError" class="export-error criterion-error">{{ criterionError }}</p>
-        </div>
-
-        <div v-if="activeType === 'created'" class="add-card-block">
-          <div class="add-card-head">
-            <h3>Add cards</h3>
-            <div class="add-card-head-actions">
-              <button type="button" class="rename-btn" @click="copyCardsModalOpen = true">Import from deck</button>
-              <button type="button" class="rename-btn" @click="filterCardsModalOpen = true">From filters</button>
+          <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
+          <template v-else>
+            <div class="deck-detail-title">
+              <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
+              <h2>{{ deckLabel }}</h2>
             </div>
-          </div>
-          <input
-            v-model="addCardQuery"
-            type="text"
-            placeholder="Search cards, or a new anime title..."
-            class="path-input"
-            @input="onAddCardInput"
-          />
-          <p v-if="addCardPending" class="state">
-            <ActivityStatus :request-key="addCardQuery" label="Searching cards and anime" />
-          </p>
-          <p v-else-if="addCardError" class="export-error">{{ addCardError }}</p>
-          <ul v-else-if="addCardResults.length" class="add-card-results">
-            <li
-              v-for="r in addCardResults"
-              :key="r.id"
-              class="add-card-result-row"
-              :class="{ 'row-clickable': !isCardInDeck(r.id) }"
-              @click="addCardRowClick(r.id)"
-            >
-              <span class="add-card-result-text">
-                {{ r.songTitle }}
-                <span class="deck-sublabel">{{ r.artistName }} - {{ r.animeTitleEnglish }}</span>
+
+            <div v-if="activeType === 'created' && deckCriterion" class="criterion-block">
+              <span class="criterion-label">Graded on</span>
+              <div class="criterion-options" role="group" aria-label="Graded on">
+                <label
+                  v-for="option in CRITERION_CATEGORY_OPTIONS"
+                  :key="option.category"
+                  class="criterion-option"
+                  :class="{ locked: categoryLockReason(option.category) }"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="checkedCategories.includes(option.category)"
+                    :disabled="savingCriterion || categoryLockReason(option.category) !== null"
+                    @click.prevent="toggleCriterionCategory(option.category)"
+                  />
+                  {{ option.label }}
+                </label>
+              </div>
+              <p class="criterion-hint">{{ criterionHint }}</p>
+              <p v-for="note in criterionLockNotes" :key="note" class="criterion-hint criterion-lock-note">{{ note }}</p>
+              <p v-if="criterionError" class="export-error criterion-error">{{ criterionError }}</p>
+            </div>
+
+            <div v-if="activeType === 'created'" class="add-card-block">
+              <div class="add-card-head">
+                <h3>Add cards</h3>
+                <div class="add-card-head-actions">
+                  <button type="button" class="rename-btn" @click="copyCardsModalOpen = true">Import from deck</button>
+                  <button type="button" class="rename-btn" @click="filterCardsModalOpen = true">From filters</button>
+                </div>
+              </div>
+              <input
+                v-model="addCardQuery"
+                type="text"
+                placeholder="Search cards, or a new anime title..."
+                class="path-input"
+                @input="onAddCardInput"
+              />
+              <p v-if="addCardPending" class="state">
+                <ActivityStatus :request-key="addCardQuery" label="Searching cards and anime" />
+              </p>
+              <p v-else-if="addCardError" class="export-error">{{ addCardError }}</p>
+              <ul v-else-if="addCardResults.length" class="add-card-results">
+                <li
+                  v-for="r in addCardResults"
+                  :key="r.id"
+                  class="add-card-result-row"
+                  :class="{ 'row-clickable': !isCardInDeck(r.id) }"
+                  @click="addCardRowClick(r.id)"
+                >
+                  <span class="add-card-result-text">
+                    {{ r.songTitle }}
+                    <span class="deck-sublabel">{{ r.artistName }} - {{ r.animeTitleEnglish }}</span>
+                  </span>
+                  <button
+                    v-if="!isCardInDeck(r.id)"
+                    type="button"
+                    class="export-btn add-card-btn"
+                    :disabled="addingCardId === r.id"
+                    @click.stop="addCardToCurrentDeck(r.id)"
+                  >
+                    {{ addingCardId === r.id ? "Adding..." : "Add" }}
+                  </button>
+                  <span v-else class="added-badge">Added</span>
+                </li>
+              </ul>
+              <template v-else-if="addAnimeResults">
+                <p class="add-card-group-label">Add a new anime</p>
+                <ul v-if="addAnimeResults.length" class="add-card-results">
+                  <li
+                    v-for="r in addAnimeResults"
+                    :key="r.aniListId"
+                    class="add-card-result-row row-clickable"
+                    @click="openAddAnimeModal(r)"
+                  >
+                    <span class="add-card-result-text">
+                      {{ r.titleRomaji }}
+                      <span v-if="r.titleEnglish" class="deck-sublabel">{{ r.titleEnglish }}</span>
+                    </span>
+                    <button type="button" class="export-btn add-card-btn" @click.stop="openAddAnimeModal(r)">
+                      Select
+                    </button>
+                  </li>
+                </ul>
+                <p v-else class="state">No matching cards or anime found for "{{ addCardQuery.trim() }}".</p>
+              </template>
+            </div>
+
+            <CardTable
+              v-if="deckCards.length"
+              :cards="deckCards"
+              :selected-id="selectedCardId"
+              :show-due="showSchedule"
+              @select="selectCard"
+            />
+            <p v-else-if="cardSearchQuery" class="state">No cards match "{{ cardSearchQuery }}".</p>
+            <p v-else class="state">No cards in this deck.</p>
+            <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
+            <div v-if="deckCards.length" ref="cardsSentinelRef" class="scroll-sentinel">
+              <span v-if="cardsLoadingMore" class="loading-more">
+                <ActivityStatus label="Loading more deck cards" />
               </span>
-              <button
-                v-if="!isCardInDeck(r.id)"
-                type="button"
-                class="export-btn add-card-btn"
-                :disabled="addingCardId === r.id"
-                @click.stop="addCardToCurrentDeck(r.id)"
-              >
-                {{ addingCardId === r.id ? "Adding..." : "Add" }}
-              </button>
-              <span v-else class="added-badge">Added</span>
-            </li>
-          </ul>
-          <template v-else-if="addAnimeResults">
-            <p class="add-card-group-label">Add a new anime</p>
-            <ul v-if="addAnimeResults.length" class="add-card-results">
-              <li
-                v-for="r in addAnimeResults"
-                :key="r.aniListId"
-                class="add-card-result-row row-clickable"
-                @click="openAddAnimeModal(r)"
-              >
-                <span class="add-card-result-text">
-                  {{ r.titleRomaji }}
-                  <span v-if="r.titleEnglish" class="deck-sublabel">{{ r.titleEnglish }}</span>
-                </span>
-                <button type="button" class="export-btn add-card-btn" @click.stop="openAddAnimeModal(r)">
-                  Select
+            </div>
+
+            <div v-if="activeType !== 'created'" class="export-block">
+              <h3>Export deck</h3>
+              <div class="export-form">
+                <input
+                  v-model="exportPath"
+                  type="text"
+                  placeholder="/path/to/empty/or/new/folder"
+                  :disabled="isExporting"
+                  class="path-input"
+                />
+                <label class="checkbox-label">
+                  <input v-model="includeAudio" type="checkbox" :disabled="isExporting" />
+                  Include audio
+                </label>
+                <button type="button" class="export-btn" :disabled="isExporting || !exportPath.trim()" @click="exportDeck">
+                  {{ isExporting ? "Exporting..." : "Export" }}
                 </button>
-              </li>
-            </ul>
-            <p v-else class="state">No matching cards or anime found for "{{ addCardQuery.trim() }}".</p>
+              </div>
+              <p v-if="exportSummary" class="export-summary">{{ exportSummary }}</p>
+              <p v-if="exportError" class="export-error">{{ exportError }}</p>
+            </div>
           </template>
         </div>
 
-        <ul v-if="deckCards.length" class="deck-card-list">
-          <li v-for="c in deckCards" :key="c.id" class="deck-card-row">
-            <div class="deck-card-row-main">
-              <img
-                v-if="activeType === 'anime' && c.animeCoverImageUrl"
-                :src="c.animeCoverImageUrl"
-                alt=""
-                class="cover-thumb"
-              />
-              <div class="deck-card-row-text">
-                <span class="song-title">{{ c.songTitle }}</span>
-                <span class="deck-sublabel">
-                  <NuxtLink
-                    v-if="!isCurrentDeck('artist', c.artistId)"
-                    :to="artistDeckPath(c.artistId)"
-                    class="deck-link"
-                    >{{ c.artistName }}</NuxtLink
-                  >
-                  <template v-else>{{ c.artistName }}</template>
-                  -
-                  <NuxtLink v-if="!isCurrentDeck('anime', c.animeId)" :to="animeDeckPath(c.animeId)" class="deck-link">{{
-                    c.animeTitleEnglish
-                  }}</NuxtLink>
-                  <template v-else>{{ c.animeTitleEnglish }}</template>
-                  ({{ c.themeSlot }})
-                </span>
-                <div class="badges">
-                  <span v-for="badge in sourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
-                </div>
-              </div>
-              <button
-                v-if="sourceBadges(c).length"
-                type="button"
-                class="preview-btn"
-                @click="previewCard = c"
-              >
-                Preview
-              </button>
-              <button
-                v-if="activeType === 'created'"
-                type="button"
-                class="remove-btn deck-card-remove-btn"
-                :disabled="removingCardId === c.id"
-                @click="removeCardFromManualDeck(c.id)"
-              >
-                {{ removingCardId === c.id ? "Removing..." : "Remove" }}
-              </button>
-              <button
-                v-if="confirmingDeleteCardId !== c.id"
-                type="button"
-                class="remove-btn deck-card-remove-btn"
-                @click="confirmingDeleteCardId = c.id"
-              >
-                Delete
-              </button>
-            </div>
-            <div v-if="confirmingDeleteCardId === c.id" class="delete-confirm">
-              <span class="confirm-label">
-                {{
-                  activeType === "created"
-                    ? "Delete this card from your library, not just this deck? This also removes its downloaded files."
-                    : "Delete this card? This also removes its downloaded files."
-                }}
-              </span>
-              <button
-                type="button"
-                class="confirm-btn"
-                :disabled="deletingCardId === c.id"
-                @click="deleteDeckCard(c.id)"
-              >
-                {{ deletingCardId === c.id ? "Deleting..." : "Confirm" }}
-              </button>
-              <button
-                type="button"
-                class="cancel-btn"
-                :disabled="deletingCardId === c.id"
-                @click="confirmingDeleteCardId = null"
-              >
-                Cancel
-              </button>
-            </div>
+        <div
+          class="pane-resizer"
+          :class="{ dragging: inspectorDragging }"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize card details panel"
+          @pointerdown="onResizerPointerDown"
+          @dblclick="resetInspectorWidth"
+        />
 
-            <div v-if="hasAnyDownloadableSource(c)" class="download-section">
-              <div v-if="hasDefaultDownloadFolder" class="download-actions">
-                <template v-if="canDownload(c, 'video')">
-                  <DownloadProgress
-                    v-if="downloading[downloadKey(c.id, 'video')]"
-                    label="Downloading video"
-                    :request-key="downloadKey(c.id, 'video')"
-                    :progress="downloadProgress[downloadKey(c.id, 'video')]"
-                  />
-                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'video')">
-                    Download video
-                  </button>
-                </template>
-                <template v-if="canDownload(c, 'audio')">
-                  <DownloadProgress
-                    v-if="downloading[downloadKey(c.id, 'audio')]"
-                    label="Downloading audio"
-                    :request-key="downloadKey(c.id, 'audio')"
-                    :progress="downloadProgress[downloadKey(c.id, 'audio')]"
-                  />
-                  <button v-else type="button" class="download-btn" @click="downloadMedia(c, 'audio')">
-                    Download audio
-                  </button>
-                </template>
-              </div>
-              <p v-else class="download-hint">
-                Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
-              </p>
-              <p v-if="downloadError[c.id]" class="export-error">{{ downloadError[c.id] }}</p>
-            </div>
-          </li>
-        </ul>
-        <p v-else-if="cardSearchQuery" class="state">No cards match "{{ cardSearchQuery }}".</p>
-        <p v-else class="state">No cards in this deck.</p>
-        <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
-        <div v-if="deckCards.length" ref="cardsSentinelRef" class="scroll-sentinel">
-          <span v-if="cardsLoadingMore" class="loading-more">
-            <ActivityStatus label="Loading more deck cards" />
-          </span>
-        </div>
-
-        <div v-if="activeType !== 'created'" class="export-block">
-          <h3>Export deck</h3>
-          <div class="export-form">
-            <input
-              v-model="exportPath"
-              type="text"
-              placeholder="/path/to/empty/or/new/folder"
-              :disabled="isExporting"
-              class="path-input"
-            />
-            <label class="checkbox-label">
-              <input v-model="includeAudio" type="checkbox" :disabled="isExporting" />
-              Include audio
-            </label>
-            <button type="button" class="export-btn" :disabled="isExporting || !exportPath.trim()" @click="exportDeck">
-              {{ isExporting ? "Exporting..." : "Export" }}
-            </button>
-          </div>
-          <p v-if="exportSummary" class="export-summary">{{ exportSummary }}</p>
-          <p v-if="exportError" class="export-error">{{ exportError }}</p>
-        </div>
-      </template>
+        <aside class="inspector">
+          <CardInspector
+            :card="selectedCard"
+            :audio-only="audioOnly"
+            :has-default-download-folder="hasDefaultDownloadFolder"
+            :auto-download="autoDownload"
+            :clip-source="clipSource"
+            :manual-decks="manualDecks"
+            :memberships="membershipsData?.memberships ?? {}"
+            :toggling-membership="togglingMembership"
+            :membership-error="deckToggleError"
+            :current-deck="currentDeck"
+            :show-schedule="showSchedule"
+            :delete-confirm-text="
+              activeType === 'created'
+                ? 'Delete this card from your library, not just this deck? This also removes its downloaded files.'
+                : undefined
+            "
+            @updated="replaceDeckCard"
+            @deleted="onCardDeleted"
+            @toggle-deck="toggleDeckMembership"
+          >
+            <template v-if="activeType === 'created'" #actions="{ card }">
+              <button
+                type="button"
+                class="remove-btn"
+                :disabled="removingCardId === card.id"
+                @click="removeCardFromManualDeck(card.id)"
+              >
+                {{ removingCardId === card.id ? "Removing..." : "Remove from deck" }}
+              </button>
+            </template>
+          </CardInspector>
+        </aside>
       </div>
     </template>
-
-    <CardPreviewModal
-      :card="previewCard"
-      :open="previewCard !== null"
-      :has-default-download-folder="hasDefaultDownloadFolder"
-      :audio-only="audioOnly"
-      :auto-download="autoDownload"
-      :clip-source="clipSource"
-      @close="previewCard = null"
-      @updated="onPreviewCardUpdated"
-    />
 
     <DeckAddAnimeModal
       :open="addAnimeModalTarget !== null"
@@ -1397,6 +1337,59 @@ function backToDecks() {
   min-height: 0;
   overflow-y: auto;
   padding: 20px 28px 28px;
+}
+
+/* A deck's detail is /cards' split pane: the list scrolls on the left, the
+   inspector rail on the right. The inspector's own left border separates
+   them, so there is no gap. */
+.deck-detail-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0 var(--inspector-width, 400px);
+  align-items: stretch;
+}
+
+.deck-detail-body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.list-pane {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px 28px 28px;
+}
+
+/* Zero-width grid column; the hit area straddles the inspector's border so
+   the layout doesn't shift by the handle's width. */
+.pane-resizer {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pane-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.pane-resizer:hover::after,
+.pane-resizer.dragging::after {
+  background: var(--accent);
+}
+
+.inspector {
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--surface-sunken);
+  border-left: 1px solid var(--border);
 }
 
 h2 {
@@ -1685,99 +1678,6 @@ h2 {
   grid-column: 1 / -1;
 }
 
-.deck-card-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.deck-card-row {
-  padding: 14px 16px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.deck-card-row-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.deck-card-row-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.deck-card-remove-btn {
-  flex: none;
-}
-
-.delete-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.confirm-label {
-  color: var(--fail);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.confirm-btn,
-.cancel-btn {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.confirm-btn {
-  border: none;
-  background: var(--fail);
-  color: var(--fail-ink);
-}
-
-.cancel-btn {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-}
-
-.confirm-btn:disabled,
-.cancel-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.preview-btn {
-  flex: none;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.song-title {
-  font-weight: 700;
-}
-
 .cover-thumb {
   flex: none;
   width: 48px;
@@ -1787,57 +1687,9 @@ h2 {
   background: var(--surface-raised);
 }
 
-.download-section {
-  margin-top: 10px;
-}
-
-.download-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.download-btn {
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-secondary);
-  background: transparent;
-  color: var(--accent-secondary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.download-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.download-hint a {
-  color: var(--accent);
-}
-
 .cover-thumb-lg {
   width: 64px;
   height: 90px;
-}
-
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.badge {
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-secondary);
-  color: var(--accent-secondary-ink);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .deck-sublabel {
@@ -2069,6 +1921,19 @@ h2 {
 
   .header-controls {
     flex-wrap: wrap;
+  }
+
+  .deck-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .pane-resizer {
+    display: none;
+  }
+
+  .inspector {
+    border-left: none;
+    border-top: 1px solid var(--border);
   }
 }
 </style>

@@ -251,7 +251,7 @@ already describes Auto Reveal's popup, modes, and interval, and this only
 removes a restriction on when they apply.
 Features 80 (a library health check) and 81 (deck detail reusing the
 `/cards` table and inspector) were added to `build-plan.md` on 2026-09-26; 80
-is now built and merged, and 81 is not yet built. Neither changes `project-plan.md`: 80 gathers existing
+and 81 are now both built and merged. Neither changes `project-plan.md`: 80 gathers existing
 clear, download, re-source, and delete actions behind one scan, and 81
 restyles an existing surface.
 
@@ -1766,13 +1766,21 @@ restyles an existing surface.
     no Clear or Re-download, because clearing a path deletes its file; its
     fix is adding the folder back. Nothing changes until a fix is clicked,
     and each row re-checks itself afterwards.
-81. **Deck detail uses the Cards view** - not yet built. Added 2026-09-26.
-    A deck's card list (artist, anime, and manual) reuses `/cards`' dense
-    table and inspector rail (feature 50c) in place of the row list with
-    per-row buttons, via components extracted from `/cards` rather than a
-    copy. Each deck type keeps its own actions (Remove on manual decks, Study
-    this deck, export) along with the deck's search and infinite scroll
-    (35c).
+81. **Deck detail uses the Cards view** - done 2026-09-26. A deck's card
+    list (artist, anime, and manual) reuses `/cards`' dense table and
+    inspector rail (feature 50c) in place of the row list with per-row
+    buttons, through components extracted from `/cards`: `CardTable.vue`
+    (optional checkbox and Due columns) and `CardInspector.vue` (player,
+    details, download, deck membership, edit, delete, plus an `actions`
+    slot), with the display helpers in `app/utils/cardDisplay.ts`. Manual
+    decks put "Remove from deck" in that slot and keep 61c's "from your
+    library" delete wording; unticking the current deck in the rail's Decks
+    panel also drops the row. Search, infinite scroll (35c), Add cards,
+    criterion, and export are unchanged. A manual deck graded on anything but
+    the anime title hides the Due column and Due/Box tiles, since
+    `/api/decks/cards` returns the title track's schedule. The Preview
+    modal, and with it feature 16's song title/slot/artist edit, is no longer
+    reachable from `/decks`, matching `/cards` since 50c.
 
 ## Data model
 

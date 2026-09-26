@@ -819,7 +819,7 @@ cleaned-up checkbox version before generating the project overview.
   8's download refuses to write over a set path), re-source it (60c), or
   delete the card (61). Read-only until a fix is clicked. Nothing is changed
   automatically.
-- [ ] 81. **Deck detail uses the Cards view** - a deck's song list (artist,
+- [x] 81. **Deck detail uses the Cards view** - a deck's song list (artist,
   anime, and manual decks) reuses `/cards`' layout: the dense table with
   cover, song/artist, anime + slot, source badges, and due date, plus the
   inspector rail on the right for preview, edit, and actions, instead of
