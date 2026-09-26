@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { version } from './package.json'
+import { THEME_BOOT_SCRIPT } from './app/utils/theme'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -27,9 +28,10 @@ export default defineNuxtConfig({
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Yusei+Magic&family=Klee+One:wght@400;600&display=swap'
+          href: 'https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@400;500;700&display=swap'
         }
-      ]
+      ],
+      script: [{ innerHTML: THEME_BOOT_SCRIPT, tagPosition: 'head' }]
     }
   }
 })

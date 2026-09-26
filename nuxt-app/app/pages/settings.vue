@@ -17,13 +17,31 @@ const { data, pending, error, refresh } = await useFetch<{
   animethemesSourcedCardCount: number;
 }>("/api/media-library");
 
-type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "health" | "about";
+type SettingsSection =
+  | "library"
+  | "study"
+  | "playback"
+  | "appearance"
+  | "cache"
+  | "import"
+  | "health"
+  | "about";
 
-const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import", "health", "about"];
+const SECTIONS: SettingsSection[] = [
+  "library",
+  "study",
+  "playback",
+  "appearance",
+  "cache",
+  "import",
+  "health",
+  "about",
+];
 const SECTION_LABELS: Record<SettingsSection, string> = {
   library: "Media library",
   study: "Study pacing",
   playback: "Playback",
+  appearance: "Appearance",
   cache: "Cache",
   import: "Import & export",
   health: "Library health",
@@ -243,6 +261,17 @@ async function importDeck() {
 
         <!-- Outside the settings fetch too: the scan reads everything it needs
              from its own route. -->
+        <!-- Outside the settings fetch: the theme is a per-browser choice. -->
+        <div v-else-if="activeSection === 'appearance'" class="section-panels">
+          <div class="panel panel-full">
+            <div class="panel-header">
+              <span class="panel-title">Theme</span>
+              <span class="panel-hint">Remembered in this browser.</span>
+            </div>
+            <SettingsThemeControl />
+          </div>
+        </div>
+
         <div v-else-if="activeSection === 'health'" class="section-panels">
           <SettingsLibraryHealth class="panel-full" />
           <SettingsLibraryRecover class="panel-full" />

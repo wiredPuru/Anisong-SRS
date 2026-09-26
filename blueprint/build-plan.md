@@ -882,7 +882,7 @@ cleaned-up checkbox version before generating the project overview.
     new favicon and touch icon. A `MascotKai` component with a `pose` prop
     replaces `MascotTemi` in its four current spots, and the Temi files are
     removed from `public/`.
-  - [ ] 84b. **Themes and tokens** - a light Kai palette and a retuned dark
+  - [x] 84b. **Themes and tokens** - a light Kai palette and a retuned dark
     one as `main.css` token sets switched by a `data-theme` attribute on
     `<html>`, applied before first paint so there is no flash. Chunky rounded
     Japanese-capable display type, outlined pill buttons and banners. The

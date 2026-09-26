@@ -1871,9 +1871,18 @@ surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
       tall, `alt`) replaced `MascotTemi`: Home hero `wave`, all caught up
       `sleepy`, empty `/cards` `laptop`, empty `/decks` `point`. The sheet's
       lettered banners were not cut; they become DOM text in 84d.
-    - **84b. Themes and tokens** - light Kai and retuned dark token sets on
-      `<html data-theme>`, applied before first paint, picked (Light, Dark,
-      System) in Settings > Appearance and stored per browser.
+    - **84b. Themes and tokens** - done 2026-09-26. `main.css`'s `:root`
+      (and `.theme-light-scope`) holds the light Kai palette plus every shared
+      token; `:root[data-theme="dark"]` (and `.theme-dark-scope`) overrides the
+      palette. New tokens `--star`, `--note`, `--outline`; veils, scrim, glass,
+      and `--text-shadow-overlay` are per theme, the record stays dark. Fonts
+      are Mochiy Pop One (display) and Zen Maru Gothic (body). The preference
+      (`light` default, `dark`, `system`) lives in `localStorage`
+      `gaqSrs:theme`; `THEME_BOOT_SCRIPT` (`app/utils/theme.ts`), inlined in
+      `<head>` by `nuxt.config.ts`, sets `data-theme` before first paint, and
+      `plugins/theme.client.ts` syncs `useTheme()` after hydration and follows
+      OS changes under System. Picked in a new Settings > Appearance section
+      (`SettingsThemeControl`, after Playback).
     - **84c. Study player** - restyled frame and controls, a "Ready?" box
       with Kai before a clip starts, and a peeking-Kai loading bar.
     - **84d. Answer feedback** - CORRECT! / WRONG... / GUESS? / Nice Guess!

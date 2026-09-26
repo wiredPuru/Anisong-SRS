@@ -1,46 +1,76 @@
-/* Cute/moe soft retheme (feature 62), Option B "Rose & sky". Values read off
-   blueprint/reference/cute-moe-soft-retheme/RoseSkyTokens.dc.html; the Study,
-   Cards and Decks artboards beside it show them in use. */
+/* Kai themes (feature 84b). The light theme is the default and is read off
+   blueprint/reference/mascot-v2/kai-sheet-transparent.png: pink-and-cream
+   ground, sakura pink, warm brown lettering, periwinkle for a wrong answer,
+   candy-yellow stars. The dark theme below retunes feature 62's gruvbox
+   palette toward the same pinks. <html data-theme> is set before first paint
+   by THEME_BOOT_SCRIPT (app/utils/theme.ts). Every text token clears 4.5:1 on
+   every surface in both themes, and each -ink token 4.5:1 on its fill. The
+   -scope classes let a small preview (Settings > Appearance) render in a
+   theme other than the page's. */
 
-:root {
+:root,
+.theme-light-scope {
+  color-scheme: light;
+
   /* surfaces */
-  --bg: #2a2826;
-  --surface: #32302f;
-  --surface-raised: #3c3836;
-  --border: #4a4542;
+  --bg: #fdeef2;
+  --surface: #fffaf7;
+  --surface-raised: #fff3f0;
+  --surface-sunken: #fbe9ee;
+  --border: #f0c6d2;
 
   /* text */
-  --text: #ebdbb2;
-  --muted: #bdae93;
-  /* #a39381 in 62a measured 3.9:1 on --surface-raised; this clears 4.5:1 on
-     every surface while staying a step below --muted */
-  --faint: #b0a08d;
+  --text: #4e3237;
+  --muted: #6f4f55;
+  --faint: #7f5c63;
 
-  /* accent - primary (rose) */
-  --accent: #e8a4bd;
-  --accent-strong: #f0b9cc;
-  --accent-ink: #2a2826;
-  --accent-glow: rgba(232, 164, 189, 0.22);
+  /* accent - primary (sakura) */
+  --accent: #c23462;
+  --accent-strong: #a92852;
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(232, 90, 134, 0.22);
 
-  /* accent - secondary (sky, for JP text / box indicators) */
-  --accent-secondary: #a3c9e2;
-  --accent-secondary-ink: #2a2826;
-  --accent-secondary-glow: rgba(163, 201, 226, 0.3);
+  /* accent - secondary (for JP text / box indicators) */
+  --accent-secondary: #2f63a3;
+  --accent-secondary-ink: #ffffff;
+  --accent-secondary-glow: rgba(80, 130, 210, 0.22);
 
-  /* review states */
-  --pass: #b3c98a;
-  --pass-ink: #2a2826;
-  --fail: #e98a72;
-  --fail-ink: #2a2826;
-  --warning: #e6c07b;
-  --warning-ink: #2a2826;
+  /* review states; a wrong answer is the sheet's periwinkle, not red */
+  --pass: #237a4f;
+  --pass-ink: #ffffff;
+  --fail: #4458c0;
+  --fail-ink: #ffffff;
+  --warning: #94600c;
+  --warning-ink: #ffffff;
 
-  /* type - Yusei Magic (a felt-tip marker hand) for display, Klee One (a neat
-     handwriting) for body. Both cover Latin + Japanese, including furigana.
-     Yusei Magic has a single 400 weight and Klee One tops out at 600, so a
-     heavier font-weight renders with the 600 face. */
-  --font-display: "Yusei Magic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
-  --font-sans: "Klee One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  /* the sheet's decoration: stars, music notes, and the soft outline on its
+     banners and pills. Never text colors. */
+  --star: #ffc83d;
+  --note: #e8507c;
+  --outline: #f2a7bd;
+
+  --shadow-soft: 0 8px 24px rgba(194, 52, 98, 0.12);
+  --scrim: rgba(78, 40, 50, 0.45);
+
+  /* a light halo, since overlay text is --text (dark) on light glass here */
+  --text-shadow-overlay: 0 1px 6px rgba(255, 248, 244, 0.9), 0 0 2px rgba(255, 248, 244, 0.9);
+
+  /* StudyMediaPlayer's veils over video. Each theme tints them toward its own
+     ground so the theme's --text and --fail stay readable on them; the error
+     veil leans periwinkle, the wrong-answer hue. */
+  --veil-paused: rgba(255, 244, 240, 0.5);
+  --veil-error: rgba(236, 238, 255, 0.82);
+  --veil-status: rgba(255, 248, 244, 0.86);
+
+  --glass-surface: rgba(255, 246, 240, 0.35);
+  --glass-surface-panel: rgba(255, 248, 244, 0.86);
+  --glass-border: rgba(194, 52, 98, 0.2);
+
+  /* type - Mochiy Pop One, a chunky rounded display face like the sheet's
+     lettering, and Zen Maru Gothic, a rounded body face. Both cover Latin and
+     Japanese, including furigana. */
+  --font-display: "Mochiy Pop One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-sans: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
 
   /* scale */
   --radius: 14px;
@@ -53,7 +83,6 @@
      to fill the viewport beside the rail insets by --rail-width rather than
      hard-coding 82px. */
   --rail-width: 82px;
-  --surface-sunken: #252321;
 
   /* Comfortably above the common 1920/2560 desktop range the full-bleed
      split-pane layout already targets, so below this nothing changes. Used
@@ -76,38 +105,71 @@
      which must outrank the immersive layer it was triggered from. Not the
      default for modals - CardPreviewModal itself still uses --z-modal. */
   --z-above-immersive: 70;
-  /* A warm brown-black rather than pure black, so shadows sit in the charcoal
-     ground instead of reading as grey smudges on it. */
-  --shadow-soft: 0 8px 24px rgba(20, 16, 12, 0.35);
   --shadow-accent: 0 0 28px var(--accent-glow);
 
-  /* modal backdrop, in the same warm brown-black as --shadow-soft */
-  --scrim: rgba(20, 16, 12, 0.7);
 
   /* keyboard focus; sky rather than rose so it never blends into an accent
      button or a rose-bordered focused input */
   --focus-ring: var(--accent-secondary);
 
-  /* StudyMediaPlayer's overlays. The error veil takes --fail's terracotta
-     hue, darkened, so the --fail text on it stays readable. */
-  --veil-paused: rgba(20, 16, 12, 0.45);
-  --veil-error: rgba(74, 38, 30, 0.6);
-  --veil-status: rgba(20, 16, 12, 0.72);
+  /* the spinning record is a black disk in both themes */
 
   /* the spinning record: cream grooves and spindle ring on the dark disk */
   --record-groove: rgba(235, 219, 178, 0.06);
   --record-hole-ring: rgba(235, 219, 178, 0.15);
   --record-shadow: 0 0 30px rgba(20, 16, 12, 0.6);
 
-  /* keeps overlay text readable over a bright video frame */
-  --text-shadow-overlay: 0 2px 8px rgba(20, 16, 12, 0.85), 0 1px 2px rgba(20, 16, 12, 0.9);
 
-  /* glass - a translucent, frosted look applied automatically wherever
-     ambient mode is on (StudyMediaPlayer, StudyInfoPanel, CardPreviewModal) */
-  --glass-surface: rgba(50, 48, 47, 0.2);
-  --glass-surface-panel: rgba(50, 48, 47, 0.82);
-  --glass-border: rgba(235, 219, 178, 0.16);
   --glass-blur: blur(20px) saturate(1.6);
+}
+
+/* Feature 62's gruvbox ground and cream text, warmed toward Kai's pinks. */
+:root[data-theme="dark"],
+.theme-dark-scope {
+  color-scheme: dark;
+
+  --bg: #2b2527;
+  --surface: #352e30;
+  --surface-raised: #40373a;
+  --surface-sunken: #262022;
+  --border: #56474b;
+
+  --text: #f2e2d4;
+  --muted: #cdb6ac;
+  --faint: #b9a29a;
+
+  --accent: #f294b4;
+  --accent-strong: #f7b0c8;
+  --accent-ink: #2b2527;
+  --accent-glow: rgba(242, 148, 180, 0.22);
+
+  --accent-secondary: #a3c9e2;
+  --accent-secondary-ink: #2b2527;
+  --accent-secondary-glow: rgba(163, 201, 226, 0.3);
+
+  --pass: #b3c98a;
+  --pass-ink: #2b2527;
+  --fail: #a8b4f2;
+  --fail-ink: #2b2527;
+  --warning: #f0c56e;
+  --warning-ink: #2b2527;
+
+  --star: #f5c542;
+  --note: #f294b4;
+  --outline: #8c5a6c;
+
+  --shadow-soft: 0 8px 24px rgba(20, 14, 16, 0.35);
+  --scrim: rgba(20, 14, 16, 0.7);
+
+  --text-shadow-overlay: 0 2px 8px rgba(20, 14, 16, 0.85), 0 1px 2px rgba(20, 14, 16, 0.9);
+
+  --veil-paused: rgba(20, 14, 16, 0.45);
+  --veil-error: rgba(34, 38, 74, 0.6);
+  --veil-status: rgba(20, 14, 16, 0.72);
+
+  --glass-surface: rgba(53, 46, 48, 0.2);
+  --glass-surface-panel: rgba(53, 46, 48, 0.82);
+  --glass-border: rgba(242, 226, 212, 0.16);
 }
 
 * {
@@ -248,9 +310,8 @@ a.deck-link:focus-visible {
 body {
   margin: 0;
   /* inherited by every native checkbox and range, so none fall back to
-     browser blue or a white unchecked box on the dark ground */
+     browser blue */
   accent-color: var(--accent);
-  color-scheme: dark;
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
