@@ -250,8 +250,8 @@ stays suppressed while Typed Answers is on. No `project-plan.md` change: §7
 already describes Auto Reveal's popup, modes, and interval, and this only
 removes a restriction on when they apply.
 Features 80 (a library health check) and 81 (deck detail reusing the
-`/cards` table and inspector) were added to `build-plan.md` on 2026-09-26 and
-are not yet built. Neither changes `project-plan.md`: 80 gathers existing
+`/cards` table and inspector) were added to `build-plan.md` on 2026-09-26; 80
+is now built and merged, and 81 is not yet built. Neither changes `project-plan.md`: 80 gathers existing
 clear, download, re-source, and delete actions behind one scan, and 81
 restyles an existing surface.
 
@@ -1749,15 +1749,23 @@ restyles an existing surface.
     until the result. The countdown pauses with playback, holds while a popup,
     the card editor, or a history Preview is open, and is cancelled by an
     early submit. Client-only: no server, schema, or scoring change.
-80. **Library health check** - not yet built. Added 2026-09-26. A Settings
-    scan listing cards whose local video/audio file is missing on disk
-    (feature 42 left that case out of scope) and cards with no source the
-    Clip source setting (feature 64) allows. Each row offers the matching
-    fix: clear the missing path and re-download (feature 8 refuses to
-    download over a set path), re-source (60c), or delete (61). Nothing is
-    changed until a fix is clicked. A card whose only source is a missing
-    local file cannot simply be cleared, since a card must keep at least one
-    source (feature 4), so its fix is re-download or delete.
+80. **Library health check** - done 2026-09-26. A Settings section,
+    Library health (`?section=health`), scans for cards that cannot play: a
+    local video/audio path whose file is missing on disk (feature 42 left that
+    case out of scope) or sits outside every library folder (`/api/media`
+    404s both), and cards with no source the Clip source setting (feature 64)
+    allows. `GET /api/cards/health` (optional `?cardId=`) returns
+    `{ checked, clipSource, hasDefaultDownloadFolder, issues }`, each issue a
+    card plus the `CardHealth` that `classifyCardHealth`
+    (`server/utils/libraryHealth.ts`) computed. Each row offers only fixes
+    that can work: Re-download (clears the stale path first, since feature 8
+    refuses to download over a set path), Clear path (only when the card keeps
+    another source, per feature 4), Re-source through the new card-scoped
+    `POST /api/cards/resource` (60c's `refreshCardSources` with a `cardIds`
+    filter), and Delete (61) behind a confirm. An outside-library file gets
+    no Clear or Re-download, because clearing a path deletes its file; its
+    fix is adding the folder back. Nothing changes until a fix is clicked,
+    and each row re-checks itself afterwards.
 81. **Deck detail uses the Cards view** - not yet built. Added 2026-09-26.
     A deck's card list (artist, anime, and manual) reuses `/cards`' dense
     table and inspector rail (feature 50c) in place of the row list with

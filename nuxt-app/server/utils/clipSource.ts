@@ -55,3 +55,17 @@ export function filterClipUrls(
     clipBlocked: hadSomething && allowedVideo === null && allowedAudio === null,
   };
 }
+
+// Only an animethemes.moe URL is worth moving. An AMQ host is already the fast
+// one, and a card with a local file for that kind never streams at all.
+export function isAnimethemesUrl(url: string | null): boolean {
+  if (!url) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  const { hostname } = parsed;
+  return parsed.protocol === "https:" && (hostname === "animethemes.moe" || hostname.endsWith(".animethemes.moe"));
+}

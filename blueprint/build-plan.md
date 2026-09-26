@@ -811,7 +811,7 @@ cleaned-up checkbox version before generating the project overview.
   editor, or a history Preview is open, so the round is never submitted
   behind an overlay. Submitting early cancels it. Off by default, and
   nothing changes for a user who never turns Auto Reveal on.
-- [ ] 80. **Library health check** - a Settings scan listing cards that will
+- [x] 80. **Library health check** - a Settings scan listing cards that will
   stall a session: a local video/audio path whose file is missing on disk
   (left out of scope by feature 42), and cards with no source the Clip source
   setting (feature 64) allows them to play. Each row names the problem and

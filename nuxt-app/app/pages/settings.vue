@@ -17,15 +17,16 @@ const { data, pending, error, refresh } = await useFetch<{
   animethemesSourcedCardCount: number;
 }>("/api/media-library");
 
-type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "about";
+type SettingsSection = "library" | "study" | "playback" | "cache" | "import" | "health" | "about";
 
-const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import", "about"];
+const SECTIONS: SettingsSection[] = ["library", "study", "playback", "cache", "import", "health", "about"];
 const SECTION_LABELS: Record<SettingsSection, string> = {
   library: "Media library",
   study: "Study pacing",
   playback: "Playback",
   cache: "Cache",
   import: "Import & export",
+  health: "Library health",
   about: "About",
 };
 
@@ -186,6 +187,12 @@ async function importDeck() {
               Check again
             </button>
           </div>
+        </div>
+
+        <!-- Outside the settings fetch too: the scan reads everything it needs
+             from its own route. -->
+        <div v-else-if="activeSection === 'health'" class="section-panels">
+          <SettingsLibraryHealth class="panel-full" />
         </div>
 
         <template v-else>

@@ -1,9 +1,10 @@
-import { and, eq, isNull, like, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, card, song } from "../db/schema.ts";
 import type { AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { AnimeLookupUnavailableError } from "./animeMetadata.ts";
+import { isAnimethemesUrl } from "./clipSource.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
 import { getClipSource } from "./mediaLibrary.ts";
 import { titleKey } from "./textMatch.ts";
@@ -18,26 +19,12 @@ export interface SourceRefreshCandidate {
   swapAudio: boolean;
 }
 
-// Only an animethemes.moe URL is worth moving. An AMQ host is already the fast
-// one, and a card with a local file for that kind never streams at all.
-export function isAnimethemesUrl(url: string | null): boolean {
-  if (!url) return false;
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  const { hostname } = parsed;
-  return parsed.protocol === "https:" && (hostname === "animethemes.moe" || hostname.endsWith(".animethemes.moe"));
-}
-
 // The count the user is shown and the set that actually gets rewritten come
 // from this one query, so they cannot disagree (the countAnimeMissingCover
 // precedent). The SQL like() only narrows; isAnimethemesUrl below is what
 // decides, since a substring match would also accept another host serving a
 // path that happens to name animethemes.moe.
-export function listSourceRefreshCandidates(): SourceRefreshCandidate[] {
+export function listSourceRefreshCandidates(cardIds?: readonly number[]): SourceRefreshCandidate[] {
   // This action's only write target is an AMQ host - under "animethemes"-only
   // mode that host is excluded, so moving a card onto it would break a card
   // that plays fine today rather than fix one that doesn't. Nothing to offer
@@ -60,9 +47,12 @@ export function listSourceRefreshCandidates(): SourceRefreshCandidate[] {
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
     .where(
-      or(
-        and(isNull(card.localVideoPath), like(card.animethemesVideoUrl, "%animethemes.moe%")),
-        and(isNull(card.localAudioPath), like(card.animethemesAudioUrl, "%animethemes.moe%")),
+      and(
+        or(
+          and(isNull(card.localVideoPath), like(card.animethemesVideoUrl, "%animethemes.moe%")),
+          and(isNull(card.localAudioPath), like(card.animethemesAudioUrl, "%animethemes.moe%")),
+        ),
+        cardIds ? inArray(card.id, [...cardIds]) : undefined,
       ),
     )
     .all();
@@ -128,11 +118,14 @@ export interface SourceRefreshDeps {
   fetchThemes: (malId: number, aniListId: number) => Promise<AnisongTheme[]>;
 }
 
+// cardIds narrows the run to those cards (the library health check's per-row
+// Re-source); omitted, it covers the whole library as 60c's Settings action does.
 export async function refreshCardSources(
   deps: SourceRefreshDeps,
   report: ReportImportProgress,
+  cardIds?: readonly number[],
 ): Promise<SourceRefreshResult> {
-  const candidates = listSourceRefreshCandidates();
+  const candidates = listSourceRefreshCandidates(cardIds);
 
   // One provider round trip per anime, not per card: every card under an anime
   // is answered by the same theme list.

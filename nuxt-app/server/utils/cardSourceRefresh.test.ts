@@ -8,13 +8,13 @@ import { AnimeLookupUnavailableError } from "./animeMetadata.ts";
 import type { ImportProgress } from "./importProgress.ts";
 import {
   countCardsToRefresh,
-  isAnimethemesUrl,
   listSourceRefreshCandidates,
   matchTheme,
   refreshCardSources,
   type SourceRefreshCandidate,
   type SourceRefreshDeps,
 } from "./cardSourceRefresh.ts";
+import { isAnimethemesUrl } from "./clipSource.ts";
 
 vi.mock("../db/client.ts", async () => {
   const { default: Database } = await import("better-sqlite3");
@@ -374,6 +374,42 @@ describe("refreshCardSources", () => {
       { label: "Re-resolving clip sources", completed: 0, total: 1, unavailable: 0 },
       { label: "Re-resolving clip sources", completed: 1, total: 1, unavailable: 0 },
     ]);
+  });
+});
+
+describe("refreshCardSources scoped to cardIds", () => {
+  it("lists and rewrites only the named card, calling providers for its anime alone", async () => {
+    const target = makeCard({ animethemesVideoUrl: VIDEO, aniListId: 1 });
+    const other = makeCard({ animethemesVideoUrl: VIDEO, aniListId: 2, title: "Seishun Complex" });
+    const fetchAnime = vi.fn(async () => ({ malId: 999 }));
+    const fetchThemes = vi.fn(async () => [theme("Seishun Complex")]);
+
+    expect(listSourceRefreshCandidates([target.id]).map((c) => c.cardId)).toEqual([target.id]);
+
+    const result = await refreshCardSources(deps({ fetchAnime, fetchThemes }), noReport, [target.id]);
+
+    expect(result).toEqual({ checked: 1, updated: 1, skipped: 0, animeUnavailable: 0 });
+    expect(fetchAnime).toHaveBeenCalledTimes(1);
+    expect(fetchAnime).toHaveBeenCalledWith(1);
+    expect(storedUrls(target.id).video).toBe(AMQ_VIDEO);
+    expect(storedUrls(other.id).video).toBe(VIDEO);
+  });
+
+  it("checks nothing and calls no provider for a card that is not a candidate", async () => {
+    const local = makeCard({ animethemesVideoUrl: VIDEO, localVideoPath: "/library/op1.webm" });
+    const fetchAnime = vi.fn(async () => ({ malId: 999 }));
+
+    const result = await refreshCardSources(deps({ fetchAnime }), noReport, [local.id]);
+
+    expect(result).toEqual({ checked: 0, updated: 0, skipped: 0, animeUnavailable: 0 });
+    expect(fetchAnime).not.toHaveBeenCalled();
+  });
+
+  it("covers the whole library when no filter is given", () => {
+    makeCard({ animethemesVideoUrl: VIDEO, aniListId: 1 });
+    makeCard({ animethemesVideoUrl: VIDEO, aniListId: 2 });
+
+    expect(listSourceRefreshCandidates()).toHaveLength(2);
   });
 });
 
