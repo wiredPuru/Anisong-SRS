@@ -19,8 +19,15 @@ export interface UpdateStatus {
   latest: string | null;
   updateAvailable: boolean;
   releaseUrl: string | null;
+  downloadUrl: string | null;
+  releaseNotes: string | null;
   checkFailed: boolean;
   checkedAt: string;
+}
+
+export interface ReleaseAsset {
+  name: string;
+  url: string;
 }
 
 // Only the remote lookup is cached. `updateAvailable` is recomputed per call
@@ -29,6 +36,8 @@ export interface UpdateStatus {
 interface ReleaseLookup {
   latest: string | null;
   releaseUrl: string | null;
+  releaseNotes: string | null;
+  assets: ReleaseAsset[];
   checkFailed: boolean;
   checkedAt: string;
 }
@@ -62,6 +71,37 @@ export function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
+// Must match the archive names `bun run package` produces (scripts/package.ts).
+export function platformAssetName(platform: string, arch: string): string | null {
+  if (platform === "win32" && arch === "x64") return "gaq-srs-windows-x64.zip";
+  if (platform === "darwin" && arch === "x64") return "gaq-srs-macos-x64.zip";
+  if (platform === "darwin" && arch === "arm64") return "gaq-srs-macos-arm64.zip";
+  if (platform === "linux" && arch === "x64") return "gaq-srs-linux-x64.zip";
+  return null;
+}
+
+export function parseReleaseAssets(raw: unknown): ReleaseAsset[] {
+  if (!Array.isArray(raw)) return [];
+
+  const assets: ReleaseAsset[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const { name, browser_download_url: url } = entry as Record<string, unknown>;
+    if (typeof name === "string" && typeof url === "string") assets.push({ name, url });
+  }
+  return assets;
+}
+
+export function pickDownloadUrl(
+  assets: ReleaseAsset[],
+  platform: string,
+  arch: string,
+): string | null {
+  const wanted = platformAssetName(platform, arch);
+  if (!wanted) return null;
+  return assets.find((asset) => asset.name === wanted)?.url ?? null;
+}
+
 // Never throws and never surfaces an error state: an offline machine, a rate
 // limit, a repo with no releases yet, or malformed JSON all degrade to "no
 // update notice", which is the same thing the user saw before this feature.
@@ -73,6 +113,8 @@ export async function getUpdateStatus(current: string): Promise<UpdateStatus> {
     latest: lookup.latest,
     updateAvailable: lookup.latest ? isNewerVersion(lookup.latest, current) : false,
     releaseUrl: lookup.releaseUrl,
+    downloadUrl: pickDownloadUrl(lookup.assets, process.platform, process.arch),
+    releaseNotes: lookup.releaseNotes,
     checkFailed: lookup.checkFailed,
     checkedAt: lookup.checkedAt,
   };
@@ -96,16 +138,31 @@ async function getReleaseLookup(): Promise<ReleaseLookup> {
 
     if (!response.ok) throw new Error(`GitHub responded ${response.status}`);
 
-    const release = (await response.json()) as { tag_name?: unknown; html_url?: unknown };
+    const release = (await response.json()) as {
+      tag_name?: unknown;
+      html_url?: unknown;
+      body?: unknown;
+      assets?: unknown;
+    };
 
     lookup = {
       latest: typeof release.tag_name === "string" ? release.tag_name : null,
       releaseUrl: typeof release.html_url === "string" ? release.html_url : null,
+      releaseNotes:
+        typeof release.body === "string" && release.body.trim() ? release.body : null,
+      assets: parseReleaseAssets(release.assets),
       checkFailed: false,
       checkedAt,
     };
   } catch {
-    lookup = { latest: null, releaseUrl: null, checkFailed: true, checkedAt };
+    lookup = {
+      latest: null,
+      releaseUrl: null,
+      releaseNotes: null,
+      assets: [],
+      checkFailed: true,
+      checkedAt,
+    };
   }
 
   cached = {

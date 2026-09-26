@@ -3,6 +3,8 @@ export interface UpdateStatus {
   latest: string | null;
   updateAvailable: boolean;
   releaseUrl: string | null;
+  downloadUrl: string | null;
+  releaseNotes: string | null;
   checkFailed: boolean;
   checkedAt: string;
 }

@@ -34,6 +34,16 @@ const appVersion = useRuntimeConfig().public.appVersion;
 const { status: updateStatus, pending: updatePending, check: checkForUpdate } = useUpdateCheck();
 onMounted(() => checkForUpdate());
 
+const releaseNoteBlocks = computed(() =>
+  updateStatus.value?.releaseNotes ? parseReleaseNotes(updateStatus.value.releaseNotes) : [],
+);
+const downloadLabel = computed(() => {
+  const url = updateStatus.value?.downloadUrl;
+  if (!url) return null;
+  const platform = downloadPlatformLabel(url);
+  return `Download ${updateStatus.value?.latest}${platform ? ` for ${platform}` : ""}`;
+});
+
 function parseSection(value: unknown): SettingsSection {
   return SECTIONS.includes(value as SettingsSection) ? (value as SettingsSection) : "library";
 }
@@ -164,6 +174,47 @@ async function importDeck() {
             <p class="version-line">{{ updateStatus?.current ?? appVersion }}</p>
 
             <p v-if="updatePending" class="state">Checking for updates...</p>
+            <div
+              v-else-if="updateStatus?.updateAvailable && updateStatus.downloadUrl"
+              class="update-available"
+            >
+              <p class="update-headline">Update available - {{ updateStatus.latest }}</p>
+              <div class="update-actions">
+                <a :href="updateStatus.downloadUrl" rel="noreferrer" class="update-link update-download">
+                  {{ downloadLabel }}
+                </a>
+                <a
+                  v-if="updateStatus.releaseUrl"
+                  :href="updateStatus.releaseUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="update-link"
+                >
+                  Release page
+                </a>
+              </div>
+              <div v-if="releaseNoteBlocks.length" class="release-notes">
+                <template v-for="(block, blockIndex) in releaseNoteBlocks" :key="blockIndex">
+                  <h3 v-if="block.type === 'heading'" class="release-notes-heading">{{ block.text }}</h3>
+                  <ul v-else-if="block.type === 'list'" class="release-notes-list">
+                    <li v-for="(item, itemIndex) in block.items" :key="itemIndex">
+                      <template v-for="(span, spanIndex) in item" :key="spanIndex">
+                        <strong v-if="span.bold">{{ span.text }}</strong>
+                        <code v-else-if="span.code">{{ span.text }}</code>
+                        <template v-else>{{ span.text }}</template>
+                      </template>
+                    </li>
+                  </ul>
+                  <p v-else class="release-notes-paragraph">
+                    <template v-for="(span, spanIndex) in block.spans" :key="spanIndex">
+                      <strong v-if="span.bold">{{ span.text }}</strong>
+                      <code v-else-if="span.code">{{ span.text }}</code>
+                      <template v-else>{{ span.text }}</template>
+                    </template>
+                  </p>
+                </template>
+              </div>
+            </div>
             <a
               v-else-if="updateStatus?.updateAvailable && updateStatus.releaseUrl"
               :href="updateStatus.releaseUrl"
@@ -513,6 +564,71 @@ async function importDeck() {
 .update-link:hover {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.update-available {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.update-headline {
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.update-download {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.update-download:hover {
+  background: var(--accent-strong);
+}
+
+.release-notes {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.release-notes-heading {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.release-notes-heading:first-child {
+  margin-top: 0;
+}
+
+.release-notes-paragraph {
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.release-notes-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.release-notes code {
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  font-size: 12px;
 }
 
 .state-error {
