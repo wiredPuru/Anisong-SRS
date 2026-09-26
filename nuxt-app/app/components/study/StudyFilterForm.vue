@@ -24,6 +24,7 @@ const SEASONS: { value: StudySeason; label: string }[] = [
 const THEME_TYPES: { value: StudyThemeType; label: string }[] = [
   { value: "OP", label: "Openings" },
   { value: "ED", label: "Endings" },
+  { value: "IN", label: "Inserts" },
 ];
 const TAG_SUGGESTION_LIMIT = 12;
 const LIST_SITE_LABELS: Record<StudyListSite, string> = { anilist: "AniList", mal: "MyAnimeList" };

@@ -79,3 +79,27 @@ describe("theme slot labels", () => {
     expect(isInsertThemeSlot("IN-")).toBe(false);
   });
 });
+
+describe("insert slots in grading", () => {
+  it("normalizes an insert slot to an unnumbered Insert", () => {
+    expect(normalizeThemeSlot("IN-21049")).toEqual({ type: "IN", number: 0 });
+  });
+
+  it("formats an Insert pick without a number", () => {
+    expect(formatThemeSlot({ type: "IN", number: 3 })).toBe("Insert");
+  });
+
+  it("passes any Insert pick against an insert, whatever the number", () => {
+    expect(evaluateThemeSlotAnswer("IN-21049", { type: "IN", number: 7 })).toBe(true);
+  });
+
+  it("never crosses an insert with an opening or ending", () => {
+    expect(evaluateThemeSlotAnswer("OP1", { type: "IN", number: 1 })).toBe(false);
+    expect(evaluateThemeSlotAnswer("IN-21049", { type: "OP", number: 1 })).toBe(false);
+  });
+
+  it("still requires the number for openings and endings", () => {
+    expect(evaluateThemeSlotAnswer("ED2", { type: "ED", number: 2 })).toBe(true);
+    expect(evaluateThemeSlotAnswer("ED2", { type: "ED", number: 3 })).toBe(false);
+  });
+});

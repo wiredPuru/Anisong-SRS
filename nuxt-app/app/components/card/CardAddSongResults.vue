@@ -194,7 +194,7 @@ async function removeCard(resultKey: string) {
           @click="addSongRowClick(result)"
         >
           <div class="theme-info">
-            <span class="theme-title">{{ result.songTitle ?? result.themeSlot }}</span>
+            <span class="theme-title">{{ result.songTitle ?? formatThemeSlotLabel(result.themeSlot) }}</span>
             <span class="result-meta">
               {{ result.artistName ?? "Unknown artist" }} - {{ result.animeTitleRomaji }} ({{ formatThemeSlotLabel(result.themeSlot) }})
             </span>

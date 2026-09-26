@@ -1,4 +1,4 @@
-export type ThemeSlotType = "OP" | "ED";
+export type ThemeSlotType = "OP" | "ED" | "IN";
 
 export interface ThemeSlotSelection {
   type: ThemeSlotType;
@@ -6,7 +6,7 @@ export interface ThemeSlotSelection {
 }
 
 export function formatThemeSlot(selection: ThemeSlotSelection): string {
-  return `${selection.type}${selection.number}`;
+  return selection.type === "IN" ? "Insert" : `${selection.type}${selection.number}`;
 }
 
 // The stored themeSlot is not always the clean "OP1"/"ED2" shape it usually
@@ -15,6 +15,7 @@ export function formatThemeSlot(selection: ThemeSlotSelection): string {
 // player can't reasonably type a suffix, so grading only needs the leading
 // OP/ED + number.
 export function normalizeThemeSlot(rawSlot: string): ThemeSlotSelection | null {
+  if (isInsertThemeSlot(rawSlot)) return { type: "IN", number: 0 };
   const match = /^(OP|ED)(\d+)/i.exec(rawSlot.trim());
   if (!match) return null;
   return { type: match[1]!.toUpperCase() as ThemeSlotType, number: Number(match[2]) };
@@ -22,7 +23,9 @@ export function normalizeThemeSlot(rawSlot: string): ThemeSlotSelection | null {
 
 export function evaluateThemeSlotAnswer(expectedSlot: string, selection: ThemeSlotSelection): boolean {
   const expected = normalizeThemeSlot(expectedSlot);
-  return expected !== null && expected.type === selection.type && expected.number === selection.number;
+  if (expected === null || expected.type !== selection.type) return false;
+  // AMQ does not number inserts, so naming one an insert is the whole answer.
+  return expected.type === "IN" || expected.number === selection.number;
 }
 
 // Insert slots (IN-<annSongId>) carry AnisongDB's song id only so each insert

@@ -907,7 +907,7 @@ onUnmounted(() => stopDrag?.());
       @mousemove="onPlayerPointerMove"
       @mouseleave="resetPlayerParallax"
     >
-      <span v-if="!hideThemeBadge" class="theme-badge">{{ card.themeSlot }}</span>
+      <span v-if="!hideThemeBadge" class="theme-badge">{{ formatThemeSlotLabel(card.themeSlot) }}</span>
       <button
         v-if="allowExpand"
         type="button"

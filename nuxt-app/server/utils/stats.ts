@@ -10,6 +10,7 @@ import {
   trackStreakExpr,
 } from "./cardTrack.ts";
 import { getCardsByIds, getDueCardCount } from "./cards.ts";
+import { isInsertSlot } from "./themeSlot.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { DEFAULT_GRADING_CRITERION, GRADING_CRITERIA, type GradingCriterion } from "./gradingCriterion.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
@@ -539,9 +540,9 @@ export function getReviewForecast(criterion: GradingCriterion = DEFAULT_GRADING_
   });
 }
 
-export type ThemeKind = "OP" | "ED" | "other";
+export type ThemeKind = "OP" | "ED" | "IN" | "other";
 
-const THEME_KINDS: ThemeKind[] = ["OP", "ED", "other"];
+const THEME_KINDS: ThemeKind[] = ["OP", "ED", "IN", "other"];
 
 export interface RetentionEntry {
   totalReviews: number;
@@ -564,6 +565,7 @@ export interface RetentionInput {
 // and the occasional oddity, so anything that isn't clearly an opening or an
 // ending keeps its reviews in a visible bucket rather than being dropped.
 export function classifyThemeSlot(slot: string): ThemeKind {
+  if (isInsertSlot(slot)) return "IN";
   const normalized = slot.trim().toUpperCase();
   if (normalized.startsWith("OP")) return "OP";
   if (normalized.startsWith("ED")) return "ED";

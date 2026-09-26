@@ -54,7 +54,7 @@ describe("parseStudyFilters", () => {
     [{ yearMin: 2010, yearMax: 2000 }, "yearMin must not be after"],
     [{ scoreMin: 80, scoreMax: 70 }, "scoreMin must not be above"],
     [{ formats: ["CARTOON"] }, "unknown value"],
-    [{ themeTypes: ["IN"] }, "unknown value"],
+    [{ themeTypes: ["XX"] }, "unknown value"],
     [{ seasons: ["AUTUMN"] }, "unknown value"],
     [{ seasons: "SPRING" }, "list"],
     [{ genresInclude: "Comedy" }, "list"],
@@ -149,6 +149,9 @@ describe("studyFilterCondition", () => {
     expect(matching({ formats: ["MOVIE"] })).toEqual(["movie"]);
     expect(matching({ themeTypes: ["OP"] })).toEqual(["eva", "kon", "unknown"]);
     expect(matching({ themeTypes: ["OP", "ED"] })).toHaveLength(5);
+    addAnime("madoka", "IN-21049");
+    expect(matching({ themeTypes: ["IN"] })).toEqual(["madoka"]);
+    expect(matching({ themeTypes: ["OP", "IN"] })).toEqual(["eva", "kon", "madoka", "unknown"]);
   });
 
   it("requires every included genre and none of the excluded ones", () => {

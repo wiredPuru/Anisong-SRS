@@ -1,4 +1,4 @@
-export type StudyThemeType = "OP" | "ED";
+export type StudyThemeType = "OP" | "ED" | "IN";
 export type StudySeason = "WINTER" | "SPRING" | "SUMMER" | "FALL";
 const STUDY_SEASONS: readonly string[] = ["WINTER", "SPRING", "SUMMER", "FALL"];
 export type StudyListSite = "anilist" | "mal";
@@ -119,7 +119,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { ...EMPTY_STUDY_FILTERS };
   const stored = { ...EMPTY_STUDY_FILTERS, ...(parsed as Partial<StudyFilters>) };
   const listsValid = [stored.seasons, stored.formats, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
-    .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED")
+    .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED" || type === "IN")
     && stored.seasons.every((season) => STUDY_SEASONS.includes(season));
   const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
     && typeof stored.tagMinRank === "number";

@@ -149,7 +149,7 @@ const resultText = computed(() => {
         <ul class="recover-list">
           <li v-for="entry in scan.create" :key="entry.songId" class="recover-row">
             <span class="recover-song">{{ entry.songTitle }}</span>
-            <span class="recover-meta">{{ entry.animeTitleRomaji }} · {{ entry.themeSlot }} · {{ entry.artistName }}</span>
+            <span class="recover-meta">{{ entry.animeTitleRomaji }} · {{ formatThemeSlotLabel(entry.themeSlot) }} · {{ entry.artistName }}</span>
             <span v-if="entry.videoPath" class="recover-path">Video: {{ fileName(entry.videoPath) }}</span>
             <span v-if="entry.audioPath" class="recover-path">Audio: {{ fileName(entry.audioPath) }}</span>
           </li>
@@ -161,7 +161,7 @@ const resultText = computed(() => {
         <ul class="recover-list">
           <li v-for="entry in scan.attach" :key="entry.path" class="recover-row">
             <span class="recover-song">{{ entry.songTitle }}</span>
-            <span class="recover-meta">{{ entry.animeTitleRomaji }} · {{ entry.themeSlot }} · {{ entry.artistName }}</span>
+            <span class="recover-meta">{{ entry.animeTitleRomaji }} · {{ formatThemeSlotLabel(entry.themeSlot) }} · {{ entry.artistName }}</span>
             <span class="recover-path">As its local {{ entry.kind }}: {{ fileName(entry.path) }}</span>
           </li>
         </ul>

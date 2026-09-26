@@ -223,7 +223,7 @@ const hasMissing = computed(() =>
             <div class="health-row-body">
               <span class="health-row-song">{{ row.card.songTitle }}</span>
               <span class="health-row-meta">
-                {{ row.card.animeTitleRomaji }} · {{ row.card.themeSlot }} · {{ row.card.artistName }}
+                {{ row.card.animeTitleRomaji }} · {{ formatThemeSlotLabel(row.card.themeSlot) }} · {{ row.card.artistName }}
               </span>
               <ul class="health-problems">
                 <li v-for="issue in row.health.localIssues" :key="issue.kind">

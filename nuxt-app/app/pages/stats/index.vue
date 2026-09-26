@@ -52,7 +52,7 @@ interface ReviewForecast {
   next30: number;
 }
 
-type ThemeKind = "OP" | "ED" | "other";
+type ThemeKind = "OP" | "ED" | "IN" | "other";
 
 interface RetentionEntry {
   totalReviews: number;
@@ -331,13 +331,14 @@ const retentionTotal = computed(() =>
 const THEME_KIND_LABELS: Record<ThemeKind, string> = {
   OP: "Openings",
   ED: "Endings",
+  IN: "Inserts",
   other: "Other slots",
 };
 
-// "other" only exists for slots neither prefix matched, so it stays hidden
-// until something actually lands in it.
+// "other" only exists for slots neither prefix matched, and inserts only once
+// the opt-in setting has added some, so both stay hidden until reviewed.
 const retentionKinds = computed(() =>
-  (retention.value?.byThemeKind ?? []).filter((entry) => entry.kind !== "other" || entry.totalReviews > 0),
+  (retention.value?.byThemeKind ?? []).filter((entry) => entry.kind === "OP" || entry.kind === "ED" || entry.totalReviews > 0),
 );
 
 const {
@@ -1128,7 +1129,7 @@ function setType(type: StatsType) {
           <span class="mover-info">
             <span class="mover-label">{{ entry.card.songTitle }}</span>
             <span class="mover-detail">
-              {{ entry.card.artistName }} · {{ entry.card.animeTitleEnglish }} · {{ entry.card.themeSlot }}
+              {{ entry.card.artistName }} · {{ entry.card.animeTitleEnglish }} · {{ formatThemeSlotLabel(entry.card.themeSlot) }}
             </span>
           </span>
           <span class="trouble-figure">

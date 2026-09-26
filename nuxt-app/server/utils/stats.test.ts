@@ -278,6 +278,10 @@ describe("classifyThemeSlot", () => {
     expect(classifyThemeSlot("ed")).toBe("ED");
   });
 
+  it("reads an insert slot as its own kind", () => {
+    expect(classifyThemeSlot("IN-21049")).toBe("IN");
+  });
+
   it("keeps an unrecognised slot in its own bucket", () => {
     expect(classifyThemeSlot("IN1")).toBe("other");
     expect(classifyThemeSlot("")).toBe("other");
@@ -285,12 +289,26 @@ describe("classifyThemeSlot", () => {
 });
 
 describe("shapeRetention", () => {
+  it("totals insert reviews into the Inserts bucket", () => {
+    const retention = shapeRetention({
+      byBox: [],
+      byThemeSlot: [
+        { themeSlot: "IN-21049", totalReviews: 4, passCount: 3 },
+        { themeSlot: "IN-48203", totalReviews: 2, passCount: 1 },
+        { themeSlot: "OP1", totalReviews: 5, passCount: 5 },
+      ],
+    });
+
+    expect(retention.byThemeKind.find((entry) => entry.kind === "IN")).toMatchObject({ totalReviews: 6 });
+    expect(retention.byThemeKind.find((entry) => entry.kind === "OP")).toMatchObject({ totalReviews: 5 });
+  });
+
   it("returns a full ladder with no rates when nothing has been reviewed", () => {
     const retention = shapeRetention({ byBox: [], byThemeSlot: [] });
 
     expect(retention.byBox).toHaveLength(5);
     expect(retention.byBox.every((entry) => entry.passRate === null)).toBe(true);
-    expect(retention.byThemeKind.map((entry) => entry.kind)).toEqual(["OP", "ED", "other"]);
+    expect(retention.byThemeKind.map((entry) => entry.kind)).toEqual(["OP", "ED", "IN", "other"]);
     expect(retention.byThemeKind.every((entry) => entry.totalReviews === 0)).toBe(true);
   });
 

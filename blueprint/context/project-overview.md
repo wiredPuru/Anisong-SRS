@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 87c094d0883fbec6ea8cd5e77749bbc5c87696763fec3e40e78d1357bf73a5ce -->
+<!-- blueprint:source-hash 270d378665fd495d71b51d796aa7ca7c834b546ca20c145f9320ec7175fadeb0 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -271,8 +271,8 @@ section. It reverses feature 63's rule that the mascot stays off working
 surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
 All five sub-features are built and merged.
 Feature 85 (insert songs, in two sub-features 85a-85b) was added to
-`build-plan.md` on 2026-09-26; 85a is built and merged, 85b is not yet built.
-It reverses the rule,
+`build-plan.md` on 2026-09-26; both sub-features are built and merged. It
+reverses the rule,
 recorded under features 60a and 76, that every import drops insert songs. It is
 opt-in behind a persistent Settings toggle, default off, so nothing changes
 until it is turned on. It amended `project-plan.md` §3's "Anime & song lookup"
@@ -1923,7 +1923,7 @@ bullet and §4's first Data bullet to name insert songs.
       messages on Home, Cards, Decks, Stats, and Settings. All nine
       `.backdrop > .panel` modals take a 2px `--outline` border and the
       larger radius.
-85. **Insert songs** - in progress (85a done). Import, study, and grade AMQ insert
+85. **Insert songs** - done 2026-09-26, two sub-features. Import, study, and grade AMQ insert
     songs alongside OP/ED themes, opt-in behind a persistent Settings toggle
     ("Include insert songs", default off, like AMQ's own lobby setting), so
     imports and "Add all" behave exactly as today until it is turned on.
@@ -1945,11 +1945,15 @@ bullet and §4's first Data bullet to name insert songs.
       `server/utils/themeSlot.ts`). The lookup routes pass `includeInserts`
       into the source helpers, and copies of one insert collapse onto their
       lowest `annSongId`.
-    - **85b. Study, grading, and stats** - the OP/ED filter (Study and
+    - **85b. Study, grading, and stats** - done 2026-09-26. The OP/ED filter (Study and
       deck-from-filters) gains Insert, the OP/ED number answer gains an
       "Insert" choice that an insert passes with no number, `/stats`' OP vs
       ED split gains an Insert bucket, and every slot label reads "Insert"
-      rather than `IN2`.
+      rather than the internal `IN-<annSongId>`. `ThemeSlotType` gained `"IN"`
+      (`normalizeThemeSlot` maps an insert to `{ type: "IN", number: 0 }`), the
+      Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
+      Insert choice and Inserts chip always show, since hiding them per card
+      would give the answer away. Card edit forms still show the raw slot.
 
 ## Data model
 

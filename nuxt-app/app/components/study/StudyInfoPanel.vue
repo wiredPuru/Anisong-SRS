@@ -265,7 +265,7 @@ watch(
       </div>
       <div v-if="themeSlot" class="detail-row">
         <span class="label">Theme</span>
-        <span class="value">{{ themeSlot }}</span>
+        <span class="value">{{ formatThemeSlotLabel(themeSlot) }}</span>
       </div>
       <div v-if="notes" class="detail-row">
         <span class="label">Notes</span>

@@ -84,7 +84,7 @@ const headerCheckState = computed(() =>
           <span class="song-artist">{{ c.artistName }}</span>
         </span>
         <span class="cell-anime">
-          {{ c.animeTitleEnglish }} <span class="slot">{{ c.themeSlot }}</span>
+          {{ c.animeTitleEnglish }} <span class="slot">{{ formatThemeSlotLabel(c.themeSlot) }}</span>
         </span>
         <span class="cell-sources">
           <span v-for="badge in compactSourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>

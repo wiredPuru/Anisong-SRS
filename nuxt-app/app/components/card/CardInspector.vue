@@ -215,7 +215,7 @@ async function removeCard(id: number) {
       />
       <div v-else class="inspector-cover">
         <img v-if="card.animeCoverImageUrl" :src="card.animeCoverImageUrl" alt="" />
-        <span class="inspector-slot">{{ card.themeSlot }}</span>
+        <span class="inspector-slot">{{ formatThemeSlotLabel(card.themeSlot) }}</span>
       </div>
       <div class="inspector-body">
         <div class="inspector-titles">

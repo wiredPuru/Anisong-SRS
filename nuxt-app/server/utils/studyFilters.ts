@@ -2,7 +2,7 @@ import { and, gte, like, lte, inArray, isNotNull, not, or, sql, type SQL } from 
 import { ANIME_SEASONS, type AnimeSeason } from "../lib/anilist.ts";
 import { anime, song } from "../db/schema.ts";
 
-export const THEME_TYPES = ["OP", "ED"] as const;
+export const THEME_TYPES = ["OP", "ED", "IN"] as const;
 export type ThemeType = (typeof THEME_TYPES)[number];
 
 export const ANIME_FORMATS = ["TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"] as const;

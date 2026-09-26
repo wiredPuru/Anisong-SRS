@@ -81,7 +81,7 @@ describe("studyFiltersProblem", () => {
 });
 
 describe("readStoredFilters", () => {
-  it.each([null, "", "{", "[]", "3", JSON.stringify({ genresInclude: "Comedy" }), JSON.stringify({ themeTypes: ["IN"] }),
+  it.each([null, "", "{", "[]", "3", JSON.stringify({ genresInclude: "Comedy" }), JSON.stringify({ themeTypes: ["XX"] }),
     JSON.stringify({ seasons: ["AUTUMN"] }), JSON.stringify({ seasons: "SPRING" }),
     JSON.stringify({ yearMin: 2010, yearMax: 2000 }), JSON.stringify({ tagMinRank: "60" })])(
     "falls back to no filters for %j",
@@ -129,5 +129,11 @@ describe("tag counts", () => {
     ]);
     expect(tagBreakdown(tags, 75, new Set())).toEqual([{ name: "Band", count: 2 }]);
     expect(tagBreakdown([], 60, new Set())).toEqual([]);
+  });
+});
+
+describe("readStoredFilters insert theme type", () => {
+  it("keeps a saved Inserts theme filter", () => {
+    expect(readStoredFilters(JSON.stringify({ themeTypes: ["IN"] })).themeTypes).toEqual(["IN"]);
   });
 });

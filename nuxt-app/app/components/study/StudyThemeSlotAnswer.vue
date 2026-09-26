@@ -40,7 +40,7 @@ function onNumberInput(event: Event) {
 <template>
   <div class="theme-slot-answer" :class="{ touched, required }">
     <span class="label">{{ required ? "OP/ED (required)" : "OP/ED" }}</span>
-    <div class="seg" role="group" aria-label="Opening or Ending">
+    <div class="seg" role="group" aria-label="Opening, Ending, or Insert">
       <button
         type="button"
         class="seg-btn"
@@ -61,10 +61,28 @@ function onNumberInput(event: Event) {
       >
         Ending
       </button>
+      <button
+        type="button"
+        class="seg-btn"
+        :class="{ on: showPick && type === 'IN' }"
+        :aria-pressed="showPick && type === 'IN'"
+        :disabled="disabled"
+        @click="chooseType('IN')"
+      >
+        Insert
+      </button>
     </div>
     <label class="number-field">
       #
-      <input type="number" min="1" max="30" step="1" :value="number" :disabled="disabled" @input="onNumberInput" />
+      <input
+        type="number"
+        min="1"
+        max="30"
+        step="1"
+        :value="number"
+        :disabled="disabled || (showPick && type === 'IN')"
+        @input="onNumberInput"
+      />
     </label>
   </div>
 </template>
