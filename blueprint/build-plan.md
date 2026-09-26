@@ -827,7 +827,7 @@ cleaned-up checkbox version before generating the project overview.
   (Remove from deck on manual decks, Study this deck, export) and the deck's
   search and infinite scroll. Built by extracting `/cards`' table and
   inspector into shared components rather than copying them.
-- [ ] 82. **One-click update** - the packaged app can install a newer release
+- [x] 82. **One-click update** - the packaged app can install a newer release
   itself instead of only linking to it (feature 54 and the
   direct-download-update-notice fix). From Settings > About, "Download update"
   fetches this platform's release zip into the user-data directory, verifies it
@@ -844,7 +844,7 @@ cleaned-up checkbox version before generating the project overview.
   and nothing is changed until the user clicks. It never updates on its own.
   - [x] 82a. **Download, verify, and stage** - server routes and a Settings
     progress state that end at "Ready - restart to update", with no swap yet.
-  - [ ] 82b. **Swap and relaunch** - the rename-and-replace with restore on
+  - [x] 82b. **Swap and relaunch** - the rename-and-replace with restore on
     failure, a relaunch that waits for the old process to free the port,
     `.old` cleanup on the next start, and the page reload.
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { status, starting, refresh, start } = useSelfUpdate();
+const { status, starting, restartPhase, restartError, refresh, start, restart } = useSelfUpdate();
 onMounted(refresh);
 
 const progress = computed(() =>
@@ -32,9 +32,17 @@ const progress = computed(() =>
     <p v-else-if="status.state === 'unpacking'" class="self-update-state">Unpacking...</p>
 
     <template v-else-if="status.state === 'ready'">
-      <p class="self-update-ready">Ready - restart to update</p>
-      <button type="button" class="self-update-btn" disabled>Restart to update</button>
-      <p class="self-update-hint">Restart comes in the next step.</p>
+      <p v-if="restartPhase === 'restarting'" class="self-update-state">
+        Restarting... this page reloads when the new version is up.
+      </p>
+      <p v-else-if="restartPhase === 'timed-out'" class="self-update-error">
+        The app didn't come back after restarting. Open it again from its folder.
+      </p>
+      <template v-else>
+        <p class="self-update-ready">Ready - restart to update</p>
+        <button type="button" class="self-update-btn" @click="restart">Restart to update</button>
+        <p v-if="restartError" class="self-update-error">{{ restartError }}</p>
+      </template>
     </template>
 
     <template v-else-if="status.state === 'failed'">

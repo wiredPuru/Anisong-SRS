@@ -8,6 +8,9 @@ export interface SelfUpdateStatus {
 }
 
 const POLL_INTERVAL_MS = 1000;
+const RESTART_TIMEOUT_MS = 60_000;
+
+export type RestartPhase = "idle" | "restarting" | "timed-out";
 
 export function isSelfUpdateRunning(state: SelfUpdateStatus["state"] | undefined): boolean {
   return state === "downloading" || state === "verifying" || state === "unpacking";
@@ -18,6 +21,8 @@ export function isSelfUpdateRunning(state: SelfUpdateStatus["state"] | undefined
 export function useSelfUpdate() {
   const status = ref<SelfUpdateStatus | null>(null);
   const starting = ref(false);
+  const restartPhase = ref<RestartPhase>("idle");
+  const restartError = ref<string | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function schedulePoll() {
@@ -49,7 +54,53 @@ export function useSelfUpdate() {
     schedulePoll();
   }
 
+  // The server exits right after answering, and the new build takes a moment
+  // to come up on the same port. Reload once it reports a different version.
+  function waitForNewVersion(previous: string, deadline: number) {
+    timer = setTimeout(async () => {
+      try {
+        const { current } = await $fetch<{ current: string }>("/api/version");
+        if (current !== previous) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // Expected while the old process exits and the new one starts.
+      }
+      if (Date.now() >= deadline) {
+        restartPhase.value = "timed-out";
+        return;
+      }
+      waitForNewVersion(previous, deadline);
+    }, POLL_INTERVAL_MS);
+  }
+
+  async function restart(): Promise<void> {
+    if (restartPhase.value === "restarting") return;
+    restartError.value = null;
+    restartPhase.value = "restarting";
+    const previous = useRuntimeConfig().public.appVersion;
+    try {
+      const result = await $fetch<{ ok: true } | { ok: false; error: string }>(
+        "/api/update/restart",
+        { method: "POST" },
+      );
+      if (!result.ok) {
+        restartPhase.value = "idle";
+        restartError.value = result.error;
+        await refresh();
+        return;
+      }
+    } catch {
+      restartPhase.value = "idle";
+      restartError.value = "The update could not be installed. Try again.";
+      return;
+    }
+    clearTimeout(timer);
+    waitForNewVersion(previous, Date.now() + RESTART_TIMEOUT_MS);
+  }
+
   onBeforeUnmount(() => clearTimeout(timer));
 
-  return { status, starting, refresh, start };
+  return { status, starting, restartPhase, restartError, refresh, start, restart };
 }

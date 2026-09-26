@@ -9,6 +9,7 @@ import {
   downloadAndVerify,
   isAllowedAssetUrl,
   parseReadyManifest,
+  relaunchCommand,
   probeWritable,
   resolveUpdatesDir,
   safeEntryPath,
@@ -345,5 +346,39 @@ describe("unpackAndStage", () => {
       expect(result).toEqual({ ok: false, error: expect.stringMatching(/laid out/) });
       expect(await readdir(dir)).toEqual([]);
     });
+  });
+});
+
+describe("relaunchCommand", () => {
+  const binary = "/Users/me/My Apps/gaq-srs; rm -rf ~";
+
+  it.each(["darwin", "linux"])("on %s waits with sh and passes values as arguments", (platform) => {
+    const result = relaunchCommand(platform, 4242, binary);
+    expect(result.command).toBe("/bin/sh");
+    expect(result.args.slice(-2)).toEqual(["4242", binary]);
+    expect(result.args[1]).not.toContain("4242");
+    expect(result.args[1]).not.toContain(binary);
+    expect(result.env).toEqual({ GAQ_SRS_SKIP_BROWSER: "1" });
+  });
+
+  it("on win32 waits with PowerShell and passes values through the environment", () => {
+    const result = relaunchCommand("win32", 4242, "C:\\Apps\\gaq srs'; x\\gaq-srs.exe");
+    expect(result.command).toBe("powershell.exe");
+    expect(result.args.join(" ")).not.toContain("4242");
+    expect(result.args.join(" ")).not.toContain("gaq-srs.exe");
+    expect(result.env).toEqual({
+      GAQ_SRS_SKIP_BROWSER: "1",
+      GAQ_SRS_RELAUNCH_PID: "4242",
+      GAQ_SRS_RELAUNCH_BINARY: "C:\\Apps\\gaq srs'; x\\gaq-srs.exe",
+    });
+  });
+
+  it("the sh script waits for the pid and then runs the binary", async () => {
+    const { execFile } = await import("node:child_process");
+    const { args } = relaunchCommand("darwin", 999999, "/bin/echo");
+    const output = await new Promise<string>((done, fail) =>
+      execFile("/bin/sh", args, (err, stdout) => (err ? fail(err) : done(stdout))),
+    );
+    expect(output).toBe("\n");
   });
 });

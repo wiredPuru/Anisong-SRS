@@ -258,7 +258,7 @@ Feature 82 (one-click update, in two sub-features 82a-82b) was added to
 `build-plan.md` on 2026-09-26. It reverses feature 54's "never downloads or
 replaces itself" rule, so it rewrote `project-plan.md` §8's update paragraph:
 the packaged app may now install a verified release on a restart the user
-chooses, never on its own.
+chooses, never on its own. Both sub-features are built and merged.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1786,7 +1786,7 @@ chooses, never on its own.
     `/api/decks/cards` returns the title track's schedule. The Preview
     modal, and with it feature 16's song title/slot/artist edit, is no longer
     reachable from `/decks`, matching `/cards` since 50c.
-82. **One-click update** - in two sub-features, 82a done. Added to
+82. **One-click update** - done, in two sub-features. Added to
     `build-plan.md` 2026-09-26. The packaged app installs a newer release
     itself on request instead of only linking to it (feature 54, plus the
     `direct-download-update-notice` fix, which made `GET /api/version`
@@ -1808,16 +1808,25 @@ chooses, never on its own.
       `<dataDir>/updates/`, fail only on a 30s stall, check the SHA-256 and
       size, unzip with `fflate` into `updates/staged/` behind a zip-slip and
       layout check, and write `ready.json` last; a staged build not newer than
-      the running one is deleted on the next status read. The About panel's
-      restart button stays disabled until 82b.
-    - **82b. Swap and relaunch** - rename the running binary and the three
-      sibling folders to `.old` (Windows allows renaming a running `.exe`,
-      not overwriting it), move the staged ones in, restore on any failure,
-      relaunch without opening a second browser tab once the old process
-      frees the port, delete `.old` leftovers on the next start, and reload
-      the open page. macOS binaries are already ad-hoc signed by
-      `bun run package`, and a file the app downloads itself carries no
-      quarantine flag.
+      the running one is deleted on the next status read.
+    - **82b. Swap and relaunch** - done 2026-09-26. `POST
+      /api/update/restart` copies each staged item beside its target as
+      `.new` (data and install dirs can be on different volumes), then renames
+      the running binary (`basename(process.execPath)`, so a renamed binary
+      keeps its name) and the three folders to `.old` and the `.new` copies in,
+      restoring everything on any failure (`swapInstall`,
+      `server/utils/selfUpdateSwap.ts`). It then responds and exits; a small
+      OS shell (`/bin/sh`, or PowerShell on Windows, values passed as
+      arguments or env vars) waits for the old pid and starts the new binary
+      with `GAQ_SRS_SKIP_BROWSER=1`, so no second tab opens. The launcher
+      deletes `.old`/`.new` leftovers only once the new server answers, so a
+      build that cannot start leaves the old files for manual recovery. The
+      About panel shows "Restarting...", reloads when `/api/version` reports
+      a different version, and gives up after 60 seconds with a message.
+      macOS binaries are already ad-hoc signed by `bun run package`, and a
+      file the app downloads itself carries no quarantine flag. Proved end to
+      end on macOS arm64 with two local packaged builds; the Windows path
+      (renaming the running `.exe`, PowerShell's `Wait-Process`) is untested.
 
 ## Data model
 
@@ -2375,9 +2384,9 @@ standalone executable.
 - **Updates**: feature 54, done - the packaged build checks the
   project's GitHub releases for a newer version on launch and links to the
   matching platform's zip, with the release notes shown in Settings > About
-  (`direct-download-update-notice` fix). Feature 82 (planned) lets it
+  (`direct-download-update-notice` fix). Feature 82 (done) lets it
   install that release on request, replacing its own files on a restart
-  the user chooses; until then it never downloads or replaces itself. The
+  the user chooses; it never downloads or replaces itself unasked. The
   check failing changes nothing about how the app runs. Releases are published by hand from
   `bun run package`'s zipped output; there is no update channel or
   manifest beyond the GitHub releases list itself. `bun run package`

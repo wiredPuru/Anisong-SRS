@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { removeUpdateLeftovers } from "./updateCleanup.ts";
 import { resolveUserDataDir } from "./userDataDir.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -107,7 +108,13 @@ if (!ready) {
 }
 
 console.log(`GAQ SRS is running at ${url}`);
-openBrowser(url);
+// A self-update relaunch sets this: the page that asked for the update is
+// still open and reloads itself.
+if (process.env.GAQ_SRS_SKIP_BROWSER !== "1") openBrowser(url);
+
+// Only once the new build answers: if it cannot start, the previous build's
+// `.old` files are still there to recover by hand.
+if (isCompiled) await removeUpdateLeftovers(realDir, basename(process.execPath));
 
 function openBrowser(targetUrl: string): void {
   const command =

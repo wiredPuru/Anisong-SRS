@@ -1,8 +1,10 @@
+import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { chmod, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { unzip } from "fflate";
+import { swapInstall } from "./selfUpdateSwap.ts";
 import {
   getReleaseLookup,
   isNewerVersion,
@@ -421,4 +423,101 @@ async function runJob(running: Job, asset: ReleaseAsset & { digest: string }): P
   } catch {
     fail("The update could not be saved. Try again.");
   }
+}
+
+export interface RelaunchCommand {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
+// Waits for the old process to exit (freeing the port) and then starts the new
+// binary. It is an OS shell rather than the new binary itself, so waiting never
+// depends on the new version's code. The pid and path only ever travel as
+// positional arguments or environment variables, never spliced into a script.
+export function relaunchCommand(platform: string, pid: number, binaryPath: string): RelaunchCommand {
+  if (platform === "win32") {
+    return {
+      command: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Wait-Process -Id $env:GAQ_SRS_RELAUNCH_PID -Timeout 30 -ErrorAction SilentlyContinue; " +
+          "Start-Process -FilePath $env:GAQ_SRS_RELAUNCH_BINARY " +
+          "-WorkingDirectory (Split-Path -Parent $env:GAQ_SRS_RELAUNCH_BINARY)",
+      ],
+      env: {
+        GAQ_SRS_SKIP_BROWSER: "1",
+        GAQ_SRS_RELAUNCH_PID: String(pid),
+        GAQ_SRS_RELAUNCH_BINARY: binaryPath,
+      },
+    };
+  }
+  return {
+    command: "/bin/sh",
+    args: [
+      "-c",
+      'i=0; while kill -0 "$1" 2>/dev/null && [ "$i" -lt 150 ]; do sleep 0.2; i=$((i+1)); done; exec "$2"',
+      "gaq-srs-relaunch",
+      String(pid),
+      binaryPath,
+    ],
+    env: { GAQ_SRS_SKIP_BROWSER: "1" },
+  };
+}
+
+export type RestartResult = { ok: true } | { ok: false; error: string };
+
+let restarting = false;
+
+// Swaps the staged build into the install folder. The caller relaunches only
+// after its response is sent. From here on this process runs from its renamed
+// `.old` binary and must not read the install folder again.
+export async function installStagedUpdate(current: string): Promise<RestartResult> {
+  const installDir = process.env.GAQ_SRS_INSTALL_DIR;
+  if (!installDir) return { ok: false, error: "Updating is only available in the packaged app." };
+  if (restarting || isRunning(job)) return { ok: false, error: "An update is already in progress." };
+
+  const dir = updatesDir();
+  const manifest = await readStagedRelease(dir, current);
+  if (!manifest) return { ok: false, error: "No downloaded update is ready. Download it again." };
+
+  restarting = true;
+  const result = await swapInstall({
+    installDir,
+    stagedDir: join(dir, "staged"),
+    items: [
+      { from: manifest.binaryName, to: basename(process.execPath), executable: true },
+      { from: "migrations", to: "migrations" },
+      { from: "public", to: "public" },
+      { from: "kuromoji", to: "kuromoji" },
+    ],
+  });
+  if (!result.ok) {
+    restarting = false;
+    return result;
+  }
+  job = null;
+  return { ok: true };
+}
+
+const EXIT_DELAY_MS = 500;
+
+export function relaunchAndExit(): void {
+  const installDir = process.env.GAQ_SRS_INSTALL_DIR;
+  if (!installDir) return;
+  const binaryPath = join(installDir, basename(process.execPath));
+  const { command, args, env } = relaunchCommand(process.platform, process.pid, binaryPath);
+
+  setTimeout(() => {
+    spawn(command, args, {
+      cwd: installDir,
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+      env: { ...process.env, ...env },
+    }).unref();
+    process.exit(0);
+  }, EXIT_DELAY_MS);
 }
