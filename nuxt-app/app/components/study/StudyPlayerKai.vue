@@ -6,7 +6,9 @@ type Mood = "ready" | "paused" | "listening" | "guess" | "loading" | "error";
 const props = defineProps<{ mood: Mood; text?: string }>();
 
 const POSES: Record<Mood, KaiPose> = {
-  ready: "ready",
+  // The sheet's own "ready" pose is cut where it leans behind a box, so a
+  // fully drawn pose stands in.
+  ready: "wave",
   paused: "shy",
   listening: "clap",
   guess: "think",
@@ -84,22 +86,6 @@ const pose = computed(() => POSES[props.mood]);
   border-left: 2px solid var(--outline);
   border-bottom: 2px solid var(--outline);
   transform: rotate(45deg);
-}
-
-/* The ready pose is cut off where she leans on the sheet's speech box, so the
-   box sits flush against that edge instead of pointing a tail at her. */
-.mood-ready {
-  align-items: center;
-  gap: 0;
-}
-
-.mood-ready .speech {
-  margin: 0;
-  border-left-width: 4px;
-}
-
-.mood-ready .speech::before {
-  display: none;
 }
 
 .mood-error {
