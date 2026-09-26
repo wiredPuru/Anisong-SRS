@@ -1413,6 +1413,17 @@ onUnmounted(() => stopDrag?.());
   align-items: center;
   justify-content: center;
   gap: 10px;
+  /* Kai sinks a fifth of her height into the bar, so a small Preview frame
+     does not bury her. The bar's top edge sits 72px up (12px offset, 6px
+     padding, the 44px play button, 6px padding, 4px of border). */
+  --kai-height: clamp(52px, 12cqw, 160px);
+  --kai-sink: calc(var(--kai-height) / 5);
+  --bar-top: 72px;
+  --kai-bottom: calc(var(--bar-top) - var(--kai-sink));
+}
+
+.player-card.expanded .veil {
+  --bar-top: calc(clamp(8px, 0.83cqw, 19px) + 2 * clamp(4px, 0.41cqw, 10px) + clamp(31px, 3.31cqw, 77px) + 4px);
 }
 
 /* A typed-answer round covers the bottom of the frame with its answer boxes.
@@ -1428,10 +1439,17 @@ onUnmounted(() => stopDrag?.());
   justify-content: center;
   padding-top: var(--veil-gap);
   padding-bottom: calc(var(--guess-inset) + var(--veil-gap));
-  /* The frame is a 16:9 inline-size container, so its height is 56.25cqw.
-     With several answer rows on a small frame the space left can be shorter
-     than Kai, so StudyPlayerKai caps her to it rather than overlapping. */
-  --kai-max-height: max(40px, calc(56.25cqw - var(--guess-inset) - 2 * var(--veil-gap)));
+  /* Kai stands on the answer boxes instead, sinking behind their top edge.
+     The frame is a 16:9 inline-size container, so its height is 56.25cqw;
+     with several answer rows on a small frame the space left can be shorter
+     than Kai, so StudyPlayerKai caps her to it. */
+  --kai-bottom: calc(var(--guess-inset) - var(--kai-sink));
+  --kai-max-height: max(40px, calc(56.25cqw - var(--guess-inset) - var(--veil-gap)));
+}
+
+/* Until the answer boxes are measured there is nothing to stand on. */
+.veil.raised:not(.measured) :deep(.player-kai:not(.mood-loading)) {
+  visibility: hidden;
 }
 
 .paused-veil {

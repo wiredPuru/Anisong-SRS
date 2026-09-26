@@ -41,36 +41,46 @@ const pose = computed(() => POSES[props.mood]);
 </template>
 
 <style scoped>
-/* Sized in cqw against .player-frame (a size container), so Kai scales with
-   Preview's expanded mode the same way the rest of the player's overlay does. */
+/* Every cutout on the sheet is a bust whose cut edge hides behind a banner,
+   desk or bar, so Kai stands on the veil's bottom edge rather than floating
+   mid-frame: --kai-bottom (set by StudyMediaPlayer's .veil) puts her lower
+   edge inside the playback bar or the answer boxes, which paint above the
+   veil and cover it. Her height comes from the veil's --kai-height (12cqw,
+   about a fifth of the 16:9 frame), sized against .player-frame's container
+   so she scales with Preview's expanded mode too. */
 .player-kai {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  bottom: var(--kai-bottom, 40px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   gap: clamp(4px, 1cqw, 16px);
   max-width: 92%;
+  transform: translateX(-50%);
 }
 
 .kai {
   flex: none;
   display: block;
-  height: clamp(56px, 17cqw, 220px);
+  height: var(--kai-height, clamp(52px, 12cqw, 160px));
   max-height: var(--kai-max-height, none);
   width: auto;
   user-select: none;
 }
 
+/* Lifted by the same amount Kai sinks behind the bar, so the bubble itself
+   never goes under it. */
 .speech {
   position: relative;
-  margin: 0 0 clamp(10px, 3cqw, 40px);
+  margin: 0 0 calc(var(--kai-sink, 28px) + clamp(4px, 1.4cqw, 20px));
   padding: clamp(6px, 1.1cqw, 16px) clamp(14px, 2.4cqw, 34px);
   border-radius: var(--radius);
   border: 2px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-display);
-  font-size: clamp(13px, 2.3cqw, 30px);
+  font-size: clamp(12px, 1.9cqw, 26px);
   white-space: nowrap;
   box-shadow: var(--shadow-soft);
 }
@@ -89,13 +99,28 @@ const pose = computed(() => POSES[props.mood]);
   transform: rotate(45deg);
 }
 
+/* Off to the side so a playing video's middle stays clear. */
+.mood-listening {
+  left: 5%;
+  transform: none;
+}
+
+/* The error message and its buttons stay centred; Kai slumps in the corner. */
 .mood-error {
-  flex-direction: column;
-  align-items: center;
+  left: 5%;
+  transform: none;
 }
 
 .mood-error .kai {
-  height: clamp(48px, 13cqw, 170px);
+  height: clamp(40px, 10cqw, 130px);
+}
+
+/* Loading keeps its own bar to peek over, centred in normal flow. */
+.mood-loading {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
 }
 
 .notes {
@@ -111,6 +136,11 @@ const pose = computed(() => POSES[props.mood]);
   color: var(--note);
   font-size: clamp(14px, 2.6cqw, 34px);
   animation: note-float 2.4s ease-in-out infinite;
+}
+
+.notes {
+  bottom: calc(var(--kai-sink, 28px) + clamp(30px, 9cqw, 120px));
+  top: auto;
 }
 
 .notes span:nth-child(1) {

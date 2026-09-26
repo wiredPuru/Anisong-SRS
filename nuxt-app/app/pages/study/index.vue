@@ -1252,7 +1252,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
             :guessing="typedAnswers && !quizResult"
             :guessing-inset="guessingInset"
-            :hide-listening-label="gradeFlash !== null"
+            :hide-listening-label="gradeFlash !== null || Boolean(typedAnswers && quizResult)"
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"
             @local-path-updated="onLocalPathUpdated"
@@ -1319,6 +1319,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   />
                 </div>
               </div>
+              <div v-else-if="typedAnswers && quizResult" class="result-stack">
+                <StudyQuizResult
+                  overlay
+                  :result="quizResult.result"
+                  :selected-title="quizResult.selectedTitle"
+                  :correct-title="quizResult.correctTitle"
+                  :points-awarded="quizResult.pointsAwarded"
+                  :bonus-results="quizResult.bonusResults"
+                  :score="quizScore.score"
+                  :combo="quizScore.combo"
+                  :busy="submissionBusy || loading"
+                  :retry="Boolean(error && awaitingNextCard)"
+                  @continue="continueTypedAnswer"
+                />
+              </div>
             </template>
           </StudyMediaPlayer>
         <template v-if="gradeFlash">
@@ -1327,20 +1342,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </template>
         </div>
         <div class="side">
-          <StudyQuizResult
-            v-if="typedAnswers && quizResult"
-            :result="quizResult.result"
-            :selected-title="quizResult.selectedTitle"
-            :correct-title="quizResult.correctTitle"
-            :points-awarded="quizResult.pointsAwarded"
-            :bonus-results="quizResult.bonusResults"
-            :score="quizScore.score"
-            :combo="quizScore.combo"
-            :busy="submissionBusy || loading"
-            :retry="Boolean(error && awaitingNextCard)"
-            @continue="continueTypedAnswer"
-          />
-          <div>
+          <div class="side-scroll">
             <div class="info-panel-wrap">
               <StudyAutoRevealCountdown
                 v-if="autoRevealCountdownActive"
@@ -1597,9 +1599,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .header-left {
-  flex: 1 1 520px;
+  /* Basis 0 with a min-content floor: the strip wraps only once the left
+     group's content genuinely cannot fit beside the toggles, not whenever the
+     window is narrower than a fixed 520px basis plus the toggles. */
+  flex: 1 1 0;
   gap: 14px;
-  min-width: 0;
+  min-width: min-content;
 }
 
 .header-right {
@@ -1765,12 +1770,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: not-allowed;
 }
 
+/* Right-aligned, not centred: these are the header's last buttons, and a
+   centred tooltip hangs past the window edge. Hidden or not, it still
+   counts toward the page's scroll width, so the whole page scrolled
+   sideways and clipped the rail. */
 .controls-toggle-btn .tooltip,
 .filters-btn .tooltip {
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
@@ -1926,7 +1934,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 480px;
+  /* The side column narrows with the window instead of holding 480px, so a
+     smaller or zoomed window splits its width between both panes rather than
+     taking it all from the player. */
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 480px);
   align-items: stretch;
 }
 
@@ -1973,6 +1984,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   gap: 8px;
   width: min(calc(100% - 48px), 720px);
   transform: translateX(-50%);
+}
+
+/* Same spot as .answer-stack, so the result replaces the answer boxes in
+   place. top caps its height to the frame, and StudyQuizResult scrolls
+   internally past that rather than covering the playback bar. */
+.result-stack {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  bottom: 88px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: min(calc(100% - 48px), 860px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.result-stack > * {
+  pointer-events: auto;
 }
 
 /* Wraps only once it runs out of width, which a deck grading every category
@@ -2071,15 +2103,115 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
 }
 
+/* Only .side-scroll scrolls. Everything else in the column (the quiz result,
+   Previous, the criterion prompt, the answer controls and the legend) keeps
+   its natural height, so on a short window the card info gives up room and
+   the controls that grade the card never leave the viewport. */
 .side {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
   padding: 26px;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--surface-sunken);
   border-left: 1px solid var(--border);
+}
+
+.side > * {
+  flex: none;
+}
+
+/* Negative margin plus matching padding so focus rings and the info card's
+   shadow are not clipped by the scroll edge. */
+.side > .side-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: -6px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+/* A 1280-1500px window (1080p at 125-150% zoom, or a small laptop) cannot
+   fit the strip on one row at full size, so the controls tighten and the
+   progress bar, which only restates "N left", steps aside. */
+@media (min-width: 821px) and (max-width: 1500px) {
+  .study-header {
+    padding: 12px 16px;
+  }
+
+  .header-left {
+    gap: 10px;
+  }
+
+  .header-right {
+    gap: 4px;
+  }
+
+  .progress {
+    display: none;
+  }
+
+  .header-right :deep(.display-toggles) {
+    gap: 4px;
+  }
+
+  .header-right :deep(.toggle-btn),
+  .header-right :deep(.seg-btn) {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .filters-btn {
+    padding: 4px 9px;
+  }
+}
+
+/* A short window (1080p at 125% is about 730px tall) cannot give the card
+   info its full spacing and still show the answer controls, so the column
+   and the info card tighten. Scoped to .side: StudyInfoPanel also renders in
+   CardPreviewModal, which keeps its own spacing. */
+@media (min-width: 821px) and (max-height: 860px) {
+  .side {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .side :deep(.info-card) {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .side :deep(.title-block) {
+    gap: 6px;
+  }
+
+  .side :deep(.title-block .en) {
+    font-size: 26px;
+  }
+
+  .side :deep(.jp) {
+    font-size: 19px;
+  }
+
+  .side :deep(.detail-rows) {
+    gap: 10px;
+  }
+
+  .side :deep(.detail-row .value) {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 820px) {
+  .side {
+    overflow: visible;
+  }
+
+  .side > .side-scroll {
+    overflow: visible;
+  }
 }
 
 /* Positioned ancestor for StudyAutoRevealCountdown's absolute centering -

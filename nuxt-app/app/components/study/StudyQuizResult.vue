@@ -11,6 +11,7 @@ const props = defineProps<{
   combo: number;
   busy: boolean;
   retry: boolean;
+  overlay?: boolean;
 }>();
 const emit = defineEmits<{ continue: [] }>();
 const resultPanel = ref<HTMLElement | null>(null);
@@ -30,19 +31,20 @@ const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
 };
 
 onMounted(() => nextTick(() => {
-  resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
+  if (!props.overlay) resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
   continueButton.value?.focus({ preventScroll: true });
 }));
 </script>
 
 <template>
-  <section ref="resultPanel" class="quiz-result" :class="result" role="status" aria-live="polite" aria-atomic="true">
+  <section ref="resultPanel" class="quiz-result" :class="[result, { overlay }]" role="status" aria-live="polite" aria-atomic="true">
     <div class="result-kai" aria-hidden="true">
       <span v-if="result === 'pass'" class="kai-stars"><span>★</span><span>★</span><span>★</span></span>
-      <MascotKai :pose="kaiPose" size="companion" />
+      <MascotKai :pose="kaiPose" :size="overlay ? 'small' : 'companion'" />
     </div>
     <p v-if="niceGuess" class="nice-guess" aria-hidden="true">Nice Guess!</p>
     <div class="result-copy">
+      <div class="result-body">
       <p class="eyebrow">Quiz result</p>
       <h2 class="kai-banner" :class="bannerClass">{{ heading }}</h2>
       <p v-if="result === 'fail' && selectedTitle && selectedTitle !== correctTitle" class="selected-answer">
@@ -71,6 +73,8 @@ onMounted(() => nextTick(() => {
           </strong>
         </li>
       </ul>
+      </div>
+      <div class="result-actions">
       <div class="reward-row">
         <strong class="points" :class="{ empty: pointsAwarded === 0 }">
           {{ pointsAwarded > 0 ? `+${pointsAwarded}` : "+0" }}
@@ -84,6 +88,7 @@ onMounted(() => nextTick(() => {
         {{ retry ? "Retry next card" : "Continue" }}
         <kbd>Enter</kbd>
       </button>
+      </div>
     </div>
   </section>
 </template>
@@ -171,7 +176,9 @@ onMounted(() => nextTick(() => {
 
 .result-copy { min-width: 0; }
 .eyebrow { margin: 0 0 2px; color: var(--result-color); font-size: 10px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; }
-h2 { max-width: 100%; margin: 2px 0 14px; font-size: clamp(18px, 1.9vw, 26px); overflow-wrap: anywhere; }
+/* break-word, not anywhere: a banner word only splits when it cannot fit its
+   own line, so "REVEALED" never breaks as "REVEALE / D". */
+h2 { max-width: 100%; margin: 2px 0 14px; font-size: clamp(18px, 1.9vw, 26px); overflow-wrap: break-word; }
 .selected-answer, .correct-answer { margin: 6px 0; color: var(--text); overflow-wrap: anywhere; }
 .selected-answer { color: var(--muted); }
 .selected-answer span, .correct-answer span { display: block; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -230,6 +237,51 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
 @keyframes result-arrive { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
 @keyframes result-burst { from { opacity: 0; transform: rotate(-18deg) scale(0.45); } }
 @keyframes points-pop { from { opacity: 0; transform: translateY(8px) scale(0.65); } }
+
+/* Over the video, above the playback bar: frosted and translucent so the clip
+   still reads through it, and laid out in a row (Kai, answers, then points
+   and Continue) so it stays short enough to leave the video visible. */
+.quiz-result.overlay {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 14px 18px;
+  background:
+    radial-gradient(circle at 6% 20%, color-mix(in srgb, var(--result-color) 18%, transparent), transparent 40%),
+    color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.overlay .result-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 20px;
+}
+
+.overlay .result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.overlay h2 { margin: 2px 0 8px; font-size: clamp(16px, 1.5vw, 22px); }
+.overlay .correct-answer { font-size: 15px; }
+.overlay .selected-answer,
+.overlay .correct-answer { margin: 4px 0; }
+.overlay .reward-row { justify-content: flex-end; margin-top: 0; }
+.overlay .points { font-size: 22px; }
+.overlay .listen-hint { display: none; }
+.overlay button { min-width: 150px; }
+.overlay .nice-guess { top: 6px; right: auto; left: 70px; font-size: 15px; }
+
+@media (max-width: 1100px) {
+  .overlay .result-copy { grid-template-columns: minmax(0, 1fr); }
+  .overlay .result-actions { flex-direction: row; align-items: center; justify-content: space-between; }
+}
 
 @media (max-width: 520px) {
   .quiz-result { grid-template-columns: 1fr; }
