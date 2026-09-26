@@ -269,6 +269,7 @@ look of the whole app, with a light Kai theme (the default) and a dark theme
 retuning feature 62's gruvbox palette, chosen in a new Settings > Appearance
 section. It reverses feature 63's rule that the mascot stays off working
 surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
+All five sub-features are built and merged.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1856,7 +1857,7 @@ surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
     start at box 1; review history, notes, and deck membership are not
     recoverable. Unmatched files are listed for re-adding through `/cards`
     search. No sidecar file is written to the library.
-84. **Kai mascot overhaul** - in progress, five sub-features. Kai (a
+84. **Kai mascot overhaul** - done 2026-09-26, five sub-features. Kai (a
     pink-twintailed girl in bunny-eared headphones and a black sailor
     uniform) replaces Temi as the mascot, and her expression sheet sets the
     look everywhere: sakura pink and cream, yellow stars and music notes,
@@ -1905,8 +1906,16 @@ surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
       hidden meanwhile. `StudyMediaPlayer`'s new `guessing` prop (a typed
       round is open) makes the playing veil read "Guess?" with Kai thinking
       and raises all veil content above the answer boxes.
-    - **84e. Site-wide pass** - rail, Home, Cards, Decks, Stats, Settings,
-      modals, and empty and loading states on the new components.
+    - **84e. Site-wide pass** - done 2026-09-26. Kai's head (`giggle`) is
+      the rail's logo, linking Home; the rail's active item is an outlined
+      sticker. Home's hero panel shows the hero illustration on its right,
+      masked into the panel, with a pill "Ready to go" badge.
+      `MascotState.vue` (`pose`, `size`) puts Kai beside page loading
+      (`laptop`), load-error (`slump`), no-match (`surprised`), empty-deck
+      (`shy`), empty-chart (`sleepy`), and empty-inspector (`point`)
+      messages on Home, Cards, Decks, Stats, and Settings. All nine
+      `.backdrop > .panel` modals take a 2px `--outline` border and the
+      larger radius.
 
 ## Data model
 
@@ -2249,9 +2258,12 @@ signage style feature 50 introduced. Every color a component uses comes from a
 native form controls; keyboard focus shows one sky-blue ring everywhere.
 Temi, the mascot (feature 63), appears on Home's hero, on `/study`'s
 all-caught-up state and the empty `/cards` and `/decks` states, and as the
-favicon, never on working surfaces. Feature 84 (in progress) replaces Temi with Kai,
-adds a light Kai theme beside a retuned dark one, and lets the mascot onto
-working surfaces.
+favicon, never on working surfaces. Feature 84 (2026-09-26) replaced Temi with Kai
+and supersedes the paragraph above: a light Kai theme (default) on a
+pink-and-cream ground and a dark theme retuning this gruvbox palette, chosen in
+Settings > Appearance; Mochiy Pop One and Zen Maru Gothic type; 2px `--outline`
+sticker borders; and Kai on the rail, Home's hero, the Study player and answer
+feedback, and page empty, loading, and error states.
 
 **Before 62a (feature 50):** Akihabara arcade signage - the same
 otaku-culture reference, read through neon storefronts and game-centre

@@ -91,15 +91,25 @@ function formatRelativeTime(iso: string): string {
 
     <div class="home-body">
       <div v-if="pending" class="state">
-        <ActivityStatus label="Loading your dashboard" />
+        <MascotState pose="laptop"><ActivityStatus label="Loading your dashboard" /></MascotState>
       </div>
-      <div v-else-if="error" class="state state-error">Couldn't load your dashboard. Try refreshing.</div>
+      <div v-else-if="error" class="state state-error">
+        <MascotState pose="slump">Couldn't load your dashboard. Try refreshing.</MascotState>
+      </div>
       <div v-else-if="data" class="dashboard-grid">
         <div class="hero-panel">
-          <div class="hero-glow" />
-          <MascotKai pose="wave" size="hero" alt="Kai, the GAQ SRS mascot, waving" class="hero-mascot" />
+          <img
+            class="hero-art"
+            src="/mascot/kai-hero-528.webp"
+            srcset="/mascot/kai-hero-528.webp 528w, /mascot/kai-hero-1056.webp 1056w"
+            sizes="(max-width: 820px) 240px, 420px"
+            width="1056"
+            height="724"
+            alt="Kai, the GAQ SRS mascot, pointing at you with her headphones on"
+            decoding="async"
+          />
           <div class="hero-text">
-            <span class="hero-eyebrow">Ready to go</span>
+            <span class="hero-eyebrow">♪ Ready to go</span>
             <span class="hero-headline">{{ heroHeadline }}</span>
           </div>
           <div class="hero-actions">
@@ -263,42 +273,49 @@ h1 {
   position: relative;
   overflow: hidden;
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 22px 26px;
-  border-radius: var(--radius);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  min-height: 210px;
+  padding: 26px 30px;
+  border-radius: calc(var(--radius) + 8px);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--outline);
+  box-shadow: var(--shadow-soft);
 }
 
-.hero-glow {
+/* The hero illustration fills the panel's right side and fades into it on
+   the left, so the text and buttons keep a plain ground. */
+.hero-art {
   position: absolute;
-  right: -60px;
-  top: -80px;
-  width: 280px;
-  height: 280px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-glow), transparent 65%);
+  top: 0;
+  right: 0;
+  width: clamp(260px, 42%, 460px);
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+  /* currentColor only supplies the mask's opacity */
+  mask-image: linear-gradient(to right, transparent, currentColor 32%);
   pointer-events: none;
-}
-
-/* Sits on the panel's bottom edge, so the desk reads as resting on it; the
-   panel's overflow: hidden trims only the desk legs. */
-.hero-mascot {
-  position: relative;
-  align-self: flex-end;
-  margin-block: -8px -23px;
+  user-select: none;
 }
 
 .hero-text {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 10px;
   min-width: 0;
 }
 
+/* a sticker pill, like the sheet's "ANIME OP QUIZ" badge */
 .hero-eyebrow {
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--outline);
+  background: var(--surface);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.6px;
@@ -308,14 +325,13 @@ h1 {
 
 .hero-headline {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 400;
   line-height: 1.15;
 }
 
 .hero-actions {
   position: relative;
-  margin-left: auto;
   flex: none;
   display: flex;
   gap: 10px;

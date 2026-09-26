@@ -838,9 +838,13 @@ function backToDecks() {
 
       <div class="decks-body">
       <div v-if="initialPending" class="state">
-        <ActivityStatus :request-key="`${activeType}:${searchQuery}`" label="Loading your decks" />
+        <MascotState pose="laptop">
+          <ActivityStatus :request-key="`${activeType}:${searchQuery}`" label="Loading your decks" />
+        </MascotState>
       </div>
-      <div v-else-if="initialError" class="state state-error">Couldn't load decks. Try refreshing.</div>
+      <div v-else-if="initialError" class="state state-error">
+        <MascotState pose="slump">Couldn't load decks. Try refreshing.</MascotState>
+      </div>
       <template v-else>
         <div v-if="deckItems.length || (activeType === 'created' && !searchQuery)" class="deck-grid">
           <div
@@ -952,7 +956,9 @@ function backToDecks() {
             <button v-else type="button" class="deck-tile-new" @click="showNewDeckForm = true">+ New deck</button>
           </div>
         </div>
-        <p v-else-if="searchQuery" class="state">No decks match "{{ searchQuery }}".</p>
+        <div v-else-if="searchQuery" class="state">
+          <MascotState pose="surprised">No decks match "{{ searchQuery }}".</MascotState>
+        </div>
         <p v-else class="state state-empty">
           <MascotKai pose="point" />
           <span>No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</span>
@@ -1003,9 +1009,13 @@ function backToDecks() {
       >
         <div class="list-pane">
           <div v-if="cardsInitialPending" class="state">
-            <ActivityStatus :request-key="`${selectedId}:${cardSearchQuery}`" label="Loading deck cards" />
+            <MascotState pose="laptop">
+              <ActivityStatus :request-key="`${selectedId}:${cardSearchQuery}`" label="Loading deck cards" />
+            </MascotState>
           </div>
-          <div v-else-if="cardsInitialError" class="state state-error">Couldn't load this deck. Try refreshing.</div>
+          <div v-else-if="cardsInitialError" class="state state-error">
+            <MascotState pose="slump">Couldn't load this deck. Try refreshing.</MascotState>
+          </div>
           <template v-else>
             <div class="deck-detail-title">
               <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
@@ -1107,8 +1117,12 @@ function backToDecks() {
               :show-due="showSchedule"
               @select="selectCard"
             />
-            <p v-else-if="cardSearchQuery" class="state">No cards match "{{ cardSearchQuery }}".</p>
-            <p v-else class="state">No cards in this deck.</p>
+            <div v-else-if="cardSearchQuery" class="state">
+              <MascotState pose="surprised">No cards match "{{ cardSearchQuery }}".</MascotState>
+            </div>
+            <div v-else class="state">
+              <MascotState pose="shy">No cards in this deck.</MascotState>
+            </div>
             <p v-if="removeCardError" class="export-error">{{ removeCardError }}</p>
             <div v-if="deckCards.length" ref="cardsSentinelRef" class="scroll-sentinel">
               <span v-if="cardsLoadingMore" class="loading-more">

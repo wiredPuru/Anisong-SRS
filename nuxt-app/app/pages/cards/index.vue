@@ -539,9 +539,13 @@ watch(
     >
       <div class="list-pane">
         <div v-if="initialPending" class="state">
-          <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}`" label="Loading your cards" />
+          <MascotState pose="laptop">
+            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}`" label="Loading your cards" />
+          </MascotState>
         </div>
-        <div v-else-if="initialError" class="state state-error">Couldn't load cards. Try refreshing.</div>
+        <div v-else-if="initialError" class="state state-error">
+          <MascotState pose="slump">Couldn't load cards. Try refreshing.</MascotState>
+        </div>
         <template v-else>
           <div
             v-if="(searchQuery || missingAnimeThemesMatch) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
@@ -652,8 +656,12 @@ watch(
             @check-click="onRowCheckClick"
             @toggle-all="toggleCheckAllLoaded"
           />
-          <p v-else-if="searchQuery" class="state">No cards match "{{ searchQuery }}".</p>
-          <p v-else-if="missingAnimeThemesMatch" class="state">No cards without an AnimeThemes.moe match.</p>
+          <div v-else-if="searchQuery" class="state">
+            <MascotState pose="surprised">No cards match "{{ searchQuery }}".</MascotState>
+          </div>
+          <div v-else-if="missingAnimeThemesMatch" class="state">
+            <MascotState pose="clap">No cards without an AnimeThemes.moe match.</MascotState>
+          </div>
           <p v-else class="state state-empty">
             <MascotKai pose="laptop" />
             <span>No cards yet. Search above to find and add one.</span>

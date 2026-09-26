@@ -27,6 +27,9 @@ function isActive(to: string): boolean {
 
 <template>
   <nav class="app-nav">
+    <NuxtLink to="/" class="nav-logo" aria-label="GAQ SRS home">
+      <MascotKai pose="giggle" size="small" />
+    </NuxtLink>
     <div class="nav-links">
       <NuxtLink
         v-for="link in links"
@@ -62,7 +65,20 @@ function isActive(to: string): boolean {
   gap: 6px;
   padding: 18px 0;
   background: var(--surface-sunken);
-  border-right: 1px solid var(--border);
+  border-right: 2px solid var(--outline);
+}
+
+/* Kai's head as the rail's logo (84e), after the head on the sheet's
+   "ANIME OP QUIZ" badge. */
+.nav-logo {
+  flex: none;
+  display: block;
+  margin-bottom: 6px;
+  transition: transform 0.2s ease;
+}
+
+.nav-logo:hover {
+  transform: rotate(-6deg) scale(1.06);
 }
 
 /* flex: 1 + min-height: 0 + overflow-y: auto, rather than plain flow, so a
@@ -89,9 +105,9 @@ function isActive(to: string): boolean {
   gap: 5px;
   padding: 10px 0;
   border-radius: var(--radius);
-  /* Transparent rather than absent, so the active state's 1px border does
-     not shift the item by 2px when it turns on. */
-  border: 1px solid transparent;
+  /* Transparent rather than absent, so the active state's border does not
+     shift the item when it turns on. */
+  border: 2px solid transparent;
   color: var(--muted);
   font-family: var(--font-sans);
   text-decoration: none;
@@ -112,6 +128,7 @@ function isActive(to: string): boolean {
 
 .nav-link:hover {
   color: var(--text);
+  background: var(--surface);
 }
 
 /* Absolutely positioned so turning it on never reflows the rail, and so it
@@ -128,9 +145,10 @@ function isActive(to: string): boolean {
 }
 
 .nav-link.active {
-  background: var(--surface-raised);
-  border-color: var(--accent);
+  background: var(--surface);
+  border-color: var(--outline);
   color: var(--accent);
+  box-shadow: var(--shadow-soft);
 }
 
 /* Icon-only rail below 820px (50h), matching the narrow mockup's 56px rail /
@@ -151,6 +169,16 @@ function isActive(to: string): boolean {
 
   .nav-label {
     display: none;
+  }
+
+  .nav-logo :deep(.mascot-kai) {
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-logo {
+    transition: none;
   }
 }
 </style>

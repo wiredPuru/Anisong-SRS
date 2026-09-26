@@ -397,9 +397,9 @@ watch(
   flex-direction: column;
   gap: 20px;
   padding: 28px;
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) + 8px);
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 2px solid var(--outline);
   box-shadow: var(--shadow-soft);
 }
 

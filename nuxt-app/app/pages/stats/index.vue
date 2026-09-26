@@ -708,11 +708,11 @@ function setType(type: StatsType) {
     <p v-if="clearError" class="inline-error">{{ clearError }}</p>
 
     <div v-if="overallPending" class="state">
-
-      <ActivityStatus label="Loading overall statistics" />
-
+      <MascotState pose="laptop"><ActivityStatus label="Loading overall statistics" /></MascotState>
     </div>
-    <div v-else-if="overallError" class="state state-error">Couldn't load stats. Try refreshing.</div>
+    <div v-else-if="overallError" class="state state-error">
+      <MascotState pose="slump">Couldn't load stats. Try refreshing.</MascotState>
+    </div>
     <div v-else-if="overall" class="kpi-row">
       <div class="kpi-tile">
         <span class="kpi-label">Total reviews</span>
@@ -912,7 +912,9 @@ function setType(type: StatsType) {
         <ActivityStatus label="Loading review history" />
       </div>
       <div v-else-if="timelineError" class="state state-error">Couldn't load the chart. Try refreshing.</div>
-      <p v-else-if="!timelineEntries.length" class="state">No reviews in this range yet.</p>
+      <div v-else-if="!timelineEntries.length" class="state">
+        <MascotState pose="sleepy">No reviews in this range yet.</MascotState>
+      </div>
       <template v-else>
         <div class="chart-plot">
           <div

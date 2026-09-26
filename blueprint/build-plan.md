@@ -863,7 +863,7 @@ cleaned-up checkbox version before generating the project overview.
   library; SQLite stays the only record. Looking up unmatched files online is
   out of scope.
 
-- [ ] 84. **Kai mascot overhaul** - a new mascot, Kai (a pink-twintailed
+- [x] 84. **Kai mascot overhaul** - a new mascot, Kai (a pink-twintailed
   girl in bunny-eared headphones and a black sailor uniform, drawn in a flat
   sticker style), replaces Temi and becomes the look of the whole app, per
   `blueprint/reference/mascot-v2/` (`kai-sheet-transparent.png`, the
@@ -896,7 +896,7 @@ cleaned-up checkbox version before generating the project overview.
     cheering and slumped poses on Study's result panel and after a manual
     Pass/Fail, a GUESS? Kai beside the typed answer box, and "Nice Guess!"
     on bonus points. Motion is turned off under `prefers-reduced-motion`.
-  - [ ] 84e. **Site-wide pass** - the rail, Home (with the hero art),
+  - [x] 84e. **Site-wide pass** - the rail, Home (with the hero art),
     Cards, Decks, Stats, Settings, modals, and empty and loading states moved
     onto the new components, with Kai poses on empty, loading, and
     all-caught-up states.

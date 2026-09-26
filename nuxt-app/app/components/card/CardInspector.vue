@@ -193,7 +193,9 @@ async function removeCard(id: number) {
 
 <template>
   <div class="card-inspector">
-    <p v-if="!card" class="inspector-empty">Select a card to see its details.</p>
+    <div v-if="!card" class="inspector-empty">
+      <MascotState pose="point" size="companion">Select a card to see its details.</MascotState>
+    </div>
     <template v-else>
       <!-- The rail is the preview now: a real player rather than a still.
            A card with no source at all has nothing to play, so it keeps
@@ -372,9 +374,8 @@ async function removeCard(id: number) {
 
 <style scoped>
 .inspector-empty {
-  margin: 0;
   padding: 26px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 13px;
 }
 
