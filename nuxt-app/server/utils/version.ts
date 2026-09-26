@@ -5,7 +5,7 @@ export const GITHUB_REPO = "wiredPuru/Anisong-SRS";
 // GitHub rejects API requests that send no User-Agent. Same trap that already
 // cost this project two fixes: animethemes.moe (feature 3) and the packaged
 // Windows AniList 403 (feature 48).
-const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
+export const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
 const REQUEST_TIMEOUT_MS = 5000;
 
 // A packaged app is launched fresh per session, so a long success TTL means
@@ -28,12 +28,14 @@ export interface UpdateStatus {
 export interface ReleaseAsset {
   name: string;
   url: string;
+  digest: string | null;
+  size: number | null;
 }
 
 // Only the remote lookup is cached. `updateAvailable` is recomputed per call
 // against the running version, so a cached result can never outlive the
 // version it was compared against.
-interface ReleaseLookup {
+export interface ReleaseLookup {
   latest: string | null;
   releaseUrl: string | null;
   releaseNotes: string | null;
@@ -80,16 +82,41 @@ export function platformAssetName(platform: string, arch: string): string | null
   return null;
 }
 
+// GitHub publishes a digest per asset as "sha256:<hex>". Anything else,
+// including another algorithm, is treated as no digest so self-update refuses
+// the asset rather than trusting an unverifiable download.
+export function parseDigest(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const match = /^sha256:([0-9a-f]{64})$/i.exec(raw.trim());
+  return match ? match[1]!.toLowerCase() : null;
+}
+
 export function parseReleaseAssets(raw: unknown): ReleaseAsset[] {
   if (!Array.isArray(raw)) return [];
 
   const assets: ReleaseAsset[] = [];
   for (const entry of raw) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { name, browser_download_url: url } = entry as Record<string, unknown>;
-    if (typeof name === "string" && typeof url === "string") assets.push({ name, url });
+    const { name, browser_download_url: url, digest, size } = entry as Record<string, unknown>;
+    if (typeof name !== "string" || typeof url !== "string") continue;
+    assets.push({
+      name,
+      url,
+      digest: parseDigest(digest),
+      size: typeof size === "number" && Number.isInteger(size) && size > 0 ? size : null,
+    });
   }
   return assets;
+}
+
+export function pickPlatformAsset(
+  assets: ReleaseAsset[],
+  platform: string,
+  arch: string,
+): ReleaseAsset | null {
+  const wanted = platformAssetName(platform, arch);
+  if (!wanted) return null;
+  return assets.find((asset) => asset.name === wanted) ?? null;
 }
 
 export function pickDownloadUrl(
@@ -97,9 +124,7 @@ export function pickDownloadUrl(
   platform: string,
   arch: string,
 ): string | null {
-  const wanted = platformAssetName(platform, arch);
-  if (!wanted) return null;
-  return assets.find((asset) => asset.name === wanted)?.url ?? null;
+  return pickPlatformAsset(assets, platform, arch)?.url ?? null;
 }
 
 // Never throws and never surfaces an error state: an offline machine, a rate
@@ -120,7 +145,7 @@ export async function getUpdateStatus(current: string): Promise<UpdateStatus> {
   };
 }
 
-async function getReleaseLookup(): Promise<ReleaseLookup> {
+export async function getReleaseLookup(): Promise<ReleaseLookup> {
   const now = Date.now();
   if (cached && cached.expiresAt > now) return cached.lookup;
 

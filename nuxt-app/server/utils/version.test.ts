@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isNewerVersion,
+  parseDigest,
   parseReleaseAssets,
   pickDownloadUrl,
   platformAssetName,
@@ -57,13 +58,53 @@ describe("platformAssetName", () => {
   });
 });
 
+const HEX = "a".repeat(32) + "0123456789abcdef".repeat(2);
+
+describe("parseDigest", () => {
+  it("returns the hex of a sha256 digest", () => {
+    expect(parseDigest(`sha256:${HEX}`)).toBe(HEX);
+  });
+
+  it("lowercases an uppercase digest", () => {
+    expect(parseDigest(`SHA256:${HEX.toUpperCase()}`)).toBe(HEX);
+  });
+
+  it("rejects another algorithm", () => {
+    expect(parseDigest(`sha512:${HEX}`)).toBeNull();
+    expect(parseDigest(`md5:${HEX}`)).toBeNull();
+  });
+
+  it("rejects the wrong length or non-hex characters", () => {
+    expect(parseDigest(`sha256:${HEX.slice(1)}`)).toBeNull();
+    expect(parseDigest(`sha256:${HEX}0`)).toBeNull();
+    expect(parseDigest(`sha256:${HEX.slice(1)}z`)).toBeNull();
+  });
+
+  it("rejects a missing or non-string digest", () => {
+    expect(parseDigest(undefined)).toBeNull();
+    expect(parseDigest(null)).toBeNull();
+    expect(parseDigest(HEX)).toBeNull();
+  });
+});
+
 describe("parseReleaseAssets", () => {
-  it("keeps name and download url from each asset", () => {
+  it("keeps name, download url, digest, and size from each asset", () => {
     expect(
       parseReleaseAssets([
-        { name: "gaq-srs-linux-x64.zip", browser_download_url: "https://x/linux.zip", size: 1 },
+        {
+          name: "gaq-srs-linux-x64.zip",
+          browser_download_url: "https://x/linux.zip",
+          size: 1,
+          digest: `sha256:${HEX}`,
+        },
       ]),
-    ).toEqual([{ name: "gaq-srs-linux-x64.zip", url: "https://x/linux.zip" }]);
+    ).toEqual([{ name: "gaq-srs-linux-x64.zip", url: "https://x/linux.zip", digest: HEX, size: 1 }]);
+  });
+
+  it("keeps an asset with no digest or a bad size, with those fields null", () => {
+    expect(
+      parseReleaseAssets([{ name: "a.zip", browser_download_url: "u", size: -3 }]),
+    ).toEqual([{ name: "a.zip", url: "u", digest: null, size: null }]);
   });
 
   it("drops malformed entries and non-array input", () => {
@@ -77,8 +118,8 @@ describe("parseReleaseAssets", () => {
 
 describe("pickDownloadUrl", () => {
   const assets = [
-    { name: "gaq-srs-macos-arm64.zip", url: "https://x/arm.zip" },
-    { name: "gaq-srs-windows-x64.zip", url: "https://x/win.zip" },
+    { name: "gaq-srs-macos-arm64.zip", url: "https://x/arm.zip", digest: null, size: null },
+    { name: "gaq-srs-windows-x64.zip", url: "https://x/win.zip", digest: null, size: null },
   ];
 
   it("returns the asset matching the running platform", () => {

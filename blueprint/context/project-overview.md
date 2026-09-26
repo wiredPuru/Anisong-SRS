@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 2ab78dd3807c024f64883a4dbf27cae3b138cf0aab5f9519e4483a5c3f0c4d37 -->
+<!-- blueprint:source-hash b3efa40e0fa8ed0ece3fc23880754a8cd02a5af08d89a2666274886c977d2bdb -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -254,6 +254,11 @@ Features 80 (a library health check) and 81 (deck detail reusing the
 and 81 are now both built and merged. Neither changes `project-plan.md`: 80 gathers existing
 clear, download, re-source, and delete actions behind one scan, and 81
 restyles an existing surface.
+Feature 82 (one-click update, in two sub-features 82a-82b) was added to
+`build-plan.md` on 2026-09-26. It reverses feature 54's "never downloads or
+replaces itself" rule, so it rewrote `project-plan.md` §8's update paragraph:
+the packaged app may now install a verified release on a restart the user
+chooses, never on its own.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1781,6 +1786,38 @@ restyles an existing surface.
     `/api/decks/cards` returns the title track's schedule. The Preview
     modal, and with it feature 16's song title/slot/artist edit, is no longer
     reachable from `/decks`, matching `/cards` since 50c.
+82. **One-click update** - in two sub-features, 82a done. Added to
+    `build-plan.md` 2026-09-26. The packaged app installs a newer release
+    itself on request instead of only linking to it (feature 54, plus the
+    `direct-download-update-notice` fix, which made `GET /api/version`
+    return `downloadUrl` and `releaseNotes` and Settings > About show a
+    per-platform download link and the notes). The release zip is downloaded
+    into the user-data directory and verified against the `sha256:` digest
+    GitHub publishes on each release asset (checked 2026-09-26: present on
+    every v1.4.0 asset), so the release process needs no checksum file. An
+    asset without a digest is refused. Update files never touch user data,
+    which already lives in the user-data directory; migrations run on boot.
+    Packaged builds only; a non-writable install folder or any failure falls
+    back to the manual download link.
+    - **82a. Download, verify, and stage** - done 2026-09-26. Server routes
+      plus a Settings progress state ending at "Ready - restart to update";
+      nothing outside a staging folder changes. The compiled launcher sets
+      `GAQ_SRS_INSTALL_DIR` (absent means not packaged, so no update is
+      offered). `POST /api/update/download` and `GET /api/update/status`
+      (`server/utils/selfUpdate.ts`) stream the asset to
+      `<dataDir>/updates/`, fail only on a 30s stall, check the SHA-256 and
+      size, unzip with `fflate` into `updates/staged/` behind a zip-slip and
+      layout check, and write `ready.json` last; a staged build not newer than
+      the running one is deleted on the next status read. The About panel's
+      restart button stays disabled until 82b.
+    - **82b. Swap and relaunch** - rename the running binary and the three
+      sibling folders to `.old` (Windows allows renaming a running `.exe`,
+      not overwriting it), move the staged ones in, restore on any failure,
+      relaunch without opening a second browser tab once the old process
+      frees the port, delete `.old` leftovers on the next start, and reload
+      the open page. macOS binaries are already ad-hoc signed by
+      `bun run package`, and a file the app downloads itself carries no
+      quarantine flag.
 
 ## Data model
 
@@ -2336,9 +2373,12 @@ standalone executable.
   previously scoped as the now-retired feature 25, abandoned 2026-08-30
   before any code was written.
 - **Updates**: feature 54, done - the packaged build checks the
-  project's GitHub releases for a newer version on launch and links to it.
-  It never downloads or replaces itself, and the check failing changes
-  nothing about how the app runs. Releases are published by hand from
+  project's GitHub releases for a newer version on launch and links to the
+  matching platform's zip, with the release notes shown in Settings > About
+  (`direct-download-update-notice` fix). Feature 82 (planned) lets it
+  install that release on request, replacing its own files on a restart
+  the user chooses; until then it never downloads or replaces itself. The
+  check failing changes nothing about how the app runs. Releases are published by hand from
   `bun run package`'s zipped output; there is no update channel or
   manifest beyond the GitHub releases list itself. `bun run package`
   refuses to build when `package.json`'s version disagrees with the

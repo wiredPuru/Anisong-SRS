@@ -203,8 +203,11 @@ that starts the local server and opens the browser, with no separate
 Node/Bun/Nuxt install required.
 
 The packaged build checks the project's GitHub releases for a newer version
-on launch and links to it; it never downloads or replaces itself, and the
-check failing changes nothing about how the app runs.
+on launch. It links to the matching download, and can install it on request:
+it downloads and verifies the release, then replaces its own files on a
+restart the user chooses. It never updates without being asked, the check
+failing changes nothing about how the app runs, and user data is never
+touched by an update.
 
 ## 9. Non-Goals
 

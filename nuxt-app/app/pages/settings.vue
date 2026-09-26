@@ -179,6 +179,7 @@ async function importDeck() {
               class="update-available"
             >
               <p class="update-headline">Update available - {{ updateStatus.latest }}</p>
+              <SettingsSelfUpdate />
               <div class="update-actions">
                 <a :href="updateStatus.downloadUrl" rel="noreferrer" class="update-link update-download">
                   {{ downloadLabel }}

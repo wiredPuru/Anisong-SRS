@@ -17,6 +17,10 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const isCompiled = scriptDir.startsWith("/$bunfs") || /~BUN[\\/]/i.test(scriptDir);
 const realDir = isCompiled ? dirname(process.execPath) : scriptDir;
 
+// Self-update (feature 82) is offered only when this is set, so dev and
+// `bun run launch` never replace their own files.
+if (isCompiled) process.env.GAQ_SRS_INSTALL_DIR = realDir;
+
 process.env.GAQ_SRS_DATA_DIR ??= resolveUserDataDir(
   process.platform,
   process.env,

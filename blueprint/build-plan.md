@@ -827,6 +827,26 @@ cleaned-up checkbox version before generating the project overview.
   (Remove from deck on manual decks, Study this deck, export) and the deck's
   search and infinite scroll. Built by extracting `/cards`' table and
   inspector into shared components rather than copying them.
+- [ ] 82. **One-click update** - the packaged app can install a newer release
+  itself instead of only linking to it (feature 54 and the
+  direct-download-update-notice fix). From Settings > About, "Download update"
+  fetches this platform's release zip into the user-data directory, verifies it
+  against the SHA-256 GitHub publishes for that asset (refusing any asset
+  without one), and unpacks and checks it (binary plus `migrations/`, `public/`,
+  `kuromoji/`) in a staging folder. "Restart to update" then swaps the install
+  folder's four items for the staged ones: the running binary is renamed, not
+  overwritten, which Windows allows. The old ones are kept as `.old` and restored
+  if any part of the swap fails. The new version starts without opening a
+  second browser tab, and the open page reloads once it answers. Data is
+  untouched, since it lives in the user-data directory and migrations already
+  run on boot. Packaged builds only. When the install folder is not writable,
+  or the check or download fails, it falls back to the manual download link,
+  and nothing is changed until the user clicks. It never updates on its own.
+  - [x] 82a. **Download, verify, and stage** - server routes and a Settings
+    progress state that end at "Ready - restart to update", with no swap yet.
+  - [ ] 82b. **Swap and relaunch** - the rename-and-replace with restore on
+    failure, a relaunch that waits for the old process to free the port,
+    `.old` cleanup on the next start, and the page reload.
 
 ## Plan maintenance
 
