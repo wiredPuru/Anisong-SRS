@@ -181,6 +181,15 @@ function theme(
 }
 
 describe("matchTheme", () => {
+  it("never moves a card between an insert and an OP/ED sharing a song", () => {
+    const insert = theme("Magia", "IN-500");
+    const ed = theme("Magia", "ED2");
+
+    expect(matchTheme(candidate("Magia", "ED2"), [insert])).toBeNull();
+    expect(matchTheme(candidate("Magia", "IN-500"), [ed])).toBeNull();
+    expect(matchTheme(candidate("Magia", "IN-500"), [ed, insert])).toBe(insert);
+  });
+
   it("pairs on title even when the providers disagree on the slot", () => {
     const ed2 = theme("Kirakira", "ED2");
 

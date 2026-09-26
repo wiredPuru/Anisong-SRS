@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateThemeSlotAnswer, formatThemeSlot, normalizeThemeSlot } from "./themeSlotAnswer";
+import { evaluateThemeSlotAnswer, formatThemeSlot, normalizeThemeSlot, formatThemeSlotLabel, isInsertThemeSlot } from "./themeSlotAnswer";
 
 describe("normalizeThemeSlot", () => {
   it("parses a plain slot", () => {
@@ -61,5 +61,21 @@ describe("evaluateThemeSlotAnswer", () => {
 
   it("fails a malformed expected value", () => {
     expect(evaluateThemeSlotAnswer("", { type: "OP", number: 1 })).toBe(false);
+  });
+});
+
+describe("theme slot labels", () => {
+  it.each([
+    ["IN-21049", "Insert"],
+    ["OP1", "OP1"],
+    ["ED7-ShounenHen", "ED7-ShounenHen"],
+    ["IN1", "IN1"],
+  ])("labels %s as %s", (slot, label) => {
+    expect(formatThemeSlotLabel(slot)).toBe(label);
+  });
+
+  it("recognizes only the IN-<id> shape as an insert", () => {
+    expect(isInsertThemeSlot(" IN-7 ")).toBe(true);
+    expect(isInsertThemeSlot("IN-")).toBe(false);
   });
 });

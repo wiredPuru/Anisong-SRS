@@ -2,6 +2,7 @@ import { fetchAnimeThemesByAniListId, fetchThemeTitlesByAniListIds } from "../li
 import { fetchThemesByMalId, type AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { titleKey } from "./textMatch.ts";
+import { isInsertSlot } from "./themeSlot.ts";
 
 export interface ResolvedTheme {
   themeSlot: string;
@@ -134,8 +135,10 @@ export function startMatchIndexLoads(
   return loads;
 }
 
-export function findThemeMatch(index: AnimeThemesMatchIndex, songTitle: string | null): number | null {
-  if (index.status !== "ok") return null;
+// AnimeThemes has no insert songs, so an insert sharing a title with an OP/ED
+// (a song used as both) must not take that theme's id and links.
+export function findThemeMatch(index: AnimeThemesMatchIndex, songTitle: string | null, themeSlot: string): number | null {
+  if (index.status !== "ok" || isInsertSlot(themeSlot)) return null;
   const key = titleKey(songTitle);
   return key ? index.byTitle.get(key) ?? null : null;
 }
@@ -169,11 +172,15 @@ function settledValue<T>(result: PromiseSettledResult<T>): T | null {
   throw result.reason;
 }
 
-export async function resolveThemes({ aniListId, malId }: { aniListId: number; malId: number | null }): Promise<ResolvedThemes> {
+export async function resolveThemes({ aniListId, malId, includeInserts = false }: {
+  aniListId: number;
+  malId: number | null;
+  includeInserts?: boolean;
+}): Promise<ResolvedThemes> {
   const [animethemesResult, anisongResult] = await Promise.allSettled([
     fetchAnimeThemesByAniListId(aniListId),
     // AnisongDB is keyed on MAL ids. Without one there is nothing to ask it.
-    malId === null ? Promise.resolve([]) : fetchThemesByMalId(malId, aniListId),
+    malId === null ? Promise.resolve([]) : fetchThemesByMalId(malId, aniListId, { includeInserts }),
   ]);
 
   if (animethemesResult.status === "rejected" && anisongResult.status === "rejected") {
@@ -193,8 +200,12 @@ export async function resolveThemes({ aniListId, malId }: { aniListId: number; m
   // ED1 on AnimeThemes is AnisongDB's Ending 2, and vice versa. Pairing by slot
   // would have put one song's title on another song's audio, so the song title
   // is the identity here and the slot is only a label.
+  // Inserts sit out the pairing: AnimeThemes has none, so a title match could
+  // only be an OP/ED that reuses the song, and pairing would swap its clip.
+  const inserts = anisong.filter((theme) => isInsertSlot(theme.themeSlot));
   const unpaired = new Map<string, AnisongTheme[]>();
   for (const theme of anisong) {
+    if (isInsertSlot(theme.themeSlot)) continue;
     const key = titleKey(theme.songTitle);
     if (key) unpaired.set(key, [...unpaired.get(key) ?? [], theme]);
   }
@@ -214,7 +225,7 @@ export async function resolveThemes({ aniListId, malId }: { aniListId: number; m
     });
   }
 
-  for (const leftovers of unpaired.values()) {
+  for (const leftovers of [...unpaired.values(), inserts]) {
     for (const theme of leftovers) {
       // Its slot number is only trustworthy where AnimeThemes has claimed
       // nothing; otherwise this is a song AnimeThemes labels differently and

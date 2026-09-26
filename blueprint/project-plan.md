@@ -23,8 +23,9 @@ instance against their own local media and database.
 - **Anime & song lookup** - search and pull metadata from AniList (GraphQL) and
   animethemes.moe (GraphQL, see https://api-docs.animethemes.moe) when
   creating a card: titles in English, Romaji, and Japanese, artist, and
-  available OP/ED themes. Theme data and clip URLs come from AnisongDB first
-  (the database behind Anime Music Quiz), falling back to animethemes.moe for
+  available OP/ED themes and, when enabled in Settings, insert songs. Theme
+  data and clip URLs come from AnisongDB first (the database behind Anime
+  Music Quiz), falling back to animethemes.moe for
   anything it does not cover. AniList stays the source of anime titles and
   cover art. A Clip source setting (AnisongDB only by default, Both, or
   animethemes.moe only) decides which of the two providers clip files may be
@@ -87,8 +88,8 @@ instance against their own local media and database.
 
 ## 4. Data - What are we storing?
 
-- Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED info),
-  cached locally from AniList/animethemes.moe lookups, plus season year,
+- Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED/insert
+  info), cached locally from AniList/animethemes.moe lookups, plus season year,
   season, format, AniList score, genres, and tags, used to filter Study.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading

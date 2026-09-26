@@ -1,5 +1,5 @@
 import { fetchArtistThemesBySlug, searchArtistsOnAnimeThemes } from "../lib/animethemes.ts";
-import { fetchArtistCatalog, searchArtists } from "../lib/anisongdb.ts";
+import { fetchArtistCatalog, searchArtists, type ThemeOptions } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 
 // A candidate has to say where it came from: the two providers key artists
@@ -27,9 +27,9 @@ export function isArtistCandidate(value: unknown): value is ArtistCandidate {
   );
 }
 
-export async function searchArtistCandidates(query: string): Promise<ArtistCandidate[]> {
+export async function searchArtistCandidates(query: string, options: ThemeOptions = {}): Promise<ArtistCandidate[]> {
   try {
-    return (await searchArtists(query)).map((artist) => ({
+    return (await searchArtists(query, options)).map((artist) => ({
       source: "anisongdb" as const,
       id: artist.id,
       name: artist.name,
@@ -73,7 +73,7 @@ export interface ResolvedArtistThemes {
 // artist-search hop plus a catalog fetch (3.8-6.3s measured) to improve a field
 // that is already empty 96% of the time. Song.titleNative falls back to the
 // romaji title, which is what Study and Preview show for those songs today.
-export async function resolveArtistThemes(candidate: ArtistCandidate): Promise<ResolvedArtistThemes | null> {
+export async function resolveArtistThemes(candidate: ArtistCandidate, options: ThemeOptions = {}): Promise<ResolvedArtistThemes | null> {
   if (candidate.source === "animethemes") {
     const result = candidate.slug === null ? null : await fetchArtistThemesBySlug(candidate.slug);
     return result && { artistName: result.artistName, entries: result.entries };
@@ -81,7 +81,7 @@ export async function resolveArtistThemes(candidate: ArtistCandidate): Promise<R
 
   return {
     artistName: candidate.name,
-    entries: (await fetchArtistCatalog(candidate.id)).map((theme) => ({
+    entries: (await fetchArtistCatalog(candidate.id, options)).map((theme) => ({
       animethemesThemeId: null,
       themeSlot: theme.themeSlot,
       songTitle: theme.songTitle,

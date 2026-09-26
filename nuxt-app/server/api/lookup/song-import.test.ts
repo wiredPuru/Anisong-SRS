@@ -22,7 +22,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   upsertSong: mocks.upsertSong,
   setAnimeAnimethemesSlug: mocks.setAnimeAnimethemesSlug,
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly, getIncludeInsertSongs: () => false }));
 
 const anisongBody = {
   resultKey: "adb:31487",

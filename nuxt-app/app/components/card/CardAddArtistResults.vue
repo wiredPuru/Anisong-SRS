@@ -391,7 +391,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               >
                 <div class="theme-info">
                   <span class="theme-title">{{ theme.songTitle }}</span>
-                  <span class="theme-meta">{{ theme.themeSlot }}</span>
+                  <span class="theme-meta">{{ formatThemeSlotLabel(theme.themeSlot) }}</span>
                 </div>
 
                 <template v-if="addedCards[theme.songId]">

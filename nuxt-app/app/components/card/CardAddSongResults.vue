@@ -196,7 +196,7 @@ async function removeCard(resultKey: string) {
           <div class="theme-info">
             <span class="theme-title">{{ result.songTitle ?? result.themeSlot }}</span>
             <span class="result-meta">
-              {{ result.artistName ?? "Unknown artist" }} - {{ result.animeTitleRomaji }} ({{ result.themeSlot }})
+              {{ result.artistName ?? "Unknown artist" }} - {{ result.animeTitleRomaji }} ({{ formatThemeSlotLabel(result.themeSlot) }})
             </span>
           </div>
 

@@ -6,6 +6,7 @@ import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import {
   getAutoDownload,
   getThemesOnly,
+  getIncludeInsertSongs,
   getBoxOneStreakRequired,
   getClipSource,
   getDailyNewCardLimit,
@@ -27,6 +28,7 @@ export default defineEventHandler(() => {
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
     themesOnly: getThemesOnly(),
+    includeInsertSongs: getIncludeInsertSongs(),
     clipSource: getClipSource(),
     missingCoverCount: countAnimeMissingCover(),
     missingAnimeDetailsCount: countAnimeMissingDetails(),

@@ -24,3 +24,13 @@ export function evaluateThemeSlotAnswer(expectedSlot: string, selection: ThemeSl
   const expected = normalizeThemeSlot(expectedSlot);
   return expected !== null && expected.type === selection.type && expected.number === selection.number;
 }
+
+// Insert slots (IN-<annSongId>) carry AnisongDB's song id only so each insert
+// is unique; AMQ does not number inserts, so that id is never shown.
+export function isInsertThemeSlot(rawSlot: string): boolean {
+  return /^IN-\d+$/.test(rawSlot.trim());
+}
+
+export function formatThemeSlotLabel(rawSlot: string): string {
+  return isInsertThemeSlot(rawSlot) ? "Insert" : rawSlot;
+}

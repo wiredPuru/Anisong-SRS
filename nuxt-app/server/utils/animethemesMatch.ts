@@ -10,6 +10,7 @@ export interface MatchCandidate {
   animeId: number;
   aniListId: number;
   songTitle: string;
+  themeSlot: string;
 }
 
 export interface MatchBackfillResult {
@@ -38,7 +39,7 @@ export function countUncheckedSongs(): number {
 
 export function listMatchCandidates(): MatchCandidate[] {
   const rows = db
-    .selectDistinct({ songId: song.id, animeId: anime.id, aniListId: anime.aniListId, songTitle: song.title })
+    .selectDistinct({ songId: song.id, animeId: anime.id, aniListId: anime.aniListId, songTitle: song.title, themeSlot: song.themeSlot })
     .from(song)
     .innerJoin(card, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
@@ -88,7 +89,7 @@ export async function backfillAnimeThemesMatches(
     if (index.status === "unavailable") {
       result.unavailable += 1;
     } else {
-      const themeId = findThemeMatch(index, candidate.songTitle);
+      const themeId = findThemeMatch(index, candidate.songTitle, candidate.themeSlot);
       store(candidate, themeId, now(), matchLinkSlugs(index, themeId));
       if (themeId === null) result.missing += 1;
       else result.matched += 1;

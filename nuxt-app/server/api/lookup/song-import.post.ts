@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   if (needsMatch || needsLinks) {
     const index = await loadAnimeThemesMatchIndex(animeRow.aniListId);
     const matchedThemeId = songRow.animethemesThemeId
-      ?? findThemeMatch(index, body.songTitle ?? null) ?? findThemeMatch(index, songRow.title);
+      ?? findThemeMatch(index, body.songTitle ?? null, body.themeSlot) ?? findThemeMatch(index, songRow.title, body.themeSlot);
     const slugs = matchLinkSlugs(index, matchedThemeId);
     setAnimeAnimethemesSlug(animeRow.id, slugs.animethemesSlug);
     if (matchedThemeId !== null && index.status === "ok") songRow = upsertWith(matchedThemeId, slugs.animethemesVideoSlug);

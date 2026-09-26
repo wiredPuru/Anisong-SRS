@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash b3efa40e0fa8ed0ece3fc23880754a8cd02a5af08d89a2666274886c977d2bdb -->
+<!-- blueprint:source-hash 87c094d0883fbec6ea8cd5e77749bbc5c87696763fec3e40e78d1357bf73a5ce -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -270,6 +270,13 @@ retuning feature 62's gruvbox palette, chosen in a new Settings > Appearance
 section. It reverses feature 63's rule that the mascot stays off working
 surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
 All five sub-features are built and merged.
+Feature 85 (insert songs, in two sub-features 85a-85b) was added to
+`build-plan.md` on 2026-09-26; 85a is built and merged, 85b is not yet built.
+It reverses the rule,
+recorded under features 60a and 76, that every import drops insert songs. It is
+opt-in behind a persistent Settings toggle, default off, so nothing changes
+until it is turned on. It amended `project-plan.md` §3's "Anime & song lookup"
+bullet and §4's first Data bullet to name insert songs.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1916,6 +1923,33 @@ All five sub-features are built and merged.
       messages on Home, Cards, Decks, Stats, and Settings. All nine
       `.backdrop > .panel` modals take a 2px `--outline` border and the
       larger radius.
+85. **Insert songs** - in progress (85a done). Import, study, and grade AMQ insert
+    songs alongside OP/ED themes, opt-in behind a persistent Settings toggle
+    ("Include insert songs", default off, like AMQ's own lobby setting), so
+    imports and "Add all" behave exactly as today until it is turned on.
+    AnisongDB's unnumbered `"Insert Song"` entries (dropped today by
+    `toThemeSlot`, the `OP_ED_ONLY` search filter, and `collectSongResults` in
+    `server/lib/anisongdb.ts`) are stored with the slot `IN-<annSongId>`
+    (for example `IN-21049`), so a re-import keeps them stable and a single
+    search result is enough to name one. That number is
+    internal only: it is never shown and never graded. No song schema
+    migration, since `Song.themeSlot` is free text and `(animeId, themeSlot)`
+    uniqueness still holds.
+    - **85a. Setting, import, and storage** - done 2026-09-26. The "Include
+      insert songs" setting (`MediaLibrarySettings.includeInsertSongs`,
+      migration `0023`, `POST /api/media-library/include-insert-songs`); with it on, anime import, song search, and artist import stop
+      dropping insert songs, and they show in `/cards`' add-candidate groups
+      labelled "Insert" (`formatThemeSlotLabel`). AnimeThemes has no inserts,
+      so `findThemeMatch`, `resolveThemes`' title pairing, and 60c's
+      `matchTheme` never pair an insert with an OP/ED (`isInsertSlot`,
+      `server/utils/themeSlot.ts`). The lookup routes pass `includeInserts`
+      into the source helpers, and copies of one insert collapse onto their
+      lowest `annSongId`.
+    - **85b. Study, grading, and stats** - the OP/ED filter (Study and
+      deck-from-filters) gains Insert, the OP/ED number answer gains an
+      "Insert" choice that an insert passes with no number, `/stats`' OP vs
+      ED split gains an Insert bucket, and every slot label reads "Insert"
+      rather than `IN2`.
 
 ## Data model
 
@@ -1964,7 +1998,9 @@ A specific OP/ED theme track.
 - `animeId` (FK -> Anime)
 - `artistId` (FK -> Artist)
 - `title` (string) - as sourced from animethemes.moe/AniList
-- `themeSlot` (string) - e.g. `"OP1"`, `"ED2"`
+- `themeSlot` (string) - e.g. `"OP1"`, `"ED2"`; feature 85 adds
+  `"IN-<annSongId>"` (e.g. `"IN-21049"`) for insert songs, never shown or
+  graded
 - `animethemesThemeId` (integer, nullable) - external reference, used to
   re-fetch or re-link media later
 - `animethemesVideoSlug` (string, nullable) - feature 74.
@@ -2090,6 +2126,8 @@ Singleton row (`id` always `1`).
 - `clipSource` (text, not null, default `"anisongdb"`, values `"anisongdb" |
   "both" | "animethemes"`) - added in feature 64a. Which providers' hosts
   clip files may be streamed or downloaded from.
+- `includeInsertSongs` (boolean, not null, default `false`) - added in
+  feature 85a. Whether imports keep AnisongDB insert songs.
 - `themesOnly` (boolean, not null, default `false`) - added by the
   `themes-only-mode` fix (2026-09-21). Off: any AnisongDB song can be added
   and studied. On: Study and due counts only serve cards whose

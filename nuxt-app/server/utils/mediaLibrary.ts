@@ -185,6 +185,28 @@ export function setThemesOnly(enabled: boolean): { error: string } | { themesOnl
   return { themesOnly: enabled };
 }
 
+export function getIncludeInsertSongs(): boolean {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.includeInsertSongs ?? false;
+}
+
+export function setIncludeInsertSongs(enabled: boolean): { error: string } | { includeInsertSongs: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "Include insert songs must be a boolean." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, includeInsertSongs: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { includeInsertSongs: enabled } })
+    .run();
+
+  return { includeInsertSongs: enabled };
+}
+
 export function getClipSource(): ClipSource {
   const row = db
     .select()

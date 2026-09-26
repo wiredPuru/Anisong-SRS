@@ -14,7 +14,7 @@ vi.mock("../../utils/lookup.ts", () => ({
   getOrCreateArtist: () => ({ id: 1 }), upsertAnime: mocks.upsertAnime, upsertSong: mocks.upsertSong,
   setAnimeAnimethemesSlug: vi.fn(),
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly, getIncludeInsertSongs: () => false }));
 vi.mock("../../lib/animethemes.ts", () => ({
   fetchThemeTitlesByAniListIds: async () => new Map(),
   fetchArtistThemesBySlug: async () => ({ artistName: "Artist", entries: [1, 2, 3].map((id) => ({

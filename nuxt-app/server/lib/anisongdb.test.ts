@@ -340,3 +340,64 @@ describe("AnisongDB artist catalog", () => {
     await expect(fetchArtistCatalog(id)).rejects.toThrow("positive integer");
   });
 });
+
+describe("AnisongDB insert songs", () => {
+  const insert = (overrides: Record<string, unknown> = {}) =>
+    entry({ annSongId: 21049, songType: "Insert Song", songName: "Sis puella magica!", songArtist: "Eri Itou", animeJPName: "Mahou Shoujo Madoka Magica", ...overrides });
+  const respondEach = (entries: unknown[]) => fetch.mockImplementation(async () => Response.json(entries));
+
+  it("drops inserts unless they are asked for", async () => {
+    respond([entry(), insert()]);
+    expect((await themes()).map((theme) => theme.themeSlot)).toEqual(["OP1"]);
+  });
+
+  it("names an included insert by its annSongId", async () => {
+    respond([entry(), insert()]);
+    expect((await fetchThemesByMalId(1, 1, { includeInserts: true })).map((theme) => theme.themeSlot)).toEqual(["OP1", "IN-21049"]);
+  });
+
+  it("drops an insert with no annSongId or no title", async () => {
+    respond([insert({ annSongId: null }), insert({ annSongId: 3, songName: " " })]);
+    expect(await fetchThemesByMalId(1, 1, { includeInserts: true })).toEqual([]);
+  });
+
+  it("collapses copies of one insert onto the lowest id, keeping the richest media", async () => {
+    respond([
+      insert({ annSongId: 500, HQ: "rich.webm" }),
+      insert({ annSongId: 21049, HQ: null, MQ: null }),
+      insert({ annSongId: 21048, songName: "Credens justitiam" }),
+    ]);
+    const result = await fetchThemesByMalId(1, 1, { includeInserts: true });
+    expect(result).toEqual([
+      expect.objectContaining({ themeSlot: "IN-500", videoUrl: `${HOST}/rich.webm` }),
+      expect.objectContaining({ themeSlot: "IN-21048", songTitle: "Credens justitiam" }),
+    ]);
+  });
+
+  it("keeps the same title by a different artist as its own insert", async () => {
+    respond([insert(), insert({ annSongId: 30000, songArtist: "Someone Else" })]);
+    expect(await fetchThemesByMalId(1, 1, { includeInserts: true })).toHaveLength(2);
+  });
+
+  it("asks search for inserts only when they are included", async () => {
+    respondEach([insert()]);
+    expect(await searchSongs("sis")).toEqual([]);
+    expect(JSON.parse(fetch.mock.calls[0]![1].body).filters).toEqual({ song_types: ["opening", "ending"] });
+
+    const results = await searchSongs("sis", { includeInserts: true });
+    expect(JSON.parse(fetch.mock.calls[1]![1].body).filters).toEqual({ song_types: ["opening", "ending", "insert"] });
+    expect(results).toEqual([expect.objectContaining({ themeSlot: "IN-21049", songTitle: "Sis puella magica!" })]);
+  });
+
+  it("includes inserts in an artist catalog and artist search when asked", async () => {
+    respondEach([insert({ artists: [{ id: 9, names: ["Eri Itou"] }] })]);
+    expect(await fetchArtistCatalog(9, { includeInserts: true })).toEqual([expect.objectContaining({ themeSlot: "IN-21049" })]);
+    await searchArtists("eri", { includeInserts: true });
+    expect(JSON.parse(fetch.mock.calls[1]![1].body).filters).toEqual({ song_types: ["opening", "ending", "insert"] });
+  });
+
+  it("keeps one anime's insert apart from another anime's copy of the same song", async () => {
+    respond([insert(), insert({ annSongId: 40000, linked_ids: { myanimelist: 2, anilist: 2 } })]);
+    expect(await searchSongs("sis", { includeInserts: true })).toHaveLength(2);
+  });
+});

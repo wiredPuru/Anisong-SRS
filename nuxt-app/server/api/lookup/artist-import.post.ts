@@ -4,7 +4,7 @@ import { ProviderUnavailableError } from "../../lib/graphql.ts";
 import { isArtistCandidate, resolveArtistThemes } from "../../utils/artistSource.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { findSongByAnimeAndSlot, getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } from "../../utils/lookup.ts";
-import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
+import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, matchLinkSlugs, startMatchIndexLoads } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
   return respondWithImportProgress(event, async (report) => {
     report({ label: `Fetching artist catalog from ${candidate.source === "anisongdb" ? "AnisongDB" : "AnimeThemes"}` });
-    const artistThemes = await resolveArtistThemes(candidate);
+    const artistThemes = await resolveArtistThemes(candidate, { includeInserts: getIncludeInsertSongs() });
     if (!artistThemes) {
       throw createError({ statusCode: 404, statusMessage: "Artist not found" });
     }
@@ -101,7 +101,7 @@ export default defineEventHandler(async (event) => {
         const themes = entries.map((entry) => {
           const themeId = entry.animethemesThemeId
             ?? findSongByAnimeAndSlot(animeRow.id, entry.themeSlot)?.animethemesThemeId
-            ?? (matchIndex ? findThemeMatch(matchIndex, entry.songTitle) : null);
+            ?? (matchIndex ? findThemeMatch(matchIndex, entry.songTitle, entry.themeSlot) : null);
           const songRow = upsertSong({
             animeId: animeRow.id,
             artistId: artistRow.id,

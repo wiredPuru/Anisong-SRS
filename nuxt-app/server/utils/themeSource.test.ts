@@ -79,7 +79,7 @@ describe("theme source resolution", () => {
         source: "merged",
       }],
     });
-    expect(fromAnisong).toHaveBeenCalledWith(1, 1);
+    expect(fromAnisong).toHaveBeenCalledWith(1, 1, { includeInserts: false });
   });
 
   it("keeps AnimeThemes titles on a merge so a re-import cannot rewrite stored metadata", async () => {
@@ -199,8 +199,29 @@ describe("theme source resolution", () => {
   });
 });
 
+describe("insert songs in theme resolution", () => {
+  it("keeps an insert apart from an AnimeThemes ED with the same title", async () => {
+    fromAnimeThemes.mockResolvedValue({ animethemesId: 521, animethemesSlug: "madoka", themes: [
+      animethemesTheme({ themeSlot: "ED2", songTitle: "Magia", animethemesThemeId: 902 }),
+    ] });
+    fromAnisong.mockResolvedValue([
+      anisongTheme({ themeSlot: "IN-500", songTitle: "Magia", videoUrl: "https://naedist.animemusicquiz.com/insert.webm" }),
+    ]);
+
+    const { themes } = await resolve();
+    expect(themes).toEqual([
+      expect.objectContaining({ themeSlot: "ED2", animethemesThemeId: 902, videoUrl: "https://v.animethemes.moe/slow.webm", source: "animethemes" }),
+      expect.objectContaining({ themeSlot: "IN-500", animethemesThemeId: null, videoUrl: "https://naedist.animemusicquiz.com/insert.webm", source: "anisongdb" }),
+    ]);
+  });
+});
+
 describe("AnimeThemes match index", () => {
   const load = () => loadAnimeThemesMatchIndex(1);
+
+  it("never matches an insert slot, even on an exact title", async () => {
+    expect(findThemeMatch(await load(), "Tank!", "IN-21049")).toBeNull();
+  });
 
   it.each([
     ["exactly", "Tank!"],
@@ -208,17 +229,17 @@ describe("AnimeThemes match index", () => {
     ["across spacing", "Tank !"],
     ["across accents", "Tánk!"],
   ])("matches a song title %s", async (_label, songTitle) => {
-    expect(findThemeMatch(await load(), songTitle)).toBe(900);
+    expect(findThemeMatch(await load(), songTitle, "OP1")).toBe(900);
   });
 
   it("finds a match regardless of which slot the asking provider labels it", async () => {
     fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme({ themeSlot: "ED1", songTitle: "Crucifix X", animethemesThemeId: 902 })] });
-    expect(findThemeMatch(await load(), "Crucifix X")).toBe(902);
+    expect(findThemeMatch(await load(), "Crucifix X", "OP1")).toBe(902);
   });
 
   it("does not guess across a real spelling difference", async () => {
     fromAnimeThemes.mockResolvedValue({ animethemesId: 521, themes: [animethemesTheme({ songTitle: "Kagami Hyoushi" })] });
-    expect(findThemeMatch(await load(), "Kagamiutsushi")).toBeNull();
+    expect(findThemeMatch(await load(), "Kagamiutsushi", "OP1")).toBeNull();
   });
 
   it("keeps the first theme when two share a title", async () => {
@@ -226,27 +247,27 @@ describe("AnimeThemes match index", () => {
       animethemesTheme({ themeSlot: "OP1", animethemesThemeId: 900 }),
       animethemesTheme({ themeSlot: "ED1", animethemesThemeId: 901 }),
     ] });
-    expect(findThemeMatch(await load(), "Tank!")).toBe(900);
+    expect(findThemeMatch(await load(), "Tank!", "OP1")).toBe(900);
   });
 
   it("returns null for a blank or missing title", async () => {
     const index = await load();
-    expect(findThemeMatch(index, null)).toBeNull();
-    expect(findThemeMatch(index, "  !! ")).toBeNull();
+    expect(findThemeMatch(index, null, "OP1")).toBeNull();
+    expect(findThemeMatch(index, "  !! ", "OP1")).toBeNull();
   });
 
   it("returns an ok index with nothing in it when AnimeThemes has no entry for the anime", async () => {
     fromAnimeThemes.mockResolvedValue(null);
     const index = await load();
     expect(index).toEqual({ status: "ok", animethemesId: null, animethemesSlug: null, byTitle: new Map(), videoSlugByThemeId: new Map() });
-    expect(findThemeMatch(index, "Tank!")).toBeNull();
+    expect(findThemeMatch(index, "Tank!", "OP1")).toBeNull();
   });
 
   it("reports an outage as unavailable instead of throwing", async () => {
     fromAnimeThemes.mockRejectedValue(new ProviderUnavailableError("AnimeThemes"));
     const index = await load();
     expect(index).toEqual({ status: "unavailable" });
-    expect(findThemeMatch(index, "Tank!")).toBeNull();
+    expect(findThemeMatch(index, "Tank!", "OP1")).toBeNull();
   });
 
   it("rethrows a fault that is not an outage", async () => {
@@ -296,9 +317,9 @@ describe("bulk match index loading", () => {
   it("builds each anime's own index from its own themes", async () => {
     titlesFromAnimeThemes.mockResolvedValue(new Map([titles(1, "Tank!"), titles(2, "Blue")]));
     const loads = start([1, 2]);
-    expect(findThemeMatch(await loads.get(1)!, "Tank!")).toBe(901);
-    expect(findThemeMatch(await loads.get(1)!, "Blue")).toBeNull();
-    expect(findThemeMatch(await loads.get(2)!, "Blue")).toBe(902);
+    expect(findThemeMatch(await loads.get(1)!, "Tank!", "OP1")).toBe(901);
+    expect(findThemeMatch(await loads.get(1)!, "Blue", "OP1")).toBeNull();
+    expect(findThemeMatch(await loads.get(2)!, "Blue", "OP1")).toBe(902);
   });
 
   it("carries link slugs into the index, and matchLinkSlugs reads them back", async () => {
@@ -308,7 +329,7 @@ describe("bulk match index loading", () => {
       themes: [{ animethemesThemeId: 901, songTitle: "Tank!", animethemesVideoSlug: "OP1-NCBD1080" }],
     }]]));
     const index = await start([1]).get(1)!;
-    expect(matchLinkSlugs(index, findThemeMatch(index, "Tank!"))).toEqual({ animethemesSlug: "cowboy_bebop", animethemesVideoSlug: "OP1-NCBD1080" });
+    expect(matchLinkSlugs(index, findThemeMatch(index, "Tank!", "OP1"))).toEqual({ animethemesSlug: "cowboy_bebop", animethemesVideoSlug: "OP1-NCBD1080" });
     expect(matchLinkSlugs(index, null)).toEqual({ animethemesSlug: "cowboy_bebop", animethemesVideoSlug: null });
     expect(matchLinkSlugs({ status: "unavailable" }, 901)).toEqual({ animethemesSlug: null, animethemesVideoSlug: null });
   });

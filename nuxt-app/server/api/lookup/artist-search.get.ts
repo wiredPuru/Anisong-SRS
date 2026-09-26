@@ -1,3 +1,4 @@
+import { getIncludeInsertSongs } from "../../utils/mediaLibrary.ts";
 import { searchArtistCandidates } from "../../utils/artistSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -8,6 +9,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "q is required" });
   }
 
-  const results = await searchArtistCandidates(q);
+  const results = await searchArtistCandidates(q, { includeInserts: getIncludeInsertSongs() });
   return { results };
 });

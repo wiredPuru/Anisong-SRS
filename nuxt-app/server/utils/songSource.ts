@@ -1,5 +1,5 @@
 import { searchSongsOnAnimeThemes, type SongSearchEntry } from "../lib/animethemes.ts";
-import { searchSongs } from "../lib/anisongdb.ts";
+import { searchSongs, type ThemeOptions } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { filterClipUrls } from "./clipSource.ts";
 import { getClipSource } from "./mediaLibrary.ts";
@@ -13,10 +13,10 @@ export interface FilteredSongSearchEntry extends SongSearchEntry {
 // Unlike the per-anime import (see themeSource.ts) there is nothing to merge:
 // a search result is a picking aid, and the import that follows re-resolves
 // everything from the AniList id anyway.
-export async function searchSongEntries(query: string): Promise<FilteredSongSearchEntry[]> {
+export async function searchSongEntries(query: string, options: ThemeOptions = {}): Promise<FilteredSongSearchEntry[]> {
   let entries: SongSearchEntry[];
   try {
-    entries = (await searchSongs(query)).map((result) => ({
+    entries = (await searchSongs(query, options)).map((result) => ({
       resultKey: `adb:${result.annSongId}`,
       animethemesThemeId: null,
       themeSlot: result.themeSlot,

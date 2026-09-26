@@ -1,7 +1,7 @@
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "../../utils/lookup.ts";
-import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
+import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { isMissingAnimeThemesMatch, resolveThemes } from "../../utils/themeSource.ts";
 
 export default defineEventHandler(async (event) => {
@@ -17,7 +17,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Anime has no matching metadata" });
   }
 
-  const resolved = await resolveThemes({ aniListId: body.aniListId, malId: aniListAnime.malId ?? null });
+  const resolved = await resolveThemes({
+    aniListId: body.aniListId,
+    malId: aniListAnime.malId ?? null,
+    includeInserts: getIncludeInsertSongs(),
+  });
   const clipSource = getClipSource();
   const themesOnly = getThemesOnly();
 

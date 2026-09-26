@@ -9,6 +9,7 @@ const candidate = (overrides: Partial<MatchCandidate> = {}): MatchCandidate => (
   animeId: 71,
   aniListId: 195,
   songTitle: "LOVE A RIDDLE",
+  themeSlot: "OP1",
   ...overrides,
 });
 
@@ -48,6 +49,16 @@ describe("backfillAnimeThemesMatches", () => {
     const { result, store } = await run([candidate()], { 195: { status: "unavailable" } });
     expect(store).not.toHaveBeenCalled();
     expect(result).toEqual({ checked: 1, matched: 0, missing: 0, unavailable: 1 });
+  });
+
+  it("stamps an insert as checked without borrowing an OP/ED's match", async () => {
+    const { result, store } = await run(
+      [candidate({ themeSlot: "IN-21049" })],
+      { 195: indexOf({ "loveariddle": 1633 }) },
+    );
+
+    expect(store.mock.calls.map(([, themeId, at]) => [themeId, at])).toEqual([[null, checkedAt]]);
+    expect(result).toMatchObject({ checked: 1, matched: 0, missing: 1 });
   });
 
   it("checks every song of an anime against that anime's single lookup", async () => {

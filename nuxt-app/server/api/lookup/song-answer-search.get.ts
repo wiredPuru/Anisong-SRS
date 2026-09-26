@@ -1,3 +1,4 @@
+import { getIncludeInsertSongs } from "../../utils/mediaLibrary.ts";
 import { searchSongEntries } from "../../utils/songSource.ts";
 import { toSongAnswerOptions } from "../../utils/songAnswerOptions.ts";
 
@@ -9,5 +10,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "q is required" });
   }
 
-  return { results: toSongAnswerOptions(await searchSongEntries(q)) };
+  return { results: toSongAnswerOptions(await searchSongEntries(q, { includeInserts: getIncludeInsertSongs() })) };
 });

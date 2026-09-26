@@ -900,6 +900,25 @@ cleaned-up checkbox version before generating the project overview.
     Cards, Decks, Stats, Settings, modals, and empty and loading states moved
     onto the new components, with Kai poses on empty, loading, and
     all-caught-up states.
+- [ ] 85. **Insert songs** - import, study, and grade AMQ insert songs
+  alongside OP/ED themes, opt-in behind a persistent Settings toggle
+  ("Include insert songs", default off, like AMQ's own lobby setting) so
+  imports and "Add all" behave exactly as today until it is turned on.
+  AnisongDB's unnumbered "Insert Song" entries are stored with the slot
+  `IN-<annSongId>` (for example `IN-21049`), so re-imports keep them stable
+  and a single search result is enough to name one; that number is internal
+  only and never shown or graded. No schema migration for
+  songs: `themeSlot` is already free text and `(animeId, themeSlot)` still
+  holds.
+  - [x] 85a. **Setting, import, and storage** - the "Include insert songs"
+    setting; with it on, anime import, song search, and artist import stop
+    dropping insert songs, and they show in `/cards`' add-candidate groups
+    labelled "Insert", matched to AnimeThemes by song title as today.
+  - [ ] 85b. **Study, grading, and stats** - the OP/ED filter (Study and
+    deck-from-filters) gains Insert, the OP/ED number answer gains an
+    "Insert" choice that an insert passes with no number, `/stats`' OP vs ED
+    split gains an Insert bucket, and every slot label reads "Insert" rather
+    than `IN2`.
 
 ## Plan maintenance
 

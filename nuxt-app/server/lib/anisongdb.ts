@@ -1,6 +1,7 @@
 import { isRecord, ProviderRequestError, ProviderUnavailableError, retryAfterMs } from "./graphql.ts";
 import { USER_AGENT } from "../utils/mediaDownload.ts";
 import { titleKey } from "../utils/textMatch.ts";
+import { insertSlot } from "../utils/themeSlot.ts";
 
 const ANISONGDB_BASE_URL = "https://anisongdb.com/api";
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -52,8 +53,8 @@ async function postJson(path: string, payload: unknown): Promise<unknown[]> {
 }
 
 // Only three shapes exist in the live data: "Opening N", "Ending N", and
-// "Insert Song". An insert song has no slot in Song's (animeId, themeSlot)
-// uniqueness, so it maps to null and the entry is dropped.
+// "Insert Song". An insert carries no number, so it has no slot here; see
+// themeGrouping for how one is named when inserts are included.
 export function toThemeSlot(songType: unknown): string | null {
   if (typeof songType !== "string") return null;
   const match = /^(Opening|Ending)\s+(\d+)$/.exec(songType.trim());
@@ -105,6 +106,60 @@ function outranks(candidate: Record<string, unknown>, best: Record<string, unkno
   return candidatePenalty === bestPenalty ? candidateId < bestId : candidatePenalty < bestPenalty;
 }
 
+export interface ThemeOptions {
+  includeInserts?: boolean;
+}
+
+function isInsertSongType(songType: unknown): boolean {
+  return typeof songType === "string" && songType.trim() === "Insert Song";
+}
+
+function songTypes({ includeInserts = false }: ThemeOptions) {
+  return { song_types: includeInserts ? ["opening", "ending", "insert"] : ["opening", "ending"] };
+}
+
+// What collapses duplicate copies of one theme together. An OP/ED is its slot.
+// An insert has no number, so copies of it (a rebroadcast, say) are the same
+// song title by the same artist, and its slot is decided once every copy has
+// been seen: the lowest annSongId, which cannot change between imports.
+export function themeGrouping(
+  entry: Record<string, unknown>,
+  { includeInserts = false }: ThemeOptions,
+): { key: string; themeSlot: string | null } | null {
+  const themeSlot = toThemeSlot(entry.songType);
+  if (themeSlot) return { key: themeSlot, themeSlot };
+  if (!includeInserts || !isInsertSongType(entry.songType) || annSongIdOf(entry) === null) return null;
+
+  const title = titleKey(text(entry.songName));
+  if (!title) return null;
+  return { key: `insert:${title}:${titleKey(text(entry.songArtist)) ?? ""}`, themeSlot: null };
+}
+
+interface ThemeGroup {
+  entry: Record<string, unknown>;
+  themeSlot: string | null;
+  lowestAnnSongId: number;
+}
+
+function annSongIdOf(entry: Record<string, unknown>): number | null {
+  return typeof entry.annSongId === "number" && Number.isSafeInteger(entry.annSongId) ? entry.annSongId : null;
+}
+
+function addToGroup(groups: Map<string, ThemeGroup>, key: string, entry: Record<string, unknown>, themeSlot: string | null) {
+  const id = annSongIdOf(entry) ?? Number.MAX_SAFE_INTEGER;
+  const seen = groups.get(key);
+  if (!seen) {
+    groups.set(key, { entry, themeSlot, lowestAnnSongId: id });
+    return;
+  }
+  if (outranks(entry, seen.entry)) seen.entry = entry;
+  seen.lowestAnnSongId = Math.min(seen.lowestAnnSongId, id);
+}
+
+function groupSlot(group: ThemeGroup): string {
+  return group.themeSlot ?? insertSlot(group.lowestAnnSongId);
+}
+
 function toTheme(entry: Record<string, unknown>, themeSlot: string): AnisongTheme | null {
   const videoUrl = mediaUrl(entry.HQ) ?? mediaUrl(entry.MQ);
   const audioUrl = mediaUrl(entry.audio);
@@ -121,24 +176,21 @@ function toTheme(entry: Record<string, unknown>, themeSlot: string): AnisongThem
   };
 }
 
-export async function fetchThemesByMalId(malId: number, aniListId: number): Promise<AnisongTheme[]> {
+export async function fetchThemesByMalId(malId: number, aniListId: number, options: ThemeOptions = {}): Promise<AnisongTheme[]> {
   for (const id of [malId, aniListId]) {
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Anime ID must be a positive integer.");
   }
 
-  const candidates = new Map<string, Record<string, unknown>>();
+  const groups = new Map<string, ThemeGroup>();
 
   for (const raw of await postJson("mal_ids_request", { mal_ids: [malId], ignore_duplicate: true })) {
     if (!isRecord(raw) || raw.isDub === true || !isForAnime(raw, malId, aniListId)) continue;
-    const themeSlot = toThemeSlot(raw.songType);
-    if (!themeSlot) continue;
-
-    const best = candidates.get(themeSlot);
-    if (!best || outranks(raw, best)) candidates.set(themeSlot, raw);
+    const grouping = themeGrouping(raw, options);
+    if (grouping) addToGroup(groups, grouping.key, raw, grouping.themeSlot);
   }
 
-  return [...candidates]
-    .map(([themeSlot, entry]) => toTheme(entry, themeSlot))
+  return [...groups.values()]
+    .map((group) => toTheme(group.entry, groupSlot(group)))
     .filter((theme): theme is AnisongTheme => theme !== null);
 }
 
@@ -152,10 +204,6 @@ export interface AnisongSongResult {
   videoUrl: string | null;
   audioUrl: string | null;
 }
-
-// Insert songs have no slot in Song's (animeId, themeSlot) uniqueness, so they
-// are excluded here rather than filtered out of a larger payload.
-const OP_ED_ONLY = { song_types: ["opening", "ending"] };
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -206,10 +254,10 @@ function names(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string" && !!name.trim()) : [];
 }
 
-export async function searchArtists(query: string): Promise<AnisongArtistCandidate[]> {
+export async function searchArtists(query: string, options: ThemeOptions = {}): Promise<AnisongArtistCandidate[]> {
   const entries = await postJson("search_request", {
     artist_search_filter: { search: query, partial_match: true },
-    filters: OP_ED_ONLY,
+    filters: songTypes(options),
     ignore_duplicate: true,
   });
 
@@ -244,47 +292,48 @@ export async function searchArtists(query: string): Promise<AnisongArtistCandida
 }
 
 // One theme can come back several times (a rebroadcast carries its own entry),
-// so the same (anime, slot) collapses to whichever copy has the richest media,
+// so the same (anime, theme) collapses to whichever copy has the richest media,
 // exactly as the per-anime import does.
-function collectSongResults(entries: unknown[]): AnisongSongResult[] {
-  const bestPerTheme = new Map<string, { entry: Record<string, unknown>; themeSlot: string; aniListId: number }>();
+function collectSongResults(entries: unknown[], options: ThemeOptions): AnisongSongResult[] {
+  const groups = new Map<string, ThemeGroup>();
+  const aniListIds = new Map<string, number>();
 
   for (const raw of entries) {
     if (!isRecord(raw) || raw.isDub === true) continue;
-    const themeSlot = toThemeSlot(raw.songType);
+    const grouping = themeGrouping(raw, options);
     const aniListId = linkedId(raw, "anilist");
-    if (!themeSlot || aniListId === null) continue;
+    if (!grouping || aniListId === null) continue;
 
-    const key = `${aniListId}:${themeSlot}`;
-    const best = bestPerTheme.get(key);
-    if (!best || outranks(raw, best.entry)) bestPerTheme.set(key, { entry: raw, themeSlot, aniListId });
+    const key = `${aniListId}:${grouping.key}`;
+    addToGroup(groups, key, raw, grouping.themeSlot);
+    aniListIds.set(key, aniListId);
   }
 
-  return [...bestPerTheme.values()]
-    .map(({ entry, themeSlot, aniListId }) => toSongResult(entry, themeSlot, aniListId))
+  return [...groups]
+    .map(([key, group]) => toSongResult(group.entry, groupSlot(group), aniListIds.get(key)!))
     .filter((result): result is AnisongSongResult => result !== null);
 }
 
-export async function searchSongs(query: string): Promise<AnisongSongResult[]> {
+export async function searchSongs(query: string, options: ThemeOptions = {}): Promise<AnisongSongResult[]> {
   const entries = await postJson("search_request", {
     song_name_search_filter: { search: query, partial_match: true },
-    filters: OP_ED_ONLY,
+    filters: songTypes(options),
     ignore_duplicate: true,
   });
 
-  return collectSongResults(entries)
+  return collectSongResults(entries, options)
     .sort((a, b) => relevance(a.songTitle, query) - relevance(b.songTitle, query) || a.annSongId - b.annSongId)
     .slice(0, MAX_SEARCH_RESULTS);
 }
 
 // Deliberately uncapped: this is one artist's whole catalog, the thing the bulk
 // import exists to walk, not a dropdown.
-export async function fetchArtistCatalog(artistId: number): Promise<AnisongSongResult[]> {
+export async function fetchArtistCatalog(artistId: number, options: ThemeOptions = {}): Promise<AnisongSongResult[]> {
   if (!Number.isSafeInteger(artistId) || artistId <= 0) throw new Error("Artist ID must be a positive integer.");
 
   return collectSongResults(await postJson("artist_ids_request", {
     artist_ids: [artistId],
-    filters: OP_ED_ONLY,
+    filters: songTypes(options),
     ignore_duplicate: true,
-  }));
+  }), options);
 }

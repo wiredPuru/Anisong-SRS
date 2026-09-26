@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `include_insert_songs` integer DEFAULT false NOT NULL;

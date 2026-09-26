@@ -323,7 +323,7 @@ async function removeCard(songId: number) {
                 <li v-for="theme in selectedAnime.themes" :key="theme.songId" class="theme-row">
                   <div class="theme-info">
                     <span class="theme-title">{{ theme.songTitle }}</span>
-                    <span class="result-meta">{{ theme.artistName }} - {{ theme.themeSlot }}</span>
+                    <span class="result-meta">{{ theme.artistName }} - {{ formatThemeSlotLabel(theme.themeSlot) }}</span>
                   </div>
 
                   <template v-if="addedCards[theme.songId]">

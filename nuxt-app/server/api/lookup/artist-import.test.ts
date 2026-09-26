@@ -34,7 +34,7 @@ vi.mock("../../utils/themeSource.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../utils/themeSource.ts")>()),
   startMatchIndexLoads: mocks.startLoads,
 }));
-vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getClipSource: mocks.getClipSource, getThemesOnly: mocks.getThemesOnly, getIncludeInsertSongs: () => false }));
 
 const matchIndex = (titles: Record<string, number>, videoSlugs: Record<number, string> = {}) =>
   Promise.resolve({
@@ -84,7 +84,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("artist import request validation", () => {
   it("passes the whole candidate through to the resolver", async () => {
     await expect(importArtist({ candidate: anisongCandidate })).resolves.toMatchObject({ artistName: "YOASOBI" });
-    expect(mocks.resolveArtistThemes).toHaveBeenCalledWith(anisongCandidate);
+    expect(mocks.resolveArtistThemes).toHaveBeenCalledWith(anisongCandidate, { includeInserts: false });
   });
 
   it("names the provider it is about to ask", async () => {

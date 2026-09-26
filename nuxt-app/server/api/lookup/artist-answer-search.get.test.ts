@@ -5,6 +5,7 @@ vi.mock("../../utils/artistSource.ts", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../utils/artistSource.ts")>(),
   searchArtistCandidates: search,
 }));
+vi.mock("../../utils/mediaLibrary.ts", () => ({ getIncludeInsertSongs: () => true }));
 
 async function lookupArtist(query: unknown) {
   vi.stubGlobal("getQuery", () => query);
@@ -31,6 +32,6 @@ describe("artist answer search route", () => {
     await expect(lookupArtist({ q: " YOASOBI " })).resolves.toEqual({
       results: [{ key: "yoasobi", artistName: "YOASOBI" }],
     });
-    expect(search).toHaveBeenCalledWith("YOASOBI");
+    expect(search).toHaveBeenCalledWith("YOASOBI", { includeInserts: true });
   });
 });

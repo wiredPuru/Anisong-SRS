@@ -8,6 +8,7 @@ import { isAnimethemesUrl } from "./clipSource.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
 import { getClipSource } from "./mediaLibrary.ts";
 import { titleKey } from "./textMatch.ts";
+import { isInsertSlot } from "./themeSlot.ts";
 
 export interface SourceRefreshCandidate {
   cardId: number;
@@ -85,7 +86,9 @@ export function matchTheme(candidate: SourceRefreshCandidate, themes: readonly A
   const wanted = titleKey(candidate.songTitle);
   if (!wanted) return null;
 
-  const matches = themes.filter((theme) => titleKey(theme.songTitle) === wanted);
+  // An insert and an OP/ED can share a song; never move a card across kinds.
+  const insert = isInsertSlot(candidate.themeSlot);
+  const matches = themes.filter((theme) => isInsertSlot(theme.themeSlot) === insert && titleKey(theme.songTitle) === wanted);
   if (matches.length === 1) return matches[0]!;
   if (!matches.length) return null;
 

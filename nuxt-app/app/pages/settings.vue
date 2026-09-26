@@ -9,6 +9,7 @@ const { data, pending, error, refresh } = await useFetch<{
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
   themesOnly: boolean;
+  includeInsertSongs: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
   missingAnimeDetailsCount: number;
@@ -387,6 +388,12 @@ async function importDeck() {
               </p>
               <SettingsAnimeThemesMatchControl :unchecked-count="data.animethemesUncheckedCount" @saved="refresh" />
               <SettingsThemesOnlyControl :enabled="data.themesOnly" @saved="refresh" />
+              <p class="section-hint">
+                Off (default): imports skip insert songs, as AMQ does unless its lobby includes them. On: insert songs
+                show in anime, song, and artist results. AnimeThemes.moe has no insert songs, so with the option above
+                on they cannot be added. Turning this off never removes cards you already added.
+              </p>
+              <SettingsIncludeInsertSongsControl :enabled="data.includeInsertSongs" @saved="refresh" />
             </template>
 
             <template v-else-if="activeSection === 'cache'">
