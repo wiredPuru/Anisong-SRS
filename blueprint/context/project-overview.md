@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 978e7c24185b9b3dd5f1c46f1b434181e1265351cd2e2347cff751c14d9dc2d0 -->
+<!-- blueprint:source-hash 2ab78dd3807c024f64883a4dbf27cae3b138cf0aab5f9519e4483a5c3f0c4d37 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -240,6 +240,10 @@ Feature 77 (building a manual deck from Study's filters, in two sub-features
 77a-77b) was added to `build-plan.md` on 2026-09-25 and is now built and merged in full. No
 `project-plan.md` change: like feature 73, it is a faster way to fill a manual
 deck, which §3's Decks bullet already allows to hold any cards.
+Feature 78 (a season filter) was added to `build-plan.md` on 2026-09-25 and
+is now built and merged. It amended `project-plan.md` §3's Study session bullet and
+§4's first Data bullet, the same two feature 76 amended, since it adds a
+filter and a stored anime field.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1707,6 +1711,22 @@ deck, which §3's Decks bullet already allows to hold any cards.
       block and "From filters..." on the "+ New deck" form, whose `create` mode
       makes the deck first and keeps it if the copy fails, like feature 73.
       Unlike "Import from deck", Escape closes it even from a field.
+78. **Season filter** - done 2026-09-26. Winter / Spring / Summer / Fall
+    chips under Year in the shared filter form (77a's `StudyFilterForm`),
+    applied on top of the year range: "Spring 2009" is year 2009 to 2009 plus
+    Spring; "2009-2012 plus Fall" is every Fall show in those years. Any
+    number of seasons counts as one active filter. `StudyFilters` gained
+    `seasons` after `yearMax` (server and client copy; a set saved before 78
+    reads as `[]`), applied by `studyFilterCondition` as `inArray(anime.season,
+    ...)`, so Study, 77's preview, and 77's copy all respect it. AniList's
+    `season` is stored on `Anime` (migration `0022_anime_season`), fetched by
+    every AniList details query, and an unexpected value maps to null rather
+    than failing an import. The migration reset `aniListDetailsCheckedAt` so
+    the existing Settings backfill refilled the library: run 2026-09-26, 317
+    of 319 filled, 316 with a season (AniList gives one to movies and OVAs
+    too; only 3 have none). An active season filter drops anime with no
+    season. AniList's season is the broadcast season, so a late-December
+    premiere counts as Winter of the next year.
 
 ## Data model
 
@@ -1722,6 +1742,10 @@ deck, which §3's Decks bullet already allows to hold any cards.
   has no native title
 - `animethemesSlug` (string, nullable) - feature 74. AnimeThemes'
   own anime slug, used to link the show's page.
+- `season` (nullable, `"WINTER" | "SPRING" | "SUMMER" | "FALL"`, AniList's
+  `MediaSeason` as sent) - feature 78. Written alongside the 76a fields
+  below; its migration reset `aniListDetailsCheckedAt` so the existing
+  backfill refilled anime imported earlier.
 - `year`, `format`, `averageScore` (nullable), `genres` (JSON `string[]`),
   `tags` (JSON `{ name, rank }[]`), and `aniListDetailsCheckedAt` (nullable
   timestamp) - feature 76a. AniList metadata for Study filters: `year` is

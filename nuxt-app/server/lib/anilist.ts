@@ -7,8 +7,12 @@ export interface AnimeTag {
   rank: number;
 }
 
+export const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"] as const;
+export type AnimeSeason = (typeof ANIME_SEASONS)[number];
+
 export interface AniListDetails {
   year: number | null;
+  season: AnimeSeason | null;
   format: string | null;
   averageScore: number | null;
   genres: string[];
@@ -69,6 +73,7 @@ const SEARCH_QUERY = `
 // Study filters (feature 76) read these. seasonYear is null for most movies
 // and OVAs, which is why startDate.year is selected as its fallback.
 const DETAILS_FIELDS = `
+      season
       seasonYear
       startDate { year }
       format
@@ -99,7 +104,7 @@ function isTag(tag: unknown): tag is AnimeTag {
 // never mistaken for an anime AniList reported as having no genres or tags.
 function toAniListDetails(media: Record<string, unknown>): AniListDetails | undefined {
   if (!("genres" in media)) return undefined;
-  const { seasonYear, startDate, format, averageScore, genres, tags } = media;
+  const { season, seasonYear, startDate, format, averageScore, genres, tags } = media;
   if (!isNullableInt(seasonYear) || !isNullableInt(averageScore) || (format != null && typeof format !== "string") ||
     (startDate != null && (!isRecord(startDate) || !isNullableInt(startDate.year))) ||
     !Array.isArray(genres) || !genres.every((genre) => typeof genre === "string") ||
@@ -109,6 +114,8 @@ function toAniListDetails(media: Record<string, unknown>): AniListDetails | unde
   const startYear = isRecord(startDate) && typeof startDate.year === "number" ? startDate.year : null;
   return {
     year: seasonYear ?? startYear,
+    // An unexpected value becomes null rather than failing the whole import.
+    season: ANIME_SEASONS.find((known) => known === season) ?? null,
     format: format ?? null,
     averageScore: averageScore ?? null,
     genres,

@@ -62,9 +62,9 @@ instance against their own local media and database.
   suggestions, then automatically grade and save Pass/Fail. Submission reveals
   a lively result state with points and combo feedback while the song keeps
   playing; the user advances separately with a Continue action or Enter.
-  A session can be narrowed by anime year, format, AniList score, genres and
-  tags, OP/ED, and a user's AniList/MAL list; filters narrow what is served
-  and never change scheduling.
+  A session can be narrowed by anime year and season, format, AniList score,
+  genres and tags, OP/ED, and a user's AniList/MAL list; filters narrow what
+  is served and never change scheduling.
 - **Language display** - English, Romaji, and Japanese are each independently
   toggleable and can all be shown at once if desired; Furigana is a separate
   sub-toggle under Japanese (only relevant when Japanese is on). Furigana is
@@ -89,7 +89,7 @@ instance against their own local media and database.
 
 - Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED info),
   cached locally from AniList/animethemes.moe lookups, plus season year,
-  format, AniList score, genres, and tags, used to filter Study.
+  season, format, AniList score, genres, and tags, used to filter Study.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
   criterion; the card's own columns are the anime-title track).

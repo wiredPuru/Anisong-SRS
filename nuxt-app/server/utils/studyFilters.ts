@@ -1,4 +1,5 @@
 import { and, gte, like, lte, inArray, isNotNull, not, or, sql, type SQL } from "drizzle-orm";
+import { ANIME_SEASONS, type AnimeSeason } from "../lib/anilist.ts";
 import { anime, song } from "../db/schema.ts";
 
 export const THEME_TYPES = ["OP", "ED"] as const;
@@ -27,6 +28,8 @@ export interface StudyListSource {
 export interface StudyFilters {
   yearMin: number | null;
   yearMax: number | null;
+  // Feature 78. Applied on top of the year range, not instead of it.
+  seasons: AnimeSeason[];
   scoreMin: number | null;
   scoreMax: number | null;
   formats: string[];
@@ -88,7 +91,7 @@ function parseListSource(raw: unknown): Parsed<StudyListSource | null> {
 function isEmpty(filters: StudyFilters): boolean {
   if (filters.listAniListIds !== null) return false;
   return [filters.yearMin, filters.yearMax, filters.scoreMin, filters.scoreMax].every((bound) => bound === null)
-    && [filters.formats, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
+    && [filters.seasons, filters.formats, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
       .every((list) => list.length === 0);
 }
 
@@ -109,6 +112,7 @@ export function parseStudyFilters(raw: unknown): { filters: StudyFilters | null 
   const fields = {
     yearMin: parseBound(body.yearMin, "yearMin", 1900, 2100),
     yearMax: parseBound(body.yearMax, "yearMax", 1900, 2100),
+    seasons: parseNames(body.seasons, "seasons", ANIME_SEASONS),
     scoreMin: parseBound(body.scoreMin, "scoreMin", 0, 100),
     scoreMax: parseBound(body.scoreMax, "scoreMax", 0, 100),
     formats: parseNames(body.formats, "formats", ANIME_FORMATS),
@@ -151,12 +155,14 @@ function hasTag(name: string, minRank: number): SQL {
 // Reads anime and song columns directly, so it only works inside a query that
 // already joins both (every due query does). An active year, score, or format
 // filter drops an anime whose value is unknown: it cannot be shown to match.
+// A season filter does the same for anime AniList gives no season.
 export function studyFilterCondition(filters: StudyFilters | null): SQL | undefined {
   if (!filters) return undefined;
   const conditions: (SQL | undefined)[] = [];
   if (filters.yearMin !== null || filters.yearMax !== null) conditions.push(isNotNull(anime.year));
   if (filters.yearMin !== null) conditions.push(gte(anime.year, filters.yearMin));
   if (filters.yearMax !== null) conditions.push(lte(anime.year, filters.yearMax));
+  if (filters.seasons.length) conditions.push(inArray(anime.season, filters.seasons));
   if (filters.scoreMin !== null || filters.scoreMax !== null) conditions.push(isNotNull(anime.averageScore));
   if (filters.scoreMin !== null) conditions.push(gte(anime.averageScore, filters.scoreMin));
   if (filters.scoreMax !== null) conditions.push(lte(anime.averageScore, filters.scoreMax));

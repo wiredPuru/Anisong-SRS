@@ -41,7 +41,7 @@ async function fetchMissing() {
   <div class="details-control">
     <div class="details-header">
       <span class="details-title">Anime details</span>
-      <span class="details-hint">Year, format, AniList score, genres, and tags, used by Study filters.</span>
+      <span class="details-hint">Year, season, format, AniList score, genres, and tags, used by Study filters.</span>
     </div>
 
     <p v-if="props.missingCount" class="details-count">

@@ -113,7 +113,7 @@ describe("metadata resolver during AniList downtime", () => {
   });
 
   it("writes AniList details with a checked stamp and keeps them when a later upsert has none", () => {
-    const details = { year: 2006, format: "TV", averageScore: 78, genres: ["Comedy"], tags: [{ name: "Iyashikei", rank: 80 }] };
+    const details = { year: 2006, season: "SPRING" as const, format: "TV", averageScore: 78, genres: ["Comedy"], tags: [{ name: "Iyashikei", rank: 80 }] };
     const base = { aniListId: 1, animethemesId: null, titleRomaji: "Romaji", titleEnglish: null, titleNative: null };
     expect(upsertAnime(base)).toMatchObject({ year: null, genres: [], tags: [], aniListDetailsCheckedAt: null });
     const fetched = upsertAnime({ ...base, details });

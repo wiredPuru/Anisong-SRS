@@ -16,7 +16,7 @@ vi.mock("../db/client.ts", async () => {
 });
 
 const EMPTY: StudyFilters = {
-  yearMin: null, yearMax: null, scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
+  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
   listAniListIds: null, listSource: null,
 };
@@ -32,6 +32,10 @@ describe("parseStudyFilters", () => {
     expect(parseStudyFilters("")).toEqual({ filters: null });
     expect(parse({})).toEqual({ filters: null });
     expect(parse({ ...EMPTY, tagMinRank: 80 })).toEqual({ filters: null });
+  });
+
+  it("accepts seasons on their own, de-duplicated, as an active filter", () => {
+    expect(parse({ seasons: ["SPRING", "FALL", "SPRING"] })).toEqual({ filters: { ...EMPTY, seasons: ["SPRING", "FALL"] } });
   });
 
   it("fills defaults for missing fields and de-duplicates lists", () => {
@@ -51,6 +55,8 @@ describe("parseStudyFilters", () => {
     [{ scoreMin: 80, scoreMax: 70 }, "scoreMin must not be above"],
     [{ formats: ["CARTOON"] }, "unknown value"],
     [{ themeTypes: ["IN"] }, "unknown value"],
+    [{ seasons: ["AUTUMN"] }, "unknown value"],
+    [{ seasons: "SPRING" }, "list"],
     [{ genresInclude: "Comedy" }, "list"],
     [{ tagsInclude: Array.from({ length: 51 }, (_, i) => `t${i}`) }, "at most 50"],
     [{ tagsExclude: ["x".repeat(101)] }, "at most 100 characters"],

@@ -786,6 +786,17 @@ cleaned-up checkbox version before generating the project overview.
     detail view: filter, tick shows, confirm. Cards are copied on the server
     (INSERT ... SELECT, as in 73), so a large pick has no size cap. It
     reports what was added and what was already in the deck.
+- [x] 78. **Season filter** - Winter / Spring / Summer / Fall chips in the
+  shared filter form (feature 77a), applied on top of the year range: "Spring
+  2009" is year 2009 to 2009 plus Spring, and "2009-2012 plus Fall" is every
+  Fall show in those years. Stores AniList's `season` on `Anime` next to the
+  season year feature 76a already keeps, filled on every import. Existing
+  anime get it from the existing Settings AniList-details backfill: the
+  migration marks every anime unchecked, so one batched run refetches them.
+  An active season filter drops anime with no season (rare: AniList gives one
+  even to most movies and OVAs), as the year filter already does for an
+  unknown year. It applies wherever
+  the filters do: Study, and building a deck from filters (feature 77).
 
 ## Plan maintenance
 

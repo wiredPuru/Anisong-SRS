@@ -115,6 +115,7 @@ describe("AniList availability and recovery", () => {
 
 describe("AniList details", () => {
   const details = {
+    season: "SPRING",
     seasonYear: 2006,
     startDate: { year: 2006 },
     format: "TV",
@@ -126,17 +127,29 @@ describe("AniList details", () => {
   it("parses details from both by-id queries and selects them in each", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }))
       .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }));
-    const expected = { year: 2006, format: "TV", averageScore: 78, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
+    const expected = { year: 2006, season: "SPRING", format: "TV", averageScore: 78, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
     expect((await client.fetchAnimeFromAniList(1))?.details).toEqual(expected);
     expect((await client.fetchAnimeFromAniListByMalId(1))?.details).toEqual(expected);
-    for (const call of fetch.mock.calls) expect(JSON.parse(call[1].body).query).toContain("tags { name rank }");
+    for (const call of fetch.mock.calls) {
+      const query: string = JSON.parse(call[1].body).query;
+      expect(query).toContain("tags { name rank }");
+      expect(query).toMatch(/\bseason\b/);
+    }
   });
 
   it("falls back to startDate.year and keeps unknown fields null", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: { year: 1998 }, format: null, averageScore: null, genres: [], tags: [] } } }))
       .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: null, format: null, averageScore: null, genres: [], tags: [] } } }));
-    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, format: null, averageScore: null, genres: [], tags: [] });
+    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, season: null, format: null, averageScore: null, genres: [], tags: [] });
     expect((await client.fetchAnimeFromAniList(1))?.details?.year).toBeNull();
+  });
+
+  it.each([
+    ["WINTER", "WINTER"], ["SPRING", "SPRING"], ["SUMMER", "SUMMER"], ["FALL", "FALL"],
+    [null, null], [undefined, null], ["AUTUMN", null], [3, null],
+  ])("maps season %o to %o", async (season, expected) => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details, season } } }));
+    expect((await client.fetchAnimeFromAniList(1))?.details?.season).toBe(expected);
   });
 
   it("leaves details undefined when a query did not select them", async () => {

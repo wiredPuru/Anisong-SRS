@@ -1,4 +1,6 @@
 export type StudyThemeType = "OP" | "ED";
+export type StudySeason = "WINTER" | "SPRING" | "SUMMER" | "FALL";
+const STUDY_SEASONS: readonly string[] = ["WINTER", "SPRING", "SUMMER", "FALL"];
 export type StudyListSite = "anilist" | "mal";
 
 export interface StudyListSource {
@@ -12,6 +14,7 @@ export interface StudyListSource {
 export interface StudyFilters {
   yearMin: number | null;
   yearMax: number | null;
+  seasons: StudySeason[];
   scoreMin: number | null;
   scoreMax: number | null;
   formats: string[];
@@ -30,6 +33,7 @@ export const STUDY_FILTERS_STORAGE_KEY = "gaqSrs:studyFilters";
 export const EMPTY_STUDY_FILTERS: StudyFilters = {
   yearMin: null,
   yearMax: null,
+  seasons: [],
   scoreMin: null,
   scoreMax: null,
   formats: [],
@@ -57,6 +61,7 @@ export const ANIME_FORMAT_LABELS: Record<string, string> = {
 // which is what the Filters badge shows.
 export function countActiveFilters(filters: StudyFilters): number {
   return Number(filters.yearMin !== null || filters.yearMax !== null)
+    + Number(filters.seasons.length > 0)
     + Number(filters.scoreMin !== null || filters.scoreMax !== null)
     + Number(filters.formats.length > 0)
     + Number(filters.themeTypes.length > 0)
@@ -113,8 +118,9 @@ export function readStoredFilters(raw: string | null): StudyFilters {
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { ...EMPTY_STUDY_FILTERS };
   const stored = { ...EMPTY_STUDY_FILTERS, ...(parsed as Partial<StudyFilters>) };
-  const listsValid = [stored.formats, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
-    .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED");
+  const listsValid = [stored.seasons, stored.formats, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
+    .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED")
+    && stored.seasons.every((season) => STUDY_SEASONS.includes(season));
   const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
     && typeof stored.tagMinRank === "number";
   if (!listsValid || !boundsValid || !listFieldsValid(stored.listAniListIds, stored.listSource) || studyFiltersProblem(stored)) {
@@ -123,6 +129,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
   return {
     yearMin: stored.yearMin,
     yearMax: stored.yearMax,
+    seasons: stored.seasons,
     scoreMin: stored.scoreMin,
     scoreMax: stored.scoreMax,
     formats: stored.formats,

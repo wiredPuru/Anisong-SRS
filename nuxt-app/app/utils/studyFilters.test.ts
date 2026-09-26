@@ -23,6 +23,10 @@ describe("countActiveFilters", () => {
       genresInclude: ["Comedy"], genresExclude: ["Horror", "Drama"], tagsInclude: ["Moe"], tagsExclude: [],
     }))).toBe(8);
   });
+
+  it("counts any number of seasons as one filter", () => {
+    expect(countActiveFilters(withFilters({ seasons: ["SPRING", "FALL"] }))).toBe(1);
+  });
 });
 
 describe("list filter fields", () => {
@@ -78,12 +82,20 @@ describe("studyFiltersProblem", () => {
 
 describe("readStoredFilters", () => {
   it.each([null, "", "{", "[]", "3", JSON.stringify({ genresInclude: "Comedy" }), JSON.stringify({ themeTypes: ["IN"] }),
+    JSON.stringify({ seasons: ["AUTUMN"] }), JSON.stringify({ seasons: "SPRING" }),
     JSON.stringify({ yearMin: 2010, yearMax: 2000 }), JSON.stringify({ tagMinRank: "60" })])(
     "falls back to no filters for %j",
     (raw) => {
       expect(readStoredFilters(raw)).toEqual(EMPTY_STUDY_FILTERS);
     },
   );
+
+  it("reads a set saved before seasons existed as having no season filter", () => {
+    const beforeSeasons = { ...EMPTY_STUDY_FILTERS, yearMin: 2009 } as Partial<StudyFilters>;
+    delete beforeSeasons.seasons;
+    expect(readStoredFilters(JSON.stringify(beforeSeasons))).toEqual(withFilters({ yearMin: 2009 }));
+    expect(readStoredFilters(JSON.stringify({ seasons: ["WINTER"] }))).toEqual(withFilters({ seasons: ["WINTER"] }));
+  });
 
   it("fills missing fields and drops unknown ones", () => {
     expect(readStoredFilters(JSON.stringify({ yearMin: 2000, tagsInclude: ["Moe"], extra: true }))).toEqual(

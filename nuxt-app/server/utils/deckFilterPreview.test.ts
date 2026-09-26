@@ -17,12 +17,12 @@ vi.mock("../db/client.ts", async () => {
 });
 
 const EMPTY: StudyFilters = {
-  yearMin: null, yearMax: null, scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
+  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
   listAniListIds: null, listSource: null,
 };
 
-const DETAILS: AniListDetails = { year: 2010, format: "TV", averageScore: 75, genres: [], tags: [] };
+const DETAILS: AniListDetails = { year: 2010, season: null, format: "TV", averageScore: 75, genres: [], tags: [] };
 
 function addAnime(aniListId: number, title: string, details: Partial<AniListDetails> | null, slots: string[]) {
   const animeRow = upsertAnime({
@@ -166,6 +166,16 @@ describe("copyFilteredCards", () => {
     db.insert(deckCard).values({ deckId, cardId: first!.id }).run();
 
     expect(copyFilteredCards(deckId, [kon], null)).toEqual({ added: 1, alreadyInDeck: 1 });
+  });
+
+  it("adds only the picked season's cards for a single year", () => {
+    const kon = addAnime(1, "K-On!", { year: 2009, season: "SPRING" }, ["OP1", "ED1"]);
+    const late = addAnime(2, "Kanamemo", { year: 2009, season: "SUMMER" }, ["OP1"]);
+    const movie = addAnime(3, "Movie", { year: 2009, season: null }, ["OP1"]);
+    const spring2009 = filters({ yearMin: 2009, yearMax: 2009, seasons: ["SPRING"] });
+
+    expect(titles(listFilteredAnime(spring2009))).toEqual([["K-On!", 2]]);
+    expect(copyFilteredCards(makeDeck(), [kon, late, movie], spring2009)).toEqual({ added: 2, alreadyInDeck: 0 });
   });
 
   it("reports an unknown deck as not found", () => {

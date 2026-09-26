@@ -16,7 +16,7 @@ vi.mock("../db/client.ts", async () => {
   return { db };
 });
 
-const details = (year: number): AniListDetails => ({ year, format: "TV", averageScore: 70, genres: ["Slice of Life"], tags: [{ name: "Moe", rank: 75 }] });
+const details = (year: number): AniListDetails => ({ year, season: "SPRING", format: "TV", averageScore: 70, genres: ["Slice of Life"], tags: [{ name: "Moe", rank: 75 }] });
 const unfetched = (aniListId: number) => upsertAnime({ aniListId, animethemesId: null, titleRomaji: `Anime ${aniListId}`, titleEnglish: null, titleNative: null });
 const stored = (id: number) => db.select().from(anime).where(eq(anime.id, id)).get()!;
 const fetcher = (found: Record<number, AniListDetails>) =>

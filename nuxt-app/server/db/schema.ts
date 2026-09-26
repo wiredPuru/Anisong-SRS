@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
-import type { AnimeTag } from "../lib/anilist.ts";
+import type { AnimeSeason, AnimeTag } from "../lib/anilist.ts";
 import type { ClipSource } from "../utils/clipSource.ts";
 import type { GradingCriterion } from "../utils/gradingCriterion.ts";
 
@@ -14,6 +14,7 @@ export const anime = sqliteTable("anime", {
   coverImageUrl: text("cover_image_url"),
   animethemesSlug: text("animethemes_slug"),
   year: integer("year"),
+  season: text("season").$type<AnimeSeason>(),
   format: text("format"),
   averageScore: integer("average_score"),
   genres: text("genres", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),

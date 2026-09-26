@@ -32,9 +32,9 @@ describe("getStudyFilterOptions", () => {
   });
 
   it("summarises only anime with cards, counting each anime once per tag", () => {
-    addAnime(1, { year: 2009, format: "TV", averageScore: 78, genres: ["Comedy", "Music"], tags: [{ name: "Band", rank: 90 }, { name: "Moe", rank: 60 }] }, 2);
-    addAnime(2, { year: 2002, format: "TV", averageScore: null, genres: ["Comedy"], tags: [{ name: "Moe", rank: 80 }] }, 1);
-    addAnime(3, { year: 1990, format: "MOVIE", averageScore: 70, genres: ["Drama"], tags: [{ name: "Tragedy", rank: 99 }] }, 0);
+    addAnime(1, { year: 2009, season: null, format: "TV", averageScore: 78, genres: ["Comedy", "Music"], tags: [{ name: "Band", rank: 90 }, { name: "Moe", rank: 60 }] }, 2);
+    addAnime(2, { year: 2002, season: null, format: "TV", averageScore: null, genres: ["Comedy"], tags: [{ name: "Moe", rank: 80 }] }, 1);
+    addAnime(3, { year: 1990, season: null, format: "MOVIE", averageScore: 70, genres: ["Drama"], tags: [{ name: "Tragedy", rank: 99 }] }, 0);
     addAnime(4, undefined, 1);
 
     expect(getStudyFilterOptions()).toEqual({

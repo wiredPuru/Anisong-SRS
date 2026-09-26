@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StudyFilters, StudyListSite, StudyThemeType, TagOption } from "~/utils/studyFilters";
+import type { StudyFilters, StudyListSite, StudySeason, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
 interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
@@ -15,6 +15,12 @@ type Choice = "include" | "exclude";
 // decides when to apply it.
 const draft = defineModel<StudyFilters>({ required: true });
 
+const SEASONS: { value: StudySeason; label: string }[] = [
+  { value: "WINTER", label: "Winter" },
+  { value: "SPRING", label: "Spring" },
+  { value: "SUMMER", label: "Summer" },
+  { value: "FALL", label: "Fall" },
+];
 const THEME_TYPES: { value: StudyThemeType; label: string }[] = [
   { value: "OP", label: "Openings" },
   { value: "ED", label: "Endings" },
@@ -141,8 +147,8 @@ const listCheckedOn = computed(() => {
   <div class="filter-form">
     <p v-if="optionsError" class="control-error">{{ optionsError }}</p>
     <p v-else-if="options?.missingDetailsCount" class="details-note">
-      {{ options.missingDetailsCount }} {{ options.missingDetailsCount === 1 ? "anime has" : "anime have" }}
-      no AniList details yet, so year, score, format, genre, and tag filters leave them out.
+      {{ options.missingDetailsCount }} {{ options.missingDetailsCount === 1 ? "anime is" : "anime are" }}
+      missing some AniList details, so filters on them (such as season) leave those anime out.
       <NuxtLink to="/settings">Fetch them in Settings</NuxtLink>.
     </p>
 
@@ -197,7 +203,7 @@ const listCheckedOn = computed(() => {
     </section>
 
     <section class="group">
-      <h3 class="group-title">Year</h3>
+      <h3 class="group-title">Year <span class="group-hint">pick seasons to narrow within those years</span></h3>
       <div class="range-row">
         <input
           class="bound-input"
@@ -218,6 +224,19 @@ const listCheckedOn = computed(() => {
           :value="draft.yearMax ?? ''"
           @input="draft.yearMax = toBound(($event.target as HTMLInputElement).value)"
         >
+      </div>
+      <div class="pill-row" role="group" aria-label="Season">
+        <button
+          v-for="season in SEASONS"
+          :key="season.value"
+          type="button"
+          class="pill"
+          :class="{ include: draft.seasons.includes(season.value) }"
+          :aria-pressed="draft.seasons.includes(season.value)"
+          @click="draft.seasons = toggleList(draft.seasons, season.value)"
+        >
+          {{ season.label }}
+        </button>
       </div>
     </section>
 
