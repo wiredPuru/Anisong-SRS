@@ -56,6 +56,7 @@ const pose = computed(() => POSES[props.mood]);
   flex: none;
   display: block;
   height: clamp(56px, 17cqw, 220px);
+  max-height: var(--kai-max-height, none);
   width: auto;
   user-select: none;
 }

@@ -213,6 +213,40 @@ const burstLayerRef = ref<{
 } | null>(null);
 const answerStackRef = ref<HTMLElement | null>(null);
 const playerPaneRef = ref<HTMLElement | null>(null);
+
+// How far the answer boxes reach up from the bottom of the player frame, so
+// the player can centre Kai in the space left above them. The stack is
+// absolutely positioned inside the frame, which makes the frame its
+// offsetParent; it grows with every extra answer category.
+const guessingInset = ref<number | null>(null);
+let answerStackObserver: ResizeObserver | null = null;
+
+// Below this much open space there is nothing to centre in (on a very short
+// frame the stack can even overflow its top), so the player keeps its older
+// top-aligned veil instead of pushing Kai off the frame.
+const MIN_OPEN_SPACE_PX = 48;
+
+function measureGuessingInset() {
+  const stack = answerStackRef.value;
+  const frame = stack?.offsetParent;
+  guessingInset.value = stack && frame instanceof HTMLElement && stack.offsetTop >= MIN_OPEN_SPACE_PX
+    ? frame.clientHeight - stack.offsetTop
+    : null;
+}
+
+watch(answerStackRef, (stack) => {
+  answerStackObserver?.disconnect();
+  answerStackObserver = null;
+  guessingInset.value = null;
+  if (!stack || typeof ResizeObserver === "undefined") return;
+  answerStackObserver = new ResizeObserver(measureGuessingInset);
+  answerStackObserver.observe(stack);
+  if (stack.offsetParent) answerStackObserver.observe(stack.offsetParent);
+  measureGuessingInset();
+});
+
+onUnmounted(() => answerStackObserver?.disconnect());
+
 const scoreChipRef = ref<{ chipEl: HTMLElement | null; countUp: (points?: number) => void; settle: () => void; shake: () => void } | null>(null);
 
 // Where a burst starts. Read before the grade is written, because setting
@@ -1217,6 +1251,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :clip-source="clipSource"
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
             :guessing="typedAnswers && !quizResult"
+            :guessing-inset="guessingInset"
             :hide-listening-label="gradeFlash !== null"
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"

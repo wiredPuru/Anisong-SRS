@@ -24,6 +24,8 @@ const props = defineProps<{
   hideListeningLabel?: boolean;
   // A typed-answer round is open: Kai thinks instead of just listening.
   guessing?: boolean;
+  // How far the answer boxes reach up from the frame's bottom, in px.
+  guessingInset?: number | null;
   autoDownload?: boolean;
   clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
@@ -35,6 +37,11 @@ const emit = defineEmits<{
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
 }>();
+
+const raisedClass = computed(() => ({ raised: props.guessing, measured: props.guessing && props.guessingInset != null }));
+const raisedStyle = computed(() =>
+  props.guessing && props.guessingInset != null ? { "--guess-inset": `${props.guessingInset}px` } : undefined,
+);
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
@@ -986,7 +993,7 @@ onUnmounted(() => stopDrag?.());
         :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
       />
 
-      <div v-if="errorMessage" class="veil error-veil" :class="{ raised: guessing }">
+      <div v-if="errorMessage" class="veil error-veil" :class="raisedClass" :style="raisedStyle">
         <StudyPlayerKai v-if="!guessing" mood="error" />
         <p>{{ errorMessage }}</p>
         <div class="failure-actions">
@@ -1044,7 +1051,8 @@ onUnmounted(() => stopDrag?.());
       <div
         v-else-if="showVeil"
         class="veil"
-        :class="[quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil', { raised: guessing }]"
+        :class="[quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil', raisedClass]"
+        :style="raisedStyle"
         @click="togglePlay"
       >
         <template v-if="showLoadingMessage">
@@ -1407,11 +1415,23 @@ onUnmounted(() => stopDrag?.());
   gap: 10px;
 }
 
-/* A typed-answer round covers the frame's lower half with its answer boxes,
-   so the veil's content moves to the top instead of sitting under them. */
+/* A typed-answer round covers the bottom of the frame with its answer boxes.
+   Once their height is known the veil centres in the space above them; until
+   then it falls back to the top so it can never sit underneath. */
 .veil.raised {
   justify-content: flex-start;
   padding-top: clamp(10px, 2.5cqw, 36px);
+}
+
+.veil.raised.measured {
+  --veil-gap: clamp(8px, 1.5cqw, 24px);
+  justify-content: center;
+  padding-top: var(--veil-gap);
+  padding-bottom: calc(var(--guess-inset) + var(--veil-gap));
+  /* The frame is a 16:9 inline-size container, so its height is 56.25cqw.
+     With several answer rows on a small frame the space left can be shorter
+     than Kai, so StudyPlayerKai caps her to it rather than overlapping. */
+  --kai-max-height: max(40px, calc(56.25cqw - var(--guess-inset) - 2 * var(--veil-gap)));
 }
 
 .paused-veil {
