@@ -233,6 +233,7 @@ function markBuffering() {
 }
 
 function onLoadStart() {
+  hasStarted.value = false;
   loadAttempt.value += 1;
   markBuffering();
 }
@@ -313,6 +314,11 @@ watch(mediaKind, () => {
 });
 
 const showVeil = computed(() => quizType.value === "audio" || !isPlaying.value || isBuffering.value);
+
+// "Ready?" until this clip has actually played once, "Paused" after that.
+const hasStarted = ref(false);
+const idleMood = computed(() => (isPlaying.value ? "listening" : hasStarted.value ? "paused" : "ready"));
+const IDLE_TEXT = { listening: "Listening...", paused: "Paused", ready: "Ready?" } as const;
 const progressPercent = computed(() => (duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0));
 
 function formatTime(seconds: number): string {
@@ -595,7 +601,7 @@ onUnmounted(stopAmbientInterval);
 
 // Audio visualizer: an AnalyserNode tapped off the same <audio> element
 // already playing, drawn as bars reacting to the real audio - the record's
-// (feature 44) play-state feedback, since the plain eq-bars icon is hidden
+// (feature 44) play-state feedback, since Kai's listening pose is hidden
 // whenever the record shows. The source node is created once per underlying
 // <audio> element instance, not per card: CardPreviewModal doesn't remount
 // this component, so the same element can persist across several
@@ -778,6 +784,7 @@ function onPlay() {
 // (not just a card's first start), which is exactly what the auto-reveal
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
+  hasStarted.value = true;
   markPlayable();
   emit("playback-started");
 }
@@ -975,6 +982,7 @@ onUnmounted(() => stopDrag?.());
       />
 
       <div v-if="errorMessage" class="veil error-veil">
+        <StudyPlayerKai mood="error" />
         <p>{{ errorMessage }}</p>
         <div class="failure-actions">
           <button type="button" class="download-btn" @click="retryLoad">Try again</button>
@@ -1035,7 +1043,9 @@ onUnmounted(() => stopDrag?.());
         @click="togglePlay"
       >
         <template v-if="showLoadingMessage">
-          <ActivityStatus class="loading-status" :label="`Loading ${mediaKind}`" :request-key="loadAttempt" />
+          <StudyPlayerKai mood="loading">
+            <ActivityStatus :label="`Loading ${mediaKind}`" :request-key="loadAttempt" />
+          </StudyPlayerKai>
           <div v-if="loadIsSlow" class="failure-actions">
             <button type="button" class="download-btn" @click.stop="retryLoad">Try again</button>
             <button
@@ -1048,20 +1058,22 @@ onUnmounted(() => stopDrag?.());
             </button>
           </div>
         </template>
-        <template v-else>
-          <div v-if="quizType === 'audio' && isPlaying && !showCoverArt && !hideListeningLabel" class="listening-icon">
-            <span class="eq-bar" />
-            <span class="eq-bar" />
-            <span class="eq-bar" />
-            <span class="eq-bar" />
-          </div>
-          <p v-if="!showCoverArt && !hideListeningLabel">{{ isPlaying ? "Listening..." : "Paused" }}</p>
-        </template>
+        <StudyPlayerKai
+          v-else-if="!showCoverArt && !hideListeningLabel"
+          :mood="idleMood"
+          :text="IDLE_TEXT[idleMood]"
+        />
       </div>
 
       <div class="player-controls">
-        <button type="button" class="play-btn" @click="togglePlay">
-          {{ isPlaying ? "⏸" : "▶" }}
+        <button type="button" class="play-btn" :aria-label="isPlaying ? 'Pause' : 'Play'" @click="togglePlay">
+          <svg v-if="isPlaying" class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14" rx="1.5" />
+            <rect x="14" y="5" width="4" height="14" rx="1.5" />
+          </svg>
+          <svg v-else class="play-icon play-icon-play" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5.5v13a1 1 0 0 0 1.5.87l10.4-6.5a1 1 0 0 0 0-1.74L9.5 4.63A1 1 0 0 0 8 5.5z" />
+          </svg>
           <span class="tooltip">Hotkey: S</span>
         </button>
         <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
@@ -1069,7 +1081,10 @@ onUnmounted(() => stopDrag?.());
         </div>
         <span class="time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
         <div class="volume-control">
-          <span class="volume-icon" aria-hidden="true">🔊</span>
+          <svg class="volume-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="volume-body" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z" />
+            <path class="volume-wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+          </svg>
           <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
         </div>
       </div>
@@ -1099,12 +1114,45 @@ onUnmounted(() => stopDrag?.());
   pointer-events: none;
 }
 
+/* Kai's sticker look (84c): a soft outline like the sheet's banners, with a
+   star and a music note stuck on two corners. */
 .player-card {
+  position: relative;
   padding: 24px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 2px solid var(--outline);
+  border-radius: calc(var(--radius) + 8px);
   box-shadow: var(--shadow-soft);
+}
+
+.player-card::before,
+.player-card::after {
+  position: absolute;
+  z-index: 1;
+  font-size: 30px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.player-card::before {
+  content: "★";
+  top: -14px;
+  right: 22px;
+  color: var(--star);
+  transform: rotate(12deg);
+}
+
+.player-card::after {
+  content: "♪";
+  bottom: -12px;
+  left: 18px;
+  color: var(--note);
+  transform: rotate(-10deg);
+}
+
+.player-card.expanded::before,
+.player-card.expanded::after {
+  display: none;
 }
 
 .player-card.ambient-glass {
@@ -1147,10 +1195,11 @@ onUnmounted(() => stopDrag?.());
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
-  color: var(--text);
+  border: 2px solid var(--outline);
+  background: var(--surface);
+  color: var(--accent);
   font-size: 16px;
+  box-shadow: var(--shadow-soft);
   cursor: pointer;
   z-index: 3;
 }
@@ -1204,7 +1253,7 @@ onUnmounted(() => stopDrag?.());
   aspect-ratio: 16 / 9;
   max-height: 100%;
   margin-inline: auto;
-  border: 1px solid var(--border);
+  border: 2px solid var(--outline);
   border-radius: var(--radius);
   overflow: hidden;
   /* Lets immersive-overlay content (info card, language toggles, Pass/Fail
@@ -1322,15 +1371,15 @@ onUnmounted(() => stopDrag?.());
   position: absolute;
   top: 14px;
   left: 14px;
-  padding: 4px 12px;
-  border-radius: calc(var(--radius-sm) - 1px);
-  /* 50a missed this one: it was still the old purple ground at 75%. */
-  background: color-mix(in srgb, var(--bg) 75%, transparent);
-  border: 1px solid var(--border);
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 2px solid var(--outline);
+  font-family: var(--font-display);
   font-size: 12px;
-  font-weight: 700;
   letter-spacing: 1px;
-  color: var(--accent-secondary);
+  color: var(--accent);
+  box-shadow: var(--shadow-soft);
   z-index: 2;
 }
 
@@ -1444,69 +1493,6 @@ onUnmounted(() => stopDrag?.());
   text-align: center;
 }
 
-.loading-status {
-  /* The cover-art veil is fully transparent (.audio-veil.has-cover), so this
-     carries its own readable ground rather than relying on the veil's. */
-  max-width: 80%;
-  padding: 10px 18px;
-  border-radius: var(--radius-pill);
-  background: var(--veil-status);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.listening-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 5px;
-  padding: 20px 18px;
-  box-shadow: var(--shadow-accent);
-}
-
-.eq-bar {
-  width: 5px;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--accent-secondary);
-  transform-origin: bottom;
-  animation: eq-bounce 1s ease-in-out infinite;
-}
-
-.eq-bar:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.eq-bar:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.eq-bar:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.eq-bar:nth-child(4) {
-  animation-delay: 0.45s;
-}
-
-@keyframes eq-bounce {
-  0%,
-  100% {
-    transform: scaleY(0.25);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
 .veil p {
   margin: 0;
   font-size: 16px;
@@ -1515,18 +1501,23 @@ onUnmounted(() => stopDrag?.());
   letter-spacing: 0.3px;
 }
 
+/* A floating outlined pill, like the sheet's player icon row, rather than a
+   gradient scrim across the whole bottom edge. */
 .player-controls {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
   z-index: 4;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 16px;
-  /* Also a 50a leftover: this was still mixed from the old purple ground. */
-  background: linear-gradient(to top, color-mix(in srgb, var(--bg) 90%, transparent), transparent);
+  padding: 6px 16px 6px 6px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--outline);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-soft);
 }
 
 /* Expanded-only proportional override - same rationale as the badge/expand
@@ -1537,24 +1528,43 @@ onUnmounted(() => stopDrag?.());
    and visually overlap it. Scales the whole bar (and its children below)
    in lockstep with the rest of the immersive overlay instead. */
 .player-card.expanded .player-controls {
+  left: clamp(8px, 0.83cqw, 19px);
+  right: clamp(8px, 0.83cqw, 19px);
+  bottom: clamp(8px, 0.83cqw, 19px);
   gap: clamp(9px, 0.97cqw, 22px);
-  padding: clamp(9px, 0.97cqw, 22px) clamp(10px, 1.1cqw, 26px);
+  padding: clamp(4px, 0.41cqw, 10px) clamp(10px, 1.1cqw, 26px) clamp(4px, 0.41cqw, 10px) clamp(4px, 0.41cqw, 10px);
 }
 
 .play-btn {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: var(--accent);
   color: var(--accent-ink);
+  box-shadow: 0 0 0 3px var(--accent-glow);
   font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex: none;
+}
+
+.play-icon {
+  width: 50%;
+  height: 50%;
+  fill: currentColor;
+}
+
+/* the triangle's visual centre sits left of its box centre */
+.play-icon-play {
+  margin-left: 6%;
+}
+
+.play-btn:hover {
+  background: var(--accent-strong);
 }
 
 .play-btn:disabled {
@@ -1602,10 +1612,10 @@ onUnmounted(() => stopDrag?.());
 
 .scrub {
   flex: 1;
-  height: 5px;
+  height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  border: 1.5px solid var(--outline);
   overflow: hidden;
   cursor: pointer;
   transition: height 0.15s ease;
@@ -1613,7 +1623,7 @@ onUnmounted(() => stopDrag?.());
 
 .scrub:hover,
 .scrub.dragging {
-  height: 10px;
+  height: 12px;
 }
 
 .player-card.expanded .scrub {
@@ -1628,13 +1638,15 @@ onUnmounted(() => stopDrag?.());
 .scrub > span {
   display: block;
   height: 100%;
-  background: var(--accent-secondary);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--note), var(--accent));
 }
 
 .time {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   min-width: 76px;
   text-align: right;
 }
@@ -1652,16 +1664,29 @@ onUnmounted(() => stopDrag?.());
 }
 
 .volume-icon {
-  font-size: 14px;
+  width: 20px;
+  height: 20px;
+}
+
+.volume-body {
+  fill: var(--accent);
+}
+
+.volume-wave {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .player-card.expanded .volume-icon {
-  font-size: clamp(9px, 0.97cqw, 22px);
+  width: clamp(14px, 1.38cqw, 32px);
+  height: clamp(14px, 1.38cqw, 32px);
 }
 
 .volume-slider {
   width: 90px;
-  accent-color: var(--muted);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 

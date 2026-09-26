@@ -1883,8 +1883,18 @@ surfaces. It rewrote the mascot and look bullets of `project-plan.md` §7.
       `plugins/theme.client.ts` syncs `useTheme()` after hydration and follows
       OS changes under System. Picked in a new Settings > Appearance section
       (`SettingsThemeControl`, after Playback).
-    - **84c. Study player** - restyled frame and controls, a "Ready?" box
-      with Kai before a clip starts, and a peeking-Kai loading bar.
+    - **84c. Study player** - done 2026-09-26. `StudyPlayerKai.vue` (one
+      `mood` prop) puts Kai on `StudyMediaPlayer`'s veils: `ready` ("Ready?"
+      until the clip first plays, via a `hasStarted` flag reset on
+      `loadstart`), `paused`, `listening` (clapping, floating notes; replaced
+      the equalizer icon), `loading` (peeking over an indeterminate pill bar,
+      wrapping the existing `ActivityStatus`), and `error` (slumped, above the
+      unchanged retry and download actions). No mascot on cover-art cards or
+      with `hideListeningLabel`, as before. The card and frame take 2px
+      `--outline` borders with star and note corner stickers (hidden when
+      expanded); the controls are a floating outlined pill with SVG play,
+      pause, and speaker icons and a pink gradient scrub fill. Motion stops
+      under `prefers-reduced-motion`. Playback logic unchanged.
     - **84d. Answer feedback** - CORRECT! / WRONG... / GUESS? / Nice Guess!
       banners with matching Kai poses on Study.
     - **84e. Site-wide pass** - rail, Home, Cards, Decks, Stats, Settings,

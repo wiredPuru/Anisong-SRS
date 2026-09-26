@@ -888,7 +888,7 @@ cleaned-up checkbox version before generating the project overview.
     Japanese-capable display type, outlined pill buttons and banners. The
     choice (Light, Dark, or System) is a per-browser setting in a new
     Settings > Appearance section.
-  - [ ] 84c. **Study player** - the player frame, control bar, scrub and
+  - [x] 84c. **Study player** - the player frame, control bar, scrub and
     volume restyled after the sheet's player icons, a "Ready?" speech box with
     Kai before a clip starts, and a loading bar with Kai peeking over it while
     a clip buffers. Playback behaviour is unchanged.
