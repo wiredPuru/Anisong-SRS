@@ -259,6 +259,9 @@ Feature 82 (one-click update, in two sub-features 82a-82b) was added to
 replaces itself" rule, so it rewrote `project-plan.md` §8's update paragraph:
 the packaged app may now install a verified release on a restart the user
 chooses, never on its own. Both sub-features are built and merged.
+Feature 83 (library scan) was added to `build-plan.md` on 2026-09-26 and is
+now built and merged. No `project-plan.md` change: like feature 80, it adds a
+route into §3's existing Flashcard CRUD rather than a product direction.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1827,6 +1830,25 @@ chooses, never on its own. Both sub-features are built and merged.
       file the app downloads itself carries no quarantine flag. Proved end to
       end on macOS arm64 with two local packaged builds; the Windows path
       (renaming the running `.exe`, PowerShell's `Wait-Process`) is untested.
+83. **Library scan** - done 2026-09-26. A "Recover cards from files" panel
+    in Settings > Library health, below feature 80's scan, that rebuilds cards
+    from clips already in the library folders after their cards were deleted.
+    Feature 61 keeps a deleted card's `Song`/`Artist`/`Anime` rows and feature
+    8 names downloads `<anime romaji> - <slot> - <artist>.<ext>`, so a file
+    maps back to its song locally, with no network call. `planLibraryScan`
+    (`server/utils/libraryScan.ts`, pure) keys both sides with
+    `sanitizeSegment`, NFC, and lowercase, drops one ` (N)` copy suffix, and
+    sorts each file into create (song with no card), attach (card with a null
+    local path of that kind), already used, duplicate, unmatched, or ambiguous
+    (a key matching two songs, never guessed). `GET /api/cards/recover`
+    previews it (`loadLibraryScan` in `libraryScanLoad.ts` walks every library
+    folder, not following symlinked directories, capped at 20,000 files);
+    `POST /api/cards/recover` takes `{ paths }`, recomputes the plan, and acts
+    only on paths it still offers (`selectRecoverActions`), in one transaction
+    with an `IS NULL` guard on attaches. Created cards hold local paths only and
+    start at box 1; review history, notes, and deck membership are not
+    recoverable. Unmatched files are listed for re-adding through `/cards`
+    search. No sidecar file is written to the library.
 
 ## Data model
 

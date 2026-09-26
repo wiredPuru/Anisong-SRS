@@ -847,6 +847,21 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 82b. **Swap and relaunch** - the rename-and-replace with restore on
     failure, a relaunch that waits for the old process to free the port,
     `.old` cleanup on the next start, and the page reload.
+- [x] 83. **Library scan** - a Settings action that recovers cards from files
+  already in the media library folders, for when cards were deleted but their
+  clips were kept. Each file is matched by name against songs already in the
+  database, using the same `<anime romaji> - <slot> - <artist>` naming feature
+  8's downloads write (a trailing ` (N)` copy suffix is ignored), with no
+  network calls. The scan shows a preview first: cards it will create for
+  matched songs that have none (`.webm`/`.mp4` as the local video path,
+  `.mp3` and other audio as the local audio path), files it will attach to an
+  existing card missing a local file of that kind, and files it skips -
+  already used by a card, a duplicate of a card that has its own file, or
+  matching no known song. Unmatched files are listed by name so they can be
+  re-added through `/cards` search. Nothing changes until the user confirms,
+  and created cards start fresh at box 1. No sidecar file is written to the
+  library; SQLite stays the only record. Looking up unmatched files online is
+  out of scope.
 
 ## Plan maintenance
 

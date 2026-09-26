@@ -245,6 +245,7 @@ async function importDeck() {
              from its own route. -->
         <div v-else-if="activeSection === 'health'" class="section-panels">
           <SettingsLibraryHealth class="panel-full" />
+          <SettingsLibraryRecover class="panel-full" />
         </div>
 
         <template v-else>
