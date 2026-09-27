@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { StudyFilters } from "~/utils/studyFilters";
 
-const props = defineProps<{ open: boolean; filters: StudyFilters }>();
+const props = withDefaults(
+  defineProps<{ open: boolean; filters: StudyFilters; apiBase?: string; title?: string; hint?: string }>(),
+  {
+    apiBase: "/api/study",
+    title: "Study filters",
+    hint: "Only due cards matching every filter are studied. Scheduling is never changed.",
+  },
+);
 const emit = defineEmits<{ close: []; apply: [filters: StudyFilters] }>();
 
 const draft = ref<StudyFilters>(structuredClone(toRaw(props.filters)));
@@ -36,11 +43,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   <div v-if="open" class="backdrop" @click.self="emit('close')">
     <div class="panel" role="dialog" aria-modal="true" aria-labelledby="study-filters-title">
       <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
-      <h2 id="study-filters-title" class="title">Study filters</h2>
-      <p class="hint">Only due cards matching every filter are studied. Scheduling is never changed.</p>
+      <h2 id="study-filters-title" class="title">{{ title }}</h2>
+      <p class="hint">{{ hint }}</p>
 
       <div class="body">
-        <StudyFilterForm v-model="draft" />
+        <StudyFilterForm v-model="draft" :api-base="apiBase" />
       </div>
 
       <p v-if="problem" class="control-error">{{ problem }}</p>

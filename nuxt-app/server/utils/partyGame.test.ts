@@ -78,6 +78,13 @@ describe("pickPartyClip", () => {
     expect(pickPartyClip(card({ animethemesVideoUrl: THEMES }), { ...AUTO, clipSource: "anisongdb" })).toBeNull();
   });
 
+  it("passes over a local file that is not usable", () => {
+    const stale = card({ localVideoPath: "/lib/gone.webm", animethemesVideoUrl: AMQ, localAudioPath: "/lib/gone.mp3" });
+    const usable = (path: string) => !path.includes("gone");
+    expect(pickPartyClip(stale, AUTO, usable)).toEqual({ kind: "video", source: { type: "remote", url: AMQ } });
+    expect(pickPartyClip(card({ localAudioPath: "/lib/gone.mp3" }), AUTO, usable)).toBeNull();
+  });
+
   it("returns null with no source at all", () => {
     expect(pickPartyClip(card(), AUTO)).toBeNull();
   });
@@ -219,3 +226,52 @@ describe("toHostState", () => {
     expect(JSON.stringify(host)).not.toContain("animemusicquiz");
   });
 });
+
+describe("jump and random start", () => {
+  it("parses jump and settings", () => {
+    expect(parsePartyCommand({ type: "jump", index: 2 })).toEqual({ type: "jump", index: 2 });
+    expect(parsePartyCommand({ type: "jump", index: -1 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "jump", index: 1.5 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "settings", randomStart: true })).toEqual({ type: "settings", randomStart: true });
+    expect(parsePartyCommand({ type: "settings", randomStart: "on" })).toHaveProperty("error");
+  });
+
+  it("jumps within the queue only", () => {
+    const state = loaded(3);
+    expect(applyPartyCommand(state, { type: "jump", index: 2 }).index).toBe(2);
+    expect(applyPartyCommand(state, { type: "jump", index: 3 })).toBe(state);
+    expect(applyPartyCommand(state, { type: "jump", index: 0 })).toBe(state);
+    const empty = initialPartyState();
+    expect(applyPartyCommand(empty, { type: "jump", index: 0 })).toBe(empty);
+  });
+
+  it("rolls a start fraction on every move while random start is on", () => {
+    const random = () => 0.25;
+    let state = applyPartyCommand(initialPartyState(), { type: "settings", randomStart: true });
+    expect(state).toMatchObject({ randomStart: true, startFraction: 0, version: 1 });
+    state = applyPartyCommand(state, { type: "load", cardIds: [1] }, { loaded: items(3), random });
+    expect(state.startFraction).toBe(0.25);
+    for (const command of [{ type: "next" }, { type: "previous" }, { type: "jump", index: 2 }] as const) {
+      state = applyPartyCommand({ ...state, startFraction: 0 }, command, { random });
+      expect(state.startFraction).toBe(0.25);
+    }
+  });
+
+  it("starts at the beginning while random start is off", () => {
+    const state = applyPartyCommand(loaded(3), { type: "next" }, { random: () => 0.9 });
+    expect(state.startFraction).toBe(0);
+  });
+
+  it("keeps the random start preference through clear", () => {
+    const on = applyPartyCommand(loaded(), { type: "settings", randomStart: true });
+    expect(applyPartyCommand(on, { type: "clear" }).randomStart).toBe(true);
+    expect(applyPartyCommand(on, { type: "settings", randomStart: true })).toBe(on);
+  });
+
+  it("carries the fraction to the display and the setting to the host", () => {
+    const state = { ...loaded(), randomStart: true, startFraction: 0.4 };
+    expect(toDisplayState(state).startFraction).toBe(0.4);
+    expect(toHostState(state).randomStart).toBe(true);
+  });
+});
+

@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
+import { existsSync, statSync } from "node:fs";
 import { getCardsByIds } from "./cards.ts";
-import { getClipSource, getPlaybackMode } from "./mediaLibrary.ts";
+import { getClipSource, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { resolveCachedPath } from "./streamCache.ts";
 import {
   applyPartyCommand,
   currentPartyItem,
@@ -26,10 +28,31 @@ export function onPartyChange(listener: (state: PartyGameState) => void): () => 
   return () => listeners.delete(listener);
 }
 
+const PREFETCH_AHEAD = 2;
+
+// A remote clip plays only once the stream cache holds all of it, so the
+// current song and the next two are fetched as soon as the game moves, the way
+// Study prefetches its lookahead. Failures are the clip route's to report.
+function prefetchAround(current: PartyGameState): void {
+  for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PREFETCH_AHEAD)) {
+    if (item.clip.source.type === "remote") void resolveCachedPath(item.clip.source.url).catch(() => {});
+  }
+}
+
 function commit(next: PartyGameState): void {
   if (next === state) return;
+  const moved = next.index !== state.index || next.queue !== state.queue;
   state = next;
+  if (moved) prefetchAround(state);
   for (const listener of listeners) listener(state);
+}
+
+function localFileUsable(path: string): boolean {
+  try {
+    return existsSync(path) && statSync(path).isFile() && isPathWithinLibrary(path);
+  } catch {
+    return false;
+  }
 }
 
 function resolveQueue(cardIds: number[]): { items: PartyQueueItem[]; skipped: number } {
@@ -38,7 +61,7 @@ function resolveQueue(cardIds: number[]): { items: PartyQueueItem[]; skipped: nu
   const items: PartyQueueItem[] = [];
   for (const id of cardIds) {
     const card = byId.get(id);
-    const clip = card ? pickPartyClip(card, settings) : null;
+    const clip = card ? pickPartyClip(card, settings, localFileUsable) : null;
     if (card && clip) items.push(toQueueItem(card, clip, randomBytes(12).toString("hex")));
   }
   return { items, skipped: cardIds.length - items.length };

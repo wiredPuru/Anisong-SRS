@@ -8,11 +8,14 @@ const props = defineProps<{
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  startFraction: number;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
 
 const REPORT_INTERVAL_MS = 1000;
+// Study's random start never lands in a clip's last 15 seconds either.
+const RANDOM_START_TAIL_S = 15;
 
 const media = ref<HTMLVideoElement | null>(null);
 const failed = ref(false);
@@ -45,7 +48,10 @@ function onLoadedMetadata() {
   const element = media.value;
   if (!element) return;
   failed.value = false;
-  element.currentTime = props.seekTo ?? props.startAt;
+  const randomStart = Number.isFinite(element.duration)
+    ? props.startFraction * Math.max(0, element.duration - RANDOM_START_TAIL_S)
+    : 0;
+  element.currentTime = props.seekTo ?? (props.startAt || randomStart);
   followPlaying();
 }
 

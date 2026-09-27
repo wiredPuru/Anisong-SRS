@@ -292,7 +292,7 @@ export function baseDueCondition(
   return dueCondition;
 }
 
-function scopeFilter(scope: StudyScope) {
+export function scopeFilter(scope: StudyScope) {
   if (scope.type === "artist") return eq(artist.id, scope.id);
   if (scope.type === "anime") return eq(anime.id, scope.id);
   // A subquery rather than a join, so the due queries sharing this condition

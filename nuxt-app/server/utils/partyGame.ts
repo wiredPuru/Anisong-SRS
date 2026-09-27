@@ -38,6 +38,8 @@ export interface PartyGameState {
   seekTo: number | null;
   seekSeq: number;
   position: PartyPosition | null;
+  randomStart: boolean;
+  startFraction: number;
 }
 export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean }
@@ -47,7 +49,9 @@ export type PartyCommand =
   | { type: "next" }
   | { type: "previous" }
   | { type: "reveal" }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "jump"; index: number }
+  | { type: "settings"; randomStart: boolean };
 
 /** Sent to the display: never a path, URL, card id, or answer before reveal. */
 export interface PartyDisplayState {
@@ -58,6 +62,7 @@ export interface PartyDisplayState {
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  startFraction: number;
   answer: PartyAnswer | null;
 }
 export interface PartyHostState {
@@ -67,11 +72,13 @@ export interface PartyHostState {
   playing: boolean;
   queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
   position: PartyPosition | null;
+  randomStart: boolean;
 }
 
 export const PARTY_LOAD_MAX = 2000;
 
-export function initialPartyState(version = 0): PartyGameState {
+// randomStart is the host's preference, so it outlives any one game.
+export function initialPartyState(version = 0, randomStart = false): PartyGameState {
   return {
     version,
     queue: [],
@@ -82,22 +89,28 @@ export function initialPartyState(version = 0): PartyGameState {
     seekTo: null,
     seekSeq: 0,
     position: null,
+    randomStart,
+    startFraction: 0,
   };
 }
 
 type ClipCard = Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "animethemesVideoUrl" | "animethemesAudioUrl">;
 
 // Same preference Study uses: a local file beats a stream, and video beats
-// audio unless Playback mode is Audio only.
+// audio unless Playback mode is Audio only. A local path whose file is gone
+// (or outside the library) is passed over, so a stale path falls back to the
+// stream instead of a clip that 404s mid-game.
 export function pickPartyClip(
   card: ClipCard,
   settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly" },
+  localFileUsable: (path: string) => boolean = () => true,
 ): PartyClip | null {
   const remote = (url: string | null) => (url && isClipUrlAllowed(url, settings.clipSource) ? url : null);
+  const local = (path: string | null) => (path && localFileUsable(path) ? path : null);
   const candidates: [PartyClip["kind"], PartyClipSource | null][] = [
-    ["video", card.localVideoPath ? { type: "local", path: card.localVideoPath } : null],
+    ["video", local(card.localVideoPath) ? { type: "local", path: card.localVideoPath! } : null],
     ["video", remote(card.animethemesVideoUrl) ? { type: "remote", url: card.animethemesVideoUrl! } : null],
-    ["audio", card.localAudioPath ? { type: "local", path: card.localAudioPath } : null],
+    ["audio", local(card.localAudioPath) ? { type: "local", path: card.localAudioPath! } : null],
     ["audio", remote(card.animethemesAudioUrl) ? { type: "remote", url: card.animethemesAudioUrl! } : null],
   ];
   for (const [kind, source] of candidates) {
@@ -135,6 +148,16 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     case "reveal":
     case "clear":
       return { type };
+    case "jump": {
+      const { index } = body as { index?: unknown };
+      if (!Number.isInteger(index) || (index as number) < 0) return { error: "index must be a whole number of 0 or more" };
+      return { type, index: index as number };
+    }
+    case "settings": {
+      const { randomStart } = body as { randomStart?: unknown };
+      if (typeof randomStart !== "boolean") return { error: "randomStart must be a boolean" };
+      return { type, randomStart };
+    }
     case "seek": {
       const { seconds } = body as { seconds?: unknown };
       if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
@@ -165,8 +188,17 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return copy;
 }
 
-function atItem(state: PartyGameState, index: number): PartyGameState {
-  return { ...state, index, phase: "guessing", playing: false, startAt: 0, seekTo: null, position: null };
+function atItem(state: PartyGameState, index: number, random: () => number): PartyGameState {
+  return {
+    ...state,
+    index,
+    phase: "guessing",
+    playing: false,
+    startAt: 0,
+    seekTo: null,
+    position: null,
+    startFraction: state.randomStart ? random() : 0,
+  };
 }
 
 /**
@@ -179,14 +211,15 @@ export function applyPartyCommand(
   options: { loaded?: PartyQueueItem[]; random?: () => number } = {},
 ): PartyGameState {
   const hasItem = state.index >= 0 && state.index < state.queue.length;
+  const random = options.random ?? Math.random;
   let next: PartyGameState = state;
 
   switch (command.type) {
     case "load": {
       const loaded = options.loaded ?? [];
       if (!loaded.length) return state;
-      const queue = command.shuffle ? shuffled(loaded, options.random ?? Math.random) : loaded;
-      next = atItem({ ...state, queue }, 0);
+      const queue = command.shuffle ? shuffled(loaded, random) : loaded;
+      next = atItem({ ...state, queue }, 0, random);
       break;
     }
     case "play":
@@ -197,16 +230,25 @@ export function applyPartyCommand(
       if (hasItem) next = { ...state, seekTo: command.seconds, seekSeq: state.seekSeq + 1 };
       break;
     case "next":
-      if (hasItem && state.index < state.queue.length - 1) next = atItem(state, state.index + 1);
+      if (hasItem && state.index < state.queue.length - 1) next = atItem(state, state.index + 1, random);
       break;
     case "previous":
-      if (hasItem && state.index > 0) next = atItem(state, state.index - 1);
+      if (hasItem && state.index > 0) next = atItem(state, state.index - 1, random);
+      break;
+    case "jump":
+      if (hasItem && command.index < state.queue.length && command.index !== state.index) {
+        next = atItem(state, command.index, random);
+      }
+      break;
+    case "settings":
+      // Applies from the next song: the current one has already started.
+      if (state.randomStart !== command.randomStart) next = { ...state, randomStart: command.randomStart };
       break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") next = { ...state, phase: "revealed" };
       break;
     case "clear":
-      if (state.index !== -1 || state.queue.length) next = initialPartyState(state.version);
+      if (state.index !== -1 || state.queue.length) next = initialPartyState(state.version, state.randomStart);
       break;
   }
 
@@ -229,6 +271,7 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
     startAt: state.startAt,
     seekTo: state.seekTo,
     seekSeq: state.seekSeq,
+    startFraction: state.startFraction,
     answer: item && state.phase === "revealed" ? item.answer : null,
   };
 }
@@ -241,5 +284,6 @@ export function toHostState(state: PartyGameState): PartyHostState {
     playing: state.playing,
     queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, answer: item.answer })),
     position: state.position,
+    randomStart: state.randomStart,
   };
 }

@@ -1,0 +1,93 @@
+import type { PartyAnswer, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
+
+// Hand-kept copy of the server's PartyHostState (server/utils/partyGame.ts).
+export interface PartyHostState {
+  version: number;
+  phase: PartyPhase;
+  index: number;
+  playing: boolean;
+  queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
+  position: PartyPositionReport | null;
+  randomStart: boolean;
+}
+
+export type PartyHostCommand =
+  | { type: "play" }
+  | { type: "pause" }
+  | { type: "seek"; seconds: number }
+  | { type: "next" }
+  | { type: "previous" }
+  | { type: "reveal" }
+  | { type: "clear" }
+  | { type: "jump"; index: number }
+  | { type: "settings"; randomStart: boolean };
+
+const RETRY_MIN_MS = 1000;
+const RETRY_MAX_MS = 10000;
+
+/** The host's live view of the game, plus a way to send it commands. */
+export function usePartyHost() {
+  const state = ref<PartyHostState | null>(null);
+  const connected = ref(false);
+  const sessionLost = ref(false);
+  const commandError = ref<string | null>(null);
+
+  let source: EventSource | null = null;
+  let retryMs = RETRY_MIN_MS;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function sessionStillValid(): Promise<boolean> {
+    try {
+      await $fetch("/api/party/host/ping");
+      return true;
+    } catch (err) {
+      return (err as { statusCode?: number }).statusCode !== 401;
+    }
+  }
+
+  function connect() {
+    source?.close();
+    source = new EventSource("/api/party/host/stream");
+    source.onopen = () => {
+      connected.value = true;
+      retryMs = RETRY_MIN_MS;
+    };
+    source.onmessage = (message) => {
+      try {
+        state.value = JSON.parse(message.data) as PartyHostState;
+      } catch {
+        // A malformed frame is skipped; the next change resends everything.
+      }
+    };
+    source.onerror = async () => {
+      connected.value = false;
+      if (source?.readyState !== EventSource.CLOSED) return;
+      // A stream that closes for good is usually an expired login (the
+      // server restarted, or the password changed).
+      if (!(await sessionStillValid())) {
+        sessionLost.value = true;
+        return;
+      }
+      retryTimer = setTimeout(connect, retryMs);
+      retryMs = Math.min(retryMs * 2, RETRY_MAX_MS);
+    };
+  }
+
+  async function send(command: PartyHostCommand) {
+    commandError.value = null;
+    try {
+      await $fetch("/api/party/host/command", { method: "POST", body: command });
+    } catch (err) {
+      if ((err as { statusCode?: number }).statusCode === 401) sessionLost.value = true;
+      else commandError.value = extractErrorMessage(err, "That command didn't go through.");
+    }
+  }
+
+  onMounted(connect);
+  onBeforeUnmount(() => {
+    if (retryTimer) clearTimeout(retryTimer);
+    source?.close();
+  });
+
+  return { state, connected, sessionLost, commandError, send };
+}

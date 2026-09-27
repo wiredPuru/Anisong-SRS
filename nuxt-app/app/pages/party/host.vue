@@ -62,10 +62,19 @@ async function logout() {
 </script>
 
 <template>
-  <main class="host-page">
+  <main v-if="view === 'ready' && status" class="host-dashboard">
+    <PartyHostDashboard
+      :display-url="status.displayUrl"
+      :control-urls="status.controlUrls"
+      :is-loopback="status.isLoopback"
+      @logout="logout"
+      @session-lost="refresh()"
+    />
+  </main>
+  <main v-else class="host-page">
     <section class="host-card">
       <header class="host-header">
-        <MascotKai :pose="view === 'ready' ? 'clap' : 'wave'" size="companion" />
+        <MascotKai pose="wave" size="companion" />
         <div>
           <h1 class="host-title">GAQ Party</h1>
           <p class="host-subtitle">Host panel</p>
@@ -119,19 +128,6 @@ async function logout() {
         </div>
       </form>
 
-      <div v-else-if="view === 'ready'" class="host-ready">
-        <p class="host-note">You're in. Game controls arrive in the next update.</p>
-        <dl class="host-links">
-          <dt>Display screen (open it on this computer)</dt>
-          <dd><code>{{ status.displayUrl }}</code></dd>
-          <dt>Host panel from a phone or laptop</dt>
-          <dd v-for="url in status.controlUrls" :key="url"><code>{{ url }}</code></dd>
-        </dl>
-        <p v-if="status.isLoopback" class="host-hint">
-          Forgot the password later? Log out, then choose "Set a new password" on this computer.
-        </p>
-        <button type="button" class="host-btn host-btn-secondary" @click="logout">Log out</button>
-      </div>
     </section>
   </main>
 </template>
@@ -171,20 +167,13 @@ async function logout() {
 }
 
 .host-subtitle,
-.host-note,
-.host-hint {
+.host-note {
   margin: 0;
   color: var(--muted);
 }
 
-.host-hint {
-  font-size: 13px;
-  color: var(--faint);
-}
-
 .host-note-block,
 .host-form,
-.host-ready,
 .host-error {
   display: flex;
   flex-direction: column;
@@ -250,29 +239,4 @@ async function logout() {
   color: var(--accent-secondary);
 }
 
-.host-links {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.host-links dt {
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.host-links dt:not(:first-child) {
-  margin-top: 8px;
-}
-
-.host-links dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.host-links code {
-  font-size: 13px;
-  color: var(--accent-secondary);
-}
 </style>

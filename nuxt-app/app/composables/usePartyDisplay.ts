@@ -18,6 +18,7 @@ export interface PartyDisplayState {
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  startFraction: number;
   answer: PartyAnswer | null;
 }
 

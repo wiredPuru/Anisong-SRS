@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 13023a08f131d2efba454db0114c2631d7ba9447617b868c92d2e41853c12b2c -->
+<!-- blueprint:source-hash 465c0073bf3f37293cf7ed43d86fe9e71c2d14debb059ac5258118e365bed560 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -1964,7 +1964,7 @@ password-locked LAN port is a new product direction.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
-86. **Guess the Anime party mode** - in progress, six sub-features (86a-86b done). A
+86. **Guess the Anime party mode** - in progress, six sub-features (86a-86c done). A
     host-run, in-person or streamed "guess the anime" game in the style of
     https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
     second binary, `gaq-party`, that `bun run package` builds alongside the
@@ -2031,9 +2031,28 @@ password-locked LAN port is a new product direction.
         Kai's veil for audio) and `PartyRevealOverlay`.
       - **Launcher:** the doors got a 30s idle timeout, a plain 502 on a dead
         upstream, and the launcher exits on SIGINT/SIGTERM.
-    - **86c. Host panel: queue and transport** - a queue from a deck or
-      Study-style filters with shuffle; play/pause, next, previous, seek,
-      random start, and reveal, with a live mirror of the display's position.
+    - **86c. Host panel: queue and transport** - done 2026-09-26. The
+      logged-in host page (`PartyHostDashboard`) has three parts:
+      - **Queue builder** (`PartyQueueBuilder`): All cards, Artist, Anime,
+        or Manual deck with search; Study's filters through
+        `StudyFiltersModal`/`StudyFilterForm` (which gained `apiBase`, plus
+        `title`/`hint` on the modal); and shuffle. It resolves through
+        `POST /api/party/host/queue-preview` (`partySources.ts`, reusing
+        `cards.ts`'s now-exported `scopeFilter` and `studyFilterCondition`,
+        shuffled, then capped at 2000). Host-door wrappers re-export the deck
+        list, filter-options, and list-anime handlers.
+      - **Now playing** (`PartyNowPlaying`, fed by `usePartyHost` over the
+        host SSE stream): the answer, a Hidden/Revealed chip, a seekable
+        progress bar from the display's reports, Previous/Play-Pause/Next/
+        Reveal, the random-start toggle, and End game behind a confirm.
+      - **Queue list** (`PartyQueueList`): tap a song to jump to it.
+      - **Model:** gained `jump` and `settings { randomStart }`. Random
+        start rolls a `startFraction`, which the display turns into seconds
+        once it knows the duration, never in the last 15s. The toggle
+        applies from the next song and survives End game.
+      - **Clip fixes:** a stale local path now falls back to the stream, and
+        the current and next two remote clips are prefetched on every
+        move.
     - **86d. Screen effects** - blur (adjustable, optional decay), pixelate
       (canvas, progressive), mute, blackout/audio-only, and the cover-art
       record, each toggled live or pre-set for the next song.
@@ -2617,7 +2636,7 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
-- **Party mode (feature 86, 86a-86b done)**: a second packaged binary,
+- **Party mode (feature 86, 86a-86c done)**: a second packaged binary,
   `gaq-party`, built alongside the SRS and sharing its user-data directory.
   The one part of the app that listens beyond localhost: its display port
   binds to loopback only, its host control port binds to the LAN for a phone

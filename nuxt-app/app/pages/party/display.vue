@@ -30,6 +30,7 @@ function start() {
         :start-at="state.startAt"
         :seek-to="state.seekTo"
         :seek-seq="state.seekSeq"
+        :start-fraction="state.startFraction"
         @position="reportPosition"
       />
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>

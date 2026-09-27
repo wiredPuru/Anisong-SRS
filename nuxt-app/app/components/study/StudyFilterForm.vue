@@ -14,6 +14,9 @@ type Choice = "include" | "exclude";
 // Edited in place, so the caller's draft sees every change and the caller
 // decides when to apply it.
 const draft = defineModel<StudyFilters>({ required: true });
+// Party mode's host panel (feature 86c) reads the same data through its own
+// door, under /api/party/host.
+const props = withDefaults(defineProps<{ apiBase?: string }>(), { apiBase: "/api/study" });
 
 const SEASONS: { value: StudySeason; label: string }[] = [
   { value: "WINTER", label: "Winter" },
@@ -48,7 +51,7 @@ const listNote = ref<string | null>(null);
 // from anime added since the last open show up without a reload.
 onMounted(async () => {
   try {
-    options.value = await $fetch<StudyFilterOptions>("/api/study/filter-options");
+    options.value = await $fetch<StudyFilterOptions>(`${props.apiBase}/filter-options`);
   } catch (err) {
     optionsError.value = extractErrorMessage(err, "Failed to load filter options.");
   }
@@ -116,7 +119,7 @@ async function fetchList(site: StudyListSite, username: string) {
   listError.value = null;
   listNote.value = null;
   try {
-    const result = await $fetch<ListAnimeResult>("/api/study/list-anime", { query: { site, username } });
+    const result = await $fetch<ListAnimeResult>(`${props.apiBase}/list-anime`, { query: { site, username } });
     draft.value.listAniListIds = result.aniListIds;
     draft.value.listSource = { site, username, fetchedAt: new Date().toISOString() };
     listNote.value = `${result.matched} of the ${result.listSize} anime on that Completed list ${result.matched === 1 ? "is" : "are"} in your library.`;

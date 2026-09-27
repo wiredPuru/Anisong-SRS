@@ -944,7 +944,7 @@ cleaned-up checkbox version before generating the project overview.
     current item, phase), the SSE stream to the display, opaque clip tokens,
     the display's click-to-start screen for browser autoplay, playback
     position reported back, and the reveal overlay.
-  - [ ] 86c. **Host panel: queue and transport** - build a queue from a deck
+  - [x] 86c. **Host panel: queue and transport** - build a queue from a deck
     or Study-style filters with shuffle, then play/pause, next, previous, seek,
     random start, and reveal, with a live mirror of the display's position.
   - [ ] 86d. **Screen effects** - blur (adjustable, optional decay), pixelate
