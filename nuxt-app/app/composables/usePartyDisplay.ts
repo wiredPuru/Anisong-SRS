@@ -1,4 +1,15 @@
 export type PartyPhase = "idle" | "guessing" | "revealed";
+export type PartyPicture = "video" | "blackout" | "cover";
+
+// Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
+export interface PartyEffects {
+  blur: number;
+  pixelate: number;
+  decay: boolean;
+  decaySeconds: number;
+  muted: boolean;
+  picture: PartyPicture;
+}
 
 export interface PartyAnswer {
   animeTitleEnglish: string;
@@ -19,6 +30,7 @@ export interface PartyDisplayState {
   seekTo: number | null;
   seekSeq: number;
   startFraction: number;
+  effects: PartyEffects;
   answer: PartyAnswer | null;
 }
 

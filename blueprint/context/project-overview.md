@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 465c0073bf3f37293cf7ed43d86fe9e71c2d14debb059ac5258118e365bed560 -->
+<!-- blueprint:source-hash 93674e2fbbb0f037b4dcede2bb24db097cb98bf24b168bec2922d0634ad54ea8 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -1964,7 +1964,7 @@ password-locked LAN port is a new product direction.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
-86. **Guess the Anime party mode** - in progress, six sub-features (86a-86c done). A
+86. **Guess the Anime party mode** - in progress, six sub-features (86a-86d done). A
     host-run, in-person or streamed "guess the anime" game in the style of
     https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
     second binary, `gaq-party`, that `bun run package` builds alongside the
@@ -2053,9 +2053,27 @@ password-locked LAN port is a new product direction.
       - **Clip fixes:** a stale local path now falls back to the stream, and
         the current and next two remote clips are prefetched on every
         move.
-    - **86d. Screen effects** - blur (adjustable, optional decay), pixelate
-      (canvas, progressive), mute, blackout/audio-only, and the cover-art
-      record, each toggled live or pre-set for the next song.
+    - **86d. Screen effects** - done 2026-09-26.
+      - **Model:** `PartyEffects { blur (0-40px), pixelate (0 or 4-64px
+        blocks), decay, decaySeconds (5-120), muted, picture:
+        video|blackout|cover }` lives in the game as `effects` (the current
+        song) and `nextEffects` (a one-shot preset). The `effects` command
+        (`{ target: current|next, effects | null }`) sets them. Moving to a
+        song applies and clears `nextEffects`, otherwise `effects` carries
+        over, and it survives End game.
+      - **Display:** revealing lifts every effect. `PartyDisplayPlayer`
+        applies CSS blur (with a slight zoom to hide soft edges), `muted`,
+        blackout (Kai's veil), and cover mode. `PartyPixelCanvas` draws the
+        picture small and scales it up unsmoothed each frame. Decay runs
+        from the song's own start position (`app/utils/partyEffects.ts`).
+      - **Cover route:** cover mode fetches through `GET
+        /api/party/display/cover?t=`, so no AniList URL reaches the display.
+      - **Host:** `PartyEffectsPanel` has "This song" (live, throttled) and
+        "Next song" (Arm, an Armed badge, Cancel) tabs.
+      - **Changed from the plan:** the plan's "cover-art record" became this
+        cover picture mode, a plain cover subject to blur and pixelate
+        rather than Study's spinning record, since an unobscured cover would
+        give the answer away.
     - **86e. Lightning rounds** - timed auto-advancing rounds from data
       already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
       Clues and Tags (feature 76a metadata), and Title letter fill.
@@ -2636,7 +2654,7 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
-- **Party mode (feature 86, 86a-86c done)**: a second packaged binary,
+- **Party mode (feature 86, 86a-86d done)**: a second packaged binary,
   `gaq-party`, built alongside the SRS and sharing its user-data directory.
   The one part of the app that listens beyond localhost: its display port
   binds to loopback only, its host control port binds to the LAN for a phone

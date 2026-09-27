@@ -34,6 +34,10 @@ watch(sessionLost, (lost) => {
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
 
+        <section v-if="state" class="panel">
+          <PartyEffectsPanel :state="state" @command="send" />
+        </section>
+
         <section v-if="hasGame && state" class="panel">
           <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" />
         </section>

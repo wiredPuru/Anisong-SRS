@@ -1,4 +1,4 @@
-import type { PartyAnswer, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
+import type { PartyAnswer, PartyEffects, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
 
 // Hand-kept copy of the server's PartyHostState (server/utils/partyGame.ts).
 export interface PartyHostState {
@@ -9,6 +9,8 @@ export interface PartyHostState {
   queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
+  effects: PartyEffects;
+  nextEffects: PartyEffects | null;
 }
 
 export type PartyHostCommand =
@@ -20,7 +22,8 @@ export type PartyHostCommand =
   | { type: "reveal" }
   | { type: "clear" }
   | { type: "jump"; index: number }
-  | { type: "settings"; randomStart: boolean };
+  | { type: "settings"; randomStart: boolean }
+  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 10000;

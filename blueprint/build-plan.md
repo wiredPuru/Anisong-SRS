@@ -947,7 +947,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 86c. **Host panel: queue and transport** - build a queue from a deck
     or Study-style filters with shuffle, then play/pause, next, previous, seek,
     random start, and reveal, with a live mirror of the display's position.
-  - [ ] 86d. **Screen effects** - blur (adjustable, optional decay), pixelate
+  - [x] 86d. **Screen effects** - blur (adjustable, optional decay), pixelate
     (canvas, progressive), mute, blackout/audio-only, and the cover-art
     record, each toggled live or pre-set for the next song.
   - [ ] 86e. **Lightning rounds** - timed auto-advancing rounds from data

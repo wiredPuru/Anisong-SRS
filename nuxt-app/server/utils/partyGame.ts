@@ -2,6 +2,15 @@ import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 
 export type PartyPhase = "idle" | "guessing" | "revealed";
+export type PartyPicture = "video" | "blackout" | "cover";
+export interface PartyEffects {
+  blur: number;
+  pixelate: number;
+  decay: boolean;
+  decaySeconds: number;
+  muted: boolean;
+  picture: PartyPicture;
+}
 export type PartyClipSource = { type: "local"; path: string } | { type: "remote"; url: string };
 export interface PartyClip {
   kind: "video" | "audio";
@@ -40,6 +49,8 @@ export interface PartyGameState {
   position: PartyPosition | null;
   randomStart: boolean;
   startFraction: number;
+  effects: PartyEffects;
+  nextEffects: PartyEffects | null;
 }
 export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean }
@@ -51,7 +62,8 @@ export type PartyCommand =
   | { type: "reveal" }
   | { type: "clear" }
   | { type: "jump"; index: number }
-  | { type: "settings"; randomStart: boolean };
+  | { type: "settings"; randomStart: boolean }
+  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null };
 
 /** Sent to the display: never a path, URL, card id, or answer before reveal. */
 export interface PartyDisplayState {
@@ -63,6 +75,7 @@ export interface PartyDisplayState {
   seekTo: number | null;
   seekSeq: number;
   startFraction: number;
+  effects: PartyEffects;
   answer: PartyAnswer | null;
 }
 export interface PartyHostState {
@@ -73,12 +86,55 @@ export interface PartyHostState {
   queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
   position: PartyPosition | null;
   randomStart: boolean;
+  effects: PartyEffects;
+  nextEffects: PartyEffects | null;
 }
 
 export const PARTY_LOAD_MAX = 2000;
 
-// randomStart is the host's preference, so it outlives any one game.
-export function initialPartyState(version = 0, randomStart = false): PartyGameState {
+export const NO_EFFECTS: PartyEffects = {
+  blur: 0,
+  pixelate: 0,
+  decay: false,
+  decaySeconds: 20,
+  muted: false,
+  picture: "video",
+};
+const PICTURES: readonly PartyPicture[] = ["video", "blackout", "cover"];
+const BLUR_MAX = 40;
+const PIXELATE_MIN = 4;
+const PIXELATE_MAX = 64;
+const DECAY_MIN_S = 5;
+const DECAY_MAX_S = 120;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/** Numbers are clamped into range; a wrong type or an unknown picture is an error. */
+export function parsePartyEffects(raw: unknown): PartyEffects | { error: string } {
+  if (typeof raw !== "object" || raw === null) return { error: "effects must be an object" };
+  const { blur, pixelate, decay, decaySeconds, muted, picture } = raw as Record<string, unknown>;
+  const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+  if (!isNumber(blur) || !isNumber(pixelate) || !isNumber(decaySeconds)) {
+    return { error: "blur, pixelate, and decaySeconds must be numbers" };
+  }
+  if (typeof decay !== "boolean" || typeof muted !== "boolean") return { error: "decay and muted must be booleans" };
+  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'blackout', or 'cover'" };
+  return {
+    blur: Math.round(clamp(blur, 0, BLUR_MAX)),
+    pixelate: pixelate <= 0 ? 0 : Math.round(clamp(pixelate, PIXELATE_MIN, PIXELATE_MAX)),
+    decay,
+    decaySeconds: Math.round(clamp(decaySeconds, DECAY_MIN_S, DECAY_MAX_S)),
+    muted,
+    picture: picture as PartyPicture,
+  };
+}
+
+// randomStart and effects are the host's preferences, so they outlive any one game.
+export function initialPartyState(
+  version = 0,
+  randomStart = false,
+  effects: PartyEffects = NO_EFFECTS,
+): PartyGameState {
   return {
     version,
     queue: [],
@@ -91,6 +147,8 @@ export function initialPartyState(version = 0, randomStart = false): PartyGameSt
     position: null,
     randomStart,
     startFraction: 0,
+    effects,
+    nextEffects: null,
   };
 }
 
@@ -158,6 +216,13 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (typeof randomStart !== "boolean") return { error: "randomStart must be a boolean" };
       return { type, randomStart };
     }
+    case "effects": {
+      const { target, effects } = body as { target?: unknown; effects?: unknown };
+      if (target !== "current" && target !== "next") return { error: "target must be 'current' or 'next'" };
+      if (effects === null) return { type, target, effects: null };
+      const parsed = parsePartyEffects(effects);
+      return "error" in parsed ? parsed : { type, target, effects: parsed };
+    }
     case "seek": {
       const { seconds } = body as { seconds?: unknown };
       if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
@@ -198,6 +263,8 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     seekTo: null,
     position: null,
     startFraction: state.randomStart ? random() : 0,
+    effects: state.nextEffects ?? state.effects,
+    nextEffects: null,
   };
 }
 
@@ -244,11 +311,18 @@ export function applyPartyCommand(
       // Applies from the next song: the current one has already started.
       if (state.randomStart !== command.randomStart) next = { ...state, randomStart: command.randomStart };
       break;
+    case "effects":
+      next = command.target === "current"
+        ? { ...state, effects: command.effects ?? NO_EFFECTS }
+        : { ...state, nextEffects: command.effects };
+      break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") next = { ...state, phase: "revealed" };
       break;
     case "clear":
-      if (state.index !== -1 || state.queue.length) next = initialPartyState(state.version, state.randomStart);
+      if (state.index !== -1 || state.queue.length) {
+        next = initialPartyState(state.version, state.randomStart, state.effects);
+      }
       break;
   }
 
@@ -272,6 +346,7 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
     seekTo: state.seekTo,
     seekSeq: state.seekSeq,
     startFraction: state.startFraction,
+    effects: state.effects,
     answer: item && state.phase === "revealed" ? item.answer : null,
   };
 }
@@ -285,5 +360,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, answer: item.answer })),
     position: state.position,
     randomStart: state.randomStart,
+    effects: state.effects,
+    nextEffects: state.nextEffects,
   };
 }

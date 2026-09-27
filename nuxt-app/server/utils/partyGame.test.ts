@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CardWithDetails } from "./cards.ts";
 import {
+  NO_EFFECTS,
   applyPartyCommand,
   initialPartyState,
   parsePartyCommand,
+  parsePartyEffects,
   pickPartyClip,
   toDisplayState,
   toHostState,
@@ -275,3 +277,69 @@ describe("jump and random start", () => {
   });
 });
 
+
+describe("effects", () => {
+  const blur = { blur: 12, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" as const };
+
+  it("parses and clamps effects", () => {
+    expect(parsePartyEffects({ ...blur, blur: 99, pixelate: 2, decaySeconds: 500 })).toEqual({
+      ...blur,
+      blur: 40,
+      pixelate: 4,
+      decaySeconds: 120,
+    });
+    expect(parsePartyEffects({ ...blur, pixelate: -3, decaySeconds: 1 })).toMatchObject({ pixelate: 0, decaySeconds: 5 });
+    expect(parsePartyEffects({ ...blur, picture: "sepia" })).toHaveProperty("error");
+    expect(parsePartyEffects({ ...blur, blur: "12" })).toHaveProperty("error");
+    expect(parsePartyEffects({ ...blur, muted: 1 })).toHaveProperty("error");
+    expect(parsePartyEffects(null)).toHaveProperty("error");
+  });
+
+  it("parses the effects command", () => {
+    expect(parsePartyCommand({ type: "effects", target: "next", effects: blur })).toEqual({ type: "effects", target: "next", effects: blur });
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: null })).toEqual({ type: "effects", target: "current", effects: null });
+    expect(parsePartyCommand({ type: "effects", target: "later", effects: blur })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { blur: 1 } })).toHaveProperty("error");
+  });
+
+  it("sets the current song's effects, and null resets them", () => {
+    const on = applyPartyCommand(loaded(), { type: "effects", target: "current", effects: blur });
+    expect(on.effects).toEqual(blur);
+    expect(applyPartyCommand(on, { type: "effects", target: "current", effects: null }).effects).toEqual(NO_EFFECTS);
+  });
+
+  it("applies an armed preset on every kind of move, once", () => {
+    for (const command of [{ type: "next" }, { type: "jump", index: 2 }] as const) {
+      const armed = applyPartyCommand(loaded(3), { type: "effects", target: "next", effects: blur });
+      expect(armed.effects).toEqual(NO_EFFECTS);
+      const moved = applyPartyCommand(armed, command);
+      expect(moved.effects).toEqual(blur);
+      expect(moved.nextEffects).toBeNull();
+    }
+    const armedAtTwo = applyPartyCommand(applyPartyCommand(loaded(3), { type: "next" }), { type: "effects", target: "next", effects: blur });
+    expect(applyPartyCommand(armedAtTwo, { type: "previous" }).effects).toEqual(blur);
+    const armedEmpty = applyPartyCommand(initialPartyState(), { type: "effects", target: "next", effects: blur });
+    expect(applyPartyCommand(armedEmpty, { type: "load", cardIds: [1] }, { loaded: items(2) }).effects).toEqual(blur);
+  });
+
+  it("cancels an armed preset with null", () => {
+    const armed = applyPartyCommand(loaded(), { type: "effects", target: "next", effects: blur });
+    expect(applyPartyCommand(armed, { type: "effects", target: "next", effects: null }).nextEffects).toBeNull();
+  });
+
+  it("carries the current effects to later songs and through clear", () => {
+    const on = applyPartyCommand(loaded(3), { type: "effects", target: "current", effects: blur });
+    expect(applyPartyCommand(on, { type: "next" }).effects).toEqual(blur);
+    expect(applyPartyCommand(on, { type: "clear" }).effects).toEqual(blur);
+  });
+
+  it("sends effects to both views and the armed preset to the host only", () => {
+    const armed = applyPartyCommand(
+      applyPartyCommand(loaded(), { type: "effects", target: "current", effects: blur }),
+      { type: "effects", target: "next", effects: { ...blur, muted: true } },
+    );
+    expect(toDisplayState(armed).effects).toEqual(blur);
+    expect(toDisplayState(armed)).not.toHaveProperty("nextEffects");
+    expect(toHostState(armed).nextEffects?.muted).toBe(true);
+  });
+});
