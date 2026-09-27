@@ -33,6 +33,29 @@ export interface PartyAnswer {
   themeSlot: string;
   coverImageUrl: string | null;
 }
+export interface PartyTimer {
+  seconds: number;
+  endsAt: number;
+  autoReveal: boolean;
+}
+export interface PartyPlayer {
+  id: number;
+  name: string;
+  score: number;
+}
+export interface PartyScoreboard {
+  players: PartyPlayer[];
+  visible: boolean;
+}
+export interface PartyBanner {
+  text: string;
+  shownAt: number;
+}
+export interface PartyMusic {
+  enabled: boolean;
+  volume: number;
+}
+
 export interface PartyQueueItem {
   token: string;
   cardId: number;
@@ -66,7 +89,19 @@ export interface PartyGameState {
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
   revealedAtElapsed: number | null;
+  timer: PartyTimer | null;
+  scoreboard: PartyScoreboard;
+  nextPlayerId: number;
+  banner: PartyBanner | null;
+  music: PartyMusic;
 }
+export type PartyScoreCommand =
+  | { type: "score"; op: "add"; name: string }
+  | { type: "score"; op: "rename"; id: number; name: string }
+  | { type: "score"; op: "remove"; id: number }
+  | { type: "score"; op: "adjust"; id: number; delta: number }
+  | { type: "score"; op: "reset" }
+  | { type: "score"; op: "show"; visible: boolean };
 export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean }
   | { type: "play" }
@@ -79,7 +114,12 @@ export type PartyCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "lightning"; config: PartyLightning | null };
+  | { type: "lightning"; config: PartyLightning | null }
+  | { type: "timer"; seconds: number; autoReveal: boolean }
+  | { type: "timerStop" }
+  | PartyScoreCommand
+  | { type: "banner"; text: string | null }
+  | { type: "music"; enabled: boolean; volume: number };
 
 /** Sent to the display: never a path, URL, card id, or answer before reveal. */
 export interface PartyDisplayState {
@@ -93,6 +133,10 @@ export interface PartyDisplayState {
   startFraction: number;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
+  timer: PartyTimer | null;
+  scoreboard: PartyPlayer[] | null;
+  banner: PartyBanner | null;
+  music: PartyMusic;
   answer: PartyAnswer | null;
 }
 export interface PartyHostState {
@@ -106,9 +150,17 @@ export interface PartyHostState {
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
+  timer: PartyTimer | null;
+  scoreboard: PartyScoreboard;
+  banner: PartyBanner | null;
+  music: PartyMusic;
 }
 
 export const PARTY_LOAD_MAX = 2000;
+export const PLAYER_LIMIT = 20;
+const PLAYER_NAME_MAX = 24;
+const BANNER_MAX = 60;
+export const DEFAULT_MUSIC: PartyMusic = { enabled: false, volume: 0.4 };
 
 export const NO_EFFECTS: PartyEffects = {
   blur: 0,
@@ -169,6 +221,11 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music"> = {
+    scoreboard: { players: [], visible: false },
+    nextPlayerId: 1,
+    music: DEFAULT_MUSIC,
+  },
 ): PartyGameState {
   return {
     version,
@@ -186,6 +243,9 @@ export function initialPartyState(
     nextEffects: null,
     lightning,
     revealedAtElapsed: null,
+    timer: null,
+    banner: null,
+    ...kept,
   };
 }
 
@@ -265,6 +325,31 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const parsed = parsePartyLightning(config);
       return "error" in parsed ? parsed : { type, config: parsed };
     }
+    case "timer": {
+      const { seconds, autoReveal } = body as { seconds?: unknown; autoReveal?: unknown };
+      if (!Number.isInteger(seconds) || (seconds as number) < 3 || (seconds as number) > 120) {
+        return { error: "seconds must be a whole number from 3 to 120" };
+      }
+      if (typeof autoReveal !== "boolean") return { error: "autoReveal must be a boolean" };
+      return { type, seconds: seconds as number, autoReveal };
+    }
+    case "timerStop":
+      return { type };
+    case "score":
+      return parseScoreCommand(body as Record<string, unknown>);
+    case "banner": {
+      const { text } = body as { text?: unknown };
+      if (text === null) return { type, text: null };
+      const trimmed = typeof text === "string" ? text.trim() : "";
+      if (!trimmed || trimmed.length > BANNER_MAX) return { error: `text must be 1-${BANNER_MAX} characters, or null` };
+      return { type, text: trimmed };
+    }
+    case "music": {
+      const { enabled, volume } = body as { enabled?: unknown; volume?: unknown };
+      if (typeof enabled !== "boolean") return { error: "enabled must be a boolean" };
+      if (typeof volume !== "number" || !Number.isFinite(volume)) return { error: "volume must be a number" };
+      return { type, enabled, volume: clamp(volume, 0, 1) };
+    }
     case "effects": {
       const { target, effects } = body as { target?: unknown; effects?: unknown };
       if (target !== "current" && target !== "next") return { error: "target must be 'current' or 'next'" };
@@ -293,6 +378,65 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
   }
 }
 
+function parsePlayerName(raw: unknown): string | null {
+  const name = typeof raw === "string" ? raw.trim() : "";
+  return name && name.length <= PLAYER_NAME_MAX ? name : null;
+}
+
+function parseScoreCommand(body: Record<string, unknown>): PartyScoreCommand | { error: string } {
+  const isId = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0;
+  switch (body.op) {
+    case "add": {
+      const name = parsePlayerName(body.name);
+      return name ? { type: "score", op: "add", name } : { error: `name must be 1-${PLAYER_NAME_MAX} characters` };
+    }
+    case "rename": {
+      const name = parsePlayerName(body.name);
+      if (!isId(body.id)) return { error: "id must be a player id" };
+      return name ? { type: "score", op: "rename", id: body.id, name } : { error: `name must be 1-${PLAYER_NAME_MAX} characters` };
+    }
+    case "remove":
+      return isId(body.id) ? { type: "score", op: "remove", id: body.id } : { error: "id must be a player id" };
+    case "adjust":
+      if (!isId(body.id)) return { error: "id must be a player id" };
+      if (!Number.isInteger(body.delta)) return { error: "delta must be a whole number" };
+      return { type: "score", op: "adjust", id: body.id, delta: body.delta as number };
+    case "reset":
+      return { type: "score", op: "reset" };
+    case "show":
+      return typeof body.visible === "boolean" ? { type: "score", op: "show", visible: body.visible } : { error: "visible must be a boolean" };
+    default:
+      return { error: "Unknown score op" };
+  }
+}
+
+function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGameState {
+  const { players } = state.scoreboard;
+  const withPlayers = (next: PartyPlayer[]) => ({ ...state, scoreboard: { ...state.scoreboard, players: next } });
+  switch (command.op) {
+    case "add":
+      if (players.length >= PLAYER_LIMIT) return state;
+      return {
+        ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0 }]),
+        nextPlayerId: state.nextPlayerId + 1,
+      };
+    case "rename":
+      return players.some((p) => p.id === command.id)
+        ? withPlayers(players.map((p) => (p.id === command.id ? { ...p, name: command.name } : p)))
+        : state;
+    case "remove":
+      return players.some((p) => p.id === command.id) ? withPlayers(players.filter((p) => p.id !== command.id)) : state;
+    case "adjust":
+      return players.some((p) => p.id === command.id) && command.delta !== 0
+        ? withPlayers(players.map((p) => (p.id === command.id ? { ...p, score: p.score + command.delta } : p)))
+        : state;
+    case "reset":
+      return players.some((p) => p.score !== 0) ? withPlayers(players.map((p) => ({ ...p, score: 0 }))) : state;
+    case "show":
+      return state.scoreboard.visible === command.visible ? state : { ...state, scoreboard: { ...state.scoreboard, visible: command.visible } };
+  }
+}
+
 function shuffled<T>(items: T[], random: () => number): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -316,6 +460,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     effects: state.nextEffects ?? state.effects,
     nextEffects: null,
     revealedAtElapsed: null,
+    timer: null,
   };
 }
 
@@ -326,10 +471,11 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
 export function applyPartyCommand(
   state: PartyGameState,
   command: PartyCommand,
-  options: { loaded?: PartyQueueItem[]; random?: () => number } = {},
+  options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number } = {},
 ): PartyGameState {
   const hasItem = state.index >= 0 && state.index < state.queue.length;
   const random = options.random ?? Math.random;
+  const now = options.now ?? Date.now;
   let next: PartyGameState = state;
 
   switch (command.type) {
@@ -365,6 +511,24 @@ export function applyPartyCommand(
     case "lightning":
       next = { ...state, lightning: command.config };
       break;
+    case "timer":
+      if (hasItem) next = { ...state, timer: { seconds: command.seconds, endsAt: now() + command.seconds * 1000, autoReveal: command.autoReveal } };
+      break;
+    case "timerStop":
+      if (state.timer) next = { ...state, timer: null };
+      break;
+    case "score":
+      next = applyScore(state, command);
+      break;
+    case "banner":
+      if (command.text !== null) next = { ...state, banner: { text: command.text, shownAt: now() } };
+      else if (state.banner) next = { ...state, banner: null };
+      break;
+    case "music":
+      if (state.music.enabled !== command.enabled || state.music.volume !== command.volume) {
+        next = { ...state, music: { enabled: command.enabled, volume: command.volume } };
+      }
+      break;
     case "effects":
       next = command.target === "current"
         ? { ...state, effects: command.effects ?? NO_EFFECTS }
@@ -377,7 +541,11 @@ export function applyPartyCommand(
       break;
     case "clear":
       if (state.index !== -1 || state.queue.length) {
-        next = initialPartyState(state.version, state.randomStart, state.effects, state.lightning);
+        next = initialPartyState(state.version, state.randomStart, state.effects, state.lightning, {
+          scoreboard: state.scoreboard,
+          nextPlayerId: state.nextPlayerId,
+          music: state.music,
+        });
       }
       break;
   }
@@ -418,6 +586,10 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
           hints: item ? lightningHints(item, state.lightning.mode, hintElapsed(state), state.lightning.guessSeconds) : null,
         }
       : null,
+    timer: state.timer,
+    scoreboard: state.scoreboard.visible ? [...state.scoreboard.players].sort((a, b) => b.score - a.score) : null,
+    banner: state.banner,
+    music: state.music,
     answer: item && state.phase === "revealed" ? item.answer : null,
   };
 }
@@ -434,6 +606,10 @@ export function toHostState(state: PartyGameState): PartyHostState {
     effects: state.effects,
     nextEffects: state.nextEffects,
     lightning: state.lightning,
+    timer: state.timer,
+    scoreboard: state.scoreboard,
+    banner: state.banner,
+    music: state.music,
   };
 }
 

@@ -1,4 +1,14 @@
-import type { PartyAnswer, PartyEffects, PartyLightningMode, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
+import type {
+  PartyAnswer,
+  PartyBanner,
+  PartyEffects,
+  PartyLightningMode,
+  PartyMusic,
+  PartyPhase,
+  PartyPlayer,
+  PartyPositionReport,
+  PartyTimer,
+} from "./usePartyDisplay";
 
 export interface PartyLightning {
   mode: PartyLightningMode;
@@ -18,6 +28,10 @@ export interface PartyHostState {
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
+  timer: PartyTimer | null;
+  scoreboard: { players: PartyPlayer[]; visible: boolean };
+  banner: PartyBanner | null;
+  music: PartyMusic;
 }
 
 export type PartyHostCommand =
@@ -31,7 +45,17 @@ export type PartyHostCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "lightning"; config: PartyLightning | null };
+  | { type: "lightning"; config: PartyLightning | null }
+  | { type: "timer"; seconds: number; autoReveal: boolean }
+  | { type: "timerStop" }
+  | { type: "score"; op: "add"; name: string }
+  | { type: "score"; op: "rename"; id: number; name: string }
+  | { type: "score"; op: "remove"; id: number }
+  | { type: "score"; op: "adjust"; id: number; delta: number }
+  | { type: "score"; op: "reset" }
+  | { type: "score"; op: "show"; visible: boolean }
+  | { type: "banner"; text: string | null }
+  | { type: "music"; enabled: boolean; volume: number };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 10000;

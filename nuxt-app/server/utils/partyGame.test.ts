@@ -450,3 +450,87 @@ describe("lightning hints in the display state", () => {
   });
 });
 
+
+describe("timer, scoreboard, banner, and music", () => {
+  const now = () => 1_000_000;
+
+  it("starts a timer on a song, ends it on a move, and stops it on request", () => {
+    const timed = applyPartyCommand(loaded(2), { type: "timer", seconds: 15, autoReveal: true }, { now });
+    expect(timed.timer).toEqual({ seconds: 15, endsAt: 1_015_000, autoReveal: true });
+    expect(applyPartyCommand(timed, { type: "next" }).timer).toBeNull();
+    expect(applyPartyCommand(timed, { type: "timerStop" }).timer).toBeNull();
+    const empty = initialPartyState();
+    expect(applyPartyCommand(empty, { type: "timer", seconds: 10, autoReveal: false })).toBe(empty);
+  });
+
+  it("validates timer, banner, and music commands", () => {
+    expect(parsePartyCommand({ type: "timer", seconds: 2, autoReveal: true })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "timer", seconds: 10.5, autoReveal: true })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "timer", seconds: 10, autoReveal: "yes" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "banner", text: "  Round 2  " })).toEqual({ type: "banner", text: "Round 2" });
+    expect(parsePartyCommand({ type: "banner", text: " " })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "banner", text: "x".repeat(61) })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "music", enabled: true, volume: 3 })).toEqual({ type: "music", enabled: true, volume: 1 });
+    expect(parsePartyCommand({ type: "music", enabled: "on", volume: 0.5 })).toHaveProperty("error");
+  });
+
+  it("runs a scoreboard", () => {
+    let state = applyPartyCommand(loaded(), { type: "score", op: "add", name: "Aki" });
+    state = applyPartyCommand(state, { type: "score", op: "add", name: "Bea" });
+    const [aki, bea] = state.scoreboard.players;
+    expect([aki?.id, bea?.id]).toEqual([1, 2]);
+    state = applyPartyCommand(state, { type: "score", op: "adjust", id: 2, delta: 3 });
+    state = applyPartyCommand(state, { type: "score", op: "adjust", id: 1, delta: -1 });
+    state = applyPartyCommand(state, { type: "score", op: "rename", id: 1, name: "Akira" });
+    expect(state.scoreboard.players).toEqual([
+      { id: 1, name: "Akira", score: -1 },
+      { id: 2, name: "Bea", score: 3 },
+    ]);
+    const shown = applyPartyCommand(state, { type: "score", op: "show", visible: true });
+    expect(toDisplayState(shown).scoreboard?.map((p) => p.name)).toEqual(["Bea", "Akira"]);
+    expect(toDisplayState(state).scoreboard).toBeNull();
+    const reset = applyPartyCommand(state, { type: "score", op: "reset" });
+    expect(reset.scoreboard.players.every((p) => p.score === 0)).toBe(true);
+    expect(applyPartyCommand(reset, { type: "score", op: "reset" })).toBe(reset);
+    const removed = applyPartyCommand(state, { type: "score", op: "remove", id: 1 });
+    expect(removed.scoreboard.players.map((p) => p.id)).toEqual([2]);
+    expect(applyPartyCommand(removed, { type: "score", op: "adjust", id: 1, delta: 1 })).toBe(removed);
+  });
+
+  it("keeps new player ids unique after a removal and caps the roster", () => {
+    let state = applyPartyCommand(loaded(), { type: "score", op: "add", name: "A" });
+    state = applyPartyCommand(state, { type: "score", op: "remove", id: 1 });
+    state = applyPartyCommand(state, { type: "score", op: "add", name: "B" });
+    expect(state.scoreboard.players[0]?.id).toBe(2);
+    for (let i = 0; i < 25; i++) state = applyPartyCommand(state, { type: "score", op: "add", name: `P${i}` });
+    expect(state.scoreboard.players).toHaveLength(20);
+  });
+
+  it("validates score commands", () => {
+    expect(parsePartyCommand({ type: "score", op: "add", name: "  Kai  " })).toEqual({ type: "score", op: "add", name: "Kai" });
+    expect(parsePartyCommand({ type: "score", op: "add", name: "" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "score", op: "add", name: "x".repeat(25) })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "score", op: "adjust", id: 1, delta: 0.5 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "score", op: "remove", id: 0 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "score", op: "explode" })).toHaveProperty("error");
+  });
+
+  it("shows and clears a banner", () => {
+    const shown = applyPartyCommand(loaded(), { type: "banner", text: "Round 2" }, { now });
+    expect(toDisplayState(shown).banner).toEqual({ text: "Round 2", shownAt: 1_000_000 });
+    expect(applyPartyCommand(shown, { type: "banner", text: null }).banner).toBeNull();
+  });
+
+  it("keeps the scoreboard and music but drops the banner and timer on clear", () => {
+    let state = applyPartyCommand(loaded(), { type: "score", op: "add", name: "Kai" });
+    state = applyPartyCommand(state, { type: "music", enabled: true, volume: 0.6 });
+    state = applyPartyCommand(state, { type: "banner", text: "Final" }, { now });
+    state = applyPartyCommand(state, { type: "timer", seconds: 10, autoReveal: false }, { now });
+    const cleared = applyPartyCommand(state, { type: "clear" });
+    expect(cleared.scoreboard.players).toHaveLength(1);
+    expect(cleared.music).toEqual({ enabled: true, volume: 0.6 });
+    expect(cleared.banner).toBeNull();
+    expect(cleared.timer).toBeNull();
+    expect(applyPartyCommand(cleared, { type: "score", op: "add", name: "Next" }).scoreboard.players[1]?.id).toBe(2);
+  });
+});

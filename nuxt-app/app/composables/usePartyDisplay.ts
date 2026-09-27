@@ -27,6 +27,25 @@ export interface PartyAnswer {
   coverImageUrl: string | null;
 }
 
+export interface PartyTimer {
+  seconds: number;
+  endsAt: number;
+  autoReveal: boolean;
+}
+export interface PartyPlayer {
+  id: number;
+  name: string;
+  score: number;
+}
+export interface PartyBanner {
+  text: string;
+  shownAt: number;
+}
+export interface PartyMusic {
+  enabled: boolean;
+  volume: number;
+}
+
 export interface PartyDisplayState {
   version: number;
   phase: PartyPhase;
@@ -38,6 +57,10 @@ export interface PartyDisplayState {
   startFraction: number;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
+  timer: PartyTimer | null;
+  scoreboard: PartyPlayer[] | null;
+  banner: PartyBanner | null;
+  music: PartyMusic;
   answer: PartyAnswer | null;
 }
 

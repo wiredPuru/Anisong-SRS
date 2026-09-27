@@ -9,6 +9,11 @@ const hasGame = computed(() => Boolean(state.value && state.value.index >= 0 && 
 watch(sessionLost, (lost) => {
   if (lost) emit("sessionLost");
 });
+
+const helpOpen = ref(false);
+usePartyHotkeys(state, send, () => {
+  helpOpen.value = !helpOpen.value;
+});
 </script>
 
 <template>
@@ -17,6 +22,7 @@ watch(sessionLost, (lost) => {
       <MascotKai pose="clap" size="small" />
       <h1 class="dashboard-title">GAQ Party</h1>
       <span class="dashboard-spacer" />
+      <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>
 
@@ -52,6 +58,14 @@ watch(sessionLost, (lost) => {
           <PartyQueueBuilder @loaded="lastLoad = $event" />
         </section>
 
+        <section v-if="state" class="panel">
+          <PartyShowPanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
+          <PartyScoreboardPanel :state="state" @command="send" />
+        </section>
+
         <details class="panel connect">
           <summary>Connect a display or phone</summary>
           <dl class="links">
@@ -66,6 +80,8 @@ watch(sessionLost, (lost) => {
         </details>
       </div>
     </div>
+
+    <PartyHotkeyHelp v-if="helpOpen" @close="helpOpen = false" />
   </div>
 </template>
 

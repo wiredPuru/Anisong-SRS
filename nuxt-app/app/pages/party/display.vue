@@ -47,6 +47,16 @@ function start() {
         {{ connected ? "The game starts on this screen once the host begins." : "Connecting to the party server..." }}
       </p>
     </div>
+
+    <template v-if="started && state">
+      <PartyDisplayOverlays
+        :timer="state.timer"
+        :guessing="state.phase === 'guessing'"
+        :scoreboard="state.scoreboard"
+        :banner="state.banner"
+      />
+      <PartyLobbyMusic :music="state.music" :song-playing="Boolean(state.item && state.playing)" />
+    </template>
   </main>
 </template>
 

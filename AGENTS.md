@@ -206,7 +206,8 @@ checks do not make the Blueprint unusable.
   host panel on `0.0.0.0:4001` (`/party/host`), printing the LAN host URLs.
   Ports override via `GAQ_PARTY_DISPLAY_PORT`, `GAQ_PARTY_CONTROL_PORT`, and
   `GAQ_PARTY_INTERNAL_PORT`; `GAQ_SRS_SKIP_BROWSER=1` skips opening the host
-  panel.
+  panel. Lobby music is read from a `party-music` folder beside the database
+  (created on first use).
 - Package release binaries (after `bun run build`): `bun run package` -
   cross-compiles the launcher (and the `gaq-party` party-mode launcher,
   feature 86) into standalone executables for each of

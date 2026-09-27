@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 12436b9b16e5bc67c790d6133c80cdbb31d6ffc07fddbf72aedddd0ddaff6fcc -->
+<!-- blueprint:source-hash deb3fb84db88ca98ad60299acf020dfca48a7fb40813921e5360f4e721fb431c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -281,7 +281,8 @@ opt-in behind a persistent Settings toggle, default off, so nothing changes
 until it is turned on. It amended `project-plan.md` §3's "Anime & song lookup"
 bullet and §4's first Data bullet to name insert songs.
 Feature 86 (Guess the Anime party mode, in six sub-features 86a-86f) was added
-to `build-plan.md` on 2026-09-26. It is a separate `gaq-party` binary, modelled
+to `build-plan.md` on 2026-09-26 and is now built and merged in full. It is a
+separate `gaq-party` binary, modelled
 on ualkotob's guess-the-anime-playlist-tool, and the first part of the app to
 listen beyond localhost. It amended `project-plan.md` §2 Users, §3 Features,
 §8 Deployment, and two §9 Non-Goals bullets (shared-instance auth and "any AMQ
@@ -1964,7 +1965,7 @@ password-locked LAN port is a new product direction.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
-86. **Guess the Anime party mode** - in progress, six sub-features (86a-86e done). A
+86. **Guess the Anime party mode** - done 2026-09-26, six sub-features. A
     host-run, in-person or streamed "guess the anime" game in the style of
     https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
     second binary, `gaq-party`, that `bun run package` builds alongside the
@@ -2095,8 +2096,25 @@ password-locked LAN port is a new product direction.
       - **Host:** `PartyLightningPanel` (mode, times, Start/Stop), plus a
         "Lightning: mode" chip in Now playing and a note on the Effects
         panel.
-    - **86f. Host polish** - countdown timer, manual scoreboard, round
-      banners, background music, and host panel hotkeys.
+    - **86f. Host polish** - done 2026-09-26.
+      - **Timer:** `timer { seconds, endsAt, autoReveal }`. Any move clears
+        it, and the store's server-side timeout reveals at `endsAt`.
+      - **Scoreboard:** `{ players, visible }` (up to 20 players, 24-char
+        names, ids from `nextPlayerId`), shown ranked on the display while
+        visible.
+      - **Banner:** `{ text, shownAt }`, shown for 4s.
+      - **Lobby music:** `{ enabled, volume }` plays shuffled tracks from a
+        `party-music` folder beside the database (`partyMusic.ts`, created
+        on first use, re-read each time). It plays only while no song is
+        playing, fading in and out and cutting instantly when a song starts.
+        Served by index from `/api/party/display/music`, and listed at
+        `/api/party/host/music`.
+      - **What End game keeps:** the scoreboard and music survive it; the
+        timer and banner do not.
+      - **Host:** `PartyShowPanel` (timer presets and custom, banner, music)
+        and `PartyScoreboardPanel`.
+      - **Hotkeys:** `usePartyHotkeys` (Space, R, N/Right, P/Left, M, T, S,
+        ?), ignored in text fields, with `PartyHotkeyHelp`.
 
 ## Data model
 
@@ -2672,7 +2690,7 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
-- **Party mode (feature 86, 86a-86e done)**: a second packaged binary,
+- **Party mode (feature 86, done)**: a second packaged binary,
   `gaq-party`, built alongside the SRS and sharing its user-data directory.
   The one part of the app that listens beyond localhost: its display port
   binds to loopback only, its host control port binds to the LAN for a phone

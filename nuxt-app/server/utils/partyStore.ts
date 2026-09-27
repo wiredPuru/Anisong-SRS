@@ -44,11 +44,29 @@ function prefetchAround(current: PartyGameState): void {
   }
 }
 
+let timerHandle: ReturnType<typeof setTimeout> | null = null;
+
+// An auto-reveal timer fires on the server, so it lands even if the host's
+// phone sleeps. Any new timer, a stop, or a move replaces the timer object,
+// which is what the check below compares against.
+function scheduleTimer(): void {
+  if (timerHandle) clearTimeout(timerHandle);
+  timerHandle = null;
+  const timer = state.timer;
+  if (!timer?.autoReveal) return;
+  timerHandle = setTimeout(() => {
+    timerHandle = null;
+    if (state.timer === timer && state.phase === "guessing") commit(applyPartyCommand(state, { type: "reveal" }));
+  }, Math.max(0, timer.endsAt - Date.now()));
+}
+
 function commit(next: PartyGameState): void {
   if (next === state) return;
   const moved = next.index !== state.index || next.queue !== state.queue;
+  const timerChanged = next.timer !== state.timer;
   state = next;
   if (moved) prefetchAround(state);
+  if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
 }
 

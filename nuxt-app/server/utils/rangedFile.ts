@@ -10,6 +10,7 @@ const MIME_TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".ogg": "audio/ogg",
   ".oga": "audio/ogg",
+  ".opus": "audio/ogg",
   ".wav": "audio/wav",
   ".m4a": "audio/mp4",
   ".flac": "audio/flac",

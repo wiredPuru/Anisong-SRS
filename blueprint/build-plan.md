@@ -920,7 +920,7 @@ cleaned-up checkbox version before generating the project overview.
     split gains an Insert bucket, and every slot label reads "Insert" rather
     than `IN2`.
 
-- [ ] 86. **Guess the Anime party mode** - a host-run, in-person or streamed
+- [x] 86. **Guess the Anime party mode** - a host-run, in-person or streamed
   "guess the anime" game in the style of ualkotob's guess-the-anime-playlist-tool,
   shipped as a second binary (`gaq-party`) built from this codebase by
   `bun run package` and sharing the SRS data directory, so its decks and filters
@@ -953,7 +953,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 86e. **Lightning rounds** - timed auto-advancing rounds from data
     already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
     Clues and Tags (feature 76a metadata), and Title letter fill.
-  - [ ] 86f. **Host polish** - countdown timer, manual scoreboard, round
+  - [x] 86f. **Host polish** - countdown timer, manual scoreboard, round
     banners, background music, and host panel hotkeys.
 
 ## Plan maintenance
