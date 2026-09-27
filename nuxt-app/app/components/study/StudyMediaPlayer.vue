@@ -1570,6 +1570,13 @@ onUnmounted(() => stopDrag?.());
   box-shadow: var(--shadow-soft);
 }
 
+.player-card.ambient-glass .player-controls {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: none;
+}
+
 /* Expanded-only proportional override - same rationale as the badge/expand
    button above (see that comment): .player-controls stays fixed-px height
    at every frame size, but study/index.vue's .answer-slot (Pass/Fail bar)
