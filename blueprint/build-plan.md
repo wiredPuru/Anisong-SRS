@@ -940,7 +940,7 @@ cleaned-up checkbox version before generating the project overview.
     allowlists, a hashed host password (`node:crypto` scrypt) created on first run
     from the loopback address only, login sessions with rate limiting, and
     placeholder display and host pages.
-  - [ ] 86b. **Game state and display sync** - the server-held game (queue,
+  - [x] 86b. **Game state and display sync** - the server-held game (queue,
     current item, phase), the SSE stream to the display, opaque clip tokens,
     the display's click-to-start screen for browser autoplay, playback
     position reported back, and the reveal overlay.

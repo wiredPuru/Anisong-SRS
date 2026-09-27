@@ -37,6 +37,11 @@ function serveDoor(door: Door, hostname: string, port: number) {
     return Bun.serve({
       hostname,
       port,
+      // Server-sent event streams sit quiet between the app's 5s heartbeats.
+      idleTimeout: 30,
+      // Never Bun's development error page, which would show a stack trace
+      // on the projector.
+      development: false,
       async fetch(request, server) {
         const url = new URL(request.url);
         const decision = decideDoorRequest(door, url.pathname);
@@ -51,15 +56,19 @@ function serveDoor(door: Door, hostname: string, port: number) {
         headers.set("x-gaq-party-client-ip", server.requestIP(request)?.address ?? "");
 
         const hasBody = request.method !== "GET" && request.method !== "HEAD";
-        return fetch(`${internalOrigin}${url.pathname}${url.search}`, {
-          method: request.method,
-          headers,
-          body: hasBody ? request.body : undefined,
-          redirect: "manual",
-          // Pass compressed bodies through as-is so Content-Encoding and
-          // Content-Length stay true for the browser.
-          decompress: false,
-        });
+        try {
+          return await fetch(`${internalOrigin}${url.pathname}${url.search}`, {
+            method: request.method,
+            headers,
+            body: hasBody ? request.body : undefined,
+            redirect: "manual",
+            // Pass compressed bodies through as-is so Content-Encoding and
+            // Content-Length stay true for the browser.
+            decompress: false,
+          });
+        } catch {
+          return new Response("The party server is not responding.", { status: 502 });
+        }
       },
     });
   } catch (err) {
@@ -71,6 +80,12 @@ function serveDoor(door: Door, hostname: string, port: number) {
 
 serveDoor("display", "127.0.0.1", displayPort);
 serveDoor("control", "0.0.0.0", controlPort);
+
+// Nitro closes its own server on these signals but not the doors, which
+// would keep the process alive holding both ports with nothing behind them.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => process.exit(0));
+}
 
 console.log("GAQ Party is running.");
 console.log(`  Display (this machine only): ${displayUrl}`);

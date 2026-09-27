@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash b1bcc483d598ed0473beca760af3ff555cb0562fad57f78a11230ca1de3979a7 -->
+<!-- blueprint:source-hash 13023a08f131d2efba454db0114c2631d7ba9447617b868c92d2e41853c12b2c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -1964,7 +1964,7 @@ password-locked LAN port is a new product direction.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
-86. **Guess the Anime party mode** - in progress, six sub-features (86a done). A
+86. **Guess the Anime party mode** - in progress, six sub-features (86a-86b done). A
     host-run, in-person or streamed "guess the anime" game in the style of
     https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
     second binary, `gaq-party`, that `bun run package` builds alongside the
@@ -2008,10 +2008,29 @@ password-locked LAN port is a new product direction.
       - **Packaging and updates:** `bun run package` ships `gaq-party[.exe]`
         beside `gaq-srs` in every zip. The one-click update swaps it in as an
         `optional` item, added when an older install has none.
-    - **86b. Game state and display sync** - the server-held game (queue,
-      current item, phase), the SSE stream to the display, opaque clip
-      tokens, the display's click-to-start screen for browser autoplay,
-      playback position reported back, and the reveal overlay.
+    - **86b. Game state and display sync** - done 2026-09-26. A pure model
+      (`server/utils/partyGame.ts`) holds `PartyGameState`: a queue of
+      `PartyQueueItem { token, cardId, clip, answer }`, `index`, `phase`
+      (`idle`/`guessing`/`revealed`), `playing`, `startAt`, and
+      `seekTo`/`seekSeq`. A reducer applies `PartyCommand`s (`load`, `play`,
+      `pause`, `seek`, `next`, `previous`, `reveal`, `clear`), and
+      `toDisplayState`/`toHostState` derive the two views.
+      - **Store:** `partyStore.ts` keeps one in-memory game with listeners.
+        `load` picks each card's clip the way Study does (local over remote,
+        video over audio, honouring Playback mode and Clip source) and drops
+        cards with none.
+      - **Host routes:** `POST /api/party/host/command` plus the state and SSE
+        stream routes.
+      - **Display routes:** `/api/party/display/stream` (SSE), `clip?t=`
+        (token to ranged file or stream cache), and `position` (host-only,
+        no version bump).
+      - **No leaks:** the display view never carries a path, URL, card id,
+        or answer before reveal.
+      - **Display page:** a click-to-start screen for autoplay, then
+        `usePartyDisplay` plus `PartyDisplayPlayer` (a plain `<video>`, with
+        Kai's veil for audio) and `PartyRevealOverlay`.
+      - **Launcher:** the doors got a 30s idle timeout, a plain 502 on a dead
+        upstream, and the launcher exits on SIGINT/SIGTERM.
     - **86c. Host panel: queue and transport** - a queue from a deck or
       Study-style filters with shuffle; play/pause, next, previous, seek,
       random start, and reveal, with a live mirror of the display's position.
@@ -2598,7 +2617,7 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
-- **Party mode (feature 86, 86a done)**: a second packaged binary,
+- **Party mode (feature 86, 86a-86b done)**: a second packaged binary,
   `gaq-party`, built alongside the SRS and sharing its user-data directory.
   The one part of the app that listens beyond localhost: its display port
   binds to loopback only, its host control port binds to the LAN for a phone
