@@ -50,6 +50,7 @@ export interface PartyDisplayState {
   version: number;
   phase: PartyPhase;
   item: { token: string; kind: "video" | "audio"; number: number; total: number } | null;
+  upcoming: string[];
   playing: boolean;
   startAt: number;
   seekTo: number | null;

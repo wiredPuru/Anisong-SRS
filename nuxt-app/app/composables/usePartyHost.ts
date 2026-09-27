@@ -110,9 +110,15 @@ export function usePartyHost() {
 
   async function send(command: PartyHostCommand) {
     commandError.value = null;
+    // Play/Pause flips on the tap; the stream's next frame confirms it, and a
+    // failed send puts it back.
+    const toggle = command.type === "play" || command.type === "pause";
+    const before = state.value?.playing;
+    if (toggle && state.value) state.value = { ...state.value, playing: command.type === "play" };
     try {
       await $fetch("/api/party/host/command", { method: "POST", body: command });
     } catch (err) {
+      if (toggle && state.value && before !== undefined) state.value = { ...state.value, playing: before };
       if ((err as { statusCode?: number }).statusCode === 401) sessionLost.value = true;
       else commandError.value = extractErrorMessage(err, "That command didn't go through.");
     }

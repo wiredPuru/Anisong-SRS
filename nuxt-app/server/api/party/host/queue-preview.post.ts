@@ -5,5 +5,5 @@ export default defineEventHandler(async (event) => {
   if ("error" in source) {
     throw createError({ statusCode: 400, statusMessage: source.error });
   }
-  return pickPartyQueue(listPartyCardIds(source.scope, source.filters), source.shuffle);
+  return pickPartyQueue(listPartyCardIds(source.scope, source.filters, source.downloadedOnly), source.shuffle);
 });

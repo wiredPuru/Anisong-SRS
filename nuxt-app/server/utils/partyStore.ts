@@ -12,6 +12,7 @@ import {
   currentPartyItem,
   initialPartyState,
   lightningStep,
+  PARTY_LOOKAHEAD,
   pickPartyClip,
   toQueueItem,
   type PartyCommand,
@@ -33,13 +34,11 @@ export function onPartyChange(listener: (state: PartyGameState) => void): () => 
   return () => listeners.delete(listener);
 }
 
-const PREFETCH_AHEAD = 2;
-
 // A remote clip plays only once the stream cache holds all of it, so the
-// current song and the next two are fetched as soon as the game moves, the way
-// Study prefetches its lookahead. Failures are the clip route's to report.
+// current song and the ones the display buffers ahead are fetched as soon as
+// the game moves. Failures are the clip route's to report.
 function prefetchAround(current: PartyGameState): void {
-  for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PREFETCH_AHEAD)) {
+  for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PARTY_LOOKAHEAD)) {
     if (item.clip.source.type === "remote") void resolveCachedPath(item.clip.source.url).catch(() => {});
   }
 }
@@ -96,8 +95,8 @@ function loadAnimeDetails(animeIds: number[]): Map<number, PartyAnimeDetails> {
   return new Map(rows.map(({ id, ...details }) => [id, details]));
 }
 
-function resolveQueue(cardIds: number[]): { items: PartyQueueItem[]; skipped: number } {
-  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode() };
+function resolveQueue(cardIds: number[], downloadedOnly: boolean): { items: PartyQueueItem[]; skipped: number } {
+  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), downloadedOnly };
   const cards = getCardsByIds(cardIds);
   const byId = new Map(cards.map((card) => [card.id, card]));
   const details = loadAnimeDetails(cards.map((card) => card.animeId));
@@ -117,7 +116,7 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
     commit(applyPartyCommand(state, command));
     return {};
   }
-  const { items, skipped } = resolveQueue(command.cardIds);
+  const { items, skipped } = resolveQueue(command.cardIds, command.downloadedOnly === true);
   commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
 }

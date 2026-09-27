@@ -90,6 +90,17 @@ describe("pickPartyClip", () => {
     expect(pickPartyClip(card({ localAudioPath: "/lib/gone.mp3" }), AUTO, usable)).toBeNull();
   });
 
+  it("never picks a remote clip when downloaded-only", () => {
+    const local = { ...AUTO, downloadedOnly: true };
+    const both = card({ localAudioPath: "/lib/a.mp3", animethemesVideoUrl: AMQ });
+    expect(pickPartyClip(both, local)).toEqual({ kind: "audio", source: { type: "local", path: "/lib/a.mp3" } });
+    expect(pickPartyClip(card({ animethemesVideoUrl: AMQ, animethemesAudioUrl: AMQ_AUDIO }), local)).toBeNull();
+    // A stored path whose file is gone counts as not downloaded.
+    expect(pickPartyClip(card({ localVideoPath: "/lib/gone.webm", animethemesVideoUrl: AMQ }), local, () => false)).toBeNull();
+    // Audio only on a card with just a local video has nothing downloaded to play.
+    expect(pickPartyClip(card({ localVideoPath: "/lib/v.webm", animethemesAudioUrl: AMQ_AUDIO }), { ...local, playbackMode: "audioOnly" })).toBeNull();
+  });
+
   it("returns null with no source at all", () => {
     expect(pickPartyClip(card(), AUTO)).toBeNull();
   });
@@ -110,8 +121,19 @@ describe("parsePartyCommand", () => {
   });
 
   it("validates and dedupes load", () => {
-    expect(parsePartyCommand({ type: "load", cardIds: [3, 1, 3] })).toEqual({ type: "load", cardIds: [3, 1], shuffle: false });
-    expect(parsePartyCommand({ type: "load", cardIds: [1], shuffle: true })).toEqual({ type: "load", cardIds: [1], shuffle: true });
+    expect(parsePartyCommand({ type: "load", cardIds: [3, 1, 3] })).toEqual({
+      type: "load",
+      cardIds: [3, 1],
+      shuffle: false,
+      downloadedOnly: false,
+    });
+    expect(parsePartyCommand({ type: "load", cardIds: [1], shuffle: true, downloadedOnly: true })).toEqual({
+      type: "load",
+      cardIds: [1],
+      shuffle: true,
+      downloadedOnly: true,
+    });
+    expect(parsePartyCommand({ type: "load", cardIds: [1], downloadedOnly: 1 })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [] })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [1.5] })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [0] })).toHaveProperty("error");
@@ -169,12 +191,29 @@ describe("applyPartyCommand", () => {
     expect([once.seekTo, once.seekSeq, twice.seekSeq]).toEqual([30, 1, 2]);
   });
 
+  it("keeps a playing game playing across moves and a paused one paused", () => {
+    const playing = applyPartyCommand(loaded(3), { type: "play" });
+    for (const command of [{ type: "next" }, { type: "jump", index: 2 }] as const) {
+      expect(applyPartyCommand(playing, command).playing).toBe(true);
+      expect(applyPartyCommand(loaded(3), command).playing).toBe(false);
+    }
+    const second = applyPartyCommand(playing, { type: "next" });
+    expect(applyPartyCommand(second, { type: "previous" }).playing).toBe(true);
+    expect(applyPartyCommand(applyPartyCommand(second, { type: "pause" }), { type: "previous" }).playing).toBe(false);
+  });
+
+  it("starts a newly loaded or cleared game paused", () => {
+    const playing = applyPartyCommand(loaded(2), { type: "play" });
+    expect(applyPartyCommand(playing, { type: "load", cardIds: [1] }, { loaded: items(2) }).playing).toBe(false);
+    expect(applyPartyCommand(playing, { type: "clear" }).playing).toBe(false);
+  });
+
   it("moves between items, resetting playback, and stops at both ends", () => {
     let state = applyPartyCommand(loaded(2), { type: "play" });
     state = applyPartyCommand(state, { type: "reveal" });
     state = { ...state, position: { token: "t1", currentTime: 5, duration: 90, playing: true } };
     const second = applyPartyCommand(state, { type: "next" });
-    expect(second).toMatchObject({ index: 1, phase: "guessing", playing: false, startAt: 0, seekTo: null, position: null });
+    expect(second).toMatchObject({ index: 1, phase: "guessing", playing: true, startAt: 0, seekTo: null, position: null });
     expect(applyPartyCommand(second, { type: "next" })).toBe(second);
     const first = applyPartyCommand(second, { type: "previous" });
     expect(first.index).toBe(0);
@@ -209,6 +248,15 @@ describe("toDisplayState", () => {
     expect(json).not.toContain("animemusicquiz");
     expect(json).not.toContain("K-On");
     expect(json).not.toContain("cardId");
+  });
+
+  it("lists the next two tokens to buffer, and nothing else about them", () => {
+    const first = toDisplayState(loaded(4));
+    expect(first.upcoming).toEqual(["t2", "t3"]);
+    const last = toDisplayState(applyPartyCommand(loaded(4), { type: "jump", index: 3 }));
+    expect(last.upcoming).toEqual([]);
+    expect(toDisplayState(applyPartyCommand(loaded(4), { type: "jump", index: 2 })).upcoming).toEqual(["t4"]);
+    expect(toDisplayState(initialPartyState()).upcoming).toEqual([]);
   });
 
   it("carries the answer once revealed", () => {

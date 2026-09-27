@@ -6,10 +6,26 @@ const { parsePartySource, pickPartyQueue } = await import("./partySources.ts");
 
 describe("parsePartySource", () => {
   it("accepts every scope type", () => {
-    expect(parsePartySource({ scope: { type: "all" } })).toEqual({ scope: { type: "all" }, filters: null, shuffle: false });
+    expect(parsePartySource({ scope: { type: "all" } })).toEqual({
+      scope: { type: "all" },
+      filters: null,
+      shuffle: false,
+      downloadedOnly: false,
+    });
     for (const type of ["artist", "anime", "created"] as const) {
-      expect(parsePartySource({ scope: { type, id: 4 }, shuffle: true })).toEqual({ scope: { type, id: 4 }, filters: null, shuffle: true });
+      expect(parsePartySource({ scope: { type, id: 4 }, shuffle: true })).toEqual({
+        scope: { type, id: 4 },
+        filters: null,
+        shuffle: true,
+        downloadedOnly: false,
+      });
     }
+  });
+
+  it("reads the downloaded-only flag", () => {
+    const result = parsePartySource({ scope: { type: "all" }, downloadedOnly: true });
+    expect("error" in result ? null : result.downloadedOnly).toBe(true);
+    expect(parsePartySource({ scope: { type: "all" }, downloadedOnly: "yes" })).toHaveProperty("error");
   });
 
   it("parses a filters string the way Study does", () => {

@@ -25,6 +25,7 @@ function start() {
     <template v-else-if="state?.item">
       <PartyDisplayPlayer
         :token="state.item.token"
+        :upcoming="state.upcoming"
         :kind="state.item.kind"
         :playing="state.playing"
         :start-at="state.startAt"

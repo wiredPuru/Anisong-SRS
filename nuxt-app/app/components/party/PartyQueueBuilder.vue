@@ -32,6 +32,7 @@ const selectedDeck = ref<DeckOption | null>(null);
 const filters = ref<StudyFilters>(structuredClone(EMPTY_STUDY_FILTERS));
 const filtersOpen = ref(false);
 const shuffle = ref(true);
+const downloadedOnly = ref(false);
 
 const previewTotal = ref<number | null>(null);
 const previewError = ref<string | null>(null);
@@ -79,7 +80,12 @@ watch(deckQuery, () => {
 });
 
 function requestBody(withShuffle: boolean) {
-  return { scope: scope.value, filters: filtersQueryValue(filters.value), shuffle: withShuffle };
+  return {
+    scope: scope.value,
+    filters: filtersQueryValue(filters.value),
+    shuffle: withShuffle,
+    downloadedOnly: downloadedOnly.value,
+  };
 }
 
 let previewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,7 +109,7 @@ async function refreshPreview() {
     previewError.value = extractErrorMessage(err, "Could not count the songs.");
   }
 }
-watch([scope, filters], () => {
+watch([scope, filters, downloadedOnly], () => {
   if (previewTimer) clearTimeout(previewTimer);
   previewTimer = setTimeout(refreshPreview, DEBOUNCE_MS);
 }, { deep: true, immediate: true });
@@ -123,10 +129,12 @@ async function loadGame() {
     }
     const result = await $fetch<{ loaded: number; skipped: number }>("/api/party/host/command", {
       method: "POST",
-      body: { type: "load", cardIds: preview.cardIds },
+      body: { type: "load", cardIds: preview.cardIds, downloadedOnly: downloadedOnly.value },
     });
     if (!result.loaded) {
-      loadError.value = "None of these songs has a clip the current Clip source setting allows.";
+      loadError.value = downloadedOnly.value
+        ? "None of these songs has a downloaded clip it can play."
+        : "None of these songs has a clip the current Clip source setting allows.";
       return;
     }
     emit("loaded", { ...result, total: preview.total });
@@ -187,6 +195,10 @@ function applyFilters(next: StudyFilters) {
       <label class="shuffle-toggle">
         <input v-model="shuffle" type="checkbox" />
         Shuffle
+      </label>
+      <label class="shuffle-toggle">
+        <input v-model="downloadedOnly" type="checkbox" />
+        Downloaded clips only
       </label>
     </div>
 

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
 import { scopeFilter, type StudyScope } from "./cards.ts";
@@ -9,11 +9,17 @@ export interface PartySource {
   scope: StudyScope;
   filters: StudyFilters | null;
   shuffle: boolean;
+  downloadedOnly: boolean;
 }
 
 export function parsePartySource(body: unknown): PartySource | { error: string } {
   if (typeof body !== "object" || body === null) return { error: "A source object is required" };
-  const { scope, filters, shuffle } = body as { scope?: unknown; filters?: unknown; shuffle?: unknown };
+  const { scope, filters, shuffle, downloadedOnly } = body as {
+    scope?: unknown;
+    filters?: unknown;
+    shuffle?: unknown;
+    downloadedOnly?: unknown;
+  };
 
   if (typeof scope !== "object" || scope === null) return { error: "scope is required" };
   const { type, id } = scope as { type?: unknown; id?: unknown };
@@ -30,19 +36,30 @@ export function parsePartySource(body: unknown): PartySource | { error: string }
   const parsedFilters = parseStudyFilters(filters);
   if ("error" in parsedFilters) return parsedFilters;
   if (shuffle !== undefined && typeof shuffle !== "boolean") return { error: "shuffle must be a boolean" };
+  if (downloadedOnly !== undefined && typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
 
-  return { scope: parsedScope, filters: parsedFilters.filters, shuffle: shuffle === true };
+  return {
+    scope: parsedScope,
+    filters: parsedFilters.filters,
+    shuffle: shuffle === true,
+    downloadedOnly: downloadedOnly === true,
+  };
 }
 
-/** Every card in the scope that passes the filters, due or not. */
-export function listPartyCardIds(scope: StudyScope, filters: StudyFilters | null): number[] {
+/**
+ * Every card in the scope that passes the filters, due or not. Downloaded-only
+ * counts a card by its stored local path; the load step also drops one whose
+ * file has since gone missing.
+ */
+export function listPartyCardIds(scope: StudyScope, filters: StudyFilters | null, downloadedOnly = false): number[] {
+  const downloaded = downloadedOnly ? or(isNotNull(card.localVideoPath), isNotNull(card.localAudioPath)) : undefined;
   return db
     .select({ id: card.id })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(and(scopeFilter(scope), studyFilterCondition(filters)))
+    .where(and(scopeFilter(scope), studyFilterCondition(filters), downloaded))
     .orderBy(asc(anime.titleRomaji), asc(song.themeSlot))
     .all()
     .map((row) => row.id);

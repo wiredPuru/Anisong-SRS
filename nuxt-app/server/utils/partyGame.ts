@@ -103,7 +103,7 @@ export type PartyScoreCommand =
   | { type: "score"; op: "reset" }
   | { type: "score"; op: "show"; visible: boolean };
 export type PartyCommand =
-  | { type: "load"; cardIds: number[]; shuffle?: boolean }
+  | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean }
   | { type: "play" }
   | { type: "pause" }
   | { type: "seek"; seconds: number }
@@ -126,6 +126,8 @@ export interface PartyDisplayState {
   version: number;
   phase: PartyPhase;
   item: { token: string; kind: "video" | "audio"; number: number; total: number } | null;
+  /** The next songs' tokens, so the display can buffer them ahead. */
+  upcoming: string[];
   playing: boolean;
   startAt: number;
   seekTo: number | null;
@@ -157,6 +159,8 @@ export interface PartyHostState {
 }
 
 export const PARTY_LOAD_MAX = 2000;
+/** How many songs past the current one the server caches and the display buffers. */
+export const PARTY_LOOKAHEAD = 2;
 export const PLAYER_LIMIT = 20;
 const PLAYER_NAME_MAX = 24;
 const BANNER_MAX = 60;
@@ -257,10 +261,11 @@ type ClipCard = Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "ani
 // stream instead of a clip that 404s mid-game.
 export function pickPartyClip(
   card: ClipCard,
-  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly" },
+  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean },
   localFileUsable: (path: string) => boolean = () => true,
 ): PartyClip | null {
-  const remote = (url: string | null) => (url && isClipUrlAllowed(url, settings.clipSource) ? url : null);
+  const remote = (url: string | null) =>
+    url && !settings.downloadedOnly && isClipUrlAllowed(url, settings.clipSource) ? url : null;
   const local = (path: string | null) => (path && localFileUsable(path) ? path : null);
   const candidates: [PartyClip["kind"], PartyClipSource | null][] = [
     ["video", local(card.localVideoPath) ? { type: "local", path: card.localVideoPath! } : null],
@@ -365,13 +370,19 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return { type, seconds };
     }
     case "load": {
-      const { cardIds, shuffle } = body as { cardIds?: unknown; shuffle?: unknown };
+      const { cardIds, shuffle, downloadedOnly } = body as { cardIds?: unknown; shuffle?: unknown; downloadedOnly?: unknown };
       if (!Array.isArray(cardIds) || cardIds.length === 0 || cardIds.length > PARTY_LOAD_MAX) {
         return { error: `cardIds must hold 1-${PARTY_LOAD_MAX} card ids` };
       }
       if (!cardIds.every((id) => Number.isInteger(id) && id > 0)) return { error: "cardIds must be positive integers" };
       if (shuffle !== undefined && typeof shuffle !== "boolean") return { error: "shuffle must be a boolean" };
-      return { type, cardIds: [...new Set(cardIds as number[])], shuffle: shuffle === true };
+      if (downloadedOnly !== undefined && typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
+      return {
+        type,
+        cardIds: [...new Set(cardIds as number[])],
+        shuffle: shuffle === true,
+        downloadedOnly: downloadedOnly === true,
+      };
     }
     default:
       return { error: "Unknown command" };
@@ -446,12 +457,13 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return copy;
 }
 
+// A move keeps a playing game playing, so Next is one tap rather than Next
+// then Play; a paused game stays paused.
 function atItem(state: PartyGameState, index: number, random: () => number): PartyGameState {
   return {
     ...state,
     index,
     phase: "guessing",
-    playing: false,
     startAt: 0,
     seekTo: null,
     position: null,
@@ -483,7 +495,7 @@ export function applyPartyCommand(
       const loaded = options.loaded ?? [];
       if (!loaded.length) return state;
       const queue = command.shuffle ? shuffled(loaded, random) : loaded;
-      next = atItem({ ...state, queue }, 0, random);
+      next = atItem({ ...state, queue, playing: false }, 0, random);
       break;
     }
     case "play":
@@ -573,6 +585,7 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
     item: item
       ? { token: item.token, kind: item.clip.kind, number: state.index + 1, total: state.queue.length }
       : null,
+    upcoming: item ? state.queue.slice(state.index + 1, state.index + 1 + PARTY_LOOKAHEAD).map((next) => next.token) : [],
     playing: state.playing,
     startAt: state.startAt,
     seekTo: state.seekTo,

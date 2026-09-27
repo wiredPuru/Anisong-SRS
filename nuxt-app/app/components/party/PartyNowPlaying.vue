@@ -13,6 +13,8 @@ const progress = computed(() => {
   const p = position.value;
   return p && p.duration ? Math.min(1, p.currentTime / p.duration) : 0;
 });
+// Asked to play, but the display has not said it is: the clip is loading.
+const loading = computed(() => props.state.playing && Boolean(current.value) && !position.value?.playing);
 const atStart = computed(() => props.state.index <= 0);
 const atEnd = computed(() => props.state.index >= props.state.queue.length - 1);
 const confirmingClear = ref(false);
@@ -43,6 +45,7 @@ function clearGame() {
     <div class="np-head">
       <p class="np-count">Song {{ state.index + 1 }} of {{ state.queue.length }}</p>
       <span class="np-chips">
+        <span v-if="loading" class="np-chip chip-loading">Loading...</span>
         <span v-if="state.lightning" class="np-chip chip-lightning">Lightning: {{ state.lightning.mode }}</span>
         <span class="np-chip" :class="state.phase === 'revealed' ? 'chip-revealed' : 'chip-hidden'">
           {{ state.phase === "revealed" ? "Revealed" : "Hidden" }}
@@ -158,6 +161,11 @@ function clearGame() {
   border-color: var(--accent);
   color: var(--accent);
   text-transform: capitalize;
+}
+
+.chip-loading {
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
 }
 
 .chip-hidden {

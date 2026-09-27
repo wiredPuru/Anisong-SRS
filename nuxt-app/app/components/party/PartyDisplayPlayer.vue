@@ -3,6 +3,7 @@ import type { PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport 
 
 const props = defineProps<{
   token: string;
+  upcoming: string[];
   kind: "video" | "audio";
   playing: boolean;
   startAt: number;
@@ -22,11 +23,20 @@ const RANDOM_START_TAIL_S = 15;
 // A blurred edge fades into the background; a slight zoom keeps it off screen.
 const BLUR_ZOOM = 1.08;
 
-const media = ref<HTMLVideoElement | null>(null);
+// One element per song: the current one plays, the upcoming ones sit muted and
+// hidden, buffering, so moving on swaps to an already-loaded clip instead of
+// starting a fresh load. Keyed by token, so the swap keeps the element.
+const tokens = computed(() => [props.token, ...props.upcoming.filter((token) => token !== props.token)]);
+const elements = new Map<string, HTMLVideoElement>();
+const media = shallowRef<HTMLVideoElement | null>(null);
 const cover = ref<HTMLImageElement | null>(null);
 const failed = ref(false);
 const coverFailed = ref(false);
-const src = computed(() => `/api/party/display/clip?t=${encodeURIComponent(props.token)}`);
+// True only between the current clip's "playing" and its next stall or pause,
+// so "asked to play" and "actually audible" can be told apart.
+const audible = ref(false);
+const loading = computed(() => props.playing && !audible.value && !failed.value);
+const clipSrc = (token: string) => `/api/party/display/clip?t=${encodeURIComponent(token)}`;
 const coverSrc = computed(() => `/api/party/display/cover?t=${encodeURIComponent(props.token)}`);
 
 // Seconds played since this song's own start position (random start included),
@@ -109,7 +119,7 @@ function report() {
     token: props.token,
     currentTime: element.currentTime,
     duration: Number.isFinite(element.duration) ? element.duration : null,
-    playing: !element.paused,
+    playing: !element.paused && audible.value,
     elapsed: Math.max(0, element.currentTime - startPosition.value),
   });
 }
@@ -130,7 +140,20 @@ function followMuted() {
   if (media.value) media.value.muted = active.value && fx.value.muted;
 }
 
-function onLoadedMetadata() {
+// Vue calls a template function ref with null and then the element on every
+// re-render, so null is ignored here; tokens that leave the list are pruned
+// once the DOM has settled.
+function registerElement(token: string, element: unknown) {
+  if (!(element instanceof HTMLVideoElement)) return;
+  elements.set(token, element);
+  if (token === props.token) {
+    media.value = element;
+  } else {
+    element.muted = true;
+  }
+}
+
+function startCurrent() {
   const element = media.value;
   if (!element) return;
   failed.value = false;
@@ -144,11 +167,53 @@ function onLoadedMetadata() {
   followPlaying();
 }
 
-watch(() => props.token, () => {
-  failed.value = false;
-  coverFailed.value = false;
-  elapsed.value = 0;
-});
+function onLoadedMetadata(token: string) {
+  if (token === props.token) startCurrent();
+}
+
+function onError(token: string) {
+  if (token === props.token) failed.value = true;
+}
+
+function onAudible(token: string, value: boolean) {
+  if (token !== props.token) return;
+  audible.value = value;
+  report();
+}
+
+// Pause the outgoing song before the DOM changes, so it can never overlap the
+// next one, whether its element is dropped or kept as a preload.
+watch(
+  () => props.token,
+  (_next, previous) => {
+    const outgoing = previous ? elements.get(previous) : null;
+    if (outgoing) {
+      outgoing.pause();
+      outgoing.muted = true;
+    }
+  },
+  { flush: "pre" },
+);
+
+watch(
+  () => props.token,
+  () => {
+    failed.value = false;
+    coverFailed.value = false;
+    elapsed.value = 0;
+    audible.value = false;
+    for (const token of [...elements.keys()]) {
+      if (!tokens.value.includes(token)) elements.delete(token);
+    }
+    const element = elements.get(props.token) ?? null;
+    media.value = element;
+    if (!element) return;
+    // A preload that failed (say, a remote clip still caching) gets a fresh try.
+    if (element.error) element.load();
+    else if (element.readyState >= HTMLMediaElement.HAVE_METADATA) startCurrent();
+  },
+  { flush: "post" },
+);
 watch(() => props.playing, followPlaying);
 watch([() => fx.value.muted, active], followMuted);
 watch(
@@ -177,18 +242,21 @@ onBeforeUnmount(() => {
 <template>
   <div class="party-player">
     <video
-      ref="media"
+      v-for="clipToken in tokens"
+      :key="clipToken"
+      :ref="(element) => registerElement(clipToken, element)"
       class="party-media"
-      :class="{ hidden: showVeil || showCover || pixelSource }"
-      :style="showVeil || showCover || pixelSource ? undefined : visualStyle"
-      :src="src"
+      :class="clipToken === token ? { hidden: showVeil || showCover || pixelSource } : 'preload'"
+      :style="clipToken !== token || showVeil || showCover || pixelSource ? undefined : visualStyle"
+      :src="clipSrc(clipToken)"
       preload="auto"
       playsinline
-      @loadedmetadata="onLoadedMetadata"
-      @play="report"
-      @pause="report"
+      @loadedmetadata="onLoadedMetadata(clipToken)"
+      @playing="onAudible(clipToken, true)"
+      @waiting="onAudible(clipToken, false)"
+      @pause="onAudible(clipToken, false)"
       @seeked="report"
-      @error="failed = true"
+      @error="onError(clipToken)"
     />
     <img
       v-if="showCover"
@@ -206,7 +274,8 @@ onBeforeUnmount(() => {
     </div>
     <PartyLightningHints v-else-if="hints && showVeil" :hints="hints" />
     <div v-else-if="showVeil" class="party-veil">
-      <StudyPlayerKai :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
+      <StudyPlayerKai v-if="loading" mood="loading">Loading...</StudyPlayerKai>
+      <StudyPlayerKai v-else :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
     </div>
     <div v-if="countdown !== null" class="countdown" aria-hidden="true">
       <span class="countdown-fill" :style="{ transform: `scaleX(${countdown})` }" />
@@ -236,6 +305,7 @@ onBeforeUnmount(() => {
 }
 
 .party-media.hidden,
+.party-media.preload,
 .party-cover.hidden {
   visibility: hidden;
 }
@@ -263,6 +333,11 @@ onBeforeUnmount(() => {
 .party-veil {
   position: absolute;
   inset: 0;
+  /* Centres the loading Kai, which sits in flow; the other moods position
+     themselves absolutely and ignore this. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--bg);
   font-size: clamp(16px, 2vw, 28px);
   /* StudyPlayerKai sizes and places itself from these, as it does on
@@ -274,7 +349,7 @@ onBeforeUnmount(() => {
 
 /* Study moves Kai aside while listening to keep a video's middle clear; an
    audio veil has no video, so she stays centred. */
-.party-veil :deep(.player-kai) {
+.party-veil :deep(.player-kai:not(.mood-loading)) {
   left: 50%;
   transform: translateX(-50%);
 }
