@@ -130,3 +130,44 @@ describe("swapInstall", () => {
     );
   });
 });
+
+describe("swapInstall with an optional item", () => {
+  const partyItem: SwapItem = { from: "gaq-party", to: "gaq-party", executable: true, optional: true };
+
+  beforeEach(async () => {
+    await writeFile(join(stagedDir, "gaq-party"), "new-party");
+  });
+
+  it("adds an optional item the install folder does not have yet", async () => {
+    const result = await swapInstall({ installDir, stagedDir, items: [...itemsFor("gaq-srs"), partyItem] });
+    expect(result.ok).toBe(true);
+    expect(await read(installDir, "gaq-party")).toBe("new-party");
+    expect((await readdir(installDir)).includes("gaq-party.old")).toBe(false);
+  });
+
+  it("replaces an optional item that already exists, keeping the old as .old", async () => {
+    await writeFile(join(installDir, "gaq-party"), "old-party");
+    const result = await swapInstall({ installDir, stagedDir, items: [...itemsFor("gaq-srs"), partyItem] });
+    expect(result.ok).toBe(true);
+    expect(await read(installDir, "gaq-party")).toBe("new-party");
+    expect(await read(installDir, "gaq-party.old")).toBe("old-party");
+  });
+
+  it("removes a newly added optional item when a later rename fails", async () => {
+    let renames = 0;
+    const ops: SwapOps = {
+      ...fsSwapOps,
+      rename: async (oldPath, newPath) => {
+        renames++;
+        // The party binary goes first and is added in one rename; the third
+        // rename then fails while moving the new gaq-srs in.
+        if (renames === 3) throw new Error("in use");
+        await fsSwapOps.rename(oldPath, newPath);
+      },
+    };
+    const result = await swapInstall({ installDir, stagedDir, items: [partyItem, ...itemsFor("gaq-srs")], ops });
+    expect(result.ok).toBe(false);
+    expect((await readdir(installDir)).sort()).toEqual(["gaq-srs", "kuromoji", "migrations", "public"].sort());
+    expect(await read(installDir, "gaq-srs")).toBe("old");
+  });
+});

@@ -200,8 +200,16 @@ checks do not make the Blueprint unusable.
   built server and opens the default browser, using an OS-appropriate
   user-data directory instead of `.data/`. Prototype for the packaged
   executable (build item 48).
+- Party mode (after `bun run build`): `bun run party` - starts the Guess the
+  Anime party server (feature 86): the built app on internal port 4002 behind
+  a display door on `127.0.0.1:4000` (`/party/display`) and a password-locked
+  host panel on `0.0.0.0:4001` (`/party/host`), printing the LAN host URLs.
+  Ports override via `GAQ_PARTY_DISPLAY_PORT`, `GAQ_PARTY_CONTROL_PORT`, and
+  `GAQ_PARTY_INTERNAL_PORT`; `GAQ_SRS_SKIP_BROWSER=1` skips opening the host
+  panel.
 - Package release binaries (after `bun run build`): `bun run package` -
-  cross-compiles the launcher into a standalone executable for each of
+  cross-compiles the launcher (and the `gaq-party` party-mode launcher,
+  feature 86) into standalone executables for each of
   Windows x64, macOS x64, macOS arm64, and Linux x64, using Bun's
   `--target` (no per-OS machine needed). Each target lands at
   `nuxt-app/release/<target>/`, alongside sibling `migrations/`,

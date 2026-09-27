@@ -264,6 +264,22 @@ describe("checkStagedLayout", () => {
     expect(checkStagedLayout(files, "linux")).toEqual({ ok: false, missing: [label] });
   });
 
+  it.each([
+    ["darwin", "gaq-srs", "gaq-party"],
+    ["win32", "gaq-srs.exe", "gaq-party.exe"],
+  ])("reports the %s party binary when the release has one", (platform, binaryName, partyBinaryName) => {
+    expect(checkStagedLayout([binaryName, partyBinaryName, ...common], platform)).toEqual({
+      ok: true,
+      binaryName,
+      partyBinaryName,
+    });
+  });
+
+  it("still accepts a release without the party binary", () => {
+    const layout = checkStagedLayout(["gaq-srs", ...common], "linux");
+    expect(layout).toEqual({ ok: true, binaryName: "gaq-srs" });
+  });
+
   it("does not accept kuromoji without its dict folder", () => {
     const files = ["gaq-srs", common[0]!, common[1]!, "kuromoji/kuromoji-bundled.cjs"];
     expect(checkStagedLayout(files, "linux")).toEqual({ ok: false, missing: ["kuromoji/dict/"] });
@@ -281,6 +297,7 @@ describe("parseReadyManifest", () => {
 
   it("accepts a complete manifest", () => {
     expect(parseReadyManifest(manifest)).toEqual(manifest);
+    expect(parseReadyManifest({ ...manifest, partyBinaryName: "gaq-party" })?.partyBinaryName).toBe("gaq-party");
   });
 
   it("rejects a missing or empty field", () => {

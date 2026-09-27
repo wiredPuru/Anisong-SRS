@@ -14,6 +14,11 @@ export default defineNuxtConfig({
       appVersion: version
     }
   },
+  // Party pages render in the browser only, so no server-side fetch has to
+  // carry the front door's headers or the host's session cookie.
+  routeRules: {
+    '/party/**': { ssr: false }
+  },
   nitro: {
     esbuild: {
       options: {

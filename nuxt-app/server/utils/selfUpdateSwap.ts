@@ -1,10 +1,13 @@
-import { chmod, cp, rename, rm } from "node:fs/promises";
+import { access, chmod, cp, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface SwapItem {
   from: string;
   to: string;
   executable?: boolean;
+  // May be missing from the install folder, for a file a newer release adds
+  // (gaq-party, feature 86a, joining an install that predates it).
+  optional?: boolean;
 }
 
 export interface SwapOps {
@@ -12,6 +15,7 @@ export interface SwapOps {
   rename: (oldPath: string, newPath: string) => Promise<void>;
   rm: (path: string) => Promise<void>;
   chmod: (path: string, mode: number) => Promise<void>;
+  exists: (path: string) => Promise<boolean>;
 }
 
 export const fsSwapOps: SwapOps = {
@@ -19,6 +23,10 @@ export const fsSwapOps: SwapOps = {
   rename: (oldPath, newPath) => rename(oldPath, newPath),
   rm: (path) => rm(path, { recursive: true, force: true }),
   chmod: (path, mode) => chmod(path, mode),
+  exists: (path) => access(path).then(
+    () => true,
+    () => false,
+  ),
 };
 
 export interface SwapInput {
@@ -59,14 +67,21 @@ export async function swapInstall(input: SwapInput): Promise<SwapResult> {
 
   const swapped: SwapItem[] = [];
   const movedAside: SwapItem[] = [];
+  const added: SwapItem[] = [];
   try {
     for (const item of items) {
+      if (item.optional && !(await ops.exists(target(item)))) {
+        await ops.rename(target(item, ".new"), target(item));
+        added.push(item);
+        continue;
+      }
       await ops.rename(target(item), target(item, ".old"));
       movedAside.push(item);
       await ops.rename(target(item, ".new"), target(item));
       swapped.push(item);
     }
   } catch {
+    for (const item of added) await ops.rm(target(item)).catch(() => {});
     for (const item of [...movedAside].reverse()) {
       if (swapped.includes(item)) await ops.rm(target(item)).catch(() => {});
       await ops.rename(target(item, ".old"), target(item)).catch(() => {});

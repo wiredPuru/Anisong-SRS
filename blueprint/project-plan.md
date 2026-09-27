@@ -11,7 +11,10 @@ anime song trivia rather than general-purpose language SRS.
 
 Just the project owner, and by extension anyone else who plays AMQ and wants to
 run their own local copy. Not a multi-tenant product - each user runs their own
-instance against their own local media and database.
+instance against their own local media and database. The one exception is
+party mode (build 86): the owner hosts a Guess the Anime game for a room or a
+stream from their own machine. The audience only watches a screen; the host
+alone controls it, behind a password.
 
 ## 3. Features - What does the MVP need?
 
@@ -85,6 +88,12 @@ instance against their own local media and database.
   no OAuth) and browse that user's public Completed-status anime list as
   add-candidates, same picking flow as the existing anime search - not
   automatic bulk card creation.
+- **Guess the Anime party mode** - a separate `gaq-party` program that runs a
+  host-controlled guess-the-anime game from the local library: a display
+  screen for a projector or stream, and a password-locked host panel (usable
+  from a phone on the same network) with queue, playback, reveal, screen
+  effects (blur, pixelate, mute, blackout), and timed lightning rounds. Party
+  play never counts as a review.
 
 ## 4. Data - What are we storing?
 
@@ -213,6 +222,14 @@ restart the user chooses. It never updates without being asked, the check
 failing changes nothing about how the app runs, and user data is never
 touched by an update.
 
+Party mode (build 86) ships as a second packaged binary, `gaq-party`, built
+alongside the SRS and sharing its user-data directory. It is the one part of
+the app that listens beyond localhost: its display port binds to loopback
+only, but its host control port binds to the LAN so a phone can act as a
+remote. That port requires the host password on every route, hashes it at
+rest, rate-limits login attempts, and only lets the password be first created
+from the machine itself. Neither port is meant to be exposed to the internet.
+
 ## 9. Non-Goals
 
 Nothing was explicitly ruled out, but the following are assumed out of scope
@@ -220,9 +237,11 @@ given the "local, for myself" framing, and should be confirmed/revisited if
 priorities change:
 
 - Cloud sync or multi-device support
-- Accounts/auth for multiple users sharing one instance
+- Accounts/auth for multiple users sharing one instance (party mode's single
+  host password guards the host panel; it is not a user account)
 - A mobile app
-- Any AMQ game mode beyond flashcard review (e.g., live multiplayer quiz)
+- Any AMQ game mode beyond flashcard review and host-run party mode (e.g., a
+  live multiplayer quiz where players answer on their own devices)
 
 ## Notes
 

@@ -167,3 +167,13 @@ export type NewDeckCard = typeof deckCard.$inferInsert;
 
 export type CardTrack = typeof cardTrack.$inferSelect;
 export type NewCardTrack = typeof cardTrack.$inferInsert;
+
+export const partyHost = sqliteTable("party_host", {
+  id: integer("id").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export type PartyHost = typeof partyHost.$inferSelect;

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 270d378665fd495d71b51d796aa7ca7c834b546ca20c145f9320ec7175fadeb0 -->
+<!-- blueprint:source-hash b1bcc483d598ed0473beca760af3ff555cb0562fad57f78a11230ca1de3979a7 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -21,6 +21,9 @@ local training tool.
 - **Other AMQ players** - by extension, anyone who wants to run their own
   local copy against their own media library. Not a multi-tenant product: no
   accounts, no shared instances, no cloud sync (see Non-goals).
+- **A party audience** - feature 86. The owner hosts a Guess the Anime game
+  for a room or a stream from their own machine. The audience only watches a
+  screen; the host alone controls it, behind a password.
 
 ## Features
 
@@ -277,6 +280,13 @@ recorded under features 60a and 76, that every import drops insert songs. It is
 opt-in behind a persistent Settings toggle, default off, so nothing changes
 until it is turned on. It amended `project-plan.md` §3's "Anime & song lookup"
 bullet and §4's first Data bullet to name insert songs.
+Feature 86 (Guess the Anime party mode, in six sub-features 86a-86f) was added
+to `build-plan.md` on 2026-09-26. It is a separate `gaq-party` binary, modelled
+on ualkotob's guess-the-anime-playlist-tool, and the first part of the app to
+listen beyond localhost. It amended `project-plan.md` §2 Users, §3 Features,
+§8 Deployment, and two §9 Non-Goals bullets (shared-instance auth and "any AMQ
+game mode beyond flashcard review"), since a host-run party game with a
+password-locked LAN port is a new product direction.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -1954,6 +1964,65 @@ bullet and §4's first Data bullet to name insert songs.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
+86. **Guess the Anime party mode** - in progress, six sub-features (86a done). A
+    host-run, in-person or streamed "guess the anime" game in the style of
+    https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
+    second binary, `gaq-party`, that `bun run package` builds alongside the
+    SRS and that shares its user-data directory, so the SRS's decks and
+    filters feed it directly. One process runs the built Nitro server on
+    127.0.0.1 behind two `Bun.serve` listeners:
+    - **Display port** (loopback only) - a read-only screen for a projector,
+      an OBS browser source, or a Discord screen-share. It renders what the
+      server sends over server-sent events and reports playback position
+      back.
+    - **Control port** (LAN-reachable, so a phone can be the remote) - the
+      password-locked host panel.
+
+    The server owns the game state. The display never receives an answer
+    before the host reveals it: clip URLs are opaque tokens, and the title,
+    song, artist, and slot arrive only on reveal. Party play never writes
+    `ReviewLog`, `Card`, or `CardTrack`, so it cannot move a Leitner box or a
+    stat. Out of scope: the reference tool's OpenAI, YouTube, Google Images,
+    and character modes.
+    - **86a. Party server, two ports, and host password** - done 2026-09-26.
+      `bun run party` (`launcher/party.ts`) runs the built app on internal
+      `127.0.0.1:4002` behind a display door (`127.0.0.1:4000`) and a control
+      door (`0.0.0.0:4001`), each with its own allowlist
+      (`launcher/partyDoors.ts`). The doors overwrite
+      `x-gaq-party-door`/`x-gaq-party-client-ip`, which the app trusts.
+      `server/middleware/party.ts` 404s every `/party/**` and `/api/party/**`
+      route outside the party process (`GAQ_PARTY=1`), or on the wrong door,
+      and requires the `gaq_party_session` cookie on `/api/party/host/**`
+      (rules in `server/utils/partyAccess.ts`).
+      - **Password:** a `party_host` singleton (migration `0024`), hashed with
+        `node:crypto` scrypt (`partyAuth.ts`), not `Bun.password`, since
+        `bun run dev` and Vitest run under Node. It is set or replaced only
+        from a loopback client (`POST /api/party/password`), which is also the
+        forgotten-password path.
+      - **Login:** `POST /api/party/login` allows 5 failures per IP per
+        minute. Sessions are in memory for 12h.
+      - **Pages:** client-rendered (`routeRules '/party/**': { ssr: false }`)
+        on a rail-less `party` layout.
+      - **Shared launcher setup:** `launcher/serverEnv.ts` now holds what both
+        launchers need.
+      - **Packaging and updates:** `bun run package` ships `gaq-party[.exe]`
+        beside `gaq-srs` in every zip. The one-click update swaps it in as an
+        `optional` item, added when an older install has none.
+    - **86b. Game state and display sync** - the server-held game (queue,
+      current item, phase), the SSE stream to the display, opaque clip
+      tokens, the display's click-to-start screen for browser autoplay,
+      playback position reported back, and the reveal overlay.
+    - **86c. Host panel: queue and transport** - a queue from a deck or
+      Study-style filters with shuffle; play/pause, next, previous, seek,
+      random start, and reveal, with a live mirror of the display's position.
+    - **86d. Screen effects** - blur (adjustable, optional decay), pixelate
+      (canvas, progressive), mute, blackout/audio-only, and the cover-art
+      record, each toggled live or pre-set for the next song.
+    - **86e. Lightning rounds** - timed auto-advancing rounds from data
+      already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
+      Clues and Tags (feature 76a metadata), and Title letter fill.
+    - **86f. Host polish** - countdown timer, manual scoreboard, round
+      banners, background music, and host panel hotkeys.
 
 ## Data model
 
@@ -2529,6 +2598,13 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
+- **Party mode (feature 86, 86a done)**: a second packaged binary,
+  `gaq-party`, built alongside the SRS and sharing its user-data directory.
+  The one part of the app that listens beyond localhost: its display port
+  binds to loopback only, its host control port binds to the LAN for a phone
+  remote. That port requires the host password on every route, hashes it at
+  rest, rate-limits login attempts, and only lets the password be first
+  created from the machine itself. Neither port is meant for the internet.
 - **Health check / domain**: not applicable (local-only)
 
 ## Notes

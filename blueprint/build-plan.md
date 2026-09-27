@@ -920,6 +920,42 @@ cleaned-up checkbox version before generating the project overview.
     split gains an Insert bucket, and every slot label reads "Insert" rather
     than `IN2`.
 
+- [ ] 86. **Guess the Anime party mode** - a host-run, in-person or streamed
+  "guess the anime" game in the style of ualkotob's guess-the-anime-playlist-tool,
+  shipped as a second binary (`gaq-party`) built from this codebase by
+  `bun run package` and sharing the SRS data directory, so its decks and filters
+  are the SRS's own. One process runs the built Nitro server on 127.0.0.1 behind
+  two `Bun.serve` listeners: a **display port** (loopback only) serving a
+  read-only screen for a projector, OBS, or a Discord screen-share, and a
+  **control port** (reachable over the LAN for a phone remote) serving a
+  password-locked host panel. The server owns the game state; the display
+  renders what the server sends over server-sent events and reports playback
+  position back. The display never receives an answer before the host reveals
+  it: clip URLs are opaque tokens and the title, song, artist, and slot arrive
+  only on reveal. Party play never writes `ReviewLog`, `Card`, or `CardTrack`,
+  so it cannot move a Leitner box or a stat. Out of scope: the reference tool's
+  OpenAI, YouTube, Google Images, and character modes.
+  - [x] 86a. **Party server, two ports, and host password** - the `gaq-party`
+    launcher and a dev script, both front doors with per-port route
+    allowlists, a hashed host password (`node:crypto` scrypt) created on first run
+    from the loopback address only, login sessions with rate limiting, and
+    placeholder display and host pages.
+  - [ ] 86b. **Game state and display sync** - the server-held game (queue,
+    current item, phase), the SSE stream to the display, opaque clip tokens,
+    the display's click-to-start screen for browser autoplay, playback
+    position reported back, and the reveal overlay.
+  - [ ] 86c. **Host panel: queue and transport** - build a queue from a deck
+    or Study-style filters with shuffle, then play/pause, next, previous, seek,
+    random start, and reveal, with a live mirror of the display's position.
+  - [ ] 86d. **Screen effects** - blur (adjustable, optional decay), pixelate
+    (canvas, progressive), mute, blackout/audio-only, and the cover-art
+    record, each toggled live or pre-set for the next song.
+  - [ ] 86e. **Lightning rounds** - timed auto-advancing rounds from data
+    already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
+    Clues and Tags (feature 76a metadata), and Title letter fill.
+  - [ ] 86f. **Host polish** - countdown timer, manual scoreboard, round
+    banners, background music, and host panel hotkeys.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

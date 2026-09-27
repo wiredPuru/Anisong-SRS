@@ -6,6 +6,7 @@ interface Target {
   label: string;
   bunTarget: string;
   binaryName: string;
+  partyBinaryName: string;
   // macOS only: bun build --compile appends its payload after the linker
   // ad-hoc-signs the Mach-O, leaving a signature that no longer matches the
   // file. Gatekeeper ignores that for local files, but a browser download
@@ -16,14 +17,15 @@ interface Target {
 }
 
 const TARGETS: Target[] = [
-  { label: "windows-x64", bunTarget: "bun-windows-x64", binaryName: "gaq-srs.exe" },
-  { label: "macos-x64", bunTarget: "bun-darwin-x64", binaryName: "gaq-srs", needsCodesign: true },
-  { label: "macos-arm64", bunTarget: "bun-darwin-arm64", binaryName: "gaq-srs", needsCodesign: true },
-  { label: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "gaq-srs" },
+  { label: "windows-x64", bunTarget: "bun-windows-x64", binaryName: "gaq-srs.exe", partyBinaryName: "gaq-party.exe" },
+  { label: "macos-x64", bunTarget: "bun-darwin-x64", binaryName: "gaq-srs", partyBinaryName: "gaq-party", needsCodesign: true },
+  { label: "macos-arm64", bunTarget: "bun-darwin-arm64", binaryName: "gaq-srs", partyBinaryName: "gaq-party", needsCodesign: true },
+  { label: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "gaq-srs", partyBinaryName: "gaq-party" },
 ];
 
 const SERVER_ENTRY = ".output/server/index.mjs";
 const LAUNCHER_ENTRY = "launcher/index.ts";
+const PARTY_LAUNCHER_ENTRY = "launcher/party.ts";
 const MIGRATIONS_DIR = "server/db/migrations";
 const PUBLIC_DIR = ".output/public";
 const RELEASE_ROOT = "release";
@@ -97,15 +99,7 @@ for (const pkg of ["@vue", "vue"]) {
   cpSync(join("node_modules", pkg), dest, { recursive: true });
 }
 
-const results: { label: string; ok: boolean }[] = [];
-
-for (const target of TARGETS) {
-  console.log(`\nBuilding ${target.label}...`);
-  const releaseDir = join(RELEASE_ROOT, target.label);
-  rmSync(releaseDir, { recursive: true, force: true });
-  mkdirSync(releaseDir, { recursive: true });
-
-  const outfile = join(releaseDir, target.binaryName);
+function compileBinary(target: Target, entry: string, outfile: string): boolean {
   const proc = Bun.spawnSync(
     [
       "bun",
@@ -113,15 +107,14 @@ for (const target of TARGETS) {
       "--compile",
       `--target=${target.bunTarget}`,
       `--outfile=${outfile}`,
-      LAUNCHER_ENTRY,
+      entry,
     ],
     { stdout: "inherit", stderr: "inherit" },
   );
 
   if (proc.exitCode !== 0) {
-    console.error(`Failed to build ${target.label}.`);
-    results.push({ label: target.label, ok: false });
-    continue;
+    console.error(`Failed to build ${entry} for ${target.label}.`);
+    return false;
   }
 
   // Verified, not assumed: --verify is the exact check that fails on Bun's
@@ -148,10 +141,28 @@ for (const target of TARGETS) {
         .exitCode === 0;
 
     if (!verified) {
-      console.error(`Failed to ad-hoc sign ${target.label}.`);
-      results.push({ label: target.label, ok: false });
-      continue;
+      console.error(`Failed to ad-hoc sign ${outfile}.`);
+      return false;
     }
+  }
+  return true;
+}
+
+const results: { label: string; ok: boolean }[] = [];
+
+for (const target of TARGETS) {
+  console.log(`\nBuilding ${target.label}...`);
+  const releaseDir = join(RELEASE_ROOT, target.label);
+  rmSync(releaseDir, { recursive: true, force: true });
+  mkdirSync(releaseDir, { recursive: true });
+
+  const binaries = [
+    { entry: LAUNCHER_ENTRY, outfile: join(releaseDir, target.binaryName) },
+    { entry: PARTY_LAUNCHER_ENTRY, outfile: join(releaseDir, target.partyBinaryName) },
+  ];
+  if (!binaries.every(({ entry, outfile }) => compileBinary(target, entry, outfile))) {
+    results.push({ label: target.label, ok: false });
+    continue;
   }
 
   cpSync(MIGRATIONS_DIR, join(releaseDir, "migrations"), { recursive: true });

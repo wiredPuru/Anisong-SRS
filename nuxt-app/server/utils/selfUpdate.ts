@@ -189,6 +189,10 @@ export function binaryNameFor(platform: string): string {
   return platform === "win32" ? "gaq-srs.exe" : "gaq-srs";
 }
 
+export function partyBinaryNameFor(platform: string): string {
+  return platform === "win32" ? "gaq-party.exe" : "gaq-party";
+}
+
 // Zip-slip guard: an entry may only land inside the staging folder.
 export function safeEntryPath(root: string, entryName: string): string | null {
   if (!entryName || entryName.includes("\0")) return null;
@@ -200,7 +204,9 @@ export function safeEntryPath(root: string, entryName: string): string | null {
   return target.startsWith(base + sep) ? target : null;
 }
 
-export type StagedLayoutCheck = { ok: true; binaryName: string } | { ok: false; missing: string[] };
+export type StagedLayoutCheck =
+  | { ok: true; binaryName: string; partyBinaryName?: string }
+  | { ok: false; missing: string[] };
 
 export function checkStagedLayout(fileList: string[], platform: string): StagedLayoutCheck {
   const binaryName = binaryNameFor(platform);
@@ -212,7 +218,10 @@ export function checkStagedLayout(fileList: string[], platform: string): StagedL
     ["kuromoji/dict/", (name) => name.startsWith("kuromoji/dict/")],
   ];
   const missing = required.filter(([, test]) => !names.some(test)).map(([label]) => label);
-  return missing.length ? { ok: false, missing } : { ok: true, binaryName };
+  if (missing.length) return { ok: false, missing };
+  // Optional: releases before feature 86a ship without the party binary.
+  const partyBinaryName = partyBinaryNameFor(platform);
+  return names.includes(partyBinaryName) ? { ok: true, binaryName, partyBinaryName } : { ok: true, binaryName };
 }
 
 export interface ReadyManifest {
@@ -220,6 +229,7 @@ export interface ReadyManifest {
   assetName: string;
   sha256: string;
   binaryName: string;
+  partyBinaryName?: string;
   stagedAt: string;
 }
 
@@ -232,7 +242,8 @@ export function parseReadyManifest(raw: unknown): ReadyManifest | null {
     (typeof keys)[number],
     string
   >;
-  return { version, assetName, sha256, binaryName, stagedAt };
+  const partyBinaryName = typeof record.partyBinaryName === "string" && record.partyBinaryName ? record.partyBinaryName : undefined;
+  return { version, assetName, sha256, binaryName, partyBinaryName, stagedAt };
 }
 
 const unzipAsync = promisify(unzip);
@@ -278,10 +289,12 @@ export async function unpackAndStage(
     // fflate does not keep Unix permission bits, so the binary comes out
     // non-executable without this.
     await chmod(join(stagedDir, layout.binaryName), 0o755);
+    if (layout.partyBinaryName) await chmod(join(stagedDir, layout.partyBinaryName), 0o755);
 
     const manifest: ReadyManifest = {
       ...release,
       binaryName: layout.binaryName,
+      partyBinaryName: layout.partyBinaryName,
       stagedAt: new Date().toISOString(),
     };
     // Written last: 82b trusts a staging folder only once this exists.
@@ -492,6 +505,9 @@ export async function installStagedUpdate(current: string): Promise<RestartResul
       { from: "migrations", to: "migrations" },
       { from: "public", to: "public" },
       { from: "kuromoji", to: "kuromoji" },
+      ...(manifest.partyBinaryName
+        ? [{ from: manifest.partyBinaryName, to: manifest.partyBinaryName, executable: true, optional: true }]
+        : []),
     ],
   });
   if (!result.ok) {
