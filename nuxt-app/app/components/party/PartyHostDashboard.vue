@@ -35,6 +35,10 @@ watch(sessionLost, (lost) => {
         </section>
 
         <section v-if="state" class="panel">
+          <PartyLightningPanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
           <PartyEffectsPanel :state="state" @command="send" />
         </section>
 

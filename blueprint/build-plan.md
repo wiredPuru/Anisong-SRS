@@ -950,7 +950,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 86d. **Screen effects** - blur (adjustable, optional decay), pixelate
     (canvas, progressive), mute, blackout/audio-only, and the cover-art
     record, each toggled live or pre-set for the next song.
-  - [ ] 86e. **Lightning rounds** - timed auto-advancing rounds from data
+  - [x] 86e. **Lightning rounds** - timed auto-advancing rounds from data
     already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
     Clues and Tags (feature 76a metadata), and Title letter fill.
   - [ ] 86f. **Host polish** - countdown timer, manual scoreboard, round

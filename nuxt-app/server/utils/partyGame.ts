@@ -1,8 +1,16 @@
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
+import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
 
 export type PartyPhase = "idle" | "guessing" | "revealed";
 export type PartyPicture = "video" | "blackout" | "cover";
+export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
+export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
+export interface PartyLightning {
+  mode: PartyLightningMode;
+  guessSeconds: number;
+  revealSeconds: number;
+}
 export interface PartyEffects {
   blur: number;
   pixelate: number;
@@ -30,12 +38,17 @@ export interface PartyQueueItem {
   cardId: number;
   clip: PartyClip;
   answer: PartyAnswer;
+  // Only ever shown as lightning hints, and only as far as play time allows.
+  details: PartyAnimeDetails;
 }
 export interface PartyPosition {
   token: string;
   currentTime: number;
   duration: number | null;
   playing: boolean;
+  // Seconds played since the song's own start position; lightning rounds
+  // time their reveal and advance from it.
+  elapsed: number;
 }
 export interface PartyGameState {
   version: number;
@@ -51,6 +64,8 @@ export interface PartyGameState {
   startFraction: number;
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
+  lightning: PartyLightning | null;
+  revealedAtElapsed: number | null;
 }
 export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean }
@@ -63,7 +78,8 @@ export type PartyCommand =
   | { type: "clear" }
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
-  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null };
+  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "lightning"; config: PartyLightning | null };
 
 /** Sent to the display: never a path, URL, card id, or answer before reveal. */
 export interface PartyDisplayState {
@@ -76,6 +92,7 @@ export interface PartyDisplayState {
   seekSeq: number;
   startFraction: number;
   effects: PartyEffects;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
   answer: PartyAnswer | null;
 }
 export interface PartyHostState {
@@ -88,6 +105,7 @@ export interface PartyHostState {
   randomStart: boolean;
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
+  lightning: PartyLightning | null;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -109,6 +127,21 @@ const DECAY_MAX_S = 120;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+export const DEFAULT_LIGHTNING: PartyLightning = { mode: "regular", guessSeconds: 12, revealSeconds: 5 };
+
+export function parsePartyLightning(raw: unknown): PartyLightning | { error: string } {
+  if (typeof raw !== "object" || raw === null) return { error: "config must be an object" };
+  const { mode, guessSeconds, revealSeconds } = raw as Record<string, unknown>;
+  if (!LIGHTNING_MODES.includes(mode as PartyLightningMode)) return { error: `mode must be one of ${LIGHTNING_MODES.join(", ")}` };
+  const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+  if (!isNumber(guessSeconds) || !isNumber(revealSeconds)) return { error: "guessSeconds and revealSeconds must be numbers" };
+  return {
+    mode: mode as PartyLightningMode,
+    guessSeconds: Math.round(clamp(guessSeconds, 5, 60)),
+    revealSeconds: Math.round(clamp(revealSeconds, 3, 30)),
+  };
+}
+
 /** Numbers are clamped into range; a wrong type or an unknown picture is an error. */
 export function parsePartyEffects(raw: unknown): PartyEffects | { error: string } {
   if (typeof raw !== "object" || raw === null) return { error: "effects must be an object" };
@@ -129,11 +162,13 @@ export function parsePartyEffects(raw: unknown): PartyEffects | { error: string 
   };
 }
 
-// randomStart and effects are the host's preferences, so they outlive any one game.
+// randomStart, effects, and lightning are how the host wants to play, so
+// they outlive any one game.
 export function initialPartyState(
   version = 0,
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
+  lightning: PartyLightning | null = null,
 ): PartyGameState {
   return {
     version,
@@ -149,6 +184,8 @@ export function initialPartyState(
     startFraction: 0,
     effects,
     nextEffects: null,
+    lightning,
+    revealedAtElapsed: null,
   };
 }
 
@@ -178,11 +215,17 @@ export function pickPartyClip(
   return null;
 }
 
-export function toQueueItem(card: CardWithDetails, clip: PartyClip, token: string): PartyQueueItem {
+export function toQueueItem(
+  card: CardWithDetails,
+  clip: PartyClip,
+  token: string,
+  details: PartyAnimeDetails = EMPTY_DETAILS,
+): PartyQueueItem {
   return {
     token,
     cardId: card.id,
     clip,
+    details,
     answer: {
       animeTitleEnglish: card.animeTitleEnglish,
       animeTitleRomaji: card.animeTitleRomaji,
@@ -215,6 +258,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const { randomStart } = body as { randomStart?: unknown };
       if (typeof randomStart !== "boolean") return { error: "randomStart must be a boolean" };
       return { type, randomStart };
+    }
+    case "lightning": {
+      const { config } = body as { config?: unknown };
+      if (config === null) return { type, config: null };
+      const parsed = parsePartyLightning(config);
+      return "error" in parsed ? parsed : { type, config: parsed };
     }
     case "effects": {
       const { target, effects } = body as { target?: unknown; effects?: unknown };
@@ -262,9 +311,11 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     startAt: 0,
     seekTo: null,
     position: null,
-    startFraction: state.randomStart ? random() : 0,
+    // A lightning round always plays a random slice of each song.
+    startFraction: state.randomStart || state.lightning ? random() : 0,
     effects: state.nextEffects ?? state.effects,
     nextEffects: null,
+    revealedAtElapsed: null,
   };
 }
 
@@ -311,17 +362,22 @@ export function applyPartyCommand(
       // Applies from the next song: the current one has already started.
       if (state.randomStart !== command.randomStart) next = { ...state, randomStart: command.randomStart };
       break;
+    case "lightning":
+      next = { ...state, lightning: command.config };
+      break;
     case "effects":
       next = command.target === "current"
         ? { ...state, effects: command.effects ?? NO_EFFECTS }
         : { ...state, nextEffects: command.effects };
       break;
     case "reveal":
-      if (hasItem && state.phase !== "revealed") next = { ...state, phase: "revealed" };
+      if (hasItem && state.phase !== "revealed") {
+        next = { ...state, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0 };
+      }
       break;
     case "clear":
       if (state.index !== -1 || state.queue.length) {
-        next = initialPartyState(state.version, state.randomStart, state.effects);
+        next = initialPartyState(state.version, state.randomStart, state.effects, state.lightning);
       }
       break;
   }
@@ -331,6 +387,14 @@ export function applyPartyCommand(
 
 export function currentPartyItem(state: PartyGameState): PartyQueueItem | null {
   return state.queue[state.index] ?? null;
+}
+
+// Revealed songs show every hint; otherwise hints follow the current song's
+// reported play time.
+function hintElapsed(state: PartyGameState): number {
+  if (state.phase === "revealed") return Number.POSITIVE_INFINITY;
+  const item = currentPartyItem(state);
+  return item && state.position?.token === item.token ? state.position.elapsed : 0;
 }
 
 export function toDisplayState(state: PartyGameState): PartyDisplayState {
@@ -347,6 +411,13 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
     seekSeq: state.seekSeq,
     startFraction: state.startFraction,
     effects: state.effects,
+    lightning: state.lightning
+      ? {
+          mode: state.lightning.mode,
+          guessSeconds: state.lightning.guessSeconds,
+          hints: item ? lightningHints(item, state.lightning.mode, hintElapsed(state), state.lightning.guessSeconds) : null,
+        }
+      : null,
     answer: item && state.phase === "revealed" ? item.answer : null,
   };
 }
@@ -362,5 +433,28 @@ export function toHostState(state: PartyGameState): PartyHostState {
     randomStart: state.randomStart,
     effects: state.effects,
     nextEffects: state.nextEffects,
+    lightning: state.lightning,
   };
+}
+
+export type LightningStep = "reveal" | "next" | "stop";
+
+/**
+ * What a running lightning round should do now, judged from the display's
+ * latest report for the current song. Paused or stale reports never act.
+ */
+export function lightningStep(state: PartyGameState): LightningStep | null {
+  const { lightning, position } = state;
+  const item = currentPartyItem(state);
+  if (!lightning || !item || !position || position.token !== item.token || !state.playing) return null;
+
+  if (state.phase === "guessing") {
+    return position.elapsed >= lightning.guessSeconds ? "reveal" : null;
+  }
+  if (state.phase === "revealed") {
+    const revealedAt = state.revealedAtElapsed ?? lightning.guessSeconds;
+    if (position.elapsed < revealedAt + lightning.revealSeconds) return null;
+    return state.index < state.queue.length - 1 ? "next" : "stop";
+  }
+  return null;
 }

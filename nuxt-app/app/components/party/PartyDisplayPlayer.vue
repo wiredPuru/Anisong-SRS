@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PartyEffects, PartyPositionReport } from "~/composables/usePartyDisplay";
+import type { PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
 
 const props = defineProps<{
   token: string;
@@ -11,6 +11,7 @@ const props = defineProps<{
   startFraction: number;
   effects: PartyEffects;
   revealed: boolean;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
@@ -33,19 +34,39 @@ const coverSrc = computed(() => `/api/party/display/cover?t=${encodeURIComponent
 const startPosition = ref(0);
 const elapsed = ref(0);
 
+// A lightning mode owns the picture for its round; only the host's mute
+// carries through. Cover mode sharpens from coarse blocks by the deadline.
+const LIGHTNING_COVER_BLOCK = 64;
+const fx = computed<PartyEffects>(() => {
+  const round = props.lightning;
+  if (!round) return props.effects;
+  const base: PartyEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: round.guessSeconds, muted: props.effects.muted, picture: "video" };
+  switch (round.mode) {
+    case "cover":
+      return { ...base, picture: "cover", pixelate: LIGHTNING_COVER_BLOCK, decay: true };
+    case "blind":
+    case "clues":
+    case "tags":
+    case "title":
+      return { ...base, picture: "blackout" };
+    default:
+      return base;
+  }
+});
+
 // A reveal shows the answer clean; the stored effects wait for the next song.
 const active = computed(() => !props.revealed);
-const picture = computed(() => (active.value ? props.effects.picture : "video"));
+const picture = computed(() => (active.value ? fx.value.picture : "video"));
 const showCover = computed(() => picture.value === "cover" && !coverFailed.value);
 const showVeil = computed(() => {
   if (showCover.value) return false;
   return picture.value === "blackout" || picture.value === "cover" || props.kind === "audio";
 });
 const blurPx = computed(() =>
-  active.value ? effectStrength(props.effects.blur, props.effects.decay, props.effects.decaySeconds, elapsed.value) : 0,
+  active.value ? effectStrength(fx.value.blur, fx.value.decay, fx.value.decaySeconds, elapsed.value) : 0,
 );
 const pixelBlock = computed(() =>
-  active.value ? pixelBlockSize(props.effects.pixelate, props.effects.decay, props.effects.decaySeconds, elapsed.value) : 0,
+  active.value ? pixelBlockSize(fx.value.pixelate, fx.value.decay, fx.value.decaySeconds, elapsed.value) : 0,
 );
 // The canvas draws whichever picture is showing; the element itself stays
 // loaded (and the clip keeps playing) underneath it.
@@ -53,9 +74,33 @@ const pixelSource = computed(() => {
   if (pixelBlock.value <= 0 || showVeil.value) return null;
   return showCover.value ? cover.value : media.value;
 });
-const visualStyle = computed(() =>
-  blurPx.value > 0 ? { filter: `blur(${blurPx.value.toFixed(1)}px)`, transform: `scale(${BLUR_ZOOM})` } : undefined,
-);
+// Peek: a round window onto the clip that grows over the guess time and
+// drifts along a path fixed per song.
+const PEEK_START = 12;
+const PEEK_END = 45;
+const peekSeed = computed(() => [...props.token].reduce((sum, char) => sum + char.charCodeAt(0), 0));
+const peekClip = computed(() => {
+  if (!active.value || props.lightning?.mode !== "peek") return undefined;
+  const progress = Math.min(1, Math.max(0, elapsed.value) / props.lightning.guessSeconds);
+  const radius = PEEK_START + (PEEK_END - PEEK_START) * progress;
+  const x = 50 + 28 * Math.sin(elapsed.value * 0.6 + peekSeed.value);
+  const y = 50 + 22 * Math.cos(elapsed.value * 0.45 + peekSeed.value);
+  return `circle(${radius.toFixed(1)}% at ${x.toFixed(1)}% ${y.toFixed(1)}%)`;
+});
+const visualStyle = computed(() => {
+  const style: Record<string, string> = {};
+  if (blurPx.value > 0) {
+    style.filter = `blur(${blurPx.value.toFixed(1)}px)`;
+    style.transform = `scale(${BLUR_ZOOM})`;
+  }
+  if (peekClip.value) style.clipPath = peekClip.value;
+  return Object.keys(style).length ? style : undefined;
+});
+const countdown = computed(() => {
+  if (!active.value || !props.lightning) return null;
+  return Math.max(0, 1 - Math.max(0, elapsed.value) / props.lightning.guessSeconds);
+});
+const hints = computed(() => (props.lightning?.hints && !failed.value ? props.lightning.hints : null));
 
 function report() {
   const element = media.value;
@@ -65,6 +110,7 @@ function report() {
     currentTime: element.currentTime,
     duration: Number.isFinite(element.duration) ? element.duration : null,
     playing: !element.paused,
+    elapsed: Math.max(0, element.currentTime - startPosition.value),
   });
 }
 
@@ -81,7 +127,7 @@ function followPlaying() {
 }
 
 function followMuted() {
-  if (media.value) media.value.muted = active.value && props.effects.muted;
+  if (media.value) media.value.muted = active.value && fx.value.muted;
 }
 
 function onLoadedMetadata() {
@@ -104,7 +150,7 @@ watch(() => props.token, () => {
   elapsed.value = 0;
 });
 watch(() => props.playing, followPlaying);
-watch([() => props.effects.muted, active], followMuted);
+watch([() => fx.value.muted, active], followMuted);
 watch(
   () => props.seekSeq,
   () => {
@@ -158,8 +204,12 @@ onBeforeUnmount(() => {
     <div v-if="failed" class="party-veil">
       <StudyPlayerKai mood="error" text="This clip won't play" />
     </div>
+    <PartyLightningHints v-else-if="hints && showVeil" :hints="hints" />
     <div v-else-if="showVeil" class="party-veil">
       <StudyPlayerKai :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
+    </div>
+    <div v-if="countdown !== null" class="countdown" aria-hidden="true">
+      <span class="countdown-fill" :style="{ transform: `scaleX(${countdown})` }" />
     </div>
   </div>
 </template>
@@ -192,6 +242,22 @@ onBeforeUnmount(() => {
 
 .party-cover {
   background: var(--bg);
+}
+
+.countdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(6px, 1vh, 12px);
+  background: var(--surface-sunken);
+}
+
+.countdown-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
 }
 
 .party-veil {

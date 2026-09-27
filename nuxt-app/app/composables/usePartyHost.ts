@@ -1,4 +1,10 @@
-import type { PartyAnswer, PartyEffects, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
+import type { PartyAnswer, PartyEffects, PartyLightningMode, PartyPhase, PartyPositionReport } from "./usePartyDisplay";
+
+export interface PartyLightning {
+  mode: PartyLightningMode;
+  guessSeconds: number;
+  revealSeconds: number;
+}
 
 // Hand-kept copy of the server's PartyHostState (server/utils/partyGame.ts).
 export interface PartyHostState {
@@ -11,6 +17,7 @@ export interface PartyHostState {
   randomStart: boolean;
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
+  lightning: PartyLightning | null;
 }
 
 export type PartyHostCommand =
@@ -23,7 +30,8 @@ export type PartyHostCommand =
   | { type: "clear" }
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
-  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null };
+  | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "lightning"; config: PartyLightning | null };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 10000;

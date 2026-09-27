@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 93674e2fbbb0f037b4dcede2bb24db097cb98bf24b168bec2922d0634ad54ea8 -->
+<!-- blueprint:source-hash 12436b9b16e5bc67c790d6133c80cdbb31d6ffc07fddbf72aedddd0ddaff6fcc -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -1964,7 +1964,7 @@ password-locked LAN port is a new product direction.
       Study filter's `themeTypes` and stats' `ThemeKind` gained `"IN"`, and the
       Insert choice and Inserts chip always show, since hiding them per card
       would give the answer away. Card edit forms still show the raw slot.
-86. **Guess the Anime party mode** - in progress, six sub-features (86a-86d done). A
+86. **Guess the Anime party mode** - in progress, six sub-features (86a-86e done). A
     host-run, in-person or streamed "guess the anime" game in the style of
     https://github.com/ualkotob/guess-the-anime-playlist-tool, shipped as a
     second binary, `gaq-party`, that `bun run package` builds alongside the
@@ -2074,9 +2074,27 @@ password-locked LAN port is a new product direction.
         cover picture mode, a plain cover subject to blur and pixelate
         rather than Study's spinning record, since an unobscured cover would
         give the answer away.
-    - **86e. Lightning rounds** - timed auto-advancing rounds from data
-      already stored: Regular (random 12s clip), Blind, Peek, Cover reveal,
-      Clues and Tags (feature 76a metadata), and Title letter fill.
+    - **86e. Lightning rounds** - done 2026-09-26.
+      - **Config:** `PartyLightning { mode, guessSeconds 5-60, revealSeconds
+        3-30 }`, set by the `lightning` command, and it survives End game.
+      - **Timing:** the display reports `elapsed` play time with each
+        position. On every accepted report the store runs the pure
+        `lightningStep`: reveal once `guessSeconds` have played, move on
+        `revealSeconds` after the reveal (`revealedAtElapsed`, so an early
+        manual reveal counts), and pause at the queue's end. Every lightning
+        song starts at a random point.
+      - **Modes:** own the picture (only Mute carries through): regular,
+        blind (veil), peek (a growing, drifting `clip-path` circle), cover
+        (sharpening from 64px blocks), and clues, tags, and title.
+      - **Hints:** clues, tags, and title are server-computed
+        (`server/utils/partyLightning.ts`) from each song's anime details
+        (year, season, format, score, genres, and tags, loaded in one query
+        per load). Only what has been revealed so far is sent. Titles mask
+        letters and digits in a token-seeded order.
+      - **Display:** shows a countdown bar and `PartyLightningHints`.
+      - **Host:** `PartyLightningPanel` (mode, times, Start/Stop), plus a
+        "Lightning: mode" chip in Now playing and a note on the Effects
+        panel.
     - **86f. Host polish** - countdown timer, manual scoreboard, round
       banners, background music, and host panel hotkeys.
 
@@ -2654,7 +2672,7 @@ standalone executable.
   refuses to build when `package.json`'s version disagrees with the
   version baked into `.output` or with a tag on `HEAD`, so a release
   cannot ship carrying a version it will not be published under.
-- **Party mode (feature 86, 86a-86d done)**: a second packaged binary,
+- **Party mode (feature 86, 86a-86e done)**: a second packaged binary,
   `gaq-party`, built alongside the SRS and sharing its user-data directory.
   The one part of the app that listens beyond localhost: its display port
   binds to loopback only, its host control port binds to the LAN for a phone

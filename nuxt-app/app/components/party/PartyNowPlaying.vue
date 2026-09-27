@@ -42,8 +42,11 @@ function clearGame() {
   <div class="now-playing">
     <div class="np-head">
       <p class="np-count">Song {{ state.index + 1 }} of {{ state.queue.length }}</p>
-      <span class="np-chip" :class="state.phase === 'revealed' ? 'chip-revealed' : 'chip-hidden'">
-        {{ state.phase === "revealed" ? "Revealed" : "Hidden" }}
+      <span class="np-chips">
+        <span v-if="state.lightning" class="np-chip chip-lightning">Lightning: {{ state.lightning.mode }}</span>
+        <span class="np-chip" :class="state.phase === 'revealed' ? 'chip-revealed' : 'chip-hidden'">
+          {{ state.phase === "revealed" ? "Revealed" : "Hidden" }}
+        </span>
       </span>
     </div>
 
@@ -143,6 +146,18 @@ function clearGame() {
   border: 2px solid;
   font-size: 13px;
   font-weight: 700;
+}
+
+.np-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-lightning {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-transform: capitalize;
 }
 
 .chip-hidden {

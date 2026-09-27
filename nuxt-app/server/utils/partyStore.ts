@@ -1,12 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
+import { inArray } from "drizzle-orm";
+import { db } from "../db/client.ts";
+import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
 import { getClipSource, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { resolveCachedPath } from "./streamCache.ts";
+import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import {
   applyPartyCommand,
   currentPartyItem,
   initialPartyState,
+  lightningStep,
   pickPartyClip,
   toQueueItem,
   type PartyCommand,
@@ -55,14 +60,36 @@ function localFileUsable(path: string): boolean {
   }
 }
 
+function loadAnimeDetails(animeIds: number[]): Map<number, PartyAnimeDetails> {
+  if (!animeIds.length) return new Map();
+  const rows = db
+    .select({
+      id: anime.id,
+      year: anime.year,
+      season: anime.season,
+      format: anime.format,
+      averageScore: anime.averageScore,
+      genres: anime.genres,
+      tags: anime.tags,
+    })
+    .from(anime)
+    .where(inArray(anime.id, [...new Set(animeIds)]))
+    .all();
+  return new Map(rows.map(({ id, ...details }) => [id, details]));
+}
+
 function resolveQueue(cardIds: number[]): { items: PartyQueueItem[]; skipped: number } {
   const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode() };
-  const byId = new Map(getCardsByIds(cardIds).map((card) => [card.id, card]));
+  const cards = getCardsByIds(cardIds);
+  const byId = new Map(cards.map((card) => [card.id, card]));
+  const details = loadAnimeDetails(cards.map((card) => card.animeId));
   const items: PartyQueueItem[] = [];
   for (const id of cardIds) {
     const card = byId.get(id);
     const clip = card ? pickPartyClip(card, settings, localFileUsable) : null;
-    if (card && clip) items.push(toQueueItem(card, clip, randomBytes(12).toString("hex")));
+    if (card && clip) {
+      items.push(toQueueItem(card, clip, randomBytes(12).toString("hex"), details.get(card.animeId) ?? EMPTY_DETAILS));
+    }
   }
   return { items, skipped: cardIds.length - items.length };
 }
@@ -87,5 +114,15 @@ export function findPartyItemByToken(token: string): PartyQueueItem | null {
 export function reportPartyPosition(position: PartyPosition): boolean {
   if (currentPartyItem(state)?.token !== position.token) return false;
   commit({ ...state, position });
+  driveLightning();
   return true;
+}
+
+// A lightning round advances itself from the display's play time, which only
+// arrives with these reports, so this is where it steps.
+function driveLightning(): void {
+  const step = lightningStep(state);
+  if (step === "reveal") commit(applyPartyCommand(state, { type: "reveal" }));
+  else if (step === "next") commit(applyPartyCommand(applyPartyCommand(state, { type: "next" }), { type: "play" }));
+  else if (step === "stop") commit(applyPartyCommand(state, { type: "pause" }));
 }

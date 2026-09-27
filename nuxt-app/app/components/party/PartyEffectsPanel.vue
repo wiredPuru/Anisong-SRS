@@ -91,6 +91,9 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+    <p v-if="state.lightning" class="effects-paused">
+      A lightning round is running, so its mode sets the screen. Only Mute applies until you stop the round.
+    </p>
     <p class="effects-hint">
       {{ target === "current" ? "Changes show on the display right away. They stay on for later songs until you change them. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
     </p>
@@ -204,6 +207,15 @@ onBeforeUnmount(() => {
   color: var(--accent-ink);
   font-size: 11px;
   line-height: 18px;
+}
+
+.effects-paused {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .effects-hint {

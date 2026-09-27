@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { CardWithDetails } from "./cards.ts";
 import {
   NO_EFFECTS,
+  DEFAULT_LIGHTNING,
   applyPartyCommand,
   initialPartyState,
+  lightningStep,
   parsePartyCommand,
   parsePartyEffects,
+  parsePartyLightning,
   pickPartyClip,
   toDisplayState,
   toHostState,
@@ -343,3 +346,107 @@ describe("effects", () => {
     expect(toHostState(armed).nextEffects?.muted).toBe(true);
   });
 });
+
+describe("lightning", () => {
+  const cfg = { mode: "clues" as const, guessSeconds: 10, revealSeconds: 4 };
+
+  function running(count = 3): PartyGameState {
+    let state = applyPartyCommand(loaded(count), { type: "lightning", config: cfg });
+    state = applyPartyCommand(state, { type: "play" });
+    return state;
+  }
+  const at = (state: PartyGameState, elapsed: number, playing = true, token = state.queue[state.index]!.token): PartyGameState => ({
+    ...state,
+    position: { token, currentTime: elapsed, duration: 90, playing, elapsed },
+  });
+
+  it("parses and clamps a config", () => {
+    expect(parsePartyLightning({ mode: "title", guessSeconds: 2, revealSeconds: 99 })).toEqual({ mode: "title", guessSeconds: 5, revealSeconds: 30 });
+    expect(parsePartyLightning({ mode: "emoji", guessSeconds: 10, revealSeconds: 5 })).toHaveProperty("error");
+    expect(parsePartyLightning({ mode: "tags", guessSeconds: "10", revealSeconds: 5 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "lightning", config: null })).toEqual({ type: "lightning", config: null });
+    expect(parsePartyCommand({ type: "lightning", config: DEFAULT_LIGHTNING })).toEqual({ type: "lightning", config: DEFAULT_LIGHTNING });
+  });
+
+  it("keeps the config through clear, and shows the display its mode", () => {
+    const state = running();
+    expect(applyPartyCommand(state, { type: "clear" }).lightning).toEqual(cfg);
+    expect(toDisplayState(state).lightning).toMatchObject({ mode: "clues", guessSeconds: 10 });
+    expect(toHostState(state).lightning).toEqual(cfg);
+    expect(applyPartyCommand(state, { type: "lightning", config: null }).lightning).toBeNull();
+  });
+
+  it("starts every lightning song at a random point", () => {
+    const moved = applyPartyCommand(running(), { type: "next" }, { random: () => 0.6 });
+    expect(moved.startFraction).toBe(0.6);
+  });
+
+  it("records the play time a reveal happened at", () => {
+    const revealed = applyPartyCommand(at(running(), 7), { type: "reveal" });
+    expect(revealed.revealedAtElapsed).toBe(7);
+    expect(applyPartyCommand(revealed, { type: "next" }).revealedAtElapsed).toBeNull();
+  });
+
+  it("reveals once the guess time has played", () => {
+    expect(lightningStep(at(running(), 9.5))).toBeNull();
+    expect(lightningStep(at(running(), 10))).toBe("reveal");
+  });
+
+  it("moves on after the answer has shown for revealSeconds", () => {
+    const revealed = applyPartyCommand(at(running(), 10), { type: "reveal" });
+    expect(lightningStep(at(revealed, 13.9))).toBeNull();
+    expect(lightningStep(at(revealed, 14))).toBe("next");
+  });
+
+  it("times an early manual reveal from when it happened", () => {
+    const early = applyPartyCommand(at(running(), 3), { type: "reveal" });
+    expect(lightningStep(at(early, 6.9))).toBeNull();
+    expect(lightningStep(at(early, 7))).toBe("next");
+  });
+
+  it("stops at the end of the queue", () => {
+    const last = applyPartyCommand(running(2), { type: "next" });
+    const playing = applyPartyCommand(last, { type: "play" });
+    const revealed = applyPartyCommand(at(playing, 10), { type: "reveal" });
+    expect(lightningStep(at(revealed, 20))).toBe("stop");
+  });
+
+  it("does nothing when paused, off, or reported for another song", () => {
+    expect(lightningStep(at(applyPartyCommand(running(), { type: "pause" }), 30))).toBeNull();
+    expect(lightningStep(at(applyPartyCommand(running(), { type: "lightning", config: null }), 30))).toBeNull();
+    expect(lightningStep(at(running(), 30, true, "stale"))).toBeNull();
+    expect(lightningStep(running())).toBeNull();
+  });
+});
+
+describe("lightning hints in the display state", () => {
+  const details = { year: 2010, season: "SPRING", format: "TV", averageScore: 85, genres: ["Music"], tags: [] };
+  function withDetails(mode: "clues" | "title"): PartyGameState {
+    const queue = items(2).map((item) => ({ ...item, details }));
+    let state = applyPartyCommand(initialPartyState(), { type: "load", cardIds: [1] }, { loaded: queue });
+    state = applyPartyCommand(state, { type: "lightning", config: { mode, guessSeconds: 12, revealSeconds: 5 } });
+    return state;
+  }
+  const at = (state: PartyGameState, elapsed: number): PartyGameState => ({
+    ...state,
+    position: { token: state.queue[state.index]!.token, currentTime: elapsed, duration: 90, playing: true, elapsed },
+  });
+
+  it("sends only the clues revealed so far", () => {
+    const state = withDetails("clues");
+    expect(toDisplayState(state).lightning?.hints).toEqual({ kind: "clues", items: [{ label: "Aired", value: "Spring 2010" }] });
+    const json = JSON.stringify(toDisplayState(state));
+    expect(json).not.toContain("85%");
+    expect(json).not.toContain("Music");
+    expect(toDisplayState(at(state, 12)).lightning?.hints).toMatchObject({ items: { length: 4 } });
+  });
+
+  it("never sends the unmasked title before the deadline", () => {
+    const state = withDetails("title");
+    expect(JSON.stringify(toDisplayState(at(state, 11)))).not.toContain("K-On! Season 2");
+    expect(toDisplayState(at(state, 0)).lightning?.hints).toEqual({ kind: "title", masked: "_-__! ______ _" });
+    const revealed = applyPartyCommand(state, { type: "reveal" });
+    expect(toDisplayState(revealed).lightning?.hints).toEqual({ kind: "title", masked: "K-On! Season 2" });
+  });
+});
+

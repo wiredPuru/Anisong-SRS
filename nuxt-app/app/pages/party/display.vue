@@ -33,6 +33,7 @@ function start() {
         :start-fraction="state.startFraction"
         :effects="state.effects"
         :revealed="state.phase === 'revealed'"
+        :lightning="state.lightning"
         @position="reportPosition"
       />
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>

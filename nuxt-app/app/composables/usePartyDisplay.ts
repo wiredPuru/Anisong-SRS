@@ -1,5 +1,11 @@
 export type PartyPhase = "idle" | "guessing" | "revealed";
 export type PartyPicture = "video" | "blackout" | "cover";
+export type PartyLightningMode = "regular" | "blind" | "peek" | "cover" | "clues" | "tags" | "title";
+export type PartyHints =
+  | { kind: "clues"; items: { label: string; value: string }[] }
+  | { kind: "tags"; items: string[] }
+  | { kind: "title"; masked: string }
+  | null;
 
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
 export interface PartyEffects {
@@ -31,6 +37,7 @@ export interface PartyDisplayState {
   seekSeq: number;
   startFraction: number;
   effects: PartyEffects;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
   answer: PartyAnswer | null;
 }
 
@@ -39,6 +46,7 @@ export interface PartyPositionReport {
   currentTime: number;
   duration: number | null;
   playing: boolean;
+  elapsed: number;
 }
 
 const RETRY_MIN_MS = 1000;
