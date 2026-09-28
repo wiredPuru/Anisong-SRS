@@ -375,17 +375,41 @@ export function pickRandomDueOrder<T extends { id: number; nextReviewAt: Date }>
   return picks;
 }
 
+// A box-1 card is due again the moment it is reviewed and keeps its daily
+// tie-break rank, so on its own pickRandomDueOrder would serve it back to back
+// until it graduates. Cards the session just reviewed (`recentIds`, oldest
+// first) therefore go last: any other due card is served before them, and
+// when only recent cards are due, the one reviewed longest ago goes first.
+export function orderAwayFromRecent<T extends { id: number; nextReviewAt: Date }>(
+  pool: readonly T[],
+  recentIds: readonly number[],
+  count: number,
+  now: Date = new Date(),
+): T[] {
+  const recent = new Set(recentIds);
+  const picks = pickRandomDueOrder(
+    pool.filter((entry) => !recent.has(entry.id)),
+    count,
+    now,
+  );
+  const recentDue = pool
+    .filter((entry) => recent.has(entry.id))
+    .sort((a, b) => recentIds.lastIndexOf(a.id) - recentIds.lastIndexOf(b.id));
+  return [...picks, ...recentDue].slice(0, count);
+}
+
 export function getNextDueCard(
   scope: StudyScope,
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
+  recentIds: readonly number[] = [],
 ): CardWithDetails | undefined {
   const pool = cardQuery(criterion)
     .where(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters))
     .orderBy(asc(trackNextReviewAtExpr(criterion)))
     .all();
-  return pickRandomDueOrder(pool, 1)[0];
+  return orderAwayFromRecent(pool, recentIds, 1)[0];
 }
 
 // A best-effort snapshot of the next `limit` due cards after `excludeCardId`,
@@ -400,11 +424,14 @@ export function getUpcomingDueCards(
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
+  recentIds: readonly number[] = [],
 ): CardWithDetails[] {
   const base = dueCardCondition(scope, includeNewBeyondLimit, criterion, filters);
   const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
   const pool = cardQuery(criterion).where(condition).orderBy(asc(trackNextReviewAtExpr(criterion))).all();
-  return pickRandomDueOrder(pool, limit);
+  // The card being served now is the next one the session will have reviewed.
+  const afterServed = excludeCardId !== undefined ? [...recentIds, excludeCardId] : recentIds;
+  return orderAwayFromRecent(pool, afterServed, limit);
 }
 
 export function getDueCardCount(

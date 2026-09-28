@@ -7,12 +7,13 @@ import {
 } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel, resolveScopeCriterion } from "../../utils/decks.ts";
 import { parseStudyFilters } from "../../utils/studyFilters.ts";
+import { parseRecentCardIds } from "../../utils/studyRecent.ts";
 import { parseStudyScope } from "../../utils/studyScope.ts";
 
 const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw, includeNew, filters: filtersRaw } = getQuery(event);
+  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw } = getQuery(event);
   // Session-only opt-in from Study's "Study new cards" action; anything other
   // than the literal "true" leaves the daily cap in force.
   const includeNewBeyondLimit = includeNew === "true";
@@ -29,6 +30,12 @@ export default defineEventHandler((event) => {
   }
   const { filters } = parsedFilters;
 
+  const parsedRecent = parseRecentCardIds(recentRaw);
+  if ("error" in parsedRecent) {
+    throw createError({ statusCode: 400, statusMessage: parsedRecent.error });
+  }
+  const { recentIds } = parsedRecent;
+
   if (scope.type !== "all") {
     const lookup = { artist: getArtistLabel, anime: getAnimeLabel, created: getManualDeckLabel }[scope.type];
     if (lookup(scope.id) === undefined) {
@@ -40,7 +47,7 @@ export default defineEventHandler((event) => {
   // track as the card being served, and re-reading the deck per call would
   // let a criterion changed mid-request split them.
   const criterion = resolveScopeCriterion(scope);
-  const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters);
+  const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters, recentIds);
 
   return {
     card: nextCard ?? null,
@@ -48,6 +55,6 @@ export default defineEventHandler((event) => {
     newCardsToday: getNewCardsTodayInfo(criterion),
     dueCount: getDueCardCount(scope, includeNewBeyondLimit, criterion, filters),
     withheldNewCount: getWithheldNewCount(scope, criterion, filters),
-    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2, includeNewBeyondLimit, criterion, filters),
+    upcoming: getUpcomingDueCards(scope, nextCard?.id, 2, includeNewBeyondLimit, criterion, filters, recentIds),
   };
 });

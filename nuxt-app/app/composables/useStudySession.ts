@@ -71,6 +71,9 @@ export function useStudySession(
   // Echoed back to /api/study/review so a review advances the same track the
   // card was served from, rather than the server re-resolving the deck.
   const criterion = ref<GradingCriterion>("title");
+  // Cards reviewed most recently this session, oldest first. Sent with every
+  // fetch so a box-1 card is not served straight back while others are due.
+  const recentCardIds = ref<number[]>([]);
 
   async function fetchNext(): Promise<boolean> {
     if (!scope.value) return false;
@@ -89,6 +92,7 @@ export function useStudySession(
           ...scopeQuery(scope.value),
           ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
           filters: filtersQueryValue(filters.value),
+          ...(recentCardIds.value.length > 0 ? { recent: recentCardIds.value.join(",") } : {}),
         },
       });
       currentCard.value = result.card;
@@ -117,14 +121,16 @@ export function useStudySession(
 
   async function submit(result: "pass" | "fail") {
     if (reviewing.value || !currentCard.value) return false;
+    const cardId = currentCard.value.id;
     reviewing.value = true;
     error.value = null;
     try {
       await $fetch("/api/study/review", {
         method: "POST",
-        body: { cardId: currentCard.value.id, result, criterion: criterion.value },
+        body: { cardId, result, criterion: criterion.value },
       });
       reviewedCount.value += 1;
+      recentCardIds.value = withRecentCard(recentCardIds.value, cardId);
       return true;
     } catch (err) {
       error.value = extractErrorMessage(err, "Failed to submit review.");
@@ -145,6 +151,7 @@ export function useStudySession(
     scope,
     (value) => {
       reviewedCount.value = 0;
+      recentCardIds.value = [];
       sessionComplete.value = false;
       error.value = null;
       currentCard.value = null;

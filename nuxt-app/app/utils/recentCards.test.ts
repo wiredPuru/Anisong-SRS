@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { RECENT_CARD_WINDOW, withRecentCard } from "./recentCards.ts";
+
+describe("withRecentCard", () => {
+  it("appends a new card to the end", () => {
+    expect(withRecentCard([], 4)).toEqual([4]);
+    expect(withRecentCard([4, 9], 2)).toEqual([4, 9, 2]);
+  });
+
+  it("moves a re-reviewed card to the end instead of listing it twice", () => {
+    expect(withRecentCard([4, 9, 2], 9)).toEqual([4, 2, 9]);
+  });
+
+  it("drops the oldest card once the window is full", () => {
+    const full = Array.from({ length: RECENT_CARD_WINDOW }, (_, index) => index + 1);
+    const next = withRecentCard(full, 99);
+    expect(next).toHaveLength(RECENT_CARD_WINDOW);
+    expect(next[0]).toBe(2);
+    expect(next.at(-1)).toBe(99);
+  });
+
+  it("does not mutate the input list", () => {
+    const input = [1, 2];
+    withRecentCard(input, 3);
+    expect(input).toEqual([1, 2]);
+  });
+
+  it("returns an empty list for a zero window", () => {
+    expect(withRecentCard([1, 2], 3, 0)).toEqual([]);
+  });
+});

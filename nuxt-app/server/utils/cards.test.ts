@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
-import { baseDueCondition, pathsToRemove, pickRandomDueOrder } from "./cards.ts";
+import { baseDueCondition, orderAwayFromRecent, pathsToRemove, pickRandomDueOrder } from "./cards.ts";
 
 const themesOnly = vi.hoisted(() => ({ value: false }));
 const dailyNewCardLimit = vi.hoisted(() => ({ value: null as number | null }));
@@ -65,6 +65,69 @@ function tiedPool(): Pooled[] {
 // insertion order in disguise.
 const seedDay = new Date("2026-09-05T12:00:00.000Z");
 const nextSeedDay = new Date("2026-09-06T12:00:00.000Z");
+
+describe("orderAwayFromRecent", () => {
+  const ids = (picks: Pooled[]) => picks.map((entry) => entry.id);
+
+  it("matches pickRandomDueOrder exactly when nothing is recent", () => {
+    expect(ids(orderAwayFromRecent(tiedPool(), [], 4, seedDay))).toEqual(ids(pickRandomDueOrder(tiedPool(), 4, seedDay)));
+  });
+
+  it("never serves a recent card while any other card is due", () => {
+    const leader = pickRandomDueOrder(tiedPool().slice(1), 1, seedDay)[0].id;
+    const [next] = orderAwayFromRecent(tiedPool().slice(1), [leader], 1, seedDay);
+    expect(next.id).not.toBe(leader);
+  });
+
+  it("does not repeat the same card across a run of box-1 reviews", () => {
+    const pool = tiedPool().slice(1);
+    const recent: number[] = [];
+    const served: number[] = [];
+    for (let review = 0; review < 6; review += 1) {
+      const [next] = orderAwayFromRecent(pool, recent, 1, seedDay);
+      served.push(next.id);
+      recent.splice(0, recent.length, ...recent.filter((id) => id !== next.id), next.id);
+    }
+    for (let index = 1; index < served.length; index += 1) {
+      expect(served[index]).not.toBe(served[index - 1]);
+    }
+  });
+
+  it("serves the card reviewed longest ago when every due card is recent", () => {
+    const pool = tiedPool().slice(1);
+    expect(orderAwayFromRecent(pool, [3, 4, 2], 1, seedDay)[0].id).toBe(3);
+    expect(ids(orderAwayFromRecent(pool, [3, 4, 2], 3, seedDay))).toEqual([3, 4, 2]);
+  });
+
+  it("alternates between two due cards", () => {
+    const pool: Pooled[] = [
+      { id: 2, nextReviewAt: today },
+      { id: 3, nextReviewAt: today },
+    ];
+    const first = orderAwayFromRecent(pool, [], 1, seedDay)[0].id;
+    const second = orderAwayFromRecent(pool, [first], 1, seedDay)[0].id;
+    const third = orderAwayFromRecent(pool, [first, second], 1, seedDay)[0].id;
+    expect(second).not.toBe(first);
+    expect(third).toBe(first);
+  });
+
+  it("still serves a lone due card even though it was just reviewed", () => {
+    const pool: Pooled[] = [{ id: 2, nextReviewAt: today }];
+    expect(orderAwayFromRecent(pool, [2], 1, seedDay)[0].id).toBe(2);
+  });
+
+  it("keeps an earlier-day card ahead of today's cards", () => {
+    expect(orderAwayFromRecent(tiedPool(), [3], 1, seedDay)[0].id).toBe(1);
+  });
+
+  it("ignores recent ids that are not in the pool", () => {
+    expect(ids(orderAwayFromRecent(tiedPool(), [99], 4, seedDay))).toEqual(ids(pickRandomDueOrder(tiedPool(), 4, seedDay)));
+  });
+
+  it("returns an empty list for an empty pool", () => {
+    expect(orderAwayFromRecent([], [1, 2], 1, seedDay)).toEqual([]);
+  });
+});
 
 describe("pickRandomDueOrder", () => {
   it("returns undefined-safe empty array for an empty pool", () => {
