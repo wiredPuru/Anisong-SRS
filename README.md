@@ -1,174 +1,139 @@
 <p align="center">
-  <img src="nuxt-app/public/mascot/temi-640.webp" width="220" height="220" alt="Temi, the GAQ SRS mascot, wearing headphones at a quiz buzzer">
+  <img src="nuxt-app/public/mascot/kai-hero-528.webp" width="440" alt="Kai, the GAQ SRS mascot, smiling in bunny-eared headphones">
 </p>
 
 # GAQ SRS
 
-**Learn anime openings and endings, one song at a time.**
+**Get better at Anime Music Quiz, one song at a time.**
 
-GAQ SRS is a local flashcard app for practicing
-[Anime Music Quiz](https://animemusicquiz.com). Listen to a clip, try to name
-the anime, song, and artist, then mark your answer. Spaced repetition brings
-back the songs you miss and gives the ones you know more time between reviews.
+If you've played [Anime Music Quiz](https://animemusicquiz.com), you know the
+feeling: a song starts, it sounds *so* familiar, and the timer runs out before
+the name comes back to you. GAQ SRS is built for exactly that problem.
 
-A warm, pastel interface and **Temi**, your headphone-wearing quiz companion,
-make room for the important part: listening.
+It's a flashcard app for anime openings, endings, and insert songs. You hear a
+clip, try to name the show (and, if you like, the song and the artist), and the
+app keeps track of what you know. Songs you miss come back soon. Songs you nail
+get pushed further out. Over time, the ones that used to stump you start
+landing in the first few seconds.
 
-[Download a release](https://github.com/wiredPuru/Anisong-SRS/releases) ·
-[Get started](#getting-started) · [Run from source](#building-from-source)
+Everything runs on your own computer. Your library, your progress, and your
+review history stay with you, with no account and no cloud.
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="1000" alt="Home dashboard with Temi, due cards, recent review activity, and weakest decks">
+  <img src="docs/screenshots/home.png" width="1000" alt="Home dashboard with Kai, cards due today, and a month of study activity">
 </p>
 
-## What you can do
+## Studying
 
-- **Build your song library.** Search by anime, song, or artist and choose the themes you want to learn.
-- **Practice your way.** Hide the video, cover art, or answer; use random start times and timed reveals.
-- **Study a focused deck.** Browse automatic anime and artist decks, or create your own and add cards in bulk.
-- **Read along.** Show English, romaji, and Japanese titles, with optional furigana.
-- **Track progress.** See due cards, your activity streak, and pass rates by anime or artist.
-- **Keep your library local.** Stream and cache clips, download them, or use files you already have.
+The Study screen is where most of your time goes. A clip plays, you take your
+guess, and then you reveal the answer and mark whether you got it. The side
+panel shows the anime in English, romaji, and Japanese (with optional furigana),
+along with the song, artist, which opening or ending it is, and links out to
+AniList and AnimeThemes.
 
-Your cards, settings, and review history stay on your computer. No account or
-cloud sync is required. Online searches and remote playback use external
-services: AniList for anime metadata, AnisongDB and AMQ media hosts for song
-data and clips, and animethemes.moe as a fallback.
+<p align="center">
+  <img src="docs/screenshots/study.png" width="1000" alt="Study screen playing Dragon Crisis OP1, with the answer revealed in the side panel">
+</p>
 
-## Install
+You decide how many hints you get. Hide the video so it's audio only, blur the
+answer panel, start each clip at a random point instead of the intro, or let
+**Auto Reveal** uncover things on a timer. The ambient glow picks up the colors
+of whatever's playing and washes them across the screen, and audio-only songs
+spin the show's cover art on a little record.
 
-Download your platform from the
-[Releases page](https://github.com/wiredPuru/Anisong-SRS/releases), unzip the
-archive, and run the executable. It starts a local server and opens the app
-in your browser. You do not need to install Node, Bun, or Nuxt.
+### Typed answers
 
-| Platform | Archive |
+Turn on **Typed Answers** and it plays more like the real game: you type the
+anime title, pick from suggestions, and the app grades you. Keep a combo going
+to rack up points. You can also add bonus rounds for the song name and the
+OP/ED number.
+
+<p align="center">
+  <img src="docs/screenshots/typed.png" width="1000" alt="Typed Answers mode with the video hidden and anime suggestions under a partly typed guess">
+</p>
+
+## Building your library
+
+The **Cards** page is both your collection and where you find new songs. Type
+an anime, a song, or an artist and you'll see what you already have alongside
+everything you could add. Pull in a whole show's themes at once, grab an
+artist's entire catalog, or import your completed list from AniList or
+MyAnimeList and pick from there.
+
+<p align="center">
+  <img src="docs/screenshots/cards.png" width="1000" alt="Cards library with song, anime, source, and due columns, and a selected card's details on the right">
+</p>
+
+Clips stream from AnisongDB, with AnimeThemes as a backup, and are cached as
+you listen. You can also download them or point the app at music files you
+already have. If something stops playing, **Library health** in Settings finds
+the broken cards and helps you fix them.
+
+## Decks
+
+Your cards group themselves into decks by anime and by artist automatically,
+so studying "everything by FLOW" or "just Monogatari" takes one click. You can
+also make your own decks and fill them however you like: by hand, by copying
+other decks, or with filters like year, season, genre, tags, score, or
+"shows on my AniList."
+
+<p align="center">
+  <img src="docs/screenshots/decks.png" width="1000" alt="Deck browser showing a grid of anime cover art with due counts and pass rates">
+</p>
+
+A deck you make can also change *what* you're tested on. Set it to the song
+name, the artist, the OP/ED number, or any mix of those, and it keeps its own
+schedule. So drilling artists never throws off how well you know the shows.
+
+## Seeing your progress
+
+**Stats** shows how you're actually doing: your pass rate, your streaks and
+best days, how many cards are still learning versus locked in, what's coming
+due over the next week, and which songs keep tripping you up.
+
+<p align="center">
+  <img src="docs/screenshots/stats.png" width="1000" alt="Review stats with total reviews, pass rate, streak, records, collection health, and a review forecast">
+</p>
+
+## Light or dark
+
+GAQ SRS follows your system's light or dark setting by default, and you can
+pick one yourself in Settings. Kai, the mascot, hangs around in both. She
+cheers when you get one right and slumps a little when you don't.
+
+<p align="center">
+  <img src="docs/screenshots/study-dark.png" width="1000" alt="Study screen in the dark theme, showing a quiz result card with Kai over the video">
+</p>
+
+## Party mode
+
+GAQ SRS also comes with **Guess the Anime**, a party game for game nights and
+streams. Put the display on a TV, projector, or OBS, and run the show from your
+phone. Queue up songs from your own decks and filters, add effects like blur,
+pixelation, or a blacked-out screen, run fast-paced lightning rounds, keep
+score, and play lobby music between rounds. The screen never shows an answer
+until you reveal it, and nothing you play there touches your study progress.
+
+## How the spacing works
+
+Every card sits in one of five boxes. Get it right and it moves up a box; miss
+it and it drops back to the first one, where it can come around again the same
+session.
+
+| Box | Comes back in |
 | --- | --- |
-| Windows (x64) | `gaq-srs-windows-x64.zip` |
-| macOS (Apple Silicon) | `gaq-srs-macos-arm64.zip` |
-| macOS (Intel) | `gaq-srs-macos-x64.zip` |
-| Linux (x64) | `gaq-srs-linux-x64.zip` |
-
-Keep the executable together with its `migrations/`, `public/`, and
-`kuromoji/` folders.
-
-### First launch
-
-The releases are not signed with a trusted publisher certificate, so your OS
-may show a warning. For an archive you downloaded from this repository:
-
-- **macOS:** right-click the executable and choose **Open**. If macOS still blocks it, clear the extracted folder's quarantine flag with `xattr -dr com.apple.quarantine /path/to/folder`.
-- **Windows:** if SmartScreen appears, choose **More info**, then **Run anyway**.
-- **macOS / Linux:** if needed, make the executable runnable with `chmod +x gaq-srs`.
-
-Your database is stored in your OS's app-data directory, outside the extracted
-app folder. To upgrade, close the app and replace the release folder, keeping
-any media you stored there. Packaged builds check for newer releases and link
-you to the download; updates are installed manually.
-
-## Getting started
-
-### 1. Find songs and add cards
-
-Open **Cards** and search for an anime, song, or artist. The search shows
-matches from your existing library alongside songs you can add. Pick an anime
-to browse its openings and endings, or search an artist to explore themes
-across shows.
-
-Preview cards, edit their details, and select multiple cards to add to one of
-your created decks.
-
-<p align="center">
-  <img src="docs/screenshots/cards.png" width="1000" alt="Cards library in the current rose and charcoal theme, with search, song rows, and card controls">
-</p>
-
-### 2. Listen, guess, and review
-
-Choose **Start session** on Home or open **Study**. Listen to the clip, guess
-the answer, then use **Pass** or **Fail**. Hide the video, cover, and info panel
-to control which clues you get. **Auto reveal** can uncover the video, info,
-or both on a timer.
-
-<p align="center">
-  <img src="docs/screenshots/study.png" width="1000" alt="Study screen with the media player, anime and song information, and review controls">
-</p>
-
-A pass advances the card one box, up to box 5. A fail returns it to box 1,
-where it can appear again in the same session.
-
-| Box | Next review |
-| --- | --- |
-| 1 | Immediately |
+| 1 | Right away |
 | 2 | 1 day |
 | 3 | 3 days |
 | 4 | 7 days |
 | 5 | 14 days |
 
-Use **Previous** to look at the last reviewed card, or open the session log
-to revisit earlier answers. Settings also lets you pace the introduction of
-new cards.
+It's simple on purpose. The songs you struggle with get lots of attention, and
+the ones you know stay out of the way.
 
-<details>
-<summary>Study keyboard shortcuts</summary>
+---
 
-| Key | Action |
-| --- | --- |
-| <kbd>←</kbd> / <kbd>→</kbd> | Fail / Pass |
-| <kbd>S</kbd> | Play / pause |
-| <kbd>I</kbd> | Hide / show info |
-| <kbd>V</kbd> | Hide / show video |
-| <kbd>C</kbd> | Hide / show cover art |
-| <kbd>A</kbd> | Toggle ambient glow |
-| <kbd>P</kbd> | Preview the previous card |
-| <kbd>L</kbd> | Open / close the session log |
-
-</details>
-
-### 3. Pick a deck
-
-**Decks** automatically groups your cards by anime title and artist. Choose a
-deck to practice that part of your library, or use **Created** decks to make
-your own mix.
-
-<p align="center">
-  <img src="docs/screenshots/decks.png" width="1000" alt="Deck browser with anime cover artwork, deck counts, and title, artist, and created-deck tabs">
-</p>
-
-Anime and artist decks can be exported to a folder and imported through
-**Settings**, including for sharing with another person.
-
-### 4. Tune playback and follow your progress
-
-**Settings** holds your local media folders, download preferences, streaming
-cache limit, and **Audio only** playback option. Remote clips are cached as
-you play them; downloading clips or linking local files lets you keep media
-available for offline practice.
-
-**Stats** shows your overall pass rate and results by anime or artist. Home
-brings together recent activity, due cards, recently added songs, and your
-weakest decks to help you choose what to practice next.
-
-## Building from source
-
-With Bun installed, run from the repository root:
-
-```bash
-cd nuxt-app
-bun install
-bun run dev
-```
-
-Open `http://localhost:3000`.
-
-| Command (inside `nuxt-app/`) | Purpose |
-| --- | --- |
-| `bun run test` | Run unit tests |
-| `bun run build` | Build the production app |
-| `bun run preview` | Run the production build locally |
-| `bun run launch` | Launch the built app and open a browser |
-| `bun run package` | Package release executables and archives |
-
-Built with **Nuxt, Vue, TypeScript, SQLite, Drizzle, and Bun**. Packaging
-requires a production build first; macOS targets also require macOS for
-ad-hoc signing. See [AGENTS.md](AGENTS.md) for full commands and the project's
-Blueprint development workflow.
+Grab the latest version from the
+[Releases page](https://github.com/wiredPuru/Anisong-SRS/releases). Anime
+details come from AniList, and song data and clips come from AnisongDB and
+AnimeThemes.
