@@ -3,10 +3,12 @@ export type ResolvedTheme = "light" | "dark";
 
 export const THEME_STORAGE_KEY = "gaqSrs:theme";
 export const THEME_PREFERENCES: readonly ThemePreference[] = ["light", "dark", "system"];
+/** Used until a theme is picked, and always on the party ports, which cannot see the SRS's storage. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = "system";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 export function parseThemePreference(raw: unknown): ThemePreference {
-  return THEME_PREFERENCES.includes(raw as ThemePreference) ? (raw as ThemePreference) : "light";
+  return THEME_PREFERENCES.includes(raw as ThemePreference) ? (raw as ThemePreference) : DEFAULT_THEME_PREFERENCE;
 }
 
 export function resolveTheme(preference: ThemePreference, osPrefersDark: boolean): ResolvedTheme {
@@ -29,8 +31,8 @@ export function watchDarkScheme(onChange: () => void): () => void {
 // first paint; running it from a plugin would flash the light theme on every
 // load for a dark-theme user. It cannot import this module, so it is built
 // from the same constants rather than hand-copied.
-export const THEME_BOOT_SCRIPT = `(function(){var t="light";try{var p=localStorage.getItem(${JSON.stringify(
+export const THEME_BOOT_SCRIPT = `(function(){var p=${JSON.stringify(DEFAULT_THEME_PREFERENCE)},t;try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});if(p==="dark"||(p==="system"&&window.matchMedia(${JSON.stringify(
+)});if(${JSON.stringify(THEME_PREFERENCES)}.indexOf(s)>=0)p=s}catch(e){}t=p;if(p==="system"){t="light";try{if(window.matchMedia(${JSON.stringify(
   DARK_QUERY,
-)}).matches))t="dark"}catch(e){}document.documentElement.setAttribute("data-theme",t)})()`;
+)}).matches)t="dark"}catch(e){}}document.documentElement.setAttribute("data-theme",t)})()`;

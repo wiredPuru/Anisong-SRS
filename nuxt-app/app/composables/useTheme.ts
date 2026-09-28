@@ -1,4 +1,5 @@
 import {
+  DEFAULT_THEME_PREFERENCE,
   parseThemePreference,
   prefersDarkScheme,
   resolveTheme,
@@ -10,7 +11,7 @@ export function readStoredPreference(): ThemePreference {
   try {
     return parseThemePreference(localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    return "light";
+    return DEFAULT_THEME_PREFERENCE;
   }
 }
 
@@ -19,9 +20,10 @@ export function applyTheme(preference: ThemePreference) {
 }
 
 export function useTheme() {
-  // The server cannot see localStorage, so this starts as light everywhere;
-  // plugins/theme.client.ts swaps in the stored value once hydration is done.
-  const preference = useState<ThemePreference>("themePreference", () => "light");
+  // The server cannot see localStorage, so this starts at the default
+  // everywhere; plugins/theme.client.ts swaps in the stored value once
+  // hydration is done.
+  const preference = useState<ThemePreference>("themePreference", () => DEFAULT_THEME_PREFERENCE);
 
   function setPreference(next: ThemePreference) {
     preference.value = next;

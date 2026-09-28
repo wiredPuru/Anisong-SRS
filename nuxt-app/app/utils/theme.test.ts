@@ -8,10 +8,10 @@ describe("parseThemePreference", () => {
     expect(parseThemePreference("system")).toBe("system");
   });
 
-  it("falls back to light for anything else", () => {
-    expect(parseThemePreference(null)).toBe("light");
-    expect(parseThemePreference("Dark")).toBe("light");
-    expect(parseThemePreference(1)).toBe("light");
+  it("falls back to system for anything else", () => {
+    expect(parseThemePreference(null)).toBe("system");
+    expect(parseThemePreference("Dark")).toBe("system");
+    expect(parseThemePreference(1)).toBe("system");
   });
 });
 
@@ -58,12 +58,15 @@ describe("THEME_BOOT_SCRIPT", () => {
     expect(boot("system", false)).toBe("light");
   });
 
-  it("defaults to light when nothing or junk is stored", () => {
-    expect(boot(null, true)).toBe("light");
-    expect(boot("purple", true)).toBe("light");
+  it("follows the OS when nothing or junk is stored", () => {
+    expect(boot(null, true)).toBe("dark");
+    expect(boot(null, false)).toBe("light");
+    expect(boot("purple", true)).toBe("dark");
+    expect(boot("purple", false)).toBe("light");
   });
 
-  it("still sets light when storage throws", () => {
-    expect(boot(new Error("blocked"), true)).toBe("light");
+  it("still follows the OS when storage throws", () => {
+    expect(boot(new Error("blocked"), true)).toBe("dark");
+    expect(boot(new Error("blocked"), false)).toBe("light");
   });
 });
