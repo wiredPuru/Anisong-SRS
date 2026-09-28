@@ -74,6 +74,9 @@ export function useStudySession(
   // Cards reviewed most recently this session, oldest first. Sent with every
   // fetch so a box-1 card is not served straight back while others are due.
   const recentCardIds = ref<number[]>([]);
+  // Cards skipped for the rest of this session (feature 87). Never stored, and
+  // never reviewed, so their schedule is untouched.
+  const buriedCardIds = ref<number[]>([]);
 
   async function fetchNext(): Promise<boolean> {
     if (!scope.value) return false;
@@ -93,6 +96,7 @@ export function useStudySession(
           ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
           filters: filtersQueryValue(filters.value),
           ...(recentCardIds.value.length > 0 ? { recent: recentCardIds.value.join(",") } : {}),
+          ...(buriedCardIds.value.length > 0 ? { bury: buriedCardIds.value.join(",") } : {}),
         },
       });
       currentCard.value = result.card;
@@ -140,6 +144,18 @@ export function useStudySession(
     }
   }
 
+  async function bury(cardId: number) {
+    buriedCardIds.value = withBuriedCard(buriedCardIds.value, cardId);
+    await fetchNext();
+  }
+
+  // After a card is deleted from the library, forget it and move on.
+  async function removeDeleted(cardId: number) {
+    recentCardIds.value = withoutCard(recentCardIds.value, cardId);
+    buriedCardIds.value = withoutCard(buriedCardIds.value, cardId);
+    await fetchNext();
+  }
+
   // Releases the daily new-card cap for the rest of this session and pulls the
   // first previously-withheld card straight away.
   async function studyNewCards() {
@@ -152,6 +168,7 @@ export function useStudySession(
     (value) => {
       reviewedCount.value = 0;
       recentCardIds.value = [];
+      buriedCardIds.value = [];
       sessionComplete.value = false;
       error.value = null;
       currentCard.value = null;
@@ -181,6 +198,8 @@ export function useStudySession(
     criterion,
     submit,
     studyNewCards,
+    bury,
+    removeDeleted,
     refresh: fetchNext,
   };
 }

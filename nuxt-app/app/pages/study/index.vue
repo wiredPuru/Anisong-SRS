@@ -128,6 +128,8 @@ const {
   criterion,
   submit,
   studyNewCards,
+  bury: buryCard,
+  removeDeleted,
   refresh: refreshStudySession,
 } = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters);
 
@@ -287,6 +289,7 @@ onUnmounted(() => {
 });
 
 const cardEditing = ref(false);
+const cardEditPanelRef = ref<{ toggle: () => void } | null>(null);
 const submissionBusy = ref(false);
 const awaitingNextCard = ref(false);
 let reviewSubmission = createReviewSubmission();
@@ -634,6 +637,20 @@ async function toggleDeckMembership(cardId: number, deckId: number, checked: boo
 function onCardEdited(updated: { id: number } & Partial<CardWithDetails>) {
   if (!currentCard.value || currentCard.value.id !== updated.id) return;
   currentCard.value = { ...currentCard.value, ...updated };
+}
+
+// A new card resets cardEditing through the presentationKey watcher, but an
+// empty queue serves none, so both handlers clear it themselves.
+function onCardBuried(cardId: number) {
+  cardEditing.value = false;
+  buryCard(cardId);
+}
+
+// Previous card and the session log must never open a card that is gone.
+function onCardDeleted(cardId: number) {
+  cardEditing.value = false;
+  sessionHistory.value = sessionHistory.value.filter((entry) => entry.card.id !== cardId);
+  removeDeleted(cardId);
 }
 
 const showNewCardLimitPopover = ref(false);
@@ -1086,6 +1103,9 @@ function onKeydown(event: KeyboardEvent) {
     openPreviousCard();
   } else if (key === "l") {
     showSessionLog.value = !showSessionLog.value;
+  } else if (key === "e") {
+    if (loading.value || submissionBusy.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
+    cardEditPanelRef.value?.toggle();
   }
 }
 
@@ -1382,6 +1402,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
             </div>
             <StudyCardEditPanel
+              ref="cardEditPanelRef"
               :key="presentationKey"
               :card="currentCard"
               :manual-decks="manualDecks"
@@ -1391,6 +1412,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :has-default-download-folder="hasDefaultDownloadFolder"
               :disabled="Boolean(quizResult)"
               @updated="onCardEdited"
+              @buried="onCardBuried"
+              @deleted="onCardDeleted"
               @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
@@ -1443,6 +1466,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <span><kbd>I</kbd> hide info</span>
               <span><kbd>P</kbd> previous card</span>
               <span><kbd>L</kbd> session log</span>
+              <span><kbd>E</kbd> edit card</span>
             </template>
           </p>
         </div>

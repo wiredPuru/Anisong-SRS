@@ -288,6 +288,11 @@ listen beyond localhost. It amended `project-plan.md` §2 Users, §3 Features,
 §8 Deployment, and two §9 Non-Goals bullets (shared-instance auth and "any AMQ
 game mode beyond flashcard review"), since a host-run party game with a
 password-locked LAN port is a new product direction.
+Feature 87 (delete and bury from Study) was added to `build-plan.md` on
+2026-09-28 and is now built and merged. It gives Study's Edit card panel a confirmed Delete and a
+session-only Bury, with `E` toggling the panel. No `project-plan.md` change:
+like features 51 and 52 it adds to the existing Study screen, and deleting a
+card is already part of §3's Flashcard CRUD.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2115,6 +2120,17 @@ password-locked LAN port is a new product direction.
         and `PartyScoreboardPanel`.
       - **Hotkeys:** `usePartyHotkeys` (Space, R, N/Right, P/Left, M, T, S,
         ?), ignored in text fields, with `PartyHotkeyHelp`.
+87. **Delete and bury from Study** - done 2026-09-28. Study's Edit card panel
+    (`StudyCardEditPanel`) gains a Delete action behind an inline two-step
+    confirm, reusing `DELETE /api/cards` and feature 17/61's local-file
+    cleanup, after which Study moves on to the next card. It also gains Bury,
+    which skips the card for the rest of the session without a review or any
+    change to its schedule. `E` opens and closes the panel (the key was free
+    once `/study` lost immersive mode). Buried card ids are session-only
+    client state, cleared on a scope change and never stored, and are left
+    out of the next card, the prefetch lookahead, and "N left". As built,
+    Bury and Delete sit in a row at the top of the edit form, since the form
+    scrolls inside the side panel.
 
 ## Data model
 

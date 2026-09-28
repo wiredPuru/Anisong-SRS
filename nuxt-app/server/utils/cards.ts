@@ -314,6 +314,12 @@ function dueCardCondition(
   return and(baseDueCondition(includeNewBeyondLimit, criterion), scopeFilter(scope), studyFilterCondition(filters));
 }
 
+// Cards buried for the rest of a Study session (feature 87) never come up,
+// unlike `recentIds`, which only puts cards at the back of the queue.
+function notBuried(excludedIds: readonly number[]) {
+  return excludedIds.length > 0 ? notInArray(card.id, [...excludedIds]) : undefined;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function mix32(value: number): number {
@@ -404,9 +410,10 @@ export function getNextDueCard(
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
   recentIds: readonly number[] = [],
+  excludedIds: readonly number[] = [],
 ): CardWithDetails | undefined {
   const pool = cardQuery(criterion)
-    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters))
+    .where(and(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters), notBuried(excludedIds)))
     .orderBy(asc(trackNextReviewAtExpr(criterion)))
     .all();
   return orderAwayFromRecent(pool, recentIds, 1)[0];
@@ -425,8 +432,9 @@ export function getUpcomingDueCards(
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
   recentIds: readonly number[] = [],
+  excludedIds: readonly number[] = [],
 ): CardWithDetails[] {
-  const base = dueCardCondition(scope, includeNewBeyondLimit, criterion, filters);
+  const base = and(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters), notBuried(excludedIds));
   const condition = excludeCardId !== undefined ? and(base, ne(card.id, excludeCardId)) : base;
   const pool = cardQuery(criterion).where(condition).orderBy(asc(trackNextReviewAtExpr(criterion))).all();
   // The card being served now is the next one the session will have reviewed.
@@ -439,6 +447,7 @@ export function getDueCardCount(
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
+  excludedIds: readonly number[] = [],
 ): number {
   return db
     .select({ count: count(card.id) })
@@ -446,7 +455,7 @@ export function getDueCardCount(
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters))
+    .where(and(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters), notBuried(excludedIds)))
     .get()!.count;
 }
 

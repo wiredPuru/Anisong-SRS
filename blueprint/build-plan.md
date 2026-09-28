@@ -955,6 +955,14 @@ cleaned-up checkbox version before generating the project overview.
     Clues and Tags (feature 76a metadata), and Title letter fill.
   - [x] 86f. **Host polish** - countdown timer, manual scoreboard, round
     banners, background music, and host panel hotkeys.
+- [x] 87. **Delete and bury from Study** - Study's Edit card panel gains a
+  Delete action (inline two-step confirm, using the same `DELETE /api/cards`
+  and local-file cleanup as `/cards`) that removes the card from the library
+  and moves on to the next one, and a Bury action that skips the card for the
+  rest of this session without reviewing it or changing its schedule. `E`
+  opens and closes the Edit card panel. Buried cards are session-only (cleared
+  on a scope change, never stored) and are left out of the next card, the
+  prefetch lookahead, and the "N left" count.
 
 ## Plan maintenance
 

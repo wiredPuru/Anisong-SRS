@@ -26,6 +26,8 @@ const emit = defineEmits<{
 	updated: [card: CardWithDetails]
 	'editing-change': [editing: boolean]
 	'toggle-membership': [deckId: number, checked: boolean]
+	deleted: [cardId: number]
+	buried: [cardId: number]
 }>()
 
 const editing = ref(false)
@@ -49,6 +51,41 @@ function startEdit() {
 function cancelEdit() {
 	editing.value = false
 	error.value = null
+	confirmingDelete.value = false
+	deleteError.value = null
+}
+
+// Study's E hotkey. Closing drops unsaved edits, the same as Cancel.
+function toggle() {
+	if (editing.value) cancelEdit()
+	else startEdit()
+}
+defineExpose({ toggle })
+
+const confirmingDelete = ref(false)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+const deleteConfirmRef = ref<HTMLElement | null>(null)
+
+// The form sits in a scrolling column, so the confirm opens below the fold.
+async function askDelete() {
+	confirmingDelete.value = true
+	await nextTick()
+	deleteConfirmRef.value?.scrollIntoView({ block: 'nearest' })
+}
+
+async function deleteCard() {
+	deleteError.value = null
+	deleting.value = true
+	try {
+		await $fetch('/api/cards', { method: 'DELETE', body: { id: props.card.id } })
+		emit('deleted', props.card.id)
+	} catch (err) {
+		deleteError.value = extractErrorMessage(err, 'Failed to delete card.')
+		confirmingDelete.value = false
+	} finally {
+		deleting.value = false
+	}
 }
 
 async function save() {
@@ -133,8 +170,58 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			@click="startEdit"
 		>
 			Edit card
+			<span class="tooltip">Hotkey: E</span>
 		</button>
 		<form v-else class="edit-form" @submit.prevent="save">
+			<div class="skip-actions">
+				<button
+					type="button"
+					class="bury-btn"
+					:disabled="saving || deleting"
+					@click="emit('buried', card.id)"
+				>
+					Bury for this session
+				</button>
+				<button
+					v-if="!confirmingDelete"
+					type="button"
+					class="delete-btn"
+					:disabled="saving || deleting"
+					@click="askDelete"
+				>
+					Delete
+				</button>
+			</div>
+			<div
+				v-if="confirmingDelete"
+				ref="deleteConfirmRef"
+				class="delete-confirm"
+				role="alert"
+			>
+				<span class="confirm-label">
+					Delete this card from your library? This also removes its
+					downloaded files.
+				</span>
+				<div class="edit-actions">
+					<button
+						type="button"
+						class="delete-confirm-btn"
+						:disabled="deleting"
+						@click="deleteCard"
+					>
+						{{ deleting ? 'Deleting...' : 'Confirm' }}
+					</button>
+					<button
+						type="button"
+						class="cancel-btn"
+						:disabled="deleting"
+						@click="confirmingDelete = false"
+					>
+						Keep it
+					</button>
+				</div>
+			</div>
+			<p v-if="deleteError" class="edit-error">{{ deleteError }}</p>
 			<label class="field">
 				<span class="field-label">Local video path</span>
 				<div class="path-row">
@@ -265,13 +352,13 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			<p v-if="error" class="edit-error">{{ error }}</p>
 
 			<div class="edit-actions">
-				<button type="submit" class="save-btn" :disabled="saving">
+				<button type="submit" class="save-btn" :disabled="saving || deleting">
 					Save
 				</button>
 				<button
 					type="button"
 					class="cancel-btn"
-					:disabled="saving"
+					:disabled="saving || deleting"
 					@click="cancelEdit"
 				>
 					Cancel
@@ -288,6 +375,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 }
 
 .edit-toggle-btn {
+	position: relative;
 	align-self: flex-start;
 	padding: 8px 18px;
 	border-radius: var(--radius-pill);
@@ -297,6 +385,32 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 	font-family: var(--font-sans);
 	font-weight: 700;
 	cursor: pointer;
+}
+
+.tooltip {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 4px 10px;
+	border-radius: var(--radius-sm);
+	background: var(--surface-raised);
+	border: 1px solid var(--border);
+	color: var(--text);
+	font-size: 12px;
+	font-weight: 700;
+	white-space: nowrap;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+	z-index: 5;
+}
+
+.edit-toggle-btn:hover .tooltip,
+.edit-toggle-btn:focus-visible .tooltip {
+	opacity: 1;
+	visibility: visible;
 }
 
 .edit-form {
@@ -437,8 +551,64 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 	cursor: pointer;
 }
 
+.skip-actions {
+	display: flex;
+	gap: 8px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--border);
+}
+
+.bury-btn,
+.delete-btn {
+	padding: 6px 14px;
+	border-radius: var(--radius-pill);
+	background: transparent;
+	font-family: var(--font-sans);
+	font-weight: 700;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.bury-btn {
+	border: 1px solid var(--accent-secondary);
+	color: var(--accent-secondary);
+}
+
+.delete-btn {
+	border: 1px solid var(--fail);
+	color: var(--fail);
+}
+
+.delete-confirm {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 12px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--fail);
+}
+
+.confirm-label {
+	font-size: 13px;
+	color: var(--text);
+}
+
+.delete-confirm-btn {
+	padding: 8px 18px;
+	border-radius: var(--radius-pill);
+	border: 1px solid var(--fail);
+	background: var(--fail);
+	color: var(--bg);
+	font-family: var(--font-sans);
+	font-weight: 700;
+	cursor: pointer;
+}
+
 .save-btn:disabled,
 .cancel-btn:disabled,
+.bury-btn:disabled,
+.delete-btn:disabled,
+.delete-confirm-btn:disabled,
 .edit-toggle-btn:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;

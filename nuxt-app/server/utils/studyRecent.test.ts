@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_RECENT_CARD_IDS, parseRecentCardIds } from "./studyRecent.ts";
+import { MAX_BURIED_CARD_IDS, MAX_RECENT_CARD_IDS, parseBuriedCardIds, parseCardIdList, parseRecentCardIds } from "./studyRecent.ts";
 
 describe("parseRecentCardIds", () => {
   it("returns an empty list when the param is absent or empty", () => {
@@ -30,5 +30,39 @@ describe("parseRecentCardIds", () => {
     const atCap = Array.from({ length: MAX_RECENT_CARD_IDS }, (_, index) => index + 1).join(",");
     expect(parseRecentCardIds(atCap)).toHaveProperty("recentIds");
     expect(parseRecentCardIds(`${atCap},99`)).toHaveProperty("error");
+  });
+});
+
+describe("parseCardIdList", () => {
+  it("names the param in its error", () => {
+    expect(parseCardIdList("x", "bury", 5)).toEqual({ error: "bury must be a comma-separated list of card ids" });
+  });
+
+  it("applies the cap it is given", () => {
+    expect(parseCardIdList("1,2,3", "bury", 3)).toEqual({ ids: [1, 2, 3] });
+    expect(parseCardIdList("1,2,3,4", "bury", 3)).toHaveProperty("error");
+  });
+});
+
+describe("parseBuriedCardIds", () => {
+  it("returns no ids when the param is absent or empty", () => {
+    expect(parseBuriedCardIds(undefined)).toEqual({ buriedIds: [] });
+    expect(parseBuriedCardIds("")).toEqual({ buriedIds: [] });
+  });
+
+  it("parses ids and drops duplicates", () => {
+    expect(parseBuriedCardIds("4,9,4")).toEqual({ buriedIds: [9, 4] });
+  });
+
+  it("rejects malformed, zero, and negative entries", () => {
+    for (const raw of ["abc", "0", "-3", "1,,2"]) {
+      expect(parseBuriedCardIds(raw)).toHaveProperty("error");
+    }
+  });
+
+  it("allows far more ids than the recent list, up to its own cap", () => {
+    const atCap = Array.from({ length: MAX_BURIED_CARD_IDS }, (_, index) => index + 1).join(",");
+    expect(parseBuriedCardIds(atCap)).toHaveProperty("buriedIds");
+    expect(parseBuriedCardIds(`${atCap},9999`)).toHaveProperty("error");
   });
 });
