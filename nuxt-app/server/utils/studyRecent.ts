@@ -37,3 +37,9 @@ export function parseBuriedCardIds(raw: unknown): { buriedIds: number[] } | { er
   const parsed = parseCardIdList(raw, "bury", MAX_BURIED_CARD_IDS);
   return "error" in parsed ? parsed : { buriedIds: parsed.ids };
 }
+
+/** GET /api/study/next's `prefer` query: a card to serve first if it is due, such as one just undone. */
+export function parsePreferredCardId(raw: unknown): { preferId: number | null } | { error: string } {
+  const parsed = parseCardIdList(raw, "prefer", 1);
+  return "error" in parsed ? parsed : { preferId: parsed.ids[0] ?? null };
+}

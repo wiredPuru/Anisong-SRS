@@ -963,6 +963,22 @@ cleaned-up checkbox version before generating the project overview.
   opens and closes the Edit card panel. Buried cards are session-only (cleared
   on a scope change, never stored) and are left out of the next card, the
   prefetch lookahead, and the "N left" count.
+- [x] 88. **Undo last review** - an Undo action on Study (button plus `U`
+  hotkey) that reverses the most recent review of this session: deletes its
+  `ReviewLog` row, restores that track's box, streak, and due date from new
+  `streakBefore`/`nextReviewAtBefore` columns written with every review, and
+  serves the card again so it can be re-graded. Repeatable back through the
+  session log in reverse order. The server refuses to undo a review that is
+  not the latest one for its card and grading criterion. Covers manual
+  Pass/Fail and typed answers; an undone typed round also takes back its
+  points and combo. Reviews logged before this feature cannot be undone.
+- [ ] 89. **Suspend cards** - a stored per-card `suspended` flag that keeps a
+  card in the library but out of Study (next card, "N left", prefetch
+  lookahead) and out of Home's and Decks' due counts, across every grading
+  track, until it is unsuspended. Set from Study's Edit card panel (beside
+  Bury, then moves on), the `/cards` inspector, and `/cards`' bulk selection
+  bar; `/cards` gains a Suspended filter and a badge on suspended rows.
+  Suspending never changes a card's schedule or review history.
 
 ## Plan maintenance
 

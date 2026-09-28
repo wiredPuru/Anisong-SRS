@@ -77,8 +77,13 @@ export function useStudySession(
   // Cards skipped for the rest of this session (feature 87). Never stored, and
   // never reviewed, so their schedule is untouched.
   const buriedCardIds = ref<number[]>([]);
+  // The log row of the review submit() last saved, for Study's undo (feature 88).
+  const lastReviewLogId = ref<number | null>(null);
 
-  async function fetchNext(): Promise<boolean> {
+  // preferCardId asks the server to serve that card first when it is still due,
+  // which is how an undone card comes straight back. The type guard matters
+  // because this is also handed around as a plain refresh callback.
+  async function fetchNext(preferCardId?: number): Promise<boolean> {
     if (!scope.value) return false;
     loading.value = true;
     error.value = null;
@@ -97,6 +102,7 @@ export function useStudySession(
           filters: filtersQueryValue(filters.value),
           ...(recentCardIds.value.length > 0 ? { recent: recentCardIds.value.join(",") } : {}),
           ...(buriedCardIds.value.length > 0 ? { bury: buriedCardIds.value.join(",") } : {}),
+          ...(typeof preferCardId === "number" ? { prefer: preferCardId } : {}),
         },
       });
       currentCard.value = result.card;
@@ -129,10 +135,11 @@ export function useStudySession(
     reviewing.value = true;
     error.value = null;
     try {
-      await $fetch("/api/study/review", {
+      const saved = await $fetch<{ reviewLogId: number }>("/api/study/review", {
         method: "POST",
         body: { cardId, result, criterion: criterion.value },
       });
+      lastReviewLogId.value = saved.reviewLogId;
       reviewedCount.value += 1;
       recentCardIds.value = withRecentCard(recentCardIds.value, cardId);
       return true;
@@ -142,6 +149,25 @@ export function useStudySession(
     } finally {
       reviewing.value = false;
     }
+  }
+
+  // Reverses a saved review on the server, then serves that card again.
+  async function undo(reviewLogId: number, cardId: number): Promise<boolean> {
+    if (reviewing.value || loading.value) return false;
+    reviewing.value = true;
+    error.value = null;
+    try {
+      await $fetch("/api/study/undo", { method: "POST", body: { reviewLogId } });
+    } catch (err) {
+      error.value = extractErrorMessage(err, "Failed to undo the review.");
+      return false;
+    } finally {
+      reviewing.value = false;
+    }
+    reviewedCount.value = Math.max(0, reviewedCount.value - 1);
+    recentCardIds.value = withoutCard(recentCardIds.value, cardId);
+    await fetchNext(cardId);
+    return true;
   }
 
   async function bury(cardId: number) {
@@ -196,7 +222,9 @@ export function useStudySession(
     dueCount,
     withheldNewCount,
     criterion,
+    lastReviewLogId,
     submit,
+    undo,
     studyNewCards,
     bury,
     removeDeleted,

@@ -7,13 +7,13 @@ import {
 } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel, resolveScopeCriterion } from "../../utils/decks.ts";
 import { parseStudyFilters } from "../../utils/studyFilters.ts";
-import { parseBuriedCardIds, parseRecentCardIds } from "../../utils/studyRecent.ts";
+import { parseBuriedCardIds, parsePreferredCardId, parseRecentCardIds } from "../../utils/studyRecent.ts";
 import { parseStudyScope } from "../../utils/studyScope.ts";
 
 const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw } = getQuery(event);
+  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw, prefer: preferRaw } = getQuery(event);
   // Session-only opt-in from Study's "Study new cards" action; anything other
   // than the literal "true" leaves the daily cap in force.
   const includeNewBeyondLimit = includeNew === "true";
@@ -42,6 +42,11 @@ export default defineEventHandler((event) => {
   }
   const { buriedIds } = parsedBuried;
 
+  const parsedPrefer = parsePreferredCardId(preferRaw);
+  if ("error" in parsedPrefer) {
+    throw createError({ statusCode: 400, statusMessage: parsedPrefer.error });
+  }
+
   if (scope.type !== "all") {
     const lookup = { artist: getArtistLabel, anime: getAnimeLabel, created: getManualDeckLabel }[scope.type];
     if (lookup(scope.id) === undefined) {
@@ -53,7 +58,7 @@ export default defineEventHandler((event) => {
   // track as the card being served, and re-reading the deck per call would
   // let a criterion changed mid-request split them.
   const criterion = resolveScopeCriterion(scope);
-  const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters, recentIds, buriedIds);
+  const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters, recentIds, buriedIds, parsedPrefer.preferId);
 
   return {
     card: nextCard ?? null,

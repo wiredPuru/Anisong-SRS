@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash deb3fb84db88ca98ad60299acf020dfca48a7fb40813921e5360f4e721fb431c -->
+<!-- blueprint:source-hash 5deac361022820817968ba00cec22ee648e784a4c589439a31495be34d369cab -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -293,6 +293,11 @@ Feature 87 (delete and bury from Study) was added to `build-plan.md` on
 session-only Bury, with `E` toggling the panel. No `project-plan.md` change:
 like features 51 and 52 it adds to the existing Study screen, and deleting a
 card is already part of §3's Flashcard CRUD.
+Features 88 (undo last review) and 89 (suspend cards) were added to
+`build-plan.md` on 2026-09-28; 88 is built and merged, 89 is not yet built. Both amended
+`project-plan.md` §3's Study session bullet and §4's Flashcards and Review
+history bullets, since each adds stored state: 88 two before-review columns on
+`ReviewLog`, 89 a suspended flag on `Card`.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2131,6 +2136,32 @@ card is already part of §3's Flashcard CRUD.
     out of the next card, the prefetch lookahead, and "N left". As built,
     Bury and Delete sit in a row at the top of the edit form, since the form
     scrolls inside the side panel.
+88. **Undo last review** - done 2026-09-28. An Undo action on Study (button
+    beside Previous card, on the typed result panel, and on "All caught up",
+    plus a `U` hotkey) reverses the most recent review of the session: it deletes that
+    `ReviewLog` row, restores the track's box, streak, and due date, and serves
+    the card again so it can be re-graded. Repeatable back through the session
+    log (feature 52's `sessionHistory`) newest first. `ReviewLog` stores only
+    `boxBefore`, and a track's streak and due date cannot be derived from it,
+    so every review now also writes `streakBefore` and `nextReviewAtBefore`;
+    rows logged before this feature have them null and cannot be undone. The
+    server refuses an undo unless the row is the latest review for its
+    `(card, criterion)`, so undos cannot apply out of order. Covers manual
+    Pass/Fail and typed answers (features 65-67), where an undone round also
+    takes back its session points and combo. As built: `POST /api/study/undo`
+    (`undoReview`, `server/utils/studyUndo.ts`) returns 404 for a row already
+    gone and 409 for a pre-88 or not-latest row; `GET /api/study/next` gained
+    `prefer=<cardId>`, which serves that card first when it is still due; a
+    non-title track row created by the undone review is deleted rather than
+    reset.
+89. **Suspend cards** - not yet built. A stored per-card `suspended` flag
+    keeps a card in the library but out of Study (next card, "N left", the
+    prefetch lookahead) and out of Home's and Decks' due counts, on every
+    grading track, until unsuspended. Set from Study's Edit card panel beside
+    Bury (Study then moves on), the `/cards` inspector, and `/cards`' bulk
+    selection bar; `/cards` gains a Suspended filter and a badge on suspended
+    rows. Unlike feature 87's Bury it persists. It never changes a card's
+    schedule or review history.
 
 ## Data model
 
@@ -2201,7 +2232,12 @@ stored: video if any video source is present, audio-only otherwise.
 - `animethemesVideoUrl` (string, nullable)
 - `animethemesAudioUrl` (string, nullable)
 - `box` (integer, default `1`) - current Leitner box
+- `streak` (integer, default `0`) - consecutive box-1 passes toward
+  graduating to box 2
 - `nextReviewAt` (datetime, default now) - when the card is next due
+- `suspended` (boolean, not null, default `false`) - feature 89, planned.
+  Applies to every grading track of the card; `CardTrack` has no flag of its
+  own.
 - `createdAt` (datetime)
 
 > A card must have at least one non-null source across the four
@@ -2263,6 +2299,9 @@ Backs the guess-rate stats feature (7) and is written by every
   feature 71a. Which scheduling track this review advanced.
   Every pre-71 row defaults to `"title"`, which is what they all were. Stats
   and the daily new-card count filter on it.
+- `streakBefore` (integer, nullable) and `nextReviewAtBefore` (datetime,
+  nullable) - feature 88 (migration `0025`). The reviewed track's streak and due date
+  before this review, so it can be undone. Null on rows logged before 88.
 
 ### CardTrack
 

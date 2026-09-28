@@ -12,8 +12,9 @@ const props = defineProps<{
   busy: boolean;
   retry: boolean;
   overlay?: boolean;
+  canUndo: boolean;
 }>();
-const emit = defineEmits<{ continue: [] }>();
+const emit = defineEmits<{ continue: []; undo: [] }>();
 const resultPanel = ref<HTMLElement | null>(null);
 const continueButton = ref<HTMLButtonElement | null>(null);
 
@@ -84,6 +85,10 @@ onMounted(() => nextTick(() => {
         <span v-if="combo > 1" class="combo">🔥 {{ combo }}x combo</span>
       </div>
       <p class="listen-hint">Keep listening, then continue when you’re ready.</p>
+      <button type="button" class="undo-action" :disabled="busy || !canUndo" @click="emit('undo')">
+        Undo
+        <kbd>U</kbd>
+      </button>
       <button ref="continueButton" type="button" :disabled="busy" @click="emit('continue')">
         {{ retry ? "Retry next card" : "Continue" }}
         <kbd>Enter</kbd>
@@ -276,6 +281,13 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
 .overlay .points { font-size: 22px; }
 .overlay .listen-hint { display: none; }
 .overlay button { min-width: 150px; }
+
+.undo-action {
+  background: transparent;
+  color: var(--result-color);
+}
+
+.overlay .undo-action { min-width: 0; }
 .overlay .nice-guess { top: 6px; right: auto; left: 70px; font-size: 15px; }
 
 @media (max-width: 1100px) {

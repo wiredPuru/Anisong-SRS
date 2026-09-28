@@ -40,27 +40,35 @@ export function computeNextBoxState(
   return { box, nextReviewAt, streak };
 }
 
-export type RecordReviewResult = { notFound: true } | { card: CardWithDetails };
+export type RecordReviewResult = { notFound: true } | { card: CardWithDetails; reviewLogId: number };
 
 export function recordReview(
   cardId: number,
   result: "pass" | "fail",
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
 ): RecordReviewResult {
-  const existing = readTrackState(cardId, criterion);
-  if (!existing) {
-    return { notFound: true };
-  }
+  const requiredStreak = getBoxOneStreakRequired();
+  const reviewLogId = db.transaction(() => {
+    const existing = readTrackState(cardId, criterion);
+    if (!existing) return undefined;
 
-  const { box, nextReviewAt, streak } = computeNextBoxState(
-    existing.box,
-    existing.streak,
-    result,
-    getBoxOneStreakRequired(),
-  );
+    const next = computeNextBoxState(existing.box, existing.streak, result, requiredStreak);
+    writeTrackState(cardId, criterion, next);
+    return db
+      .insert(reviewLog)
+      .values({
+        cardId,
+        result,
+        boxBefore: existing.box,
+        boxAfter: next.box,
+        criterion,
+        streakBefore: existing.streak,
+        nextReviewAtBefore: existing.nextReviewAt,
+      })
+      .returning({ id: reviewLog.id })
+      .get().id;
+  });
 
-  writeTrackState(cardId, criterion, { box, streak, nextReviewAt });
-  db.insert(reviewLog).values({ cardId, result, boxBefore: existing.box, boxAfter: box, criterion }).run();
-
-  return { card: getCardWithDetails(cardId, criterion)! };
+  if (reviewLogId === undefined) return { notFound: true };
+  return { card: getCardWithDetails(cardId, criterion)!, reviewLogId };
 }

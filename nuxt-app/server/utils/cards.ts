@@ -411,12 +411,16 @@ export function getNextDueCard(
   filters: StudyFilters | null = null,
   recentIds: readonly number[] = [],
   excludedIds: readonly number[] = [],
+  preferId: number | null = null,
 ): CardWithDetails | undefined {
   const pool = cardQuery(criterion)
     .where(and(dueCardCondition(scope, includeNewBeyondLimit, criterion, filters), notBuried(excludedIds)))
     .orderBy(asc(trackNextReviewAtExpr(criterion)))
     .all();
-  return orderAwayFromRecent(pool, recentIds, 1)[0];
+  // Study asks for a just-undone card back first, but only if it still belongs
+  // in this queue; otherwise the usual pick is the right answer.
+  const preferred = preferId === null ? undefined : pool.find((entry) => entry.id === preferId);
+  return preferred ?? orderAwayFromRecent(pool, recentIds, 1)[0];
 }
 
 // A best-effort snapshot of the next `limit` due cards after `excludeCardId`,

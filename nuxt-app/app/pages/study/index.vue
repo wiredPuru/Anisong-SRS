@@ -4,7 +4,7 @@ import type { AnimeAnswerOption } from "~/composables/useAnimeAnswerSearch";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 import type { ThemeSlotSelection } from "~/utils/themeSlotAnswer";
 import type { StudyFilters } from "~/utils/studyFilters";
-import type { BonusCategoryResult } from "~/utils/quizScore";
+import type { BonusCategoryResult, QuizScore } from "~/utils/quizScore";
 import type { BurstRect } from "~/utils/scoreBurst";
 import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
 import { buildSourceLinks } from "~/utils/sourceLinks";
@@ -126,7 +126,9 @@ const {
   dueCount,
   withheldNewCount,
   criterion,
+  lastReviewLogId,
   submit,
+  undo: undoReview,
   studyNewCards,
   bury: buryCard,
   removeDeleted,
@@ -176,6 +178,10 @@ function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
 interface SessionHistoryEntry {
   card: CardWithDetails;
   result: "pass" | "fail";
+  reviewLogId: number;
+  // The typed-answer score before this round, so undo can take its points and
+  // combo back. Null for a manual Pass/Fail, which never touches the score.
+  scoreBefore: QuizScore | null;
 }
 
 interface QuizResultPhase {
@@ -321,7 +327,7 @@ async function submitReview(result: "pass" | "fail") {
       if (saved && stillCurrent()) {
         awaitingNextCard.value = true;
         flashGrade(result);
-        sessionHistory.value.push({ card: reviewedCard, result });
+        sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value!, scoreBefore: null });
       }
       return saved;
     }, async () => {
@@ -475,13 +481,14 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
   try {
     const saveState = await reviewSubmission.saveOnce(() => submit(result));
     if (saveState !== "saved" || !stillCurrent()) return;
-    const previousCombo = quizScore.value.combo;
+    const scoreBefore = quizScore.value;
+    const previousCombo = scoreBefore.combo;
     const burstOrigin = readBurstOrigin();
     const transition = applyQuizResult(quizScore.value, result);
     quizScore.value = transition.score;
     const bonusResults = gradeBonusCategories(reviewedCard);
     flashGrade(result);
-    sessionHistory.value.push({ card: reviewedCard, result });
+    sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value!, scoreBefore });
     launchScoreBursts({
       result,
       answered: shown.selected !== null,
@@ -575,6 +582,31 @@ function openHistoryCard(entry: SessionHistoryEntry) {
   mediaPlayerRef.value?.pause();
   viewedHistoryEntry.value = entry;
   showSessionLog.value = false;
+}
+
+const canUndo = computed(() =>
+  sessionHistory.value.length > 0 && !cardEditing.value && !submissionBusy.value && !loading.value
+  && viewedHistoryEntry.value === null && !showSessionLog.value && !showFilters.value,
+);
+
+// The entry is dropped only once the server has undone it, so a refused undo
+// leaves Previous and the session log accurate.
+async function undoLastReview() {
+  const entry = sessionHistory.value.at(-1);
+  if (!canUndo.value || !entry) return;
+  submissionBusy.value = true;
+  try {
+    const undone = await undoReview(entry.reviewLogId, entry.card.id);
+    if (!undone) return;
+    sessionHistory.value.pop();
+    if (entry.scoreBefore) quizScore.value = entry.scoreBefore;
+    burstLayerRef.value?.cancel();
+    scoreChipRef.value?.settle();
+    quizResult.value = null;
+    awaitingNextCard.value = false;
+  } finally {
+    submissionBusy.value = false;
+  }
 }
 
 function openPreviousCard() {
@@ -1080,6 +1112,10 @@ const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event) || showFilters.value) return;
+  if (event.key.toLowerCase() === "u" && !event.repeat) {
+    void undoLastReview();
+    return;
+  }
   if (quizResult.value) {
     if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
       event.preventDefault();
@@ -1123,7 +1159,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="loading && !currentCard" class="state">
       <ActivityStatus label="Loading your study queue" />
     </div>
-    <div v-else-if="error && !currentCard" class="state state-error">{{ error }}</div>
+    <!-- Not once the session is complete: a failed undo there must keep the
+         caught-up screen, and its Undo button, rather than replace them. -->
+    <div v-else-if="error && !currentCard && !sessionComplete" class="state state-error">{{ error }}</div>
     <div v-else-if="sessionComplete" class="state">
       <MascotKai pose="sleepy" class="state-mascot" />
       <strong class="completion-title">All caught up!</strong>
@@ -1154,16 +1192,22 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         Study new cards ({{ withheldNewCount }})
         <span class="tooltip">Go past today's new-card limit for the rest of this session</span>
       </button>
-      <button
-        v-if="sessionHistory.length > 0"
-        type="button"
-        class="previous-card-btn"
-        :disabled="Boolean(quizResult)"
-        @click="openPreviousCard"
-      >
-        &#8617; Previous card
-        <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
-      </button>
+      <div v-if="sessionHistory.length > 0" class="history-actions">
+        <button
+          type="button"
+          class="previous-card-btn"
+          :disabled="Boolean(quizResult)"
+          @click="openPreviousCard"
+        >
+          &#8617; Previous card
+          <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+        </button>
+        <button type="button" class="undo-btn" :disabled="!canUndo" @click="undoLastReview">
+          &#8634; Undo review
+          <span class="tooltip">Take back your last answer and grade it again &middot; Hotkey: U</span>
+        </button>
+      </div>
+      <p v-if="error" role="alert">{{ error }}</p>
     </div>
     <template v-else-if="currentCard">
       <header class="study-header">
@@ -1351,7 +1395,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   :combo="quizScore.combo"
                   :busy="submissionBusy || loading"
                   :retry="Boolean(error && awaitingNextCard)"
+                  :can-undo="canUndo"
                   @continue="continueTypedAnswer"
+                  @undo="undoLastReview"
                 />
               </div>
             </template>
@@ -1418,16 +1464,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
           </div>
-          <button
-            v-if="sessionHistory.length > 0"
-            type="button"
-            class="previous-card-btn"
-            :disabled="Boolean(quizResult)"
-            @click="openPreviousCard"
-          >
-            &#8617; Previous card
-            <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
-          </button>
+          <div v-if="sessionHistory.length > 0" class="history-actions">
+            <button
+              type="button"
+              class="previous-card-btn"
+              :disabled="Boolean(quizResult)"
+              @click="openPreviousCard"
+            >
+              &#8617; Previous card
+              <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+            </button>
+            <button type="button" class="undo-btn" :disabled="!canUndo" @click="undoLastReview">
+              &#8634; Undo review
+              <span class="tooltip">Take back your last answer and grade it again &middot; Hotkey: U</span>
+            </button>
+          </div>
           <p v-if="error" role="alert">{{ error }}</p>
           <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
           <!-- Here rather than as a header chip: the header already has no
@@ -1453,6 +1504,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template v-if="typedAnswers">
               <template v-if="quizResult">
                 <span><kbd>Enter</kbd> continue</span>
+                <span><kbd>U</kbd> undo</span>
                 <span><kbd>S</kbd> play/pause</span>
               </template>
               <template v-else>
@@ -1465,6 +1517,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <span><kbd>S</kbd> play/pause</span>
               <span><kbd>I</kbd> hide info</span>
               <span><kbd>P</kbd> previous card</span>
+              <span><kbd>U</kbd> undo</span>
               <span><kbd>L</kbd> session log</span>
               <span><kbd>E</kbd> edit card</span>
             </template>
@@ -1905,9 +1958,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   transition: opacity 0.15s ease;
 }
 
-.previous-card-btn {
-  position: relative;
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   align-self: center;
+}
+
+.previous-card-btn,
+.undo-btn {
+  position: relative;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--accent-secondary);
@@ -1919,7 +1980,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: pointer;
 }
 
-.previous-card-btn .tooltip {
+.previous-card-btn .tooltip,
+.undo-btn .tooltip {
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
@@ -1940,12 +2002,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .previous-card-btn:hover .tooltip,
-.previous-card-btn:focus-visible .tooltip {
+.previous-card-btn:focus-visible .tooltip,
+.undo-btn:hover .tooltip,
+.undo-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
 }
 
-.previous-card-btn:disabled {
+/* The Undo button sits at the side panel's right edge, so its tooltip hangs
+   from the button's right end instead of centering and running off-panel. */
+.undo-btn .tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.previous-card-btn:disabled,
+.undo-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

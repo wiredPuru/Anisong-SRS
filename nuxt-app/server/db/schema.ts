@@ -79,6 +79,10 @@ export const reviewLog = sqliteTable("review_log", {
   boxBefore: integer("box_before").notNull(),
   boxAfter: integer("box_after").notNull(),
   criterion: text("criterion").$type<GradingCriterion>().notNull().default("title"),
+  // The track's state before this review, so it can be undone. Null only on
+  // rows written before feature 88, which therefore cannot be undone.
+  streakBefore: integer("streak_before"),
+  nextReviewAtBefore: integer("next_review_at_before", { mode: "timestamp" }),
 });
 
 // One Leitner track per (card, criterion), for non-title criteria only: the

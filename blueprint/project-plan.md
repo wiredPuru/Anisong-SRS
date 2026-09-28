@@ -68,7 +68,10 @@ alone controls it, behind a password.
   playing; the user advances separately with a Continue action or Enter.
   A session can be narrowed by anime year and season, format, AniList score,
   genres and tags, OP/ED, and a user's AniList/MAL list; filters narrow what
-  is served and never change scheduling.
+  is served and never change scheduling. The most recent reviews of a
+  session can be undone, restoring the card's previous schedule so it can be
+  graded again. A card can be suspended to keep it in the library but out of
+  Study until it is unsuspended.
 - **Language display** - English, Romaji, and Japanese are each independently
   toggleable and can all be shown at once if desired; Furigana is a separate
   sub-toggle under Japanese (only relevant when Japanese is on). Furigana is
@@ -102,7 +105,8 @@ alone controls it, behind a password.
   season, format, AniList score, genres, and tags, used to filter Study.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
-  criterion; the card's own columns are the anime-title track).
+  criterion; the card's own columns are the anime-title track), and whether
+  the card is suspended from Study.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks). A manual deck also stores the
@@ -111,7 +115,8 @@ alone controls it, behind a password.
   title.
 - Review history / stats: per-card pass/fail log, used to compute guess rate by
   artist and by anime title. Each logged review records which grading criterion
-  it was for.
+  it was for, plus the track's streak and due date from before it, so the
+  review can be undone.
 - User-configured media library folder path(s).
 
 ## 5. Tech - What stack are we using?

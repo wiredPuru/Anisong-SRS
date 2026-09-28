@@ -78,13 +78,19 @@ export function trackPopulationCondition(criterion: GradingCriterion) {
   );
 }
 
-export function readTrackState(cardId: number, criterion: GradingCriterion): TrackState | undefined {
+export type StoredTrackState = TrackState & { nextReviewAt: Date };
+
+export function readTrackState(cardId: number, criterion: GradingCriterion): StoredTrackState | undefined {
   if (isTitleCriterion(criterion)) {
-    return db.select({ box: card.box, streak: card.streak }).from(card).where(eq(card.id, cardId)).get();
+    return db
+      .select({ box: card.box, streak: card.streak, nextReviewAt: card.nextReviewAt })
+      .from(card)
+      .where(eq(card.id, cardId))
+      .get();
   }
 
   const existing = db
-    .select({ box: cardTrack.box, streak: cardTrack.streak })
+    .select({ box: cardTrack.box, streak: cardTrack.streak, nextReviewAt: cardTrack.nextReviewAt })
     .from(cardTrack)
     .where(and(eq(cardTrack.cardId, cardId), eq(cardTrack.criterion, criterion)))
     .get();
@@ -93,14 +99,10 @@ export function readTrackState(cardId: number, criterion: GradingCriterion): Tra
   // A missing track row on a card that does exist is a new track, not a miss.
   if (existing) return existing;
   const cardExists = db.select({ id: card.id }).from(card).where(eq(card.id, cardId)).get();
-  return cardExists ? { ...NEW_TRACK } : undefined;
+  return cardExists ? { ...NEW_TRACK, nextReviewAt: new Date(ALWAYS_DUE_SECONDS * 1000) } : undefined;
 }
 
-export function writeTrackState(
-  cardId: number,
-  criterion: GradingCriterion,
-  state: TrackState & { nextReviewAt: Date },
-): void {
+export function writeTrackState(cardId: number, criterion: GradingCriterion, state: StoredTrackState): void {
   if (isTitleCriterion(criterion)) {
     db.update(card).set(state).where(eq(card.id, cardId)).run();
     return;
