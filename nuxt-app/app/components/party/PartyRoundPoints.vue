@@ -30,9 +30,6 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
 
 <style scoped>
 .round {
-  position: absolute;
-  top: clamp(96px, 16vh, 190px);
-  left: clamp(12px, 2vw, 24px);
   width: min(300px, 32vw);
   display: flex;
   flex-direction: column;

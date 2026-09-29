@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 1643c3b886cfdd35db8dd89b6b4d6e025a87d0834215a138a62fe9952e201d17 -->
+<!-- blueprint:source-hash 11b0bb0567fbdc6bb0c5bcfc02f199e976b648f9f735bcac6702ad94781fb983 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -312,7 +312,7 @@ code (not the host port), a wrong buzz locks that player out for the rest of
 the song and playback resumes, join info is text only (no QR code and no new
 dependency), and joined players are the existing scoreboard's players.
 Feature 91 (party display polish, in two sub-features 91a-91b) was added to
-`build-plan.md` on 2026-09-29. It changes only how the party display presents
+`build-plan.md` on 2026-09-29; both are built and merged. It changes only how the party display presents
 scores and where its pieces sit. No `project-plan.md` change: it polishes
 feature 86/90's existing display rather than adding a product direction.
 
@@ -2232,8 +2232,8 @@ feature 86/90's existing display rather than adding a product direction.
       each played song with who scored it. As built: `summaryVisible` and a
       host `summary` command; Next on the last song and a lightning round's end
       show it; `buildSummary` counts the current song only once revealed.
-91. **Party display polish: round points and a movable layout** - two
-    sub-features on `/party/display`.
+91. **Party display polish: round points and a movable layout** - done
+    2026-09-29, two sub-features on `/party/display`.
     - **91a. Round points** - done 2026-09-29. Every point a player gains during a song (a
       buzz judged Correct, a one-tap award, or the scoreboard's +/-) adds to a
       per-song tally shown in a small side panel until the next song starts.
@@ -2242,13 +2242,19 @@ feature 86/90's existing display rather than adding a product direction.
       updates the scoreboard, so four quick +1 taps read as a single +4. The
       host panel stays instant. The reveal card no longer says "<name> got
       it!".
-    - **91b. Movable, resizable display layout** - a layout mode (`L`, or a
+    - **91b. Movable, resizable display layout** - done 2026-09-29. A layout mode (`L`, or a
       button that appears with the pointer) where each floating piece (reveal
       card, scoreboard, round points, timer, song count, join chip, lightning
       hints) can be dragged and resized from a corner handle, its contents
       scaling with it. Pieces not showing appear as samples while arranging.
       Saved in that display's browser as screen fractions, with a Reset
-      layout action.
+      layout action. As built: `app/utils/partyLayout.ts` (pure) holds
+      `PARTY_PIECES`, each piece's fixed anchor, defaults, and the move,
+      resize, and parse math; `usePartyLayout()` shares the layout and the
+      `editing` flag; `PartyLayoutFrame.vue` places each piece and handles
+      dragging; `localStorage` key `gaqSrs:partyLayout` stores
+      `{ v: 1, pieces }` with only moved pieces. The lightning hints card
+      moves while its full-screen backdrop stays.
 
 ## Data model
 

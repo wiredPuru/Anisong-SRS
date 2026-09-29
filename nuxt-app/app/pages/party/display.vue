@@ -14,6 +14,13 @@ const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
 const { scores, pops } = usePartySettledScores(state);
+const { editing: arranging } = usePartyLayout();
+const roundRows = computed(() => {
+  const rows = scores.value?.token ? scores.value.roundPoints : [];
+  return arranging.value && !rows.length && !pops.value.length ? SAMPLE_ROUND : rows;
+});
+// The player shows the real hints card while a lightning hint round is guessing.
+const hintsOnScreen = computed(() => Boolean(state.value?.item && state.value.lightning?.hints && state.value.phase === "guessing"));
 
 function start() {
   // Both media elements must receive play() while this click is still active.
@@ -39,8 +46,8 @@ function onPointerMove() {
 function onDoubleClick(event: MouseEvent) {
   // A double-click on "Click to start" would otherwise leave full screen the
   // moment its first click entered it.
-  if (!started.value || Date.now() - startedAt < 600) return;
-  if (event.target instanceof Element && event.target.closest(".display-fullscreen")) return;
+  if (!started.value || arranging.value || Date.now() - startedAt < 600) return;
+  if (event.target instanceof Element && event.target.closest(".display-buttons, .layout-toolbar")) return;
   void toggle();
 }
 
@@ -48,9 +55,17 @@ function onKeydown(event: KeyboardEvent) {
   if (!started.value || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
   const target = event.target;
   if (target instanceof HTMLElement && (target.isContentEditable || target.matches("input, textarea, select"))) return;
-  if (event.key !== "f" && event.key !== "F") return;
-  event.preventDefault();
-  void toggle();
+  const key = event.key.toLowerCase();
+  if (key === "f") {
+    event.preventDefault();
+    void toggle();
+  } else if (key === "l") {
+    event.preventDefault();
+    arranging.value = !arranging.value;
+  } else if (key === "escape" && arranging.value) {
+    event.preventDefault();
+    arranging.value = false;
+  }
 }
 
 // A short two-note chime when a phone buzzes in. Generated, so there is no
@@ -92,7 +107,7 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="display"
-    :class="{ 'is-started': started, 'is-idle': started && !pointerActive }"
+    :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
     @mousemove="onPointerMove"
     @dblclick="onDoubleClick"
   >
@@ -120,8 +135,12 @@ onBeforeUnmount(() => {
     />
 
     <template v-if="started && state?.item">
-      <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
-      <PartyRevealOverlay v-if="state.answer" :answer="state.answer" />
+      <PartyLayoutFrame piece="count">
+        <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="state.answer" piece="reveal">
+        <PartyRevealOverlay :answer="state.answer" />
+      </PartyLayoutFrame>
       <PartyRoundSummary v-if="state.summary" :summary="state.summary" />
     </template>
 
@@ -139,7 +158,9 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="started && state">
-      <PartyRoundPoints :rows="scores?.token ? scores.roundPoints : []" :pops="pops" />
+      <PartyLayoutFrame piece="round">
+        <PartyRoundPoints :rows="roundRows" :pops="pops" />
+      </PartyLayoutFrame>
       <PartyDisplayOverlays
         :timer="state.timer"
         :guessing="state.phase === 'guessing'"
@@ -147,7 +168,21 @@ onBeforeUnmount(() => {
         :banner="state.banner"
         :join="state.item && !state.answer ? state.join : null"
         :answering="state.item ? state.buzz.answering : null"
+        :arranging="arranging"
       />
+    </template>
+
+    <!-- Stand-ins for pieces with nothing on screen, only while arranging. -->
+    <template v-if="started && arranging">
+      <PartyLayoutFrame v-if="!state?.item" piece="count">
+        <p class="display-count">{{ SAMPLE_COUNT.number }} / {{ SAMPLE_COUNT.total }}</p>
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="!state?.answer" piece="reveal">
+        <PartyRevealOverlay :answer="SAMPLE_ANSWER" />
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="!hintsOnScreen" piece="hints">
+        <PartyLightningHintsCard :hints="SAMPLE_HINTS" />
+      </PartyLayoutFrame>
     </template>
 
     <PartyLobbyMusic
@@ -156,19 +191,34 @@ onBeforeUnmount(() => {
       :song-playing="Boolean(state?.item && state.playing)"
     />
 
-    <button
-      v-if="started"
-      type="button"
-      class="display-fullscreen"
-      :aria-label="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
-      :title="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
-      @click="toggle"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path v-if="isFullscreen" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
-        <path v-else d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-      </svg>
-    </button>
+    <PartyLayoutToolbar v-if="started && arranging" @done="arranging = false" />
+
+    <div v-if="started" class="display-buttons">
+      <button
+        v-if="!arranging"
+        type="button"
+        class="display-button"
+        aria-label="Arrange the screen (L)"
+        title="Arrange the screen (L)"
+        @click="arranging = true"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="display-button"
+        :aria-label="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
+        :title="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
+        @click="toggle"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path v-if="isFullscreen" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+          <path v-else d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        </svg>
+      </button>
+    </div>
   </main>
 </template>
 
@@ -187,11 +237,16 @@ onBeforeUnmount(() => {
   cursor: none;
 }
 
-.display-fullscreen {
+.display-buttons {
   position: absolute;
   right: clamp(12px, 2vw, 24px);
   bottom: clamp(12px, 2vh, 24px);
   z-index: var(--z-chrome);
+  display: flex;
+  gap: 12px;
+}
+
+.display-button {
   display: grid;
   place-items: center;
   width: 48px;
@@ -205,7 +260,7 @@ onBeforeUnmount(() => {
   transition: opacity 0.3s ease;
 }
 
-.display-fullscreen svg {
+.display-button svg {
   width: 24px;
   height: 24px;
   fill: none;
@@ -215,13 +270,13 @@ onBeforeUnmount(() => {
   stroke-linejoin: round;
 }
 
-.display.is-idle .display-fullscreen:not(:focus-visible) {
+.display.is-idle .display-button:not(:focus-visible) {
   opacity: 0;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .display-fullscreen {
+  .display-button {
     transition: none;
   }
 }
@@ -296,9 +351,6 @@ onBeforeUnmount(() => {
 }
 
 .display-count {
-  position: absolute;
-  top: clamp(12px, 2vh, 24px);
-  right: clamp(12px, 2vw, 24px);
   margin: 0;
   padding: 6px 16px;
   border: 2px solid var(--outline);

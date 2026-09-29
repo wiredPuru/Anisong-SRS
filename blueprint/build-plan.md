@@ -1008,7 +1008,7 @@ cleaned-up checkbox version before generating the project overview.
     display between songs and automatically at the end of the queue: ranked
     standings plus each played song with who scored it.
 
-- [ ] 91. **Party display polish: round points and a movable layout** - two
+- [x] 91. **Party display polish: round points and a movable layout** - two
   changes to the party display screen (`/party/display`).
   - [x] 91a. **Round points** - every point a player gains during a song (a
     buzz judged Correct, a one-tap award, or the scoreboard's +/-) adds to a
@@ -1018,7 +1018,7 @@ cleaned-up checkbox version before generating the project overview.
     prominent "+N name" pop per player and updates the scoreboard, so four
     quick +1 taps read as a single +4. The host panel stays instant. The
     reveal card no longer says "<name> got it!".
-  - [ ] 91b. **Movable, resizable display layout** - a layout mode on the
+  - [x] 91b. **Movable, resizable display layout** - a layout mode on the
     display (`L`, or a button that appears with the pointer like full screen)
     where each floating piece (reveal card, scoreboard, round points, timer,
     song count, join chip, lightning hints) can be dragged anywhere and

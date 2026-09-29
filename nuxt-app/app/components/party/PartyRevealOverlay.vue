@@ -33,11 +33,7 @@ watch(() => props.answer.coverImageUrl, () => {
 
 <style scoped>
 .reveal {
-  position: absolute;
-  left: 50%;
-  bottom: clamp(16px, 4vh, 48px);
-  transform: translateX(-50%);
-  width: min(1100px, calc(100% - 32px));
+  width: min(1100px, calc(100vw - 32px));
   display: flex;
   align-items: center;
   gap: clamp(16px, 2vw, 32px);
@@ -105,7 +101,7 @@ watch(() => props.answer.coverImageUrl, () => {
 @keyframes reveal-in {
   from {
     opacity: 0;
-    transform: translate(-50%, 24px);
+    transform: translateY(24px);
   }
 }
 

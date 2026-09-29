@@ -8,9 +8,13 @@ const props = defineProps<{
   banner: PartyBanner | null;
   join: PartyJoinInfo | null;
   answering: string | null;
+  // Layout mode: empty pieces show samples so they can be placed.
+  arranging?: boolean;
 }>();
 
-const joinAddress = computed(() => props.join?.urls[0]?.replace(/^https?:\/\//, "") ?? null);
+const board = computed(() => props.scoreboard ?? (props.arranging ? SAMPLE_PLAYERS : null));
+const joinShown = computed(() => props.join ?? (props.arranging ? SAMPLE_JOIN : null));
+const joinAddress = computed(() => joinShown.value?.urls[0]?.replace(/^https?:\/\//, "") ?? null);
 
 const BANNER_MS = 4000;
 const TICK_MS = 250;
@@ -33,31 +37,38 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
 <template>
   <div class="overlays">
-    <div v-if="showTimer" class="timer" :class="{ done: secondsLeft === 0, urgent: secondsLeft !== null && secondsLeft <= 3 }">
-      <span v-if="secondsLeft">{{ secondsLeft }}</span>
-      <span v-else class="timer-done">Time's up!</span>
-    </div>
+    <PartyLayoutFrame v-if="showTimer || arranging" piece="timer">
+      <div class="timer" :class="{ done: showTimer && secondsLeft === 0, urgent: showTimer && secondsLeft !== null && secondsLeft <= 3 }">
+        <span v-if="!showTimer">{{ SAMPLE_TIMER_SECONDS }}</span>
+        <span v-else-if="secondsLeft">{{ secondsLeft }}</span>
+        <span v-else class="timer-done">Time's up!</span>
+      </div>
+    </PartyLayoutFrame>
 
-    <aside v-if="scoreboard" class="scoreboard" aria-label="Scoreboard">
-      <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
-      <ol class="scoreboard-list">
-        <li v-for="(player, index) in scoreboard" :key="player.id" class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0 }">
-          <span class="scoreboard-rank">{{ index + 1 }}</span>
-          <span class="scoreboard-name">{{ player.name }}</span>
-          <span class="scoreboard-score">{{ player.score }}</span>
-        </li>
-        <li v-if="!scoreboard.length" class="scoreboard-empty">No players yet</li>
-      </ol>
-    </aside>
+    <PartyLayoutFrame v-if="board" piece="scoreboard">
+      <aside class="scoreboard" aria-label="Scoreboard">
+        <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
+        <ol class="scoreboard-list">
+          <li v-for="(player, index) in board" :key="player.id" class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0 }">
+            <span class="scoreboard-rank">{{ index + 1 }}</span>
+            <span class="scoreboard-name">{{ player.name }}</span>
+            <span class="scoreboard-score">{{ player.score }}</span>
+          </li>
+          <li v-if="!board.length" class="scoreboard-empty">No players yet</li>
+        </ol>
+      </aside>
+    </PartyLayoutFrame>
 
     <div v-if="answering" class="buzz-layer" role="status">
       <p class="kai-banner kai-banner-pass buzz-name">{{ answering }}</p>
       <p class="buzz-label">buzzed in!</p>
     </div>
 
-    <p v-if="join" class="join-chip">
-      Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template> · code <strong>{{ join.code }}</strong>
-    </p>
+    <PartyLayoutFrame v-if="joinShown" piece="join">
+      <p class="join-chip">
+        Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template> · code <strong>{{ joinShown.code }}</strong>
+      </p>
+    </PartyLayoutFrame>
 
     <div v-if="showBanner && banner" :key="banner.shownAt" class="banner-layer">
       <p class="kai-banner kai-banner-pass banner-text">{{ banner.text }}</p>
@@ -73,9 +84,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 .join-chip {
-  position: absolute;
-  left: clamp(12px, 2vw, 24px);
-  bottom: clamp(12px, 2vh, 24px);
   margin: 0;
   padding: 6px 16px;
   border: 2px solid var(--outline);
@@ -90,9 +98,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 .timer {
-  position: absolute;
-  top: clamp(12px, 2vh, 24px);
-  left: clamp(12px, 2vw, 24px);
   min-width: 2.2em;
   padding: 0.15em 0.5em;
   border: 3px solid var(--outline);
@@ -119,9 +124,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 .scoreboard {
-  position: absolute;
-  top: clamp(64px, 9vh, 110px);
-  right: clamp(12px, 2vw, 24px);
   width: min(360px, 40vw);
   display: flex;
   flex-direction: column;
