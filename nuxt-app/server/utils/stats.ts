@@ -512,19 +512,22 @@ export function getReviewForecast(criterion: GradingCriterion = DEFAULT_GRADING_
   endExclusive.setHours(0, 0, 0, 0);
   endExclusive.setDate(endExclusive.getDate() + FORECAST_DAYS);
   const population = trackPopulationCondition(criterion);
+  // Suspended cards are never served, so the forecast leaves them out the same
+  // way baseDueCondition does for dueNow.
+  const notSuspended = eq(card.suspended, false);
 
   const dueDateExpr = sql<string>`date(${trackNextReviewAtExpr(criterion)}, 'unixepoch', 'localtime')`;
   const dueByDate = db
     .select({ date: dueDateExpr, count: count(card.id) })
     .from(card)
-    .where(and(population, trackDueBeforeCondition(criterion, endExclusive)))
+    .where(and(population, notSuspended, trackDueBeforeCondition(criterion, endExclusive)))
     .groupBy(dueDateExpr)
     .all();
 
   const backlog = db
     .select({ count: count(card.id) })
     .from(card)
-    .where(and(population, trackDueCondition(criterion)))
+    .where(and(population, notSuspended, trackDueCondition(criterion)))
     .get()!.count;
 
   return shapeForecast({

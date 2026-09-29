@@ -5,6 +5,7 @@ interface CardRow {
   localAudioPath: string | null;
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
+  suspended: boolean;
   nextReviewAt: string;
   songTitle: string;
   themeSlot: string;
@@ -80,7 +81,10 @@ const headerCheckState = computed(() =>
         <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
         <span v-else class="cover-thumb cover-thumb-empty" />
         <span class="cell-song">
-          <span class="song-title">{{ c.songTitle }}</span>
+          <span class="song-title">
+            {{ c.songTitle }}
+            <span v-if="c.suspended" class="badge badge-suspended">Suspended</span>
+          </span>
           <span class="song-artist">{{ c.artistName }}</span>
         </span>
         <span class="cell-anime">
@@ -90,7 +94,7 @@ const headerCheckState = computed(() =>
           <span v-for="badge in compactSourceBadges(c)" :key="badge" class="badge">{{ badge }}</span>
           <span v-if="!compactSourceBadges(c).length" class="badge badge-none">No source</span>
         </span>
-        <span v-if="showDue" class="cell-due" :class="{ 'due-now': isDueNow(c) }">{{ dueLabel(c) }}</span>
+        <span v-if="showDue" class="cell-due" :class="{ 'due-now': isDueNow(c) && !c.suspended }">{{ c.suspended ? "-" : dueLabel(c) }}</span>
       </button>
     </div>
   </div>
@@ -242,6 +246,12 @@ const headerCheckState = computed(() =>
   font-weight: 700;
   color: var(--accent-secondary);
   white-space: nowrap;
+}
+
+.badge-suspended {
+  margin-left: 6px;
+  color: var(--muted);
+  vertical-align: middle;
 }
 
 .badge-none {

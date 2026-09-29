@@ -1,3 +1,5 @@
+import type { CardListFilters } from "./cards.ts";
+
 export const BULK_DELETE_MAX = 500;
 
 export type DeleteCardsBody = { kind: "single"; id: number } | { kind: "bulk"; ids: number[] };
@@ -31,7 +33,12 @@ export function parseMatchingQuery(q: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+/** The /cards library toggles from a list route's query string. */
+export function parseCardListFilters(query: Record<string, unknown>): CardListFilters {
+  return { missingAnimeThemesMatch: query.missingAnimeThemes === "1", suspendedOnly: query.suspended === "1" };
+}
+
 /** GET /api/cards/ids must have at least one active filter, so it can never accidentally match the whole library. */
-export function hasAnyCardsIdsFilter(q: string | null, missingAnimeThemesMatch: boolean): boolean {
-  return q !== null || missingAnimeThemesMatch;
+export function hasAnyCardsIdsFilter(q: string | null, filters: CardListFilters): boolean {
+  return q !== null || Boolean(filters.missingAnimeThemesMatch) || Boolean(filters.suspendedOnly);
 }

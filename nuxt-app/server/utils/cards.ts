@@ -24,6 +24,7 @@ export interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  suspended: boolean;
   box: number;
   streak: number;
   nextReviewAt: Date;
@@ -56,6 +57,7 @@ const cardSelection = (criterion: GradingCriterion) => ({
   animethemesVideoUrl: card.animethemesVideoUrl,
   animethemesAudioUrl: card.animethemesAudioUrl,
   notes: card.notes,
+  suspended: card.suspended,
   box: trackBoxExpr(criterion),
   streak: trackStreakExpr(criterion),
   nextReviewAt: trackNextReviewAtExpr(criterion),
@@ -88,7 +90,13 @@ export function searchCards(query: string): CardWithDetails[] {
   return cardQuery().where(like(song.title, `%${query}%`)).orderBy(desc(card.createdAt)).limit(5).all();
 }
 
-export function cardSearchCondition(query?: string, missingAnimeThemesMatch?: boolean) {
+/** The /cards library toggles that narrow a search, or stand in for one. */
+export interface CardListFilters {
+  missingAnimeThemesMatch?: boolean;
+  suspendedOnly?: boolean;
+}
+
+export function cardSearchCondition(query?: string, filters: CardListFilters = {}) {
   const trimmed = query?.trim();
   const pattern = trimmed ? `%${trimmed}%` : undefined;
   const textCondition = pattern
@@ -100,14 +108,17 @@ export function cardSearchCondition(query?: string, missingAnimeThemesMatch?: bo
         like(anime.titleNative, pattern),
       )
     : undefined;
-  const matchCondition = missingAnimeThemesMatch ? isNull(song.animethemesThemeId) : undefined;
+  const conditions = [
+    textCondition,
+    filters.missingAnimeThemesMatch ? isNull(song.animethemesThemeId) : undefined,
+    filters.suspendedOnly ? eq(card.suspended, true) : undefined,
+  ].filter((condition) => condition !== undefined);
 
-  if (textCondition && matchCondition) return and(textCondition, matchCondition);
-  return textCondition ?? matchCondition;
+  return conditions.length > 1 ? and(...conditions) : conditions[0];
 }
 
-export function listCards(page: number, query?: string, missingAnimeThemesMatch?: boolean): Paginated<CardWithDetails> {
-  const condition = cardSearchCondition(query, missingAnimeThemesMatch);
+export function listCards(page: number, query?: string, filters: CardListFilters = {}): Paginated<CardWithDetails> {
+  const condition = cardSearchCondition(query, filters);
 
   const totalBase = db
     .select({ count: count(card.id) })
@@ -128,14 +139,14 @@ export function listCards(page: number, query?: string, missingAnimeThemesMatch?
 }
 
 /** Every card id matching at least one active filter, newest first, unpaged. */
-export function listCardIds(query: string, missingAnimeThemesMatch?: boolean): number[] {
+export function listCardIds(query: string, filters: CardListFilters = {}): number[] {
   return db
     .select({ id: card.id })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(cardSearchCondition(query, missingAnimeThemesMatch))
+    .where(cardSearchCondition(query, filters))
     .orderBy(desc(card.createdAt))
     .all()
     .map((row) => row.id);
@@ -271,7 +282,7 @@ export function baseDueCondition(
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
 ) {
-  const isDue = trackDueCondition(criterion);
+  const isDue = and(trackDueCondition(criterion), eq(card.suspended, false));
   // A subquery, not a join, so the callers sharing this condition keep their
   // own join lists (deck tile counts group by artist/anime id).
   const dueCondition = getThemesOnly()

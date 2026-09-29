@@ -7,6 +7,7 @@ interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  suspended: boolean;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -121,6 +122,17 @@ applyMissingAnimeThemesParam(route.query.missingAnimeThemes);
 
 watch(() => route.query.missingAnimeThemes, applyMissingAnimeThemesParam);
 
+const suspendedOnly = ref(false);
+
+function applySuspendedParam(raw: unknown) {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  suspendedOnly.value = value === "1";
+}
+
+applySuspendedParam(route.query.suspended);
+
+watch(() => route.query.suspended, applySuspendedParam);
+
 const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
@@ -144,6 +156,7 @@ async function loadFirstPage() {
         page: 1,
         q: searchQuery.value || undefined,
         missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+        suspended: suspendedOnly.value ? "1" : undefined,
       },
     });
     if (!isCurrent()) return;
@@ -167,6 +180,7 @@ async function loadMore() {
         page: nextPage.value,
         q: searchQuery.value || undefined,
         missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+        suspended: suspendedOnly.value ? "1" : undefined,
       },
     });
     cards.value.push(...res.cards);
@@ -179,6 +193,10 @@ async function loadMore() {
 }
 
 function replaceCard(updated: CardWithDetails) {
+  if (suspendedOnly.value && !updated.suspended) {
+    dropCardsFromList([updated.id]);
+    return;
+  }
   const idx = cards.value.findIndex((c) => c.id === updated.id);
   if (idx !== -1) cards.value[idx] = updated;
 }
@@ -189,10 +207,11 @@ const matchingFilterDescription = computed(() => {
   const parts: string[] = [];
   if (searchQuery.value) parts.push(`matching "${searchQuery.value}"`);
   if (missingAnimeThemesMatch.value) parts.push("with no AnimeThemes.moe match");
+  if (suspendedOnly.value) parts.push("that are suspended");
   return parts.join(" ");
 });
 
-watch([searchQuery, missingAnimeThemesMatch], () => {
+watch([searchQuery, missingAnimeThemesMatch, suspendedOnly], () => {
   clearChecked();
   confirmingDeleteMatching.value = false;
   loadFirstPage();
@@ -318,7 +337,9 @@ watch(checkedIds, (ids) => {
   if (ids.size === 0) confirmingBulkDelete.value = false;
 });
 
-function dropDeletedCards(ids: readonly number[]) {
+// Removes rows that no longer belong in the list: deleted, or unsuspended while
+// the Suspended filter is on.
+function dropCardsFromList(ids: readonly number[]) {
   const gone = new Set(ids);
   const before = cards.value.length;
   cards.value = cards.value.filter((c) => !gone.has(c.id));
@@ -338,7 +359,7 @@ async function deleteSelected(ids: readonly number[]) {
         method: "DELETE",
         body: { ids: batch },
       });
-      dropDeletedCards([...result.deleted, ...result.notFound]);
+      dropCardsFromList([...result.deleted, ...result.notFound]);
     }
     confirmingBulkDelete.value = false;
   } catch (err) {
@@ -393,6 +414,41 @@ async function addSelectedToDeck() {
   }
 }
 
+const bulkSuspending = ref(false);
+const bulkSuspendError = ref<string | null>(null);
+
+// Same batching as bulk delete: rows already updated stay updated and leave the
+// selection, so a failure leaves only the unfinished cards selected to retry.
+async function setSelectedSuspended(suspended: boolean) {
+  bulkSuspending.value = true;
+  bulkSuspendError.value = null;
+  try {
+    for (const batch of chunkIds([...checkedIds.value], BULK_DELETE_MAX)) {
+      const result = await $fetch<{ updated: number; notFound: number[] }>("/api/cards/suspend", {
+        method: "POST",
+        body: { ids: batch, suspended },
+      });
+      const missing = new Set(result.notFound);
+      const done = batch.filter((id) => !missing.has(id));
+      if (suspendedOnly.value && !suspended) {
+        dropCardsFromList(batch);
+      } else {
+        const doneSet = new Set(done);
+        cards.value = cards.value.map((c) => (doneSet.has(c.id) ? { ...c, suspended } : c));
+        dropCardsFromList(result.notFound);
+      }
+      const processed = new Set(batch);
+      checkedIds.value = new Set([...checkedIds.value].filter((id) => !processed.has(id)));
+    }
+  } catch (err) {
+    bulkSuspendError.value = extractErrorMessage(err, suspended ? "Failed to suspend cards." : "Failed to unsuspend cards.");
+  } finally {
+    bulkSuspending.value = false;
+  }
+  // As after a bulk delete: dropped rows shift later page offsets.
+  if (suspendedOnly.value && !suspended && totalCards.value > cards.value.length) await loadFirstPage();
+}
+
 const confirmingDeleteMatching = ref(false);
 
 // Ids are fetched at Confirm time so cards infinite scroll never loaded are
@@ -405,7 +461,11 @@ async function deleteAllMatching() {
   try {
     ids = (
       await $fetch<{ ids: number[] }>("/api/cards/ids", {
-        query: { q, missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined },
+        query: {
+          q,
+          missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+          suspended: suspendedOnly.value ? "1" : undefined,
+        },
       })
     ).ids;
   } catch (err) {
@@ -471,6 +531,15 @@ watch(
           @click="missingAnimeThemesMatch = !missingAnimeThemesMatch"
         >
           No AnimeThemes match
+        </button>
+        <button
+          type="button"
+          class="filter-toggle"
+          :class="{ active: suspendedOnly }"
+          :aria-pressed="suspendedOnly"
+          @click="suspendedOnly = !suspendedOnly"
+        >
+          Suspended
         </button>
       </div>
       <button
@@ -540,7 +609,7 @@ watch(
       <div class="list-pane">
         <div v-if="initialPending" class="state">
           <MascotState pose="laptop">
-            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}`" label="Loading your cards" />
+            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${suspendedOnly}`" label="Loading your cards" />
           </MascotState>
         </div>
         <div v-else-if="initialError" class="state state-error">
@@ -548,7 +617,7 @@ watch(
         </div>
         <template v-else>
           <div
-            v-if="(searchQuery || missingAnimeThemesMatch) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
+            v-if="(searchQuery || missingAnimeThemesMatch || suspendedOnly) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
             class="selection-bar"
           >
             <span class="selection-count">{{ totalCards }} matching</span>
@@ -579,7 +648,7 @@ watch(
               </button>
             </template>
           </div>
-          <div v-if="checkedIds.size || bulkDeleteError" class="selection-bar">
+          <div v-if="checkedIds.size || bulkDeleteError || bulkSuspendError" class="selection-bar">
             <span class="selection-count">{{ checkedIds.size }} selected</span>
             <template v-if="!confirmingBulkDelete">
               <template v-if="manualDecks.length">
@@ -607,7 +676,23 @@ watch(
               <button
                 type="button"
                 class="selection-clear-btn"
-                :disabled="bulkDeleting || addingToDeck"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkSuspending"
+                @click="setSelectedSuspended(true)"
+              >
+                {{ bulkSuspending ? "Updating..." : "Suspend" }}
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkSuspending"
+                @click="setSelectedSuspended(false)"
+              >
+                Unsuspend
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkDeleting || addingToDeck || bulkSuspending"
                 @click="clearChecked"
               >
                 Clear selection
@@ -644,6 +729,7 @@ watch(
               </button>
             </template>
             <p v-if="bulkDeleteError" class="edit-error selection-error">{{ bulkDeleteError }}</p>
+            <p v-if="bulkSuspendError" class="edit-error selection-error">{{ bulkSuspendError }}</p>
             <p v-if="addToDeckError" class="edit-error selection-error">{{ addToDeckError }}</p>
             <p v-else-if="addToDeckNotice" class="selection-notice">{{ addToDeckNotice }}</p>
           </div>
@@ -658,6 +744,9 @@ watch(
           />
           <div v-else-if="searchQuery" class="state">
             <MascotState pose="surprised">No cards match "{{ searchQuery }}".</MascotState>
+          </div>
+          <div v-else-if="suspendedOnly" class="state">
+            <MascotState pose="clap">No suspended cards.</MascotState>
           </div>
           <div v-else-if="missingAnimeThemesMatch" class="state">
             <MascotState pose="clap">No cards without an AnimeThemes.moe match.</MascotState>
@@ -717,7 +806,7 @@ watch(
           :toggling-membership="togglingMembership"
           :membership-error="deckToggleError"
           @updated="replaceCard"
-          @deleted="dropDeletedCards([$event])"
+          @deleted="dropCardsFromList([$event])"
           @toggle-deck="toggleDeckMembership"
         />
       </aside>

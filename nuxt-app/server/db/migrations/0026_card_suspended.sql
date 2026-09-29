@@ -1,0 +1,1 @@
+ALTER TABLE `card` ADD `suspended` integer DEFAULT false NOT NULL;

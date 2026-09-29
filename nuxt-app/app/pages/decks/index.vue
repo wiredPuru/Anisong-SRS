@@ -51,6 +51,7 @@ interface DeckCard {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  suspended: boolean;
   box: number;
   nextReviewAt: string;
   createdAt: string;

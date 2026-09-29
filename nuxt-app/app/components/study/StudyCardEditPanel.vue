@@ -28,6 +28,7 @@ const emit = defineEmits<{
 	'toggle-membership': [deckId: number, checked: boolean]
 	deleted: [cardId: number]
 	buried: [cardId: number]
+	suspended: [cardId: number]
 }>()
 
 const editing = ref(false)
@@ -85,6 +86,22 @@ async function deleteCard() {
 		confirmingDelete.value = false
 	} finally {
 		deleting.value = false
+	}
+}
+
+const suspending = ref(false)
+const suspendError = ref<string | null>(null)
+
+async function suspendCard() {
+	suspendError.value = null
+	suspending.value = true
+	try {
+		await $fetch('/api/cards/suspend', { method: 'POST', body: { ids: [props.card.id], suspended: true } })
+		emit('suspended', props.card.id)
+	} catch (err) {
+		suspendError.value = extractErrorMessage(err, 'Failed to suspend card.')
+	} finally {
+		suspending.value = false
 	}
 }
 
@@ -177,20 +194,29 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				<button
 					type="button"
 					class="bury-btn"
-					:disabled="saving || deleting"
+					:disabled="saving || deleting || suspending"
 					@click="emit('buried', card.id)"
 				>
 					Bury for this session
 				</button>
 				<button
+					type="button"
+					class="suspend-btn"
+					:disabled="saving || deleting || suspending"
+					@click="suspendCard"
+				>
+					{{ suspending ? 'Suspending...' : 'Suspend' }}
+				</button>
+				<button
 					v-if="!confirmingDelete"
 					type="button"
 					class="delete-btn"
-					:disabled="saving || deleting"
+					:disabled="saving || deleting || suspending"
 					@click="askDelete"
 				>
 					Delete
 				</button>
+				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards.</p>
 			</div>
 			<div
 				v-if="confirmingDelete"
@@ -222,6 +248,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				</div>
 			</div>
 			<p v-if="deleteError" class="edit-error">{{ deleteError }}</p>
+			<p v-if="suspendError" class="edit-error">{{ suspendError }}</p>
 			<label class="field">
 				<span class="field-label">Local video path</span>
 				<div class="path-row">
@@ -553,13 +580,23 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 
 .skip-actions {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	padding-bottom: 10px;
 	border-bottom: 1px solid var(--border);
 }
 
+.skip-hint {
+	flex-basis: 100%;
+	margin: 0;
+	color: var(--muted);
+	font-size: 12px;
+}
+
 .bury-btn,
+.suspend-btn,
 .delete-btn {
+	white-space: nowrap;
 	padding: 6px 14px;
 	border-radius: var(--radius-pill);
 	background: transparent;
@@ -572,6 +609,11 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .bury-btn {
 	border: 1px solid var(--accent-secondary);
 	color: var(--accent-secondary);
+}
+
+.suspend-btn {
+	border: 1px solid var(--accent);
+	color: var(--accent);
 }
 
 .delete-btn {
@@ -607,6 +649,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .save-btn:disabled,
 .cancel-btn:disabled,
 .bury-btn:disabled,
+.suspend-btn:disabled,
 .delete-btn:disabled,
 .delete-confirm-btn:disabled,
 .edit-toggle-btn:disabled {

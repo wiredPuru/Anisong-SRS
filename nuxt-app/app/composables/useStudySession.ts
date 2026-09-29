@@ -20,6 +20,7 @@ export interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  suspended: boolean;
   box: number;
   streak: number;
   nextReviewAt: string;
@@ -175,6 +176,12 @@ export function useStudySession(
     await fetchNext();
   }
 
+  // After a card is suspended, the server stops serving it; just move on.
+  async function skip(cardId: number) {
+    recentCardIds.value = withoutCard(recentCardIds.value, cardId);
+    await fetchNext();
+  }
+
   // After a card is deleted from the library, forget it and move on.
   async function removeDeleted(cardId: number) {
     recentCardIds.value = withoutCard(recentCardIds.value, cardId);
@@ -227,6 +234,7 @@ export function useStudySession(
     undo,
     studyNewCards,
     bury,
+    skip,
     removeDeleted,
     refresh: fetchNext,
   };

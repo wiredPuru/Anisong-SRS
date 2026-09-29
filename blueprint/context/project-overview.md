@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 5deac361022820817968ba00cec22ee648e784a4c589439a31495be34d369cab -->
+<!-- blueprint:source-hash 7d989a909c8b0da179846685bd35a4c674d938fb904e15795a1894baab2de486 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -294,7 +294,7 @@ session-only Bury, with `E` toggling the panel. No `project-plan.md` change:
 like features 51 and 52 it adds to the existing Study screen, and deleting a
 card is already part of §3's Flashcard CRUD.
 Features 88 (undo last review) and 89 (suspend cards) were added to
-`build-plan.md` on 2026-09-28; 88 is built and merged, 89 is not yet built. Both amended
+`build-plan.md` on 2026-09-28 and are both built and merged. Both amended
 `project-plan.md` §3's Study session bullet and §4's Flashcards and Review
 history bullets, since each adds stored state: 88 two before-review columns on
 `ReviewLog`, 89 a suspended flag on `Card`.
@@ -2154,14 +2154,18 @@ history bullets, since each adds stored state: 88 two before-review columns on
     `prefer=<cardId>`, which serves that card first when it is still due; a
     non-title track row created by the undone review is deleted rather than
     reset.
-89. **Suspend cards** - not yet built. A stored per-card `suspended` flag
+89. **Suspend cards** - done 2026-09-28. A stored per-card `suspended` flag
     keeps a card in the library but out of Study (next card, "N left", the
     prefetch lookahead) and out of Home's and Decks' due counts, on every
     grading track, until unsuspended. Set from Study's Edit card panel beside
     Bury (Study then moves on), the `/cards` inspector, and `/cards`' bulk
     selection bar; `/cards` gains a Suspended filter and a badge on suspended
     rows. Unlike feature 87's Bury it persists. It never changes a card's
-    schedule or review history.
+    schedule or review history. As built: the exclusion lives in
+    `baseDueCondition` plus `/stats`' review forecast; `POST /api/cards/suspend`
+    takes `{ ids (1-500), suspended }`; `/api/cards` and `/api/cards/ids` read
+    `suspended=1` through a shared `CardListFilters` object; a suspended row
+    shows "-" for Due.
 
 ## Data model
 
@@ -2235,7 +2239,8 @@ stored: video if any video source is present, audio-only otherwise.
 - `streak` (integer, default `0`) - consecutive box-1 passes toward
   graduating to box 2
 - `nextReviewAt` (datetime, default now) - when the card is next due
-- `suspended` (boolean, not null, default `false`) - feature 89, planned.
+- `suspended` (boolean, not null, default `false`) - feature 89 (migration
+  `0026`).
   Applies to every grading track of the card; `CardTrack` has no flag of its
   own.
 - `createdAt` (datetime)

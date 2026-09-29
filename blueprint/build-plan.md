@@ -972,7 +972,7 @@ cleaned-up checkbox version before generating the project overview.
   not the latest one for its card and grading criterion. Covers manual
   Pass/Fail and typed answers; an undone typed round also takes back its
   points and combo. Reviews logged before this feature cannot be undone.
-- [ ] 89. **Suspend cards** - a stored per-card `suspended` flag that keeps a
+- [x] 89. **Suspend cards** - a stored per-card `suspended` flag that keeps a
   card in the library but out of Study (next card, "N left", prefetch
   lookahead) and out of Home's and Decks' due counts, across every grading
   track, until it is unsuspended. Set from Study's Edit card panel (beside

@@ -7,6 +7,7 @@ interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  suspended: boolean;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -189,6 +190,23 @@ async function removeCard(id: number) {
     confirmingRemoveId.value = null;
   }
 }
+
+const suspending = ref(false);
+const suspendError = ref<string | null>(null);
+watch(() => props.card?.id, () => (suspendError.value = null));
+
+async function toggleSuspended(target: CardWithDetails) {
+  suspendError.value = null;
+  suspending.value = true;
+  try {
+    await $fetch("/api/cards/suspend", { method: "POST", body: { ids: [target.id], suspended: !target.suspended } });
+    emit("updated", { ...target, suspended: !target.suspended });
+  } catch (err) {
+    suspendError.value = extractErrorMessage(err, "Failed to update the card.");
+  } finally {
+    suspending.value = false;
+  }
+}
 </script>
 
 <template>
@@ -364,9 +382,14 @@ async function removeCard(id: number) {
         <div v-else class="inspector-actions">
           <button type="button" class="edit-btn" @click="startEdit(card)">Edit card</button>
           <slot name="actions" :card="card" />
+          <button type="button" class="suspend-btn" :disabled="suspending" @click="toggleSuspended(card)">
+            {{ card.suspended ? "Unsuspend" : "Suspend" }}
+          </button>
           <button type="button" class="remove-btn" @click="confirmingRemoveId = card.id">Delete</button>
         </div>
+        <p v-if="card.suspended" class="suspended-note">Suspended: kept out of Study until you unsuspend it.</p>
         <p v-if="removeCardError[card.id]" class="edit-error">{{ removeCardError[card.id] }}</p>
+        <p v-if="suspendError" class="edit-error">{{ suspendError }}</p>
       </div>
     </template>
   </div>
@@ -561,6 +584,23 @@ async function removeCard(id: number) {
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
+}
+
+.suspend-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.suspended-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .remove-btn,

@@ -131,6 +131,7 @@ const {
   undo: undoReview,
   studyNewCards,
   bury: buryCard,
+  skip: skipCard,
   removeDeleted,
   refresh: refreshStudySession,
 } = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters);
@@ -676,6 +677,11 @@ function onCardEdited(updated: { id: number } & Partial<CardWithDetails>) {
 function onCardBuried(cardId: number) {
   cardEditing.value = false;
   buryCard(cardId);
+}
+
+function onCardSuspended(cardId: number) {
+  cardEditing.value = false;
+  skipCard(cardId);
 }
 
 // Previous card and the session log must never open a card that is gone.
@@ -1459,6 +1465,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :disabled="Boolean(quizResult)"
               @updated="onCardEdited"
               @buried="onCardBuried"
+              @suspended="onCardSuspended"
               @deleted="onCardDeleted"
               @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"

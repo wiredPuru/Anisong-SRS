@@ -183,6 +183,13 @@
       "when": 1790639042707,
       "tag": "0025_review_undo_state",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790639883255,
+      "tag": "0026_card_suspended",
+      "breakpoints": true
     }
   ]
 }

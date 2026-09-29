@@ -30,6 +30,7 @@ function card(overrides: Partial<CardWithDetails> = {}): CardWithDetails {
     animethemesVideoUrl: null,
     animethemesAudioUrl: null,
     notes: null,
+    suspended: false,
     box: 1,
     streak: 0,
     nextReviewAt: new Date(0),

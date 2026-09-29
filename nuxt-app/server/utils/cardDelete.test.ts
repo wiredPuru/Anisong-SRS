@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BULK_DELETE_MAX, hasAnyCardsIdsFilter, parseDeleteBody, parseMatchingQuery } from "./cardDelete.ts";
+import { BULK_DELETE_MAX, hasAnyCardsIdsFilter, parseCardListFilters, parseDeleteBody, parseMatchingQuery } from "./cardDelete.ts";
 
 describe("parseDeleteBody", () => {
   it("accepts a single id", () => {
@@ -43,19 +43,32 @@ describe("parseMatchingQuery", () => {
 });
 
 describe("hasAnyCardsIdsFilter", () => {
-  it("rejects a blank query with the toggle off", () => {
-    expect(hasAnyCardsIdsFilter(null, false)).toBe(false);
+  it("rejects a blank query with every toggle off", () => {
+    expect(hasAnyCardsIdsFilter(null, {})).toBe(false);
+    expect(hasAnyCardsIdsFilter(null, { missingAnimeThemesMatch: false, suspendedOnly: false })).toBe(false);
   });
 
-  it("accepts a blank query with the toggle on", () => {
-    expect(hasAnyCardsIdsFilter(null, true)).toBe(true);
+  it("accepts a blank query with the AnimeThemes toggle on", () => {
+    expect(hasAnyCardsIdsFilter(null, { missingAnimeThemesMatch: true })).toBe(true);
   });
 
-  it("accepts a real query with the toggle off", () => {
-    expect(hasAnyCardsIdsFilter("lisa", false)).toBe(true);
+  it("accepts a blank query with the Suspended toggle on", () => {
+    expect(hasAnyCardsIdsFilter(null, { suspendedOnly: true })).toBe(true);
   });
 
-  it("accepts a real query with the toggle on", () => {
-    expect(hasAnyCardsIdsFilter("lisa", true)).toBe(true);
+  it("accepts a real query with the toggles off", () => {
+    expect(hasAnyCardsIdsFilter("lisa", {})).toBe(true);
+  });
+
+  it("accepts a real query with a toggle on", () => {
+    expect(hasAnyCardsIdsFilter("lisa", { missingAnimeThemesMatch: true })).toBe(true);
+  });
+});
+
+describe("parseCardListFilters", () => {
+  it("reads each toggle only from the literal \"1\"", () => {
+    expect(parseCardListFilters({ missingAnimeThemes: "1", suspended: "1" })).toEqual({ missingAnimeThemesMatch: true, suspendedOnly: true });
+    expect(parseCardListFilters({ missingAnimeThemes: "true", suspended: ["1"] })).toEqual({ missingAnimeThemesMatch: false, suspendedOnly: false });
+    expect(parseCardListFilters({})).toEqual({ missingAnimeThemesMatch: false, suspendedOnly: false });
   });
 });
