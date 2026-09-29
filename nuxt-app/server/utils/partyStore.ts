@@ -15,6 +15,7 @@ import {
   lightningStep,
   PARTY_LOOKAHEAD,
   pickPartyClip,
+  timerMayReveal,
   toQueueItem,
   type PartyCommand,
   type PartyGameState,
@@ -57,7 +58,10 @@ function scheduleTimer(): void {
   if (!timer?.autoReveal) return;
   timerHandle = setTimeout(() => {
     timerHandle = null;
-    if (state.timer === timer && state.phase === "guessing") commit(applyPartyCommand(state, { type: "reveal" }));
+    // A player answering holds the reveal; judging them Wrong lands it.
+    if (state.timer === timer && state.phase === "guessing" && timerMayReveal(state)) {
+      commit(applyPartyCommand(state, { type: "reveal" }));
+    }
   }, Math.max(0, timer.endsAt - Date.now()));
 }
 
@@ -140,6 +144,12 @@ export function regeneratePartyRoomCode(): string {
   const code = partyPlayers.regenerateRoomCode();
   commit({ ...state, version: state.version + 1 });
   return code;
+}
+
+/** A phone's buzz; true when it made that player the one answering. */
+export function buzzParty(playerId: number): boolean {
+  commit(applyPartyCommand(state, { type: "buzz", playerId }));
+  return state.buzz.playerId === playerId;
 }
 
 export function findPartyItemByToken(token: string): PartyQueueItem | null {

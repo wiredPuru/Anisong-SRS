@@ -991,7 +991,7 @@ cleaned-up checkbox version before generating the project overview.
     scoreboard, marked connected or not, and the host can rename or remove
     them. Join attempts are rate-limited per IP; the player door never sees an
     answer before the host reveals it.
-  - [ ] 90b. **Buzzer rounds** - a host toggle for buzzer mode. While a song
+  - [x] 90b. **Buzzer rounds** - a host toggle for buzzer mode. While a song
     is guessing, each player's phone shows a big Buzz button; the first buzz
     pauses playback, locks everyone else out, and shows that player's name on
     the display and host panel. The host marks it Correct (a point, then

@@ -46,6 +46,33 @@ function onKeydown(event: KeyboardEvent) {
   void toggle();
 }
 
+// A short two-note chime when a phone buzzes in. Generated, so there is no
+// sound file to ship, and only after Start, when the page may play audio.
+let chime: AudioContext | null = null;
+function playBuzzChime() {
+  try {
+    chime ??= new AudioContext();
+    const at = chime.currentTime;
+    for (const [offset, frequency] of [[0, 880], [0.12, 1320]] as const) {
+      const osc = chime.createOscillator();
+      const gain = chime.createGain();
+      osc.type = "square";
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.15, at + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + offset + 0.2);
+      osc.connect(gain).connect(chime.destination);
+      osc.start(at + offset);
+      osc.stop(at + offset + 0.22);
+    }
+  } catch {
+    // No Web Audio: the name on screen is enough.
+  }
+}
+
+watch(() => state.value?.buzz.answering ?? null, (name, previous) => {
+  if (started.value && name && name !== previous) playBuzzChime();
+});
+
 const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -84,7 +111,7 @@ onBeforeUnmount(() => {
         @position="reportPosition"
       />
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
-      <PartyRevealOverlay v-if="state.answer" :answer="state.answer" />
+      <PartyRevealOverlay v-if="state.answer" :answer="state.answer" :winner="state.buzz.winner" />
     </template>
 
     <div v-else class="display-waiting">
@@ -106,7 +133,8 @@ onBeforeUnmount(() => {
         :guessing="state.phase === 'guessing'"
         :scoreboard="state.scoreboard"
         :banner="state.banner"
-        :join="state.item ? state.join : null"
+        :join="state.item && !state.answer ? state.join : null"
+        :answering="state.item ? state.buzz.answering : null"
       />
       <PartyLobbyMusic :music="state.music" :song-playing="Boolean(state.item && state.playing)" />
     </template>

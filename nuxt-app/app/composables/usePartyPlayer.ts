@@ -5,6 +5,15 @@ export interface PartyPlayerState {
   phase: "idle" | "guessing" | "revealed";
   song: { number: number; total: number } | null;
   players: { name: string; score: number }[];
+  buzzer: {
+    enabled: boolean;
+    canBuzz: boolean;
+    answering: string | null;
+    answeringIsMe: boolean;
+    lockedOut: boolean;
+    winner: string | null;
+  };
+  answer: { anime: string; song: string; artist: string } | null;
 }
 
 export type PartyPlayerView = "checking" | "join" | "joined";
@@ -136,11 +145,27 @@ export function usePartyPlayer() {
     }
   }
 
+  const buzzing = ref(false);
+
+  // The server decides who was first; the phone only asks.
+  async function buzz(): Promise<void> {
+    if (buzzing.value) return;
+    buzzing.value = true;
+    try {
+      const result = await $fetch<{ accepted: boolean }>("/api/party/player/buzz", { method: "POST" });
+      if (result.accepted) navigator.vibrate?.(120);
+    } catch {
+      // The stream still shows the true state; a lost buzz just stays unanswered.
+    } finally {
+      buzzing.value = false;
+    }
+  }
+
   onMounted(() => {
     savedName.value = readStoredName();
     void resume();
   });
   onBeforeUnmount(closeStream);
 
-  return { view, state, connected, notice, savedName, join, rename };
+  return { view, state, connected, notice, savedName, join, rename, buzz, buzzing };
 }

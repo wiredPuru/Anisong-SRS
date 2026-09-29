@@ -70,6 +70,7 @@ export interface PartyDisplayState {
   music: PartyMusic;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  buzz: { answering: string | null; winner: string | null };
 }
 
 export interface PartyPositionReport {

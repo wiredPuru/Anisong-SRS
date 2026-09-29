@@ -59,6 +59,14 @@ export interface PartyMusic {
   enabled: boolean;
   volume: number;
 }
+/** Who is answering the current song from a phone buzzer (feature 90b). */
+export interface PartyBuzz {
+  playerId: number | null;
+  // Buzzed and got it wrong: no second buzz on this song.
+  lockedOut: number[];
+  winnerId: number | null;
+}
+export const NO_BUZZ: PartyBuzz = { playerId: null, lockedOut: [], winnerId: null };
 
 export interface PartyQueueItem {
   token: string;
@@ -100,6 +108,8 @@ export interface PartyGameState {
   music: PartyMusic;
   // The display's corner chip with the player join address and room code.
   joinInfoVisible: boolean;
+  buzzerEnabled: boolean;
+  buzz: PartyBuzz;
 }
 export type PartyScoreCommand =
   | { type: "score"; op: "add"; name: string }
@@ -126,14 +136,17 @@ export type PartyCommand =
   | PartyScoreCommand
   | { type: "banner"; text: string | null }
   | { type: "music"; enabled: boolean; volume: number }
-  | { type: "joinInfo"; visible: boolean };
+  | { type: "joinInfo"; visible: boolean }
+  | { type: "buzzer"; enabled: boolean }
+  | { type: "buzzJudge"; correct: boolean };
 /**
  * Commands only the server itself issues, on a phone's behalf. parsePartyCommand
  * never produces them, so the host command route cannot forge a phone join.
  */
 export type PartyInternalCommand =
   | { type: "playerJoin"; name: string; claimId: number | null }
-  | { type: "playerConnection"; id: number; connected: boolean };
+  | { type: "playerConnection"; id: number; connected: boolean }
+  | { type: "buzz"; playerId: number };
 export interface PartyJoinInfo {
   code: string;
   urls: string[];
@@ -159,6 +172,7 @@ export interface PartyDisplayState {
   music: PartyMusic;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  buzz: { answering: string | null; winner: string | null };
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
 export interface PartyPlayerState {
@@ -167,6 +181,16 @@ export interface PartyPlayerState {
   phase: PartyPhase;
   song: { number: number; total: number } | null;
   players: { name: string; score: number }[];
+  buzzer: {
+    enabled: boolean;
+    canBuzz: boolean;
+    answering: string | null;
+    answeringIsMe: boolean;
+    lockedOut: boolean;
+    winner: string | null;
+  };
+  // Only once revealed, when the display already shows it.
+  answer: { anime: string; song: string; artist: string } | null;
 }
 export interface PartyHostState {
   version: number;
@@ -184,6 +208,8 @@ export interface PartyHostState {
   banner: PartyBanner | null;
   music: PartyMusic;
   joinInfoVisible: boolean;
+  buzzerEnabled: boolean;
+  buzz: PartyBuzz;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -253,11 +279,12 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible" | "buzzerEnabled"> = {
     scoreboard: { players: [], visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
     joinInfoVisible: true,
+    buzzerEnabled: false,
   },
 ): PartyGameState {
   return {
@@ -278,6 +305,7 @@ export function initialPartyState(
     revealedAtElapsed: null,
     timer: null,
     banner: null,
+    buzz: NO_BUZZ,
     ...kept,
   };
 }
@@ -382,6 +410,14 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const { visible } = body as { visible?: unknown };
       return typeof visible === "boolean" ? { type, visible } : { error: "visible must be a boolean" };
     }
+    case "buzzer": {
+      const { enabled } = body as { enabled?: unknown };
+      return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
+    }
+    case "buzzJudge": {
+      const { correct } = body as { correct?: unknown };
+      return typeof correct === "boolean" ? { type, correct } : { error: "correct must be a boolean" };
+    }
     case "music": {
       const { enabled, volume } = body as { enabled?: unknown; volume?: unknown };
       if (typeof enabled !== "boolean") return { error: "enabled must be a boolean" };
@@ -468,8 +504,12 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
       return players.some((p) => p.id === command.id)
         ? withPlayers(players.map((p) => (p.id === command.id ? { ...p, name: command.name } : p)))
         : state;
-    case "remove":
-      return players.some((p) => p.id === command.id) ? withPlayers(players.filter((p) => p.id !== command.id)) : state;
+    case "remove": {
+      if (!players.some((p) => p.id === command.id)) return state;
+      const removed = withPlayers(players.filter((p) => p.id !== command.id));
+      // Playback stays paused: the host decides what happens next.
+      return state.buzz.playerId === command.id ? { ...removed, buzz: { ...state.buzz, playerId: null } } : removed;
+    }
     case "adjust":
       return players.some((p) => p.id === command.id) && command.delta !== 0
         ? withPlayers(players.map((p) => (p.id === command.id ? { ...p, score: p.score + command.delta } : p)))
@@ -505,6 +545,43 @@ export function planRename(players: readonly PartyPlayer[], id: number, rawName:
   return players.some((p) => p.id !== id && sameName(p.name, name)) ? { error: "taken" } : { name };
 }
 
+/** Whether this player may buzz in right now. */
+export function canBuzz(state: PartyGameState, playerId: number): boolean {
+  return (
+    state.buzzerEnabled &&
+    state.phase === "guessing" &&
+    currentPartyItem(state) !== null &&
+    state.buzz.playerId === null &&
+    !state.buzz.lockedOut.includes(playerId) &&
+    state.scoreboard.players.some((p) => p.id === playerId)
+  );
+}
+
+/** An auto-reveal timer holds off while a player is answering. */
+export function timerMayReveal(state: PartyGameState): boolean {
+  return state.buzz.playerId === null;
+}
+
+function judgeBuzz(state: PartyGameState, correct: boolean, now: number): PartyGameState {
+  const id = state.buzz.playerId;
+  if (id === null || state.phase !== "guessing") return state;
+  if (correct) {
+    const players = state.scoreboard.players.map((p) => (p.id === id ? { ...p, score: p.score + 1 } : p));
+    return {
+      ...state,
+      scoreboard: { ...state.scoreboard, players },
+      buzz: { ...state.buzz, playerId: null, winnerId: id },
+      phase: "revealed",
+      revealedAtElapsed: state.position?.elapsed ?? 0,
+      playing: true,
+    };
+  }
+  const judged = { ...state, playing: true, buzz: { ...state.buzz, playerId: null, lockedOut: [...state.buzz.lockedOut, id] } };
+  // The timer held its reveal for this answer; once it is wrong, it lands.
+  const timerExpired = state.timer?.autoReveal === true && now >= state.timer.endsAt;
+  return timerExpired ? { ...judged, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0 } : judged;
+}
+
 function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
   const { players } = state.scoreboard;
   const withPlayers = (next: PartyPlayer[]) => ({ ...state, scoreboard: { ...state.scoreboard, players: next } });
@@ -519,6 +596,11 @@ function applyInternal(state: PartyGameState, command: PartyInternalCommand): Pa
       ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: true, connected: false }]),
       nextPlayerId: state.nextPlayerId + 1,
     };
+  }
+  if (command.type === "buzz") {
+    return canBuzz(state, command.playerId)
+      ? { ...state, playing: false, buzz: { ...state.buzz, playerId: command.playerId } }
+      : state;
   }
   const target = players.find((p) => p.id === command.id);
   if (!target || !target.phone || target.connected === command.connected) return state;
@@ -550,6 +632,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     nextEffects: null,
     revealedAtElapsed: null,
     timer: null,
+    buzz: NO_BUZZ,
   };
 }
 
@@ -562,7 +645,7 @@ export function applyPartyCommand(
   command: PartyCommand | PartyInternalCommand,
   options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number } = {},
 ): PartyGameState {
-  if (command.type === "playerJoin" || command.type === "playerConnection") {
+  if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz") {
     const next = applyInternal(state, command);
     return next === state ? state : { ...next, version: state.version + 1 };
   }
@@ -620,6 +703,12 @@ export function applyPartyCommand(
     case "joinInfo":
       if (state.joinInfoVisible !== command.visible) next = { ...state, joinInfoVisible: command.visible };
       break;
+    case "buzzer":
+      if (state.buzzerEnabled !== command.enabled) next = { ...state, buzzerEnabled: command.enabled };
+      break;
+    case "buzzJudge":
+      next = judgeBuzz(state, command.correct, now());
+      break;
     case "music":
       if (state.music.enabled !== command.enabled || state.music.volume !== command.volume) {
         next = { ...state, music: { enabled: command.enabled, volume: command.volume } };
@@ -632,7 +721,7 @@ export function applyPartyCommand(
       break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") {
-        next = { ...state, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0 };
+        next = { ...state, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0, buzz: { ...state.buzz, playerId: null } };
       }
       break;
     case "clear":
@@ -642,6 +731,7 @@ export function applyPartyCommand(
           nextPlayerId: state.nextPlayerId,
           music: state.music,
           joinInfoVisible: state.joinInfoVisible,
+          buzzerEnabled: state.buzzerEnabled,
         });
       }
       break;
@@ -692,7 +782,12 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
+    buzz: { answering: playerName(state, state.buzz.playerId), winner: playerName(state, state.buzz.winnerId) },
   };
+}
+
+function playerName(state: PartyGameState, id: number | null): string | null {
+  return id === null ? null : state.scoreboard.players.find((p) => p.id === id)?.name ?? null;
 }
 
 // Built from scratch rather than trimmed from another view, so nothing the
@@ -706,6 +801,18 @@ export function toPlayerState(state: PartyGameState, playerId: number): PartyPla
     phase: state.phase,
     song: item ? { number: state.index + 1, total: state.queue.length } : null,
     players: [...state.scoreboard.players].sort((a, b) => b.score - a.score).map((p) => ({ name: p.name, score: p.score })),
+    buzzer: {
+      enabled: state.buzzerEnabled,
+      canBuzz: canBuzz(state, playerId),
+      answering: playerName(state, state.buzz.playerId),
+      answeringIsMe: state.buzz.playerId === playerId,
+      lockedOut: state.buzz.lockedOut.includes(playerId),
+      winner: playerName(state, state.buzz.winnerId),
+    },
+    answer:
+      item && state.phase === "revealed"
+        ? { anime: item.answer.animeTitleEnglish, song: item.answer.songTitle, artist: item.answer.artistName }
+        : null,
   };
 }
 
@@ -726,6 +833,8 @@ export function toHostState(state: PartyGameState): PartyHostState {
     banner: state.banner,
     music: state.music,
     joinInfoVisible: state.joinInfoVisible,
+    buzzerEnabled: state.buzzerEnabled,
+    buzz: state.buzz,
   };
 }
 

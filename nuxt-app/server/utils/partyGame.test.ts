@@ -14,6 +14,7 @@ import {
   planJoin,
   planRename,
   toPlayerState,
+  timerMayReveal,
   toHostState,
   toQueueItem,
   type PartyGameState,
@@ -652,16 +653,105 @@ describe("phone players (feature 90a)", () => {
     expect(parsePartyCommand({ type: "joinInfo", visible: "no" })).toHaveProperty("error");
   });
 
-  it("gives a phone its own view with no answer, token, or card id, even when revealed", () => {
-    let state = applyPartyCommand(loaded(2), { type: "playerJoin", name: "Aki", claimId: null });
-    state = applyPartyCommand(state, { type: "reveal" });
+  it("gives a phone its own view with no token or card id, and no answer before the reveal", () => {
+    const guessing = applyPartyCommand(loaded(2), { type: "playerJoin", name: "Aki", claimId: null });
+    const item = guessing.queue[0]!;
+    const before = JSON.stringify(toPlayerState(guessing, 1));
+    expect(before).not.toContain(item.answer.animeTitleEnglish);
+    expect(before).not.toContain(item.answer.songTitle);
+    expect(toPlayerState(guessing, 1).answer).toBeNull();
+
+    const state = applyPartyCommand(guessing, { type: "reveal" });
     const view = toPlayerState(state, 1);
     expect(view).toMatchObject({ me: { id: 1, name: "Aki", score: 0 }, phase: "revealed", song: { number: 1, total: 2 } });
+    expect(view.answer).toEqual({ anime: item.answer.animeTitleEnglish, song: item.answer.songTitle, artist: item.answer.artistName });
     const json = JSON.stringify(view);
-    const item = state.queue[0]!;
     expect(json).not.toContain(item.token);
-    expect(json).not.toContain(item.answer.animeTitleEnglish);
     expect(json).not.toContain("cardId");
     expect(toPlayerState(state, 99).me).toBeNull();
+  });
+});
+
+describe("buzzer rounds (feature 90b)", () => {
+  function withPlayers(state: PartyGameState, names: string[]) {
+    return names.reduce((acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }), state);
+  }
+  function ready() {
+    let state = withPlayers(loaded(3), ["Aki", "Bea"]);
+    state = applyPartyCommand(state, { type: "buzzer", enabled: true });
+    return applyPartyCommand(state, { type: "play" });
+  }
+
+  it("accepts the first buzz, pauses, and refuses a second while answering", () => {
+    const buzzed = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
+    expect(buzzed).toMatchObject({ playing: false, buzz: { playerId: 1, lockedOut: [], winnerId: null } });
+    expect(applyPartyCommand(buzzed, { type: "buzz", playerId: 2 })).toBe(buzzed);
+    expect(toDisplayState(buzzed).buzz).toEqual({ answering: "Aki", winner: null });
+    expect(toPlayerState(buzzed, 1).buzzer).toMatchObject({ answeringIsMe: true, canBuzz: false });
+    expect(toPlayerState(buzzed, 2).buzzer).toMatchObject({ answering: "Aki", answeringIsMe: false, canBuzz: false });
+  });
+
+  it("refuses a buzz with the buzzer off, after the reveal, or from an unknown player", () => {
+    const off = applyPartyCommand(ready(), { type: "buzzer", enabled: false });
+    expect(applyPartyCommand(off, { type: "buzz", playerId: 1 })).toBe(off);
+    const revealed = applyPartyCommand(ready(), { type: "reveal" });
+    expect(applyPartyCommand(revealed, { type: "buzz", playerId: 1 })).toBe(revealed);
+    const on = ready();
+    expect(applyPartyCommand(on, { type: "buzz", playerId: 42 })).toBe(on);
+    const idle = applyPartyCommand(withPlayers(initialPartyState(), ["Aki"]), { type: "buzzer", enabled: true });
+    expect(applyPartyCommand(idle, { type: "buzz", playerId: 1 })).toBe(idle);
+  });
+
+  it("Correct scores, records the winner, reveals, and resumes", () => {
+    let state = applyPartyCommand(ready(), { type: "buzz", playerId: 2 });
+    state = applyPartyCommand(state, { type: "buzzJudge", correct: true });
+    expect(state).toMatchObject({ phase: "revealed", playing: true, buzz: { playerId: null, winnerId: 2 } });
+    expect(state.scoreboard.players.find((p) => p.id === 2)?.score).toBe(1);
+    expect(toDisplayState(state).buzz).toEqual({ answering: null, winner: "Bea" });
+    expect(toPlayerState(state, 1).buzzer.winner).toBe("Bea");
+  });
+
+  it("Wrong locks the player out, resumes, and lets another player buzz", () => {
+    let state = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
+    state = applyPartyCommand(state, { type: "buzzJudge", correct: false });
+    expect(state).toMatchObject({ phase: "guessing", playing: true, buzz: { playerId: null, lockedOut: [1] } });
+    expect(state.scoreboard.players.every((p) => p.score === 0)).toBe(true);
+    expect(applyPartyCommand(state, { type: "buzz", playerId: 1 })).toBe(state);
+    expect(toPlayerState(state, 1).buzzer).toMatchObject({ lockedOut: true, canBuzz: false });
+    expect(applyPartyCommand(state, { type: "buzz", playerId: 2 }).buzz.playerId).toBe(2);
+  });
+
+  it("holds an auto-reveal timer while someone answers and reveals on a later Wrong", () => {
+    let state = applyPartyCommand(ready(), { type: "timer", seconds: 10, autoReveal: true }, { now: () => 1_000 });
+    state = applyPartyCommand(state, { type: "buzz", playerId: 1 });
+    expect(timerMayReveal(state)).toBe(false);
+    const late = applyPartyCommand(state, { type: "buzzJudge", correct: false }, { now: () => 20_000 });
+    expect(late).toMatchObject({ phase: "revealed", buzz: { lockedOut: [1] } });
+    const early = applyPartyCommand(state, { type: "buzzJudge", correct: false }, { now: () => 5_000 });
+    expect(early.phase).toBe("guessing");
+    expect(timerMayReveal(early)).toBe(true);
+  });
+
+  it("clears the buzz on a move and on End game, and keeps the buzzer setting", () => {
+    let state = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
+    state = applyPartyCommand(state, { type: "buzzJudge", correct: false });
+    const moved = applyPartyCommand(state, { type: "next" });
+    expect(moved.buzz).toEqual({ playerId: null, lockedOut: [], winnerId: null });
+    const cleared = applyPartyCommand(state, { type: "clear" });
+    expect(cleared.buzz).toEqual({ playerId: null, lockedOut: [], winnerId: null });
+    expect(cleared.buzzerEnabled).toBe(true);
+  });
+
+  it("drops a buzz whose player is removed and leaves playback paused", () => {
+    let state = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
+    state = applyPartyCommand(state, { type: "score", op: "remove", id: 1 });
+    expect(state).toMatchObject({ playing: false, buzz: { playerId: null } });
+    expect(applyPartyCommand(state, { type: "buzzJudge", correct: true })).toBe(state);
+  });
+
+  it("never parses a buzz from the host route, but parses the host's own buzzer commands", () => {
+    expect(parsePartyCommand({ type: "buzz", playerId: 1 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "buzzer", enabled: true })).toEqual({ type: "buzzer", enabled: true });
+    expect(parsePartyCommand({ type: "buzzJudge", correct: "yes" })).toHaveProperty("error");
   });
 });

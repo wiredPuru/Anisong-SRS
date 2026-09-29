@@ -3,7 +3,7 @@ definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party - Join" });
 
 const route = useRoute();
-const { view, state, connected, notice, savedName, join, rename } = usePartyPlayer();
+const { view, state, connected, notice, savedName, join, rename, buzz, buzzing } = usePartyPlayer();
 
 const code = ref(typeof route.query.code === "string" ? route.query.code.toUpperCase() : "");
 const name = ref("");
@@ -35,11 +35,18 @@ async function submitRename() {
   if (!renameError.value) renaming.value = false;
 }
 
-const status = computed(() => {
+type Stage = "waiting" | "revealed" | "mine" | "other" | "locked" | "ready" | "listen";
+
+const stage = computed<Stage>(() => {
   const current = state.value;
-  if (!current?.song) return "Waiting for the host to start the game.";
-  if (current.phase === "revealed") return "Answer revealed. Check the screen!";
-  return "Listen and guess!";
+  if (!current?.song) return "waiting";
+  if (current.phase === "revealed") return "revealed";
+  const { buzzer } = current;
+  if (buzzer.answeringIsMe) return "mine";
+  if (buzzer.answering) return "other";
+  if (buzzer.lockedOut) return "locked";
+  if (buzzer.canBuzz) return "ready";
+  return "listen";
 });
 </script>
 
@@ -99,7 +106,33 @@ const status = computed(() => {
 
       <div class="progress">
         <p v-if="state?.song" class="song">Song {{ state.song.number }} of {{ state.song.total }}</p>
-        <p class="play-note">{{ status }}</p>
+        <p v-if="stage === 'waiting'" class="play-note">Waiting for the host to start the game.</p>
+        <p v-else-if="stage === 'listen'" class="play-note">
+          {{ state?.buzzer.enabled ? "Listen and guess!" : "Listen and guess! Buzzers are off for now." }}
+        </p>
+        <p v-else-if="stage === 'other'" class="play-note"><strong>{{ state?.buzzer.answering }}</strong> is answering...</p>
+        <p v-else-if="stage === 'locked'" class="play-note">Not this one. Wait for the next song.</p>
+      </div>
+
+      <button
+        v-if="stage === 'ready'"
+        type="button"
+        class="buzz-btn"
+        :disabled="buzzing"
+        @click="buzz"
+      >
+        Buzz!
+      </button>
+      <div v-else-if="stage === 'mine'" class="buzz-mine" role="status">
+        <strong>You buzzed!</strong>
+        <span>Say your answer out loud.</span>
+      </div>
+      <div v-else-if="stage === 'revealed' && state?.answer" class="reveal" role="status">
+        <p class="reveal-anime">{{ state.answer.anime }}</p>
+        <p class="reveal-song">{{ state.answer.song }} - {{ state.answer.artist }}</p>
+        <p class="reveal-winner">
+          {{ state.buzzer.winner ? (state.buzzer.winner === state.me?.name ? "You got it!" : `${state.buzzer.winner} got it!`) : "Check the screen!" }}
+        </p>
       </div>
 
       <form v-if="renaming" class="play-form" @submit.prevent="submitRename">
@@ -280,6 +313,72 @@ const status = computed(() => {
 .song {
   margin: 0;
   font-weight: 700;
+}
+
+.buzz-btn {
+  align-self: center;
+  width: min(240px, 70vw);
+  aspect-ratio: 1;
+  border: 6px solid var(--outline);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-size: 40px;
+  box-shadow: 0 10px 0 var(--outline);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.buzz-btn:active:not(:disabled) {
+  transform: translateY(6px);
+  box-shadow: 0 4px 0 var(--outline);
+}
+
+.buzz-btn:disabled {
+  opacity: 0.7;
+}
+
+.buzz-mine,
+.reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.buzz-mine strong {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--accent);
+}
+
+.reveal p {
+  margin: 0;
+}
+
+.reveal-anime {
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.reveal-song {
+  color: var(--muted);
+}
+
+.reveal-winner {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buzz-btn:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .play-pill {

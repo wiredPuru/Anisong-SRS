@@ -7,6 +7,7 @@ const props = defineProps<{
   scoreboard: PartyPlayer[] | null;
   banner: PartyBanner | null;
   join: PartyJoinInfo | null;
+  answering: string | null;
 }>();
 
 const joinAddress = computed(() => props.join?.urls[0]?.replace(/^https?:\/\//, "") ?? null);
@@ -48,6 +49,11 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
         <li v-if="!scoreboard.length" class="scoreboard-empty">No players yet</li>
       </ol>
     </aside>
+
+    <div v-if="answering" class="buzz-layer" role="status">
+      <p class="kai-banner kai-banner-pass buzz-name">{{ answering }}</p>
+      <p class="buzz-label">buzzed in!</p>
+    </div>
 
     <p v-if="join" class="join-chip">
       Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template> · code <strong>{{ join.code }}</strong>
@@ -174,6 +180,36 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   color: var(--muted);
 }
 
+.buzz-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--scrim);
+  animation: banner-in 200ms ease-out;
+}
+
+.buzz-layer p {
+  margin: 0;
+}
+
+.buzz-name {
+  max-width: 90%;
+  font-size: clamp(40px, 8vw, 140px);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.buzz-label {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 52px);
+  color: var(--bg);
+  text-shadow: var(--text-shadow-overlay);
+}
+
 .banner-layer {
   position: absolute;
   inset: 0;
@@ -197,7 +233,8 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .banner-layer {
+  .banner-layer,
+  .buzz-layer {
     animation: none;
   }
 }

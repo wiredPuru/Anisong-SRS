@@ -33,6 +33,8 @@ export interface PartyHostState {
   banner: PartyBanner | null;
   music: PartyMusic;
   joinInfoVisible: boolean;
+  buzzerEnabled: boolean;
+  buzz: { playerId: number | null; lockedOut: number[]; winnerId: number | null };
 }
 
 export type PartyHostCommand =
@@ -57,7 +59,9 @@ export type PartyHostCommand =
   | { type: "score"; op: "show"; visible: boolean }
   | { type: "banner"; text: string | null }
   | { type: "music"; enabled: boolean; volume: number }
-  | { type: "joinInfo"; visible: boolean };
+  | { type: "joinInfo"; visible: boolean }
+  | { type: "buzzer"; enabled: boolean }
+  | { type: "buzzJudge"; correct: boolean };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 10000;

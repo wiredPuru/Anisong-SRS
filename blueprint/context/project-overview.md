@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 06c7c2e3e234e5dbf77c0a1ea982b1217e005eb4729c0d542939d0d3ff9dfb9e -->
+<!-- blueprint:source-hash 908b308a1001b59c1aba92f73857fc8072706bea2650b48646c1452a731217ba -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -302,8 +302,8 @@ Features 88 (undo last review) and 89 (suspend cards) were added to
 history bullets, since each adds stored state: 88 two before-review columns on
 `ReviewLog`, 89 a suspended flag on `Card`.
 Feature 90 (party players and buzzer, in four sub-features 90a-90d) was added
-to `build-plan.md` on 2026-09-28; 90a is built and merged, 90b-90d are not
-yet built. It amended
+to `build-plan.md` on 2026-09-28; 90a and 90b are built and merged, 90c-90d
+are not yet built. It amended
 `project-plan.md` §2 Users, the §3 party mode bullet, §8's party deployment
 paragraph, and §9's Non-Goals bullet, which had ruled out players answering on
 their own devices: party players now join from their phones to buzz, while
@@ -2180,7 +2180,7 @@ dependency), and joined players are the existing scoreboard's players.
     takes `{ ids (1-500), suspended }`; `/api/cards` and `/api/cards/ids` read
     `suspended=1` through a shared `CardListFilters` object; a suspended row
     shows "-" for Due.
-90. **Party players and buzzer** - in progress, four sub-features (90a done). Players
+90. **Party players and buzzer** - in progress, four sub-features (90a and 90b done). Players
     join `gaq-party` from their phones and buzz in; the host panel and display
     gain scoring, queue editing, and a results screen. Party state stays in
     memory, as with feature 86: no schema change, and party play still never
@@ -2204,12 +2204,19 @@ dependency), and joined players are the existing scoreboard's players.
       `playerJoin`/`playerConnection` are internal commands the host route
       cannot send. Routes: `/api/party/player/{join,me,name,stream}` and host
       `GET join-info` / `POST room-code`. Page `/party/play`.
-    - **90b. Buzzer rounds** - a host toggle for buzzer mode. While a song is
+    - **90b. Buzzer rounds** - done 2026-09-28. A host toggle for buzzer mode. While a song is
       guessing, phones show a Buzz button; the first buzz, ordered by server
       receipt, pauses playback, locks the others out, and names the buzzer on
       the display and host panel. Correct gives a point and reveals; Wrong
       locks that player out for the rest of the song and resumes playback.
-      Phones show whether they can buzz, who buzzed, and the reveal.
+      Phones show whether they can buzz, who buzzed, and the reveal. As
+      built: `PartyGameState` gained `buzzerEnabled` (kept across End game)
+      and `buzz: PartyBuzz { playerId, lockedOut, winnerId }` (reset on every
+      move); host commands `buzzer` and `buzzJudge`, internal `buzz`;
+      `POST /api/party/player/buzz`; an auto-reveal timer waits while someone
+      answers. The phone view carries the answer only once revealed. The
+      display shows a "buzzed in!" overlay with a Web Audio chime and credits
+      the winner on the reveal.
     - **90c. Host scoring and queue editing** - after a reveal, one tap per
       player awards the point, the first buzzer highlighted. The running queue
       can have songs removed, reordered, or appended instead of a new load

@@ -19,6 +19,12 @@ const atStart = computed(() => props.state.index <= 0);
 const atEnd = computed(() => props.state.index >= props.state.queue.length - 1);
 const confirmingClear = ref(false);
 
+const nameOf = (id: number | null) =>
+  id === null ? null : props.state.scoreboard.players.find((p) => p.id === id)?.name ?? null;
+const answering = computed(() => nameOf(props.state.buzz.playerId));
+const winner = computed(() => nameOf(props.state.buzz.winnerId));
+const lockedOut = computed(() => props.state.buzz.lockedOut.map(nameOf).filter((name) => name !== null));
+
 function formatTime(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return "--:--";
   const whole = Math.floor(seconds);
@@ -83,6 +89,18 @@ function clearGame() {
       <span class="np-time">{{ formatTime(position?.currentTime) }} / {{ formatTime(position?.duration) }}</span>
     </div>
 
+    <div v-if="answering" class="np-buzz" role="status">
+      <p class="np-buzz-name"><strong>{{ answering }}</strong> buzzed in</p>
+      <div class="np-buzz-actions">
+        <button type="button" class="tbtn tbtn-reveal" @click="emit('command', { type: 'buzzJudge', correct: true })">Correct</button>
+        <button type="button" class="tbtn tbtn-wrong" @click="emit('command', { type: 'buzzJudge', correct: false })">Wrong</button>
+      </div>
+    </div>
+    <p v-if="state.buzzerEnabled && (winner || lockedOut.length)" class="np-buzz-log">
+      <span v-if="winner">Got it: <strong>{{ winner }}</strong></span>
+      <span v-if="lockedOut.length">Wrong: {{ lockedOut.join(", ") }}</span>
+    </p>
+
     <div class="np-transport">
       <button type="button" class="tbtn" :disabled="atStart" @click="emit('command', { type: 'previous' })">Previous</button>
       <button
@@ -111,6 +129,14 @@ function clearGame() {
           @change="emit('command', { type: 'settings', randomStart: ($event.target as HTMLInputElement).checked })"
         />
         Random start (from the next song)
+      </label>
+      <label class="np-toggle">
+        <input
+          type="checkbox"
+          :checked="state.buzzerEnabled"
+          @change="emit('command', { type: 'buzzer', enabled: ($event.target as HTMLInputElement).checked })"
+        />
+        Buzzer mode (players buzz from their phones)
       </label>
       <span class="np-spacer" />
       <template v-if="confirmingClear">
@@ -302,6 +328,51 @@ function clearGame() {
 .tbtn-reveal {
   border-color: var(--pass);
   color: var(--pass);
+}
+
+.np-buzz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.np-buzz-name {
+  margin: 0;
+  font-size: 18px;
+}
+
+.np-buzz-name strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--accent);
+}
+
+.np-buzz-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.np-buzz-actions .tbtn {
+  min-width: 110px;
+}
+
+.tbtn-wrong {
+  border-color: var(--fail);
+  color: var(--fail);
+}
+
+.np-buzz-log {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .np-options {
