@@ -39,6 +39,12 @@ export interface PartyPlayer {
   phone: boolean;
   connected: boolean;
 }
+export interface PartySummary {
+  standings: { rank: number; name: string; score: number }[];
+  songs: { number: number; anime: string; song: string; scorers: string[] }[];
+  played: number;
+  total: number;
+}
 export interface PartyJoinInfo {
   code: string;
   urls: string[];
@@ -71,6 +77,7 @@ export interface PartyDisplayState {
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   buzz: { answering: string | null; winner: string | null };
+  summary: PartySummary | null;
 }
 
 export interface PartyPositionReport {

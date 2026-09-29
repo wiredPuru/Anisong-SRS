@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a98ae3d8cb7952dd6b96499e8d873874277650f52dad7d1539811fa4c8088aeb -->
+<!-- blueprint:source-hash 519bb1f4e47949cc8f68f225dd663862bcc93bc00e29d78e4743b05c8977fa75 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -24,7 +24,7 @@ local training tool.
 - **A party audience** - feature 86. The owner hosts a Guess the Anime game
   for a room or a stream from their own machine. The audience watches a
   screen; the host alone controls it, behind a password.
-- **Party players** - feature 90a (built). People in the room join from
+- **Party players** - feature 90 (built). People in the room join from
   their phones with a room code and buzz in. They get no account and cannot
   control the game; the host judges each buzz.
 
@@ -302,8 +302,7 @@ Features 88 (undo last review) and 89 (suspend cards) were added to
 history bullets, since each adds stored state: 88 two before-review columns on
 `ReviewLog`, 89 a suspended flag on `Card`.
 Feature 90 (party players and buzzer, in four sub-features 90a-90d) was added
-to `build-plan.md` on 2026-09-28; 90a-90c are built and merged, 90d is not
-yet built. It amended
+to `build-plan.md` on 2026-09-28; all four are built and merged. It amended
 `project-plan.md` §2 Users, the §3 party mode bullet, §8's party deployment
 paragraph, and §9's Non-Goals bullet, which had ruled out players answering on
 their own devices: party players now join from their phones to buzz, while
@@ -2180,7 +2179,7 @@ dependency), and joined players are the existing scoreboard's players.
     takes `{ ids (1-500), suspended }`; `/api/cards` and `/api/cards/ids` read
     `suspended=1` through a shared `CardListFilters` object; a suspended row
     shows "-" for Due.
-90. **Party players and buzzer** - in progress, four sub-features (90a-90c done). Players
+90. **Party players and buzzer** - done 2026-09-28, four sub-features. Players
     join `gaq-party` from their phones and buzz in; the host panel and display
     gain scoring, queue editing, and a results screen. Party state stays in
     memory, as with feature 86: no schema change, and party play still never
@@ -2224,9 +2223,11 @@ dependency), and joined players are the existing scoreboard's players.
       server-side only; the host view gets `currentAwards`), host commands
       `award`, `queueRemove`, `queueMove` (upcoming songs only), and `load`
       with `append`.
-    - **90d. Round summary** - a display results screen, on demand between
+    - **90d. Round summary** - done 2026-09-28. A display results screen, on demand between
       songs and automatically at the end of the queue: ranked standings and
-      each played song with who scored it.
+      each played song with who scored it. As built: `summaryVisible` and a
+      host `summary` command; Next on the last song and a lightning round's end
+      show it; `buildSummary` counts the current song only once revealed.
 
 ## Data model
 

@@ -128,7 +128,9 @@ function clearGame() {
       >
         {{ state.playing ? "Pause" : "Play" }}
       </button>
-      <button type="button" class="tbtn" :disabled="atEnd" @click="emit('command', { type: 'next' })">Next</button>
+      <button type="button" class="tbtn" :disabled="atEnd && state.summaryVisible" @click="emit('command', { type: 'next' })">
+        {{ atEnd ? "Show results" : "Next" }}
+      </button>
       <button
         type="button"
         class="tbtn tbtn-reveal"
@@ -156,6 +158,13 @@ function clearGame() {
         />
         Buzzer mode (players buzz from their phones)
       </label>
+      <button
+        type="button"
+        class="link-btn"
+        @click="emit('command', { type: 'summary', visible: !state.summaryVisible })"
+      >
+        {{ state.summaryVisible ? "Hide results" : "Show results" }}
+      </button>
       <span class="np-spacer" />
       <template v-if="confirmingClear">
         <span class="np-confirm">End this game?</span>

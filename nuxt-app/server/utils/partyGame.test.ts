@@ -14,6 +14,7 @@ import {
   planJoin,
   planRename,
   toPlayerState,
+  buildSummary,
   timerMayReveal,
   toHostState,
   toQueueItem,
@@ -216,13 +217,14 @@ describe("applyPartyCommand", () => {
     expect(applyPartyCommand(playing, { type: "clear" }).playing).toBe(false);
   });
 
-  it("moves between items, resetting playback, and stops at both ends", () => {
+  it("moves between items, resetting playback, and stops at both ends (Next at the end shows results)", () => {
     let state = applyPartyCommand(loaded(2), { type: "play" });
     state = applyPartyCommand(state, { type: "reveal" });
     state = { ...state, position: { token: "t1", currentTime: 5, duration: 90, playing: true } };
     const second = applyPartyCommand(state, { type: "next" });
     expect(second).toMatchObject({ index: 1, phase: "guessing", playing: true, startAt: 0, seekTo: null, position: null });
-    expect(applyPartyCommand(second, { type: "next" })).toBe(second);
+    const ended = applyPartyCommand(second, { type: "next" });
+    expect(ended).toMatchObject({ index: 1, summaryVisible: true });
     const first = applyPartyCommand(second, { type: "previous" });
     expect(first.index).toBe(0);
     expect(applyPartyCommand(first, { type: "previous" })).toBe(first);
@@ -867,5 +869,60 @@ describe("queue editing (feature 90c)", () => {
     expect(parsePartyCommand({ type: "queueMove", from: 1, to: "2" })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [1], append: "yes" })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [1], append: true })).toMatchObject({ append: true });
+  });
+});
+
+describe("round summary (feature 90d)", () => {
+  function played() {
+    let state = ["Aki", "Bea", "Cid"].reduce(
+      (acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }),
+      loaded(3),
+    );
+    state = applyPartyCommand(state, { type: "reveal" });
+    state = applyPartyCommand(state, { type: "award", playerId: 2, awarded: true });
+    state = applyPartyCommand(state, { type: "award", playerId: 3, awarded: true });
+    state = applyPartyCommand(state, { type: "next" });
+    return state;
+  }
+
+  it("shows and hides on command, and a move hides it", () => {
+    const shown = applyPartyCommand(played(), { type: "summary", visible: true });
+    expect(toDisplayState(shown).summary).not.toBeNull();
+    expect(toHostState(shown).summaryVisible).toBe(true);
+    expect(toDisplayState(applyPartyCommand(shown, { type: "summary", visible: false })).summary).toBeNull();
+    expect(applyPartyCommand(shown, { type: "next" }).summaryVisible).toBe(false);
+    expect(applyPartyCommand(shown, { type: "clear" }).summaryVisible).toBe(false);
+    expect(toDisplayState(played()).summary).toBeNull();
+  });
+
+  it("shows on Next from the last song", () => {
+    let state = applyPartyCommand(played(), { type: "jump", index: 2 });
+    state = applyPartyCommand(state, { type: "next" });
+    expect(state).toMatchObject({ index: 2, summaryVisible: true });
+    expect(applyPartyCommand(state, { type: "next" })).toBe(state);
+  });
+
+  it("ranks ties together and lists only songs behind the game", () => {
+    const state = played();
+    const summary = buildSummary(state);
+    expect(summary.standings).toEqual([
+      { rank: 1, name: "Bea", score: 1 },
+      { rank: 1, name: "Cid", score: 1 },
+      { rank: 3, name: "Aki", score: 0 },
+    ]);
+    expect(summary).toMatchObject({ played: 1, total: 3 });
+    expect(summary.songs).toEqual([{ number: 1, anime: state.queue[0]!.answer.animeTitleEnglish, song: state.queue[0]!.answer.songTitle, scorers: ["Bea", "Cid"] }]);
+    const revealed = applyPartyCommand(state, { type: "reveal" });
+    expect(buildSummary(revealed).songs).toHaveLength(2);
+  });
+
+  it("drops a removed player from a song's scorers", () => {
+    const state = applyPartyCommand(played(), { type: "score", op: "remove", id: 3 });
+    expect(buildSummary(state).songs[0]!.scorers).toEqual(["Bea"]);
+  });
+
+  it("parses the summary command", () => {
+    expect(parsePartyCommand({ type: "summary", visible: true })).toEqual({ type: "summary", visible: true });
+    expect(parsePartyCommand({ type: "summary", visible: 1 })).toHaveProperty("error");
   });
 });

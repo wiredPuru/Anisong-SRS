@@ -979,7 +979,7 @@ cleaned-up checkbox version before generating the project overview.
   Bury, then moves on), the `/cards` inspector, and `/cards`' bulk selection
   bar; `/cards` gains a Suspended filter and a badge on suspended rows.
   Suspending never changes a card's schedule or review history.
-- [ ] 90. **Party players and buzzer** - players in the room join the party
+- [x] 90. **Party players and buzzer** - players in the room join the party
   from their phones and buzz in, and the host panel and display get the
   scoring, queue, and results tools a live game needs.
   - [x] 90a. **Player door and joining** - a third `gaq-party` port
@@ -1004,7 +1004,7 @@ cleaned-up checkbox version before generating the project overview.
     first highlighted), replacing the hunt for the small +/- buttons. The
     running queue can have songs removed, reordered, or appended from the
     queue builder, instead of a new load replacing it.
-  - [ ] 90d. **Round summary** - a results screen the host can put on the
+  - [x] 90d. **Round summary** - a results screen the host can put on the
     display between songs and automatically at the end of the queue: ranked
     standings plus each played song with who scored it.
 

@@ -112,6 +112,7 @@ onBeforeUnmount(() => {
       />
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
       <PartyRevealOverlay v-if="state.answer" :answer="state.answer" :winner="state.buzz.winner" />
+      <PartyRoundSummary v-if="state.summary" :summary="state.summary" />
     </template>
 
     <div v-else class="display-waiting">

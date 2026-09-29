@@ -180,5 +180,5 @@ function driveLightning(): void {
   const step = lightningStep(state);
   if (step === "reveal") commit(applyPartyCommand(state, { type: "reveal" }));
   else if (step === "next") commit(applyPartyCommand(applyPartyCommand(state, { type: "next" }), { type: "play" }));
-  else if (step === "stop") commit(applyPartyCommand(state, { type: "pause" }));
+  else if (step === "stop") commit(applyPartyCommand(applyPartyCommand(state, { type: "pause" }), { type: "summary", visible: true }));
 }

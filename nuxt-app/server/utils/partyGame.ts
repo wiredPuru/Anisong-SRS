@@ -112,6 +112,13 @@ export interface PartyGameState {
   buzz: PartyBuzz;
   // Who scored each song, by queue item token (feature 90c).
   awards: Record<string, number[]>;
+  summaryVisible: boolean;
+}
+export interface PartySummary {
+  standings: { rank: number; name: string; score: number }[];
+  songs: { number: number; anime: string; song: string; scorers: string[] }[];
+  played: number;
+  total: number;
 }
 export type PartyScoreCommand =
   | { type: "score"; op: "add"; name: string }
@@ -143,7 +150,8 @@ export type PartyCommand =
   | { type: "joinInfo"; visible: boolean }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }
-  | { type: "award"; playerId: number; awarded: boolean };
+  | { type: "award"; playerId: number; awarded: boolean }
+  | { type: "summary"; visible: boolean };
 /**
  * Commands only the server itself issues, on a phone's behalf. parsePartyCommand
  * never produces them, so the host command route cannot forge a phone join.
@@ -178,6 +186,7 @@ export interface PartyDisplayState {
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   buzz: { answering: string | null; winner: string | null };
+  summary: PartySummary | null;
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
 export interface PartyPlayerState {
@@ -216,6 +225,7 @@ export interface PartyHostState {
   buzzerEnabled: boolean;
   buzz: PartyBuzz;
   currentAwards: number[];
+  summaryVisible: boolean;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -313,6 +323,7 @@ export function initialPartyState(
     banner: null,
     buzz: NO_BUZZ,
     awards: {},
+    summaryVisible: false,
     ...kept,
   };
 }
@@ -424,6 +435,10 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     case "buzzJudge": {
       const { correct } = body as { correct?: unknown };
       return typeof correct === "boolean" ? { type, correct } : { error: "correct must be a boolean" };
+    }
+    case "summary": {
+      const { visible } = body as { visible?: unknown };
+      return typeof visible === "boolean" ? { type, visible } : { error: "visible must be a boolean" };
     }
     case "award": {
       const { playerId, awarded } = body as { playerId?: unknown; awarded?: unknown };
@@ -679,6 +694,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     revealedAtElapsed: null,
     timer: null,
     buzz: NO_BUZZ,
+    summaryVisible: false,
   };
 }
 
@@ -724,6 +740,8 @@ export function applyPartyCommand(
       break;
     case "next":
       if (hasItem && state.index < state.queue.length - 1) next = atItem(state, state.index + 1, random);
+      // Past the last song there is nothing to play, so the game ends on its results.
+      else if (hasItem && !state.summaryVisible) next = { ...state, summaryVisible: true };
       break;
     case "previous":
       if (hasItem && state.index > 0) next = atItem(state, state.index - 1, random);
@@ -764,6 +782,9 @@ export function applyPartyCommand(
       break;
     case "award":
       next = applyAward(state, command.playerId, command.awarded);
+      break;
+    case "summary":
+      if (hasItem && state.summaryVisible !== command.visible) next = { ...state, summaryVisible: command.visible };
       break;
     case "queueRemove":
       // Only songs still to come: the current one moves on with Next.
@@ -860,7 +881,30 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
     buzz: { answering: playerName(state, state.buzz.playerId), winner: playerName(state, state.buzz.winnerId) },
+    summary: state.summaryVisible ? buildSummary(state) : null,
   };
+}
+
+/**
+ * The results screen: standings, and the songs already behind the game. The
+ * current song counts only once revealed, so the screen never shows an answer
+ * early.
+ */
+export function buildSummary(state: PartyGameState): PartySummary {
+  const sorted = [...state.scoreboard.players].sort((a, b) => b.score - a.score);
+  const standings = sorted.map((p) => ({
+    rank: sorted.findIndex((other) => other.score === p.score) + 1,
+    name: p.name,
+    score: p.score,
+  }));
+  const playedCount = state.index < 0 ? 0 : state.index + (state.phase === "revealed" ? 1 : 0);
+  const songs = state.queue.slice(0, playedCount).map((item, i) => ({
+    number: i + 1,
+    anime: item.answer.animeTitleEnglish,
+    song: item.answer.songTitle,
+    scorers: (state.awards[item.token] ?? []).map((id) => playerName(state, id)).filter((name) => name !== null),
+  }));
+  return { standings, songs, played: playedCount, total: state.queue.length };
 }
 
 function playerName(state: PartyGameState, id: number | null): string | null {
@@ -914,6 +958,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     buzzerEnabled: state.buzzerEnabled,
     buzz: state.buzz,
     currentAwards: (item && state.awards[item.token]) ?? [],
+    summaryVisible: state.summaryVisible,
   };
 }
 
