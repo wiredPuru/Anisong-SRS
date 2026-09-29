@@ -7,6 +7,7 @@ import { getCardsByIds } from "./cards.ts";
 import { getClipSource, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
+import { createPlayerRegistry } from "./partyPlayers.ts";
 import {
   applyPartyCommand,
   currentPartyItem,
@@ -17,6 +18,7 @@ import {
   toQueueItem,
   type PartyCommand,
   type PartyGameState,
+  type PartyJoinInfo,
   type PartyPosition,
   type PartyQueueItem,
 } from "./partyGame.ts";
@@ -119,6 +121,25 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
   const { items, skipped } = resolveQueue(command.cardIds, command.downloadedOnly === true);
   commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
+}
+
+// Phones joining through the player door (feature 90a).
+export const partyPlayers = createPlayerRegistry({
+  getPlayers: () => state.scoreboard.players,
+  apply: (command) => commit(applyPartyCommand(state, command)),
+});
+
+export function partyJoinInfo(): PartyJoinInfo {
+  const urls = (process.env.GAQ_PARTY_PLAYER_URLS ?? "").split(",").filter(Boolean);
+  return { code: partyPlayers.roomCode(), urls };
+}
+
+// The room code lives outside the game state, so a new one bumps the version
+// to push the displays a fresh view.
+export function regeneratePartyRoomCode(): string {
+  const code = partyPlayers.regenerateRoomCode();
+  commit({ ...state, version: state.version + 1 });
+  return code;
 }
 
 export function findPartyItemByToken(token: string): PartyQueueItem | null {

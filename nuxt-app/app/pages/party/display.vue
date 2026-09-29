@@ -46,6 +46,8 @@ function onKeydown(event: KeyboardEvent) {
   void toggle();
 }
 
+const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
+
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
@@ -91,6 +93,11 @@ onBeforeUnmount(() => {
       <p class="display-hint">
         {{ connected ? "The game starts on this screen once the host begins." : "Connecting to the party server..." }}
       </p>
+      <div v-if="state?.join" class="display-join">
+        <p class="display-join-label">Join on your phone</p>
+        <p v-for="url in state.join.urls" :key="url" class="display-join-url">{{ shortUrl(url) }}</p>
+        <p class="display-join-code">Code <strong>{{ state.join.code }}</strong></p>
+      </div>
     </div>
 
     <template v-if="started && state">
@@ -99,6 +106,7 @@ onBeforeUnmount(() => {
         :guessing="state.phase === 'guessing'"
         :scoreboard="state.scoreboard"
         :banner="state.banner"
+        :join="state.item ? state.join : null"
       />
       <PartyLobbyMusic :music="state.music" :song-playing="Boolean(state.item && state.playing)" />
     </template>
@@ -197,6 +205,43 @@ onBeforeUnmount(() => {
 .display-start-banner,
 .display-waiting h1 {
   font-size: clamp(24px, 4vw, 56px);
+}
+
+.display-join {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: clamp(14px, 2vw, 28px) clamp(20px, 3vw, 44px);
+  border: 3px solid var(--outline);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.display-join p {
+  margin: 0;
+}
+
+.display-join-label {
+  color: var(--muted);
+  font-size: clamp(14px, 1.6vw, 24px);
+  font-weight: 700;
+}
+
+.display-join-url {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 48px);
+}
+
+.display-join-code {
+  font-size: clamp(18px, 2vw, 32px);
+}
+
+.display-join-code strong {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4.5vw, 72px);
+  letter-spacing: 0.15em;
+  color: var(--accent);
 }
 
 .display-hint {

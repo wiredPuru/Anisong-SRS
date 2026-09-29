@@ -202,10 +202,12 @@ checks do not make the Blueprint unusable.
   executable (build item 48).
 - Party mode (after `bun run build`): `bun run party` - starts the Guess the
   Anime party server (feature 86): the built app on internal port 4002 behind
-  a display door on `127.0.0.1:4000` (`/party/display`) and a password-locked
-  host panel on `0.0.0.0:4001` (`/party/host`), printing the LAN host URLs.
-  Ports override via `GAQ_PARTY_DISPLAY_PORT`, `GAQ_PARTY_CONTROL_PORT`, and
-  `GAQ_PARTY_INTERNAL_PORT`; `GAQ_SRS_SKIP_BROWSER=1` skips opening the host
+  a display door on `127.0.0.1:4000` (`/party/display`), a password-locked
+  host panel on `0.0.0.0:4001` (`/party/host`), and a player door on
+  `0.0.0.0:4003` (`/party/play`, feature 90a) where phones join with the room
+  code, printing the LAN host and player URLs.
+  Ports override via `GAQ_PARTY_DISPLAY_PORT`, `GAQ_PARTY_CONTROL_PORT`,
+  `GAQ_PARTY_PLAYER_PORT`, and `GAQ_PARTY_INTERNAL_PORT`; `GAQ_SRS_SKIP_BROWSER=1` skips opening the host
   panel. Lobby music is read from a `party-music` folder beside the database
   (created on first use).
 - Package release binaries (after `bun run build`): `bun run package` -

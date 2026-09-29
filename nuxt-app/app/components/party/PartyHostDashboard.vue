@@ -63,6 +63,10 @@ usePartyHotkeys(state, send, () => {
         </section>
 
         <section v-if="state" class="panel">
+          <PartyJoinPanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
           <PartyScoreboardPanel :state="state" @command="send" />
         </section>
 

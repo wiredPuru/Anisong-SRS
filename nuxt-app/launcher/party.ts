@@ -9,17 +9,23 @@ applyServerEnv();
 const displayPort = Number(process.env.GAQ_PARTY_DISPLAY_PORT || 4000);
 const controlPort = Number(process.env.GAQ_PARTY_CONTROL_PORT || 4001);
 const internalPort = Number(process.env.GAQ_PARTY_INTERNAL_PORT || 4002);
+const playerPort = Number(process.env.GAQ_PARTY_PLAYER_PORT || 4003);
 
 const displayUrl = `http://127.0.0.1:${displayPort}${DOOR_HOME.display}`;
 const localControlUrl = `http://127.0.0.1:${controlPort}${DOOR_HOME.control}`;
-const lanControlUrls = lanAddresses(networkInterfaces()).map((ip) => `http://${ip}:${controlPort}${DOOR_HOME.control}`);
+const lanIps = lanAddresses(networkInterfaces());
+const lanControlUrls = lanIps.map((ip) => `http://${ip}:${controlPort}${DOOR_HOME.control}`);
+// Bare host:port, since the player door redirects its root to the join page
+// and this is what the display shows for people to type.
+const lanPlayerUrls = lanIps.map((ip) => `http://${ip}:${playerPort}`);
 
 process.env.GAQ_PARTY = "1";
 process.env.GAQ_PARTY_DISPLAY_URL = displayUrl;
 process.env.GAQ_PARTY_CONTROL_URLS = [localControlUrl, ...lanControlUrls].join(",");
+process.env.GAQ_PARTY_PLAYER_URLS = lanPlayerUrls.join(",");
 
 // The app behind the doors is the whole unauthenticated SRS, so it stays on
-// loopback; only the control door below faces the LAN.
+// loopback; only the control and player doors below face the LAN.
 process.env.PORT = String(internalPort);
 process.env.NITRO_PORT = String(internalPort);
 process.env.NITRO_HOST = "127.0.0.1";
@@ -80,9 +86,10 @@ function serveDoor(door: Door, hostname: string, port: number) {
 
 serveDoor("display", "127.0.0.1", displayPort);
 serveDoor("control", "0.0.0.0", controlPort);
+serveDoor("player", "0.0.0.0", playerPort);
 
 // Nitro closes its own server on these signals but not the doors, which
-// would keep the process alive holding both ports with nothing behind them.
+// would keep the process alive holding their ports with nothing behind them.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => process.exit(0));
 }
@@ -91,4 +98,6 @@ console.log("GAQ Party is running.");
 console.log(`  Display (this machine only): ${displayUrl}`);
 console.log(`  Host panel:                  ${localControlUrl}`);
 for (const lanUrl of lanControlUrls) console.log(`  Host panel on your network:  ${lanUrl}`);
+for (const lanUrl of lanPlayerUrls) console.log(`  Players join at:             ${lanUrl}`);
+if (!lanPlayerUrls.length) console.log(`  Players join at:             port ${playerPort} (no network address found)`);
 if (process.env.GAQ_SRS_SKIP_BROWSER !== "1") openBrowser(localControlUrl);

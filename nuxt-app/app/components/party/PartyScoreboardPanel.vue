@@ -58,7 +58,12 @@ function resetScores() {
           <input v-model="editName" class="text" type="text" maxlength="24" aria-label="Player name" />
           <button type="submit" class="mini">Save</button>
         </form>
-        <button v-else type="button" class="name" title="Rename" @click="startRename(player.id, player.name)">{{ player.name }}</button>
+        <button v-else type="button" class="name" title="Rename" @click="startRename(player.id, player.name)">
+          {{ player.name }}
+          <span v-if="player.phone" class="phone" :class="{ online: player.connected }">
+            <span class="dot" aria-hidden="true" />{{ player.connected ? "Phone" : "Phone, offline" }}
+          </span>
+        </button>
         <span class="score">{{ player.score }}</span>
         <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
         <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+</button>
@@ -238,5 +243,34 @@ function resetScores() {
 
 .link.danger {
   color: var(--fail);
+}
+.phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.phone .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.phone.online {
+  color: var(--pass);
+  border-color: var(--pass);
+}
+
+.phone.online .dot {
+  background: var(--pass);
 }
 </style>

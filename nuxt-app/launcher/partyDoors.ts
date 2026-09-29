@@ -1,4 +1,4 @@
-export type Door = "display" | "control";
+export type Door = "display" | "control" | "player";
 
 export type DoorDecision =
   | { kind: "proxy" }
@@ -8,6 +8,7 @@ export type DoorDecision =
 export const DOOR_HOME: Record<Door, string> = {
   display: "/party/display",
   control: "/party/host",
+  player: "/party/play",
 };
 
 const SHARED_ASSETS = ["/_nuxt/", "/mascot/"];
@@ -31,8 +32,15 @@ export function decideDoorRequest(door: Door, path: string): DoorDecision {
       : { kind: "notFound" };
   }
 
+  if (door === "player") {
+    return path === "/party/play" || path.startsWith("/api/party/player/")
+      ? { kind: "proxy" }
+      : { kind: "notFound" };
+  }
+
   if (path === "/party/host") return { kind: "proxy" };
-  if (path.startsWith("/api/party/") && !path.startsWith("/api/party/display/")) return { kind: "proxy" };
+  const otherDoorsApi = path.startsWith("/api/party/display/") || path.startsWith("/api/party/player/");
+  if (path.startsWith("/api/party/") && !otherDoorsApi) return { kind: "proxy" };
   return { kind: "notFound" };
 }
 

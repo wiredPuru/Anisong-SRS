@@ -5,7 +5,7 @@ import { getPartyState, onPartyChange } from "./partyStore.ts";
 const HEARTBEAT_MS = 5000;
 
 /** Streams a view of the game: now, on every change, and a 5s heartbeat. */
-export function streamPartyView(event: H3Event, view: (state: PartyGameState) => unknown) {
+export function streamPartyView(event: H3Event, view: (state: PartyGameState) => unknown, onClosed?: () => void) {
   const stream = createEventStream(event);
   let lastSent = "";
   const send = (state: PartyGameState) => {
@@ -23,6 +23,7 @@ export function streamPartyView(event: H3Event, view: (state: PartyGameState) =>
   stream.onClosed(async () => {
     unsubscribe();
     clearInterval(heartbeat);
+    onClosed?.();
     await stream.close();
   });
 

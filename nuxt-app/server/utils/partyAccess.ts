@@ -1,8 +1,9 @@
-export type PartyDoor = "display" | "control";
+export type PartyDoor = "display" | "control" | "player";
 
 export const PARTY_DOOR_HEADER = "x-gaq-party-door";
 export const PARTY_CLIENT_IP_HEADER = "x-gaq-party-client-ip";
 export const PARTY_SESSION_COOKIE = "gaq_party_session";
+export const PARTY_PLAYER_COOKIE = "gaq_party_player";
 
 const CONTROL_PUBLIC_API = new Set([
   "/api/party/status",
@@ -13,13 +14,14 @@ const CONTROL_PUBLIC_API = new Set([
 
 /**
  * What a request to the app may do under party mode: `pass` for a non-party
- * path, `notFound` when the route must stay hidden, `public` to serve it, and
- * `session` when a host login is required.
+ * path, `notFound` when the route must stay hidden, `public` to serve it,
+ * `session` when a host login is required, and `player` when a joined player's
+ * session is required.
  */
-export type PartyAccess = "pass" | "notFound" | "public" | "session";
+export type PartyAccess = "pass" | "notFound" | "public" | "session" | "player";
 
 export function parsePartyDoor(value: string | null | undefined): PartyDoor | null {
-  return value === "display" || value === "control" ? value : null;
+  return value === "display" || value === "control" || value === "player" ? value : null;
 }
 
 export function partyRouteAccess(rawPath: string, door: PartyDoor | null, partyEnabled: boolean): PartyAccess {
@@ -32,6 +34,11 @@ export function partyRouteAccess(rawPath: string, door: PartyDoor | null, partyE
   if (door === "display") {
     const allowed = path === "/party/display" || path.startsWith("/api/party/display/");
     return allowed ? "public" : "notFound";
+  }
+
+  if (door === "player") {
+    if (path === "/party/play" || path === "/api/party/player/join") return "public";
+    return path.startsWith("/api/party/player/") ? "player" : "notFound";
   }
 
   if (path === "/party/host" || CONTROL_PUBLIC_API.has(path)) return "public";

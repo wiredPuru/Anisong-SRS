@@ -13,8 +13,9 @@ Just the project owner, and by extension anyone else who plays AMQ and wants to
 run their own local copy. Not a multi-tenant product - each user runs their own
 instance against their own local media and database. The one exception is
 party mode (build 86): the owner hosts a Guess the Anime game for a room or a
-stream from their own machine. The audience only watches a screen; the host
-alone controls it, behind a password.
+stream from their own machine. The audience watches a screen, and players in
+the room can join from their phones to buzz in; the host alone controls the
+game, behind a password.
 
 ## 3. Features - What does the MVP need?
 
@@ -95,8 +96,10 @@ alone controls it, behind a password.
   host-controlled guess-the-anime game from the local library: a display
   screen for a projector or stream, and a password-locked host panel (usable
   from a phone on the same network) with queue, playback, reveal, screen
-  effects (blur, pixelate, mute, blackout), and timed lightning rounds. Party
-  play never counts as a review.
+  effects (blur, pixelate, mute, blackout), and timed lightning rounds.
+  Players can join from their phones with a room code shown on the display and
+  buzz in; the host judges each buzz and awards points. Party play never counts
+  as a review.
 
 ## 4. Data - What are we storing?
 
@@ -230,10 +233,13 @@ touched by an update.
 Party mode (build 86) ships as a second packaged binary, `gaq-party`, built
 alongside the SRS and sharing its user-data directory. It is the one part of
 the app that listens beyond localhost: its display port binds to loopback
-only, but its host control port binds to the LAN so a phone can act as a
-remote. That port requires the host password on every route, hashes it at
-rest, rate-limits login attempts, and only lets the password be first created
-from the machine itself. Neither port is meant to be exposed to the internet.
+only, but its host control port and a player port bind to the LAN, so a phone
+can act as a remote or a buzzer. The control port requires the host password
+on every route, hashes it at rest, rate-limits login attempts, and only lets
+the password be first created from the machine itself. The player port serves
+only the join and buzzer page, requires the room code shown on the display,
+rate-limits join attempts, and never sees an answer before the host reveals
+it. No port is meant to be exposed to the internet.
 
 ## 9. Non-Goals
 
@@ -245,8 +251,9 @@ priorities change:
 - Accounts/auth for multiple users sharing one instance (party mode's single
   host password guards the host panel; it is not a user account)
 - A mobile app
-- Any AMQ game mode beyond flashcard review and host-run party mode (e.g., a
-  live multiplayer quiz where players answer on their own devices)
+- Any AMQ game mode beyond flashcard review and host-run party mode (e.g.,
+  players typing or picking answers on their own devices; party players only
+  buzz, and the host judges)
 
 ## Notes
 

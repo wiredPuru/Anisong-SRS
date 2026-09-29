@@ -1,6 +1,8 @@
 import type { H3Event } from "h3";
-import { PARTY_CLIENT_IP_HEADER, PARTY_DOOR_HEADER, PARTY_SESSION_COOKIE, parsePartyDoor, type PartyDoor } from "./partyAccess.ts";
+import { PARTY_CLIENT_IP_HEADER, PARTY_DOOR_HEADER, PARTY_PLAYER_COOKIE, PARTY_SESSION_COOKIE, parsePartyDoor, type PartyDoor } from "./partyAccess.ts";
 import { SESSION_TTL_MS, createLoginLimiter, createSessionStore } from "./partyAuth.ts";
+import type { PartyPlayer } from "./partyGame.ts";
+import { partyPlayers } from "./partyStore.ts";
 
 // In memory on purpose: a restart ends every host login.
 export const partySessions = createSessionStore();
@@ -18,6 +20,24 @@ export function getPartyDoor(event: H3Event): PartyDoor | null {
 // Nitro itself only listens on loopback, so nothing else can reach it.
 export function getPartyClientIp(event: H3Event): string | null {
   return getHeader(event, PARTY_CLIENT_IP_HEADER) ?? null;
+}
+
+export function getPlayerToken(event: H3Event): string | null {
+  return getCookie(event, PARTY_PLAYER_COOKIE) ?? null;
+}
+
+export function getSessionPlayer(event: H3Event): PartyPlayer | null {
+  return partyPlayers.playerFor(getPlayerToken(event));
+}
+
+export function hasPlayerSession(event: H3Event): boolean {
+  return getSessionPlayer(event) !== null;
+}
+
+// No maxAge: the cookie ends with the browser session, and the token itself
+// ends with the party process.
+export function setPlayerCookie(event: H3Event, token: string): void {
+  setCookie(event, PARTY_PLAYER_COOKIE, token, { httpOnly: true, sameSite: "strict", path: "/" });
 }
 
 export function hasPartySession(event: H3Event): boolean {

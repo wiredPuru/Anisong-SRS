@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { parsePartyDoor, partyRouteAccess } from "./partyAccess.ts";
 
 describe("parsePartyDoor", () => {
-  it("accepts only the two door names", () => {
+  it("accepts only the three door names", () => {
     expect(parsePartyDoor("display")).toBe("display");
     expect(parsePartyDoor("control")).toBe("control");
+    expect(parsePartyDoor("player")).toBe("player");
     expect(parsePartyDoor("admin")).toBeNull();
     expect(parsePartyDoor(undefined)).toBeNull();
   });
@@ -45,5 +46,27 @@ describe("partyRouteAccess", () => {
     expect(partyRouteAccess("/party/display", "control", true)).toBe("notFound");
     expect(partyRouteAccess("/api/party/display/stream", "control", true)).toBe("notFound");
     expect(partyRouteAccess("/api/party/other", "control", true)).toBe("notFound");
+  });
+
+  it("keeps the player page and player API off the display and control doors", () => {
+    for (const door of ["display", "control"] as const) {
+      expect(partyRouteAccess("/party/play", door, true)).toBe("notFound");
+      expect(partyRouteAccess("/api/party/player/join", door, true)).toBe("notFound");
+      expect(partyRouteAccess("/api/party/player/me", door, true)).toBe("notFound");
+    }
+  });
+
+  it("serves the join page and join route publicly on the player door and gates the rest", () => {
+    expect(partyRouteAccess("/party/play", "player", true)).toBe("public");
+    expect(partyRouteAccess("/party/play/", "player", true)).toBe("public");
+    expect(partyRouteAccess("/api/party/player/join", "player", true)).toBe("public");
+    expect(partyRouteAccess("/api/party/player/me", "player", true)).toBe("player");
+    expect(partyRouteAccess("/api/party/player/stream?x=1", "player", true)).toBe("player");
+  });
+
+  it("hides every host, display, and auth route on the player door", () => {
+    for (const path of ["/party/host", "/party/display", "/api/party/status", "/api/party/login", "/api/party/password", "/api/party/host/command", "/api/party/display/stream"]) {
+      expect(partyRouteAccess(path, "player", true)).toBe("notFound");
+    }
   });
 });

@@ -42,6 +42,10 @@ export interface PartyPlayer {
   id: number;
   name: string;
   score: number;
+  // Joined from a phone through the player door (feature 90a), rather than
+  // typed in by the host. Only a phone player can be connected.
+  phone: boolean;
+  connected: boolean;
 }
 export interface PartyScoreboard {
   players: PartyPlayer[];
@@ -94,6 +98,8 @@ export interface PartyGameState {
   nextPlayerId: number;
   banner: PartyBanner | null;
   music: PartyMusic;
+  // The display's corner chip with the player join address and room code.
+  joinInfoVisible: boolean;
 }
 export type PartyScoreCommand =
   | { type: "score"; op: "add"; name: string }
@@ -119,7 +125,19 @@ export type PartyCommand =
   | { type: "timerStop" }
   | PartyScoreCommand
   | { type: "banner"; text: string | null }
-  | { type: "music"; enabled: boolean; volume: number };
+  | { type: "music"; enabled: boolean; volume: number }
+  | { type: "joinInfo"; visible: boolean };
+/**
+ * Commands only the server itself issues, on a phone's behalf. parsePartyCommand
+ * never produces them, so the host command route cannot forge a phone join.
+ */
+export type PartyInternalCommand =
+  | { type: "playerJoin"; name: string; claimId: number | null }
+  | { type: "playerConnection"; id: number; connected: boolean };
+export interface PartyJoinInfo {
+  code: string;
+  urls: string[];
+}
 
 /** Sent to the display: never a path, URL, card id, or answer before reveal. */
 export interface PartyDisplayState {
@@ -140,6 +158,15 @@ export interface PartyDisplayState {
   banner: PartyBanner | null;
   music: PartyMusic;
   answer: PartyAnswer | null;
+  join: PartyJoinInfo | null;
+}
+/** Sent to a joined phone: never an answer, clip token, or card id. */
+export interface PartyPlayerState {
+  version: number;
+  me: { id: number; name: string; score: number } | null;
+  phase: PartyPhase;
+  song: { number: number; total: number } | null;
+  players: { name: string; score: number }[];
 }
 export interface PartyHostState {
   version: number;
@@ -156,13 +183,14 @@ export interface PartyHostState {
   scoreboard: PartyScoreboard;
   banner: PartyBanner | null;
   music: PartyMusic;
+  joinInfoVisible: boolean;
 }
 
 export const PARTY_LOAD_MAX = 2000;
 /** How many songs past the current one the server caches and the display buffers. */
 export const PARTY_LOOKAHEAD = 2;
 export const PLAYER_LIMIT = 20;
-const PLAYER_NAME_MAX = 24;
+export const PLAYER_NAME_MAX = 24;
 const BANNER_MAX = 60;
 export const DEFAULT_MUSIC: PartyMusic = { enabled: false, volume: 0.4 };
 
@@ -225,10 +253,11 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible"> = {
     scoreboard: { players: [], visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
+    joinInfoVisible: true,
   },
 ): PartyGameState {
   return {
@@ -349,6 +378,10 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (!trimmed || trimmed.length > BANNER_MAX) return { error: `text must be 1-${BANNER_MAX} characters, or null` };
       return { type, text: trimmed };
     }
+    case "joinInfo": {
+      const { visible } = body as { visible?: unknown };
+      return typeof visible === "boolean" ? { type, visible } : { error: "visible must be a boolean" };
+    }
     case "music": {
       const { enabled, volume } = body as { enabled?: unknown; volume?: unknown };
       if (typeof enabled !== "boolean") return { error: "enabled must be a boolean" };
@@ -389,7 +422,7 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
   }
 }
 
-function parsePlayerName(raw: unknown): string | null {
+export function parsePlayerName(raw: unknown): string | null {
   const name = typeof raw === "string" ? raw.trim() : "";
   return name && name.length <= PLAYER_NAME_MAX ? name : null;
 }
@@ -428,7 +461,7 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
     case "add":
       if (players.length >= PLAYER_LIMIT) return state;
       return {
-        ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0 }]),
+        ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: false, connected: false }]),
         nextPlayerId: state.nextPlayerId + 1,
       };
     case "rename":
@@ -446,6 +479,50 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
     case "show":
       return state.scoreboard.visible === command.visible ? state : { ...state, scoreboard: { ...state.scoreboard, visible: command.visible } };
   }
+}
+
+const sameName = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLowerCase();
+
+export type JoinPlan = { claimId: number } | { add: true } | { error: "taken" | "full" | "invalid" };
+
+/**
+ * How a phone joining with this name lands on the scoreboard: it takes over a
+ * host-added or disconnected player of the same name (keeping the score), is
+ * refused a name a connected phone holds, and otherwise adds a player.
+ */
+export function planJoin(players: readonly PartyPlayer[], rawName: unknown): JoinPlan {
+  const name = parsePlayerName(rawName);
+  if (!name) return { error: "invalid" };
+  const match = players.find((p) => sameName(p.name, name));
+  if (match) return match.phone && match.connected ? { error: "taken" } : { claimId: match.id };
+  return players.length >= PLAYER_LIMIT ? { error: "full" } : { add: true };
+}
+
+/** Whether player `id` may take this name: no other player may hold it. */
+export function planRename(players: readonly PartyPlayer[], id: number, rawName: unknown): { name: string } | { error: "taken" | "invalid" } {
+  const name = parsePlayerName(rawName);
+  if (!name) return { error: "invalid" };
+  return players.some((p) => p.id !== id && sameName(p.name, name)) ? { error: "taken" } : { name };
+}
+
+function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
+  const { players } = state.scoreboard;
+  const withPlayers = (next: PartyPlayer[]) => ({ ...state, scoreboard: { ...state.scoreboard, players: next } });
+  if (command.type === "playerJoin") {
+    if (command.claimId !== null) {
+      return players.some((p) => p.id === command.claimId)
+        ? withPlayers(players.map((p) => (p.id === command.claimId ? { ...p, name: command.name, phone: true } : p)))
+        : state;
+    }
+    if (players.length >= PLAYER_LIMIT) return state;
+    return {
+      ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: true, connected: false }]),
+      nextPlayerId: state.nextPlayerId + 1,
+    };
+  }
+  const target = players.find((p) => p.id === command.id);
+  if (!target || !target.phone || target.connected === command.connected) return state;
+  return withPlayers(players.map((p) => (p.id === command.id ? { ...p, connected: command.connected } : p)));
 }
 
 function shuffled<T>(items: T[], random: () => number): T[] {
@@ -482,9 +559,13 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
  */
 export function applyPartyCommand(
   state: PartyGameState,
-  command: PartyCommand,
+  command: PartyCommand | PartyInternalCommand,
   options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number } = {},
 ): PartyGameState {
+  if (command.type === "playerJoin" || command.type === "playerConnection") {
+    const next = applyInternal(state, command);
+    return next === state ? state : { ...next, version: state.version + 1 };
+  }
   const hasItem = state.index >= 0 && state.index < state.queue.length;
   const random = options.random ?? Math.random;
   const now = options.now ?? Date.now;
@@ -536,6 +617,9 @@ export function applyPartyCommand(
       if (command.text !== null) next = { ...state, banner: { text: command.text, shownAt: now() } };
       else if (state.banner) next = { ...state, banner: null };
       break;
+    case "joinInfo":
+      if (state.joinInfoVisible !== command.visible) next = { ...state, joinInfoVisible: command.visible };
+      break;
     case "music":
       if (state.music.enabled !== command.enabled || state.music.volume !== command.volume) {
         next = { ...state, music: { enabled: command.enabled, volume: command.volume } };
@@ -557,6 +641,7 @@ export function applyPartyCommand(
           scoreboard: state.scoreboard,
           nextPlayerId: state.nextPlayerId,
           music: state.music,
+          joinInfoVisible: state.joinInfoVisible,
         });
       }
       break;
@@ -577,7 +662,7 @@ function hintElapsed(state: PartyGameState): number {
   return item && state.position?.token === item.token ? state.position.elapsed : 0;
 }
 
-export function toDisplayState(state: PartyGameState): PartyDisplayState {
+export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null = null): PartyDisplayState {
   const item = currentPartyItem(state);
   return {
     version: state.version,
@@ -604,6 +689,23 @@ export function toDisplayState(state: PartyGameState): PartyDisplayState {
     banner: state.banner,
     music: state.music,
     answer: item && state.phase === "revealed" ? item.answer : null,
+    // Always on the idle screen, where people join; the host can hide the
+    // small in-game chip.
+    join: join && (!item || state.joinInfoVisible) ? join : null,
+  };
+}
+
+// Built from scratch rather than trimmed from another view, so nothing the
+// phone must not see can ride along by accident.
+export function toPlayerState(state: PartyGameState, playerId: number): PartyPlayerState {
+  const item = currentPartyItem(state);
+  const me = state.scoreboard.players.find((p) => p.id === playerId);
+  return {
+    version: state.version,
+    me: me ? { id: me.id, name: me.name, score: me.score } : null,
+    phase: state.phase,
+    song: item ? { number: state.index + 1, total: state.queue.length } : null,
+    players: [...state.scoreboard.players].sort((a, b) => b.score - a.score).map((p) => ({ name: p.name, score: p.score })),
   };
 }
 
@@ -623,6 +725,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     scoreboard: state.scoreboard,
     banner: state.banner,
     music: state.music,
+    joinInfoVisible: state.joinInfoVisible,
   };
 }
 

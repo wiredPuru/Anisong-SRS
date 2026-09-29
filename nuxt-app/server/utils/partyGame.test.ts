@@ -11,9 +11,13 @@ import {
   parsePartyLightning,
   pickPartyClip,
   toDisplayState,
+  planJoin,
+  planRename,
+  toPlayerState,
   toHostState,
   toQueueItem,
   type PartyGameState,
+  type PartyPlayer,
   type PartyQueueItem,
 } from "./partyGame.ts";
 
@@ -532,8 +536,8 @@ describe("timer, scoreboard, banner, and music", () => {
     state = applyPartyCommand(state, { type: "score", op: "adjust", id: 1, delta: -1 });
     state = applyPartyCommand(state, { type: "score", op: "rename", id: 1, name: "Akira" });
     expect(state.scoreboard.players).toEqual([
-      { id: 1, name: "Akira", score: -1 },
-      { id: 2, name: "Bea", score: 3 },
+      { id: 1, name: "Akira", score: -1, phone: false, connected: false },
+      { id: 2, name: "Bea", score: 3, phone: false, connected: false },
     ]);
     const shown = applyPartyCommand(state, { type: "score", op: "show", visible: true });
     expect(toDisplayState(shown).scoreboard?.map((p) => p.name)).toEqual(["Bea", "Akira"]);
@@ -581,5 +585,83 @@ describe("timer, scoreboard, banner, and music", () => {
     expect(cleared.banner).toBeNull();
     expect(cleared.timer).toBeNull();
     expect(applyPartyCommand(cleared, { type: "score", op: "add", name: "Next" }).scoreboard.players[1]?.id).toBe(2);
+  });
+});
+
+describe("phone players (feature 90a)", () => {
+  const player = (id: number, name: string, extra: Partial<PartyPlayer> = {}): PartyPlayer => ({
+    id, name, score: 0, phone: false, connected: false, ...extra,
+  });
+
+  it("plans a join: add, claim a host-added or disconnected player, refuse a connected name", () => {
+    const players = [player(1, "Aki"), player(2, "Bea", { phone: true, connected: false }), player(3, "Cid", { phone: true, connected: true })];
+    expect(planJoin(players, "Dee")).toEqual({ add: true });
+    expect(planJoin(players, "  aki ")).toEqual({ claimId: 1 });
+    expect(planJoin(players, "BEA")).toEqual({ claimId: 2 });
+    expect(planJoin(players, "cid")).toEqual({ error: "taken" });
+  });
+
+  it("refuses blank, too-long, and non-string names, and a full game", () => {
+    expect(planJoin([], "   ")).toEqual({ error: "invalid" });
+    expect(planJoin([], "x".repeat(25))).toEqual({ error: "invalid" });
+    expect(planJoin([], 42)).toEqual({ error: "invalid" });
+    const full = Array.from({ length: 20 }, (_, i) => player(i + 1, `P${i + 1}`));
+    expect(planJoin(full, "New")).toEqual({ error: "full" });
+    expect(planJoin(full, "p3")).toEqual({ claimId: 3 });
+  });
+
+  it("plans a rename against every other player's name", () => {
+    const players = [player(1, "Aki"), player(2, "Bea")];
+    expect(planRename(players, 1, "bea")).toEqual({ error: "taken" });
+    expect(planRename(players, 1, "AKI")).toEqual({ name: "AKI" });
+    expect(planRename(players, 1, "")).toEqual({ error: "invalid" });
+  });
+
+  it("adds or claims through playerJoin and tracks connection for phone players only", () => {
+    let state = applyPartyCommand(initialPartyState(), { type: "score", op: "add", name: "Aki" });
+    state = applyPartyCommand(state, { type: "score", op: "adjust", id: 1, delta: 2 });
+    state = applyPartyCommand(state, { type: "playerJoin", name: "aki", claimId: 1 });
+    expect(state.scoreboard.players).toEqual([player(1, "aki", { score: 2, phone: true })]);
+
+    state = applyPartyCommand(state, { type: "playerJoin", name: "Bea", claimId: null });
+    expect(state.scoreboard.players[1]).toEqual(player(2, "Bea", { phone: true }));
+    expect(state.nextPlayerId).toBe(3);
+
+    const online = applyPartyCommand(state, { type: "playerConnection", id: 2, connected: true });
+    expect(online.scoreboard.players[1]?.connected).toBe(true);
+    expect(online.version).toBe(state.version + 1);
+    expect(applyPartyCommand(online, { type: "playerConnection", id: 2, connected: true })).toBe(online);
+
+    const host = applyPartyCommand(initialPartyState(), { type: "score", op: "add", name: "Host" });
+    expect(applyPartyCommand(host, { type: "playerConnection", id: 1, connected: true })).toBe(host);
+  });
+
+  it("never parses a phone command from the host route", () => {
+    expect(parsePartyCommand({ type: "playerJoin", name: "Eve", claimId: null })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "playerConnection", id: 1, connected: true })).toHaveProperty("error");
+  });
+
+  it("shows join info on the idle screen always and in a game only while the chip is on", () => {
+    const join = { code: "ABCD", urls: ["http://192.168.1.2:4003"] };
+    expect(toDisplayState(initialPartyState(), join).join).toEqual(join);
+    expect(toDisplayState(loaded(), join).join).toEqual(join);
+    const hidden = applyPartyCommand(loaded(), { type: "joinInfo", visible: false });
+    expect(toDisplayState(hidden, join).join).toBeNull();
+    expect(toDisplayState(applyPartyCommand(hidden, { type: "clear" }), join).join).toEqual(join);
+    expect(applyPartyCommand(hidden, { type: "clear" }).joinInfoVisible).toBe(false);
+    expect(parsePartyCommand({ type: "joinInfo", visible: "no" })).toHaveProperty("error");
+  });
+
+  it("gives a phone its own view with no answer, token, or card id, even when revealed", () => {
+    let state = applyPartyCommand(loaded(2), { type: "playerJoin", name: "Aki", claimId: null });
+    state = applyPartyCommand(state, { type: "reveal" });
+    const view = toPlayerState(state, 1);
+    expect(view).toMatchObject({ me: { id: 1, name: "Aki", score: 0 }, phase: "revealed", song: { number: 1, total: 2 } });
+    const json = JSON.stringify(view);
+    const item = state.queue[0]!;
+    expect(json).not.toContain(item.token);
+    expect(json).not.toContain(item.answer.animeTitleEnglish);
+    expect(json).not.toContain("cardId");
+    expect(toPlayerState(state, 99).me).toBeNull();
   });
 });

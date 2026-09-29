@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import type { PartyBanner, PartyPlayer, PartyTimer } from "~/composables/usePartyDisplay";
+import type { PartyBanner, PartyJoinInfo, PartyPlayer, PartyTimer } from "~/composables/usePartyDisplay";
 
 const props = defineProps<{
   timer: PartyTimer | null;
   guessing: boolean;
   scoreboard: PartyPlayer[] | null;
   banner: PartyBanner | null;
+  join: PartyJoinInfo | null;
 }>();
+
+const joinAddress = computed(() => props.join?.urls[0]?.replace(/^https?:\/\//, "") ?? null);
 
 const BANNER_MS = 4000;
 const TICK_MS = 250;
@@ -46,6 +49,10 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       </ol>
     </aside>
 
+    <p v-if="join" class="join-chip">
+      Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template> · code <strong>{{ join.code }}</strong>
+    </p>
+
     <div v-if="showBanner && banner" :key="banner.shownAt" class="banner-layer">
       <p class="kai-banner kai-banner-pass banner-text">{{ banner.text }}</p>
     </div>
@@ -57,6 +64,23 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.join-chip {
+  position: absolute;
+  left: clamp(12px, 2vw, 24px);
+  bottom: clamp(12px, 2vh, 24px);
+  margin: 0;
+  padding: 6px 16px;
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-pill);
+  background: var(--glass-surface-panel);
+  font-size: clamp(13px, 1.2vw, 20px);
+}
+
+.join-chip strong {
+  font-family: var(--font-display);
+  color: var(--accent);
 }
 
 .timer {

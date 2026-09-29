@@ -5,10 +5,11 @@ describe("decideDoorRequest", () => {
   it("sends each door's root to its own page", () => {
     expect(decideDoorRequest("display", "/")).toEqual({ kind: "redirect", location: "/party/display" });
     expect(decideDoorRequest("control", "/")).toEqual({ kind: "redirect", location: "/party/host" });
+    expect(decideDoorRequest("player", "/")).toEqual({ kind: "redirect", location: "/party/play" });
   });
 
   it("lets both doors load the app's shared assets", () => {
-    for (const door of ["display", "control"] as const) {
+    for (const door of ["display", "control", "player"] as const) {
       for (const path of ["/_nuxt/entry.abc.js", "/_nuxt/builds/meta/x.json", "/mascot/kai-wave.webp", "/favicon.ico"]) {
         expect(decideDoorRequest(door, path)).toEqual({ kind: "proxy" });
       }
@@ -29,6 +30,34 @@ describe("decideDoorRequest", () => {
     }
     for (const path of ["/party/display", "/api/party/display/stream", "/cards", "/api/cards", "/api/media", "/api/update/restart"]) {
       expect(decideDoorRequest("control", path)).toEqual({ kind: "notFound" });
+    }
+  });
+
+  it("keeps the player page and player API off the display and control doors", () => {
+    for (const door of ["display", "control"] as const) {
+      for (const path of ["/party/play", "/api/party/player/join", "/api/party/player/stream"]) {
+        expect(decideDoorRequest(door, path)).toEqual({ kind: "notFound" });
+      }
+    }
+  });
+
+  it("limits the player door to the player page and player API", () => {
+    for (const path of ["/party/play", "/api/party/player/join", "/api/party/player/stream"]) {
+      expect(decideDoorRequest("player", path)).toEqual({ kind: "proxy" });
+    }
+    for (const path of [
+      "/party/host",
+      "/party/display",
+      "/api/party/status",
+      "/api/party/login",
+      "/api/party/password",
+      "/api/party/host/command",
+      "/api/party/display/clip",
+      "/cards",
+      "/api/cards",
+      "/api/update/restart",
+    ]) {
+      expect(decideDoorRequest("player", path)).toEqual({ kind: "notFound" });
     }
   });
 });

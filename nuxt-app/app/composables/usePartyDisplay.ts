@@ -36,6 +36,12 @@ export interface PartyPlayer {
   id: number;
   name: string;
   score: number;
+  phone: boolean;
+  connected: boolean;
+}
+export interface PartyJoinInfo {
+  code: string;
+  urls: string[];
 }
 export interface PartyBanner {
   text: string;
@@ -63,6 +69,7 @@ export interface PartyDisplayState {
   banner: PartyBanner | null;
   music: PartyMusic;
   answer: PartyAnswer | null;
+  join: PartyJoinInfo | null;
 }
 
 export interface PartyPositionReport {

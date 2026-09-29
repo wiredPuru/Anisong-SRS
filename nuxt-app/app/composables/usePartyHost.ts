@@ -32,6 +32,7 @@ export interface PartyHostState {
   scoreboard: { players: PartyPlayer[]; visible: boolean };
   banner: PartyBanner | null;
   music: PartyMusic;
+  joinInfoVisible: boolean;
 }
 
 export type PartyHostCommand =
@@ -55,7 +56,8 @@ export type PartyHostCommand =
   | { type: "score"; op: "reset" }
   | { type: "score"; op: "show"; visible: boolean }
   | { type: "banner"; text: string | null }
-  | { type: "music"; enabled: boolean; volume: number };
+  | { type: "music"; enabled: boolean; volume: number }
+  | { type: "joinInfo"; visible: boolean };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 10000;

@@ -979,6 +979,34 @@ cleaned-up checkbox version before generating the project overview.
   Bury, then moves on), the `/cards` inspector, and `/cards`' bulk selection
   bar; `/cards` gains a Suspended filter and a badge on suspended rows.
   Suspending never changes a card's schedule or review history.
+- [ ] 90. **Party players and buzzer** - players in the room join the party
+  from their phones and buzz in, and the host panel and display get the
+  scoring, queue, and results tools a live game needs.
+  - [x] 90a. **Player door and joining** - a third `gaq-party` port
+    (`0.0.0.0:4003`, `GAQ_PARTY_PLAYER_PORT`) that serves only the player page
+    and player API, gated by a short room code the display shows alongside the
+    join address (text, no QR). A player enters the code and a name; the name
+    and a player session are remembered on that phone, so a reload or a
+    rejoin skips straight back in. Joined players appear on the existing
+    scoreboard, marked connected or not, and the host can rename or remove
+    them. Join attempts are rate-limited per IP; the player door never sees an
+    answer before the host reveals it.
+  - [ ] 90b. **Buzzer rounds** - a host toggle for buzzer mode. While a song
+    is guessing, each player's phone shows a big Buzz button; the first buzz
+    pauses playback, locks everyone else out, and shows that player's name on
+    the display and host panel. The host marks it Correct (a point, then
+    reveal) or Wrong (that player is locked out for the rest of the song,
+    playback resumes, and the others can buzz). Phones show whether they can
+    buzz, who buzzed, and when the answer is revealed. Buzzes are ordered by
+    when the server receives them.
+  - [ ] 90c. **Host scoring and queue editing** - after a reveal, the host
+    panel offers one tap per player to award the point (the player who buzzed
+    first highlighted), replacing the hunt for the small +/- buttons. The
+    running queue can have songs removed, reordered, or appended from the
+    queue builder, instead of a new load replacing it.
+  - [ ] 90d. **Round summary** - a results screen the host can put on the
+    display between songs and automatically at the end of the queue: ranked
+    standings plus each played song with who scored it.
 
 ## Plan maintenance
 
