@@ -13,8 +13,9 @@ const progress = computed(() => {
   const p = position.value;
   return p && p.duration ? Math.min(1, p.currentTime / p.duration) : 0;
 });
+const blocked = computed(() => props.state.playing && position.value?.blocked);
 // Asked to play, but the display has not said it is: the clip is loading.
-const loading = computed(() => props.state.playing && Boolean(current.value) && !position.value?.playing);
+const loading = computed(() => props.state.playing && Boolean(current.value) && !position.value?.playing && !blocked.value);
 const atStart = computed(() => props.state.index <= 0);
 const atEnd = computed(() => props.state.index >= props.state.queue.length - 1);
 const confirmingClear = ref(false);
@@ -76,6 +77,9 @@ function clearGame() {
 
     <p v-if="!position" class="np-notice">
       The display hasn't reported yet. Open the display screen and click Start.
+    </p>
+    <p v-else-if="blocked" class="np-notice" role="status">
+      The display can't start playback. Tap or click the display screen.
     </p>
     <div class="np-progress">
       <button

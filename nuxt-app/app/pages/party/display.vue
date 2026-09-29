@@ -8,10 +8,16 @@ const { state, connected, connect, reportPosition } = usePartyDisplay();
 // for that click before following the host at all.
 const started = ref(false);
 let startedAt = 0;
+const player = ref<{ unlock: () => void } | null>(null);
+const lobbyMusic = ref<{ unlock: () => void } | null>(null);
+const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted: false, picture: "video" as const };
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
 
 function start() {
+  // Both media elements must receive play() while this click is still active.
+  player.value?.unlock();
+  lobbyMusic.value?.unlock();
   started.value = true;
   startedAt = Date.now();
   // The same click that unlocks audio is the gesture full screen needs.
@@ -95,27 +101,30 @@ onBeforeUnmount(() => {
       <span class="display-hint">Starting lets this screen play sound for the game.</span>
     </button>
 
-    <template v-else-if="state?.item">
-      <PartyDisplayPlayer
-        :token="state.item.token"
-        :upcoming="state.upcoming"
-        :kind="state.item.kind"
-        :playing="state.playing"
-        :start-at="state.startAt"
-        :seek-to="state.seekTo"
-        :seek-seq="state.seekSeq"
-        :start-fraction="state.startFraction"
-        :effects="state.effects"
-        :revealed="state.phase === 'revealed'"
-        :lightning="state.lightning"
-        @position="reportPosition"
-      />
+    <PartyDisplayPlayer
+      ref="player"
+      v-show="started && Boolean(state?.item)"
+      :token="state?.item?.token ?? ''"
+      :upcoming="state?.upcoming ?? []"
+      :kind="state?.item?.kind ?? 'video'"
+      :playing="state?.playing ?? false"
+      :start-at="state?.startAt ?? 0"
+      :seek-to="state?.seekTo ?? null"
+      :seek-seq="state?.seekSeq ?? 0"
+      :start-fraction="state?.startFraction ?? 0"
+      :effects="state?.effects ?? idleEffects"
+      :revealed="state?.phase === 'revealed'"
+      :lightning="state?.lightning ?? null"
+      @position="reportPosition"
+    />
+
+    <template v-if="started && state?.item">
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
       <PartyRevealOverlay v-if="state.answer" :answer="state.answer" :winner="state.buzz.winner" />
       <PartyRoundSummary v-if="state.summary" :summary="state.summary" />
     </template>
 
-    <div v-else class="display-waiting">
+    <div v-else-if="started" class="display-waiting">
       <MascotKai pose="sleepy" size="hero" />
       <h1 class="kai-banner kai-banner-neutral">Waiting for the host</h1>
       <p class="display-hint">
@@ -137,8 +146,13 @@ onBeforeUnmount(() => {
         :join="state.item && !state.answer ? state.join : null"
         :answering="state.item ? state.buzz.answering : null"
       />
-      <PartyLobbyMusic :music="state.music" :song-playing="Boolean(state.item && state.playing)" />
     </template>
+
+    <PartyLobbyMusic
+      ref="lobbyMusic"
+      :music="started && state ? state.music : { enabled: false, volume: 0 }"
+      :song-playing="Boolean(state?.item && state.playing)"
+    />
 
     <button
       v-if="started"

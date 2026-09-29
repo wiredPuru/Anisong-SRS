@@ -10,7 +10,7 @@ describe("decideDoorRequest", () => {
 
   it("lets both doors load the app's shared assets", () => {
     for (const door of ["display", "control", "player"] as const) {
-      for (const path of ["/_nuxt/entry.abc.js", "/_nuxt/builds/meta/x.json", "/mascot/kai-wave.webp", "/favicon.ico"]) {
+      for (const path of ["/_nuxt/entry.abc.js", "/_nuxt/builds/meta/x.json", "/mascot/kai-wave.webp", "/favicon.ico", "/party-unlock.mp4"]) {
         expect(decideDoorRequest(door, path)).toEqual({ kind: "proxy" });
       }
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
+import { assignPartyVideoSlots } from "~/utils/partyVideoSlots";
 
 const props = defineProps<{
   token: string;
@@ -23,19 +24,25 @@ const RANDOM_START_TAIL_S = 15;
 // A blurred edge fades into the background; a slight zoom keeps it off screen.
 const BLUR_ZOOM = 1.08;
 
-// One element per song: the current one plays, the upcoming ones sit muted and
-// hidden, buffering, so moving on swaps to an already-loaded clip instead of
-// starting a fresh load. Keyed by token, so the swap keeps the element.
-const tokens = computed(() => [props.token, ...props.upcoming.filter((token) => token !== props.token)]);
-const elements = new Map<string, HTMLVideoElement>();
+// Safari grants audible playback to the element used in the start gesture.
+// The three elements stay mounted while their assigned songs change.
+const SLOT_COUNT = 3;
+const UNLOCK_SRC = "/party-unlock.mp4";
+const tokens = computed(() => props.token
+  ? [props.token, ...props.upcoming.filter((token) => token !== props.token)].slice(0, SLOT_COUNT)
+  : []);
+const slots = ref<(string | null)[]>(Array(SLOT_COUNT).fill(null));
+const elements: (HTMLVideoElement | null)[] = Array(SLOT_COUNT).fill(null);
 const media = shallowRef<HTMLVideoElement | null>(null);
 const cover = ref<HTMLImageElement | null>(null);
 const failed = ref(false);
 const coverFailed = ref(false);
+const blocked = ref(false);
+let playAttempt = 0;
 // True only between the current clip's "playing" and its next stall or pause,
 // so "asked to play" and "actually audible" can be told apart.
 const audible = ref(false);
-const loading = computed(() => props.playing && !audible.value && !failed.value);
+const loading = computed(() => props.playing && !audible.value && !failed.value && !blocked.value);
 const clipSrc = (token: string) => `/api/party/display/clip?t=${encodeURIComponent(token)}`;
 const coverSrc = computed(() => `/api/party/display/cover?t=${encodeURIComponent(props.token)}`);
 
@@ -114,13 +121,27 @@ const hints = computed(() => (props.lightning?.hints && !failed.value ? props.li
 
 function report() {
   const element = media.value;
-  if (!element) return;
+  if (!element || !props.token) return;
   emit("position", {
     token: props.token,
     currentTime: element.currentTime,
     duration: Number.isFinite(element.duration) ? element.duration : null,
-    playing: !element.paused && audible.value,
+    playing: !blocked.value && !element.paused && audible.value,
+    blocked: blocked.value,
     elapsed: Math.max(0, element.currentTime - startPosition.value),
+  });
+}
+
+function requestPlay(element: HTMLVideoElement) {
+  const token = props.token;
+  const attempt = ++playAttempt;
+  void element.play().catch((error: unknown) => {
+    if (attempt !== playAttempt || media.value !== element || props.token !== token || !props.playing) return;
+    if (error instanceof DOMException && error.name === "NotAllowedError") {
+      blocked.value = true;
+      audible.value = false;
+      report();
+    }
   });
 }
 
@@ -128,30 +149,53 @@ function followPlaying() {
   const element = media.value;
   if (!element) return;
   if (props.playing && element.paused) {
-    // Rejects when the page was never clicked; the display's start screen
-    // exists so this does not happen.
-    element.play().catch(() => {});
-  } else if (!props.playing && !element.paused) {
-    element.pause();
+    requestPlay(element);
+  } else if (!props.playing) {
+    playAttempt++;
+    blocked.value = false;
+    if (!element.paused) element.pause();
+    report();
   }
+}
+
+function retryPlayback() {
+  if (media.value && props.playing) requestPlay(media.value);
 }
 
 function followMuted() {
   if (media.value) media.value.muted = active.value && fx.value.muted;
 }
 
-// Vue calls a template function ref with null and then the element on every
-// re-render, so null is ignored here; tokens that leave the list are pruned
-// once the DOM has settled.
-function registerElement(token: string, element: unknown) {
+function registerElement(slot: number, element: unknown) {
   if (!(element instanceof HTMLVideoElement)) return;
-  elements.set(token, element);
-  if (token === props.token) {
-    media.value = element;
-  } else {
-    element.muted = true;
+  if (elements[slot] === element) return;
+  elements[slot] = element;
+  element.muted = true;
+}
+
+function matchesSlotSource(slot: number) {
+  const element = elements[slot];
+  const token = slots.value[slot];
+  return Boolean(element?.currentSrc && token && new URL(element.currentSrc).searchParams.get("t") === token);
+}
+
+function unlock() {
+  for (const element of elements) {
+    if (!element) continue;
+    element.muted = false;
+    void element.play().then(
+      () => {
+        if (element.currentSrc.endsWith(UNLOCK_SRC)) {
+          element.pause();
+          element.muted = true;
+        }
+      },
+      () => { if (element.currentSrc.endsWith(UNLOCK_SRC)) element.muted = true; },
+    );
   }
 }
+
+defineExpose({ unlock });
 
 function startCurrent() {
   const element = media.value;
@@ -167,52 +211,51 @@ function startCurrent() {
   followPlaying();
 }
 
-function onLoadedMetadata(token: string) {
-  if (token === props.token) startCurrent();
+function onLoadedMetadata(slot: number) {
+  if (slots.value[slot] !== props.token || !matchesSlotSource(slot)) return;
+  media.value = elements[slot];
+  startCurrent();
 }
 
-function onError(token: string) {
-  if (token === props.token) failed.value = true;
+function onError(slot: number) {
+  if (slots.value[slot] === props.token && matchesSlotSource(slot)) failed.value = true;
 }
 
-function onAudible(token: string, value: boolean) {
-  if (token !== props.token) return;
+function onAudible(slot: number, value: boolean) {
+  if (slots.value[slot] !== props.token || !matchesSlotSource(slot)) return;
   audible.value = value;
+  if (value) blocked.value = false;
   report();
 }
 
-// Pause the outgoing song before the DOM changes, so it can never overlap the
-// next one, whether its element is dropped or kept as a preload.
 watch(
-  () => props.token,
-  (_next, previous) => {
-    const outgoing = previous ? elements.get(previous) : null;
-    if (outgoing) {
-      outgoing.pause();
-      outgoing.muted = true;
+  tokens,
+  async (next, previous) => {
+    const songChanged = next[0] !== previous?.[0];
+    if (songChanged && media.value) {
+      playAttempt++;
+      media.value.pause();
+      media.value.muted = true;
+      media.value = null;
     }
-  },
-  { flush: "pre" },
-);
-
-watch(
-  () => props.token,
-  () => {
+    slots.value = assignPartyVideoSlots(slots.value, next);
+    if (!songChanged) return;
     failed.value = false;
     coverFailed.value = false;
     elapsed.value = 0;
     audible.value = false;
-    for (const token of [...elements.keys()]) {
-      if (!tokens.value.includes(token)) elements.delete(token);
-    }
-    const element = elements.get(props.token) ?? null;
-    media.value = element;
+    blocked.value = false;
+    await nextTick();
+    if (props.token !== next[0]) return;
+    const slot = slots.value.indexOf(props.token);
+    const element = slot === -1 ? null : elements[slot];
+    media.value = element ?? null;
     if (!element) return;
     // A preload that failed (say, a remote clip still caching) gets a fresh try.
     if (element.error) element.load();
-    else if (element.readyState >= HTMLMediaElement.HAVE_METADATA) startCurrent();
+    else if (matchesSlotSource(slot) && element.readyState >= HTMLMediaElement.HAVE_METADATA) startCurrent();
   },
-  { flush: "post" },
+  { flush: "pre" },
 );
 watch(() => props.playing, followPlaying);
 watch([() => fx.value.muted, active], followMuted);
@@ -242,21 +285,21 @@ onBeforeUnmount(() => {
 <template>
   <div class="party-player">
     <video
-      v-for="clipToken in tokens"
-      :key="clipToken"
-      :ref="(element) => registerElement(clipToken, element)"
+      v-for="slotIndex in SLOT_COUNT"
+      :key="slotIndex"
+      :ref="(element) => registerElement(slotIndex - 1, element)"
       class="party-media"
-      :class="clipToken === token ? { hidden: showVeil || showCover || pixelSource } : 'preload'"
-      :style="clipToken !== token || showVeil || showCover || pixelSource ? undefined : visualStyle"
-      :src="clipSrc(clipToken)"
+      :class="slots[slotIndex - 1] === token && token ? { hidden: showVeil || showCover || pixelSource } : 'preload'"
+      :style="slots[slotIndex - 1] !== token || !token || showVeil || showCover || pixelSource ? undefined : visualStyle"
+      :src="slots[slotIndex - 1] ? clipSrc(slots[slotIndex - 1]!) : UNLOCK_SRC"
       preload="auto"
       playsinline
-      @loadedmetadata="onLoadedMetadata(clipToken)"
-      @playing="onAudible(clipToken, true)"
-      @waiting="onAudible(clipToken, false)"
-      @pause="onAudible(clipToken, false)"
+      @loadedmetadata="onLoadedMetadata(slotIndex - 1)"
+      @playing="onAudible(slotIndex - 1, true)"
+      @waiting="onAudible(slotIndex - 1, false)"
+      @pause="onAudible(slotIndex - 1, false)"
       @seeked="report"
-      @error="onError(clipToken)"
+      @error="onError(slotIndex - 1)"
     />
     <img
       v-if="showCover"
@@ -271,6 +314,10 @@ onBeforeUnmount(() => {
     <PartyPixelCanvas v-if="pixelSource" :source="pixelSource" :block-size="pixelBlock" :style="visualStyle" />
     <div v-if="failed" class="party-veil">
       <StudyPlayerKai mood="error" text="This clip won't play" />
+    </div>
+    <div v-else-if="blocked && playing" class="party-veil party-resume">
+      <StudyPlayerKai mood="paused" text="Tap to resume" />
+      <button type="button" class="resume-hit-area" aria-label="Tap to resume" @click="retryPlayback" />
     </div>
     <PartyLightningHints v-else-if="hints && showVeil" :hints="hints" />
     <div v-else-if="showVeil" class="party-veil">
@@ -345,6 +392,25 @@ onBeforeUnmount(() => {
   container-type: size;
   --kai-bottom: 46%;
   --kai-height: clamp(120px, 26cqh, 300px);
+}
+
+.party-resume {
+  z-index: 1;
+}
+
+.resume-hit-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.resume-hit-area:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 
 /* Study moves Kai aside while listening to keep a video's middle clear; an

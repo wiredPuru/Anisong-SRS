@@ -12,7 +12,7 @@ export const DOOR_HOME: Record<Door, string> = {
 };
 
 const SHARED_ASSETS = ["/_nuxt/", "/mascot/"];
-const SHARED_FILES = new Set(["/favicon.ico", "/apple-touch-icon.png"]);
+const SHARED_FILES = new Set(["/favicon.ico", "/apple-touch-icon.png", "/party-unlock.mp4"]);
 
 function isSharedAsset(path: string): boolean {
   return SHARED_FILES.has(path) || SHARED_ASSETS.some((prefix) => path.startsWith(prefix));

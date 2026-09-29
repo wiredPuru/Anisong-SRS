@@ -9,12 +9,39 @@ const props = defineProps<{ music: PartyMusic; songPlaying: boolean }>();
 const FADE_PER_SECOND = 1;
 
 const audio = ref<HTMLAudioElement | null>(null);
+const UNLOCK_SRC = "/party-unlock.mp4";
 const trackCount = ref(0);
+const blocked = ref(false);
+let playAttempt = 0;
 let order: number[] = [];
 let frame = 0;
 let lastFrame = 0;
 
 const active = computed(() => props.music.enabled && !props.songPlaying && trackCount.value > 0);
+
+function unlock() {
+  const element = audio.value;
+  if (!element) return;
+  void element.play().then(
+    () => { if (element.currentSrc.endsWith(UNLOCK_SRC)) element.pause(); },
+    () => {},
+  );
+}
+
+defineExpose({ unlock });
+
+function requestPlay(element: HTMLAudioElement) {
+  const source = element.src;
+  const attempt = ++playAttempt;
+  void element.play().catch((error: unknown) => {
+    if (attempt !== playAttempt || audio.value !== element || element.src !== source || !active.value) return;
+    if (error instanceof DOMException && error.name === "NotAllowedError") blocked.value = true;
+  });
+}
+
+function retryPlayback() {
+  if (audio.value && active.value) requestPlay(audio.value);
+}
 
 async function loadCount() {
   try {
@@ -26,7 +53,7 @@ async function loadCount() {
 
 function nextTrack() {
   const element = audio.value;
-  if (!element || !trackCount.value) return;
+  if (!element || !trackCount.value || !active.value) return;
   if (!order.length) {
     order = Array.from({ length: trackCount.value }, (_, i) => i);
     for (let i = order.length - 1; i > 0; i--) {
@@ -35,7 +62,7 @@ function nextTrack() {
     }
   }
   element.src = `/api/party/display/music?i=${order.shift()}`;
-  element.play().catch(() => {});
+  requestPlay(element);
 }
 
 function fade(time: number) {
@@ -52,12 +79,16 @@ function fade(time: number) {
 watch(active, async (isActive) => {
   const element = audio.value;
   if (!element) return;
-  if (!isActive) return;
+  if (!isActive) {
+    playAttempt++;
+    blocked.value = false;
+    return;
+  }
   // The list is re-read each time the lobby starts, so new tracks join in.
   await loadCount();
   if (!active.value) return;
-  if (!element.src || element.ended) nextTrack();
-  else element.play().catch(() => {});
+  if (!element.src || element.ended || element.currentSrc.endsWith(UNLOCK_SRC)) nextTrack();
+  else requestPlay(element);
 });
 
 watch(
@@ -81,11 +112,42 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 </script>
 
 <template>
-  <audio ref="audio" class="lobby-music" preload="auto" @ended="nextTrack" />
+  <div class="lobby-music">
+    <audio ref="audio" :src="UNLOCK_SRC" preload="auto" @ended="nextTrack" @playing="blocked = false" />
+    <div v-if="blocked && active" class="music-resume">
+      <StudyPlayerKai mood="paused" text="Tap to resume" />
+      <button type="button" class="resume-hit-area" aria-label="Tap to resume" @click="retryPlayback" />
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.lobby-music {
+.lobby-music audio {
   display: none;
+}
+
+.music-resume {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-chrome);
+  background: var(--bg);
+  container-type: size;
+  --kai-bottom: 46%;
+  --kai-height: clamp(120px, 26cqh, 300px);
+}
+
+.resume-hit-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.resume-hit-area:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 </style>

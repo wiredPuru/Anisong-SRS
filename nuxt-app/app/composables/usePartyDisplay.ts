@@ -85,6 +85,7 @@ export interface PartyPositionReport {
   currentTime: number;
   duration: number | null;
   playing: boolean;
+  blocked: boolean;
   elapsed: number;
 }
 

@@ -81,6 +81,7 @@ export interface PartyPosition {
   currentTime: number;
   duration: number | null;
   playing: boolean;
+  blocked: boolean;
   // Seconds played since the song's own start position; lightning rounds
   // time their reveal and advance from it.
   elapsed: number;
@@ -971,7 +972,7 @@ export type LightningStep = "reveal" | "next" | "stop";
 export function lightningStep(state: PartyGameState): LightningStep | null {
   const { lightning, position } = state;
   const item = currentPartyItem(state);
-  if (!lightning || !item || !position || position.token !== item.token || !state.playing) return null;
+  if (!lightning || !item || !position || position.token !== item.token || !state.playing || !position.playing || position.blocked) return null;
 
   if (state.phase === "guessing") {
     return position.elapsed >= lightning.guessSeconds ? "reveal" : null;

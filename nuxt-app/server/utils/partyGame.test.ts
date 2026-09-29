@@ -220,7 +220,7 @@ describe("applyPartyCommand", () => {
   it("moves between items, resetting playback, and stops at both ends (Next at the end shows results)", () => {
     let state = applyPartyCommand(loaded(2), { type: "play" });
     state = applyPartyCommand(state, { type: "reveal" });
-    state = { ...state, position: { token: "t1", currentTime: 5, duration: 90, playing: true } };
+    state = { ...state, position: { token: "t1", currentTime: 5, duration: 90, playing: true, blocked: false, elapsed: 5 } };
     const second = applyPartyCommand(state, { type: "next" });
     expect(second).toMatchObject({ index: 1, phase: "guessing", playing: true, startAt: 0, seekTo: null, position: null });
     const ended = applyPartyCommand(second, { type: "next" });
@@ -415,7 +415,7 @@ describe("lightning", () => {
   }
   const at = (state: PartyGameState, elapsed: number, playing = true, token = state.queue[state.index]!.token): PartyGameState => ({
     ...state,
-    position: { token, currentTime: elapsed, duration: 90, playing, elapsed },
+    position: { token, currentTime: elapsed, duration: 90, playing, blocked: false, elapsed },
   });
 
   it("parses and clamps a config", () => {
@@ -471,6 +471,11 @@ describe("lightning", () => {
 
   it("does nothing when paused, off, or reported for another song", () => {
     expect(lightningStep(at(applyPartyCommand(running(), { type: "pause" }), 30))).toBeNull();
+    expect(lightningStep(at(running(), 30, false))).toBeNull();
+    const active = at(running(), 30);
+    const blocked = { ...active, position: { ...active.position!, blocked: true } };
+    expect(lightningStep(blocked)).toBeNull();
+    expect(toHostState(blocked).position).toEqual(blocked.position);
     expect(lightningStep(at(applyPartyCommand(running(), { type: "lightning", config: null }), 30))).toBeNull();
     expect(lightningStep(at(running(), 30, true, "stale"))).toBeNull();
     expect(lightningStep(running())).toBeNull();
@@ -487,7 +492,7 @@ describe("lightning hints in the display state", () => {
   }
   const at = (state: PartyGameState, elapsed: number): PartyGameState => ({
     ...state,
-    position: { token: state.queue[state.index]!.token, currentTime: elapsed, duration: 90, playing: true, elapsed },
+    position: { token: state.queue[state.index]!.token, currentTime: elapsed, duration: 90, playing: true, blocked: false, elapsed },
   });
 
   it("sends only the clues revealed so far", () => {
