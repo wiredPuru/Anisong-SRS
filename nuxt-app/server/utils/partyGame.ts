@@ -67,6 +67,12 @@ export interface PartyBuzz {
   winnerId: number | null;
 }
 export const NO_BUZZ: PartyBuzz = { playerId: null, lockedOut: [], winnerId: null };
+/** A player's net points on the current song, as the display lists them (feature 91a). */
+export interface PartyRoundPoint {
+  id: number;
+  name: string;
+  points: number;
+}
 
 export interface PartyQueueItem {
   token: string;
@@ -113,6 +119,8 @@ export interface PartyGameState {
   buzz: PartyBuzz;
   // Who scored each song, by queue item token (feature 90c).
   awards: Record<string, number[]>;
+  // Net points per player id on the current song only (feature 91a).
+  roundPoints: Record<number, number>;
   summaryVisible: boolean;
 }
 export interface PartySummary {
@@ -186,7 +194,8 @@ export interface PartyDisplayState {
   music: PartyMusic;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
-  buzz: { answering: string | null; winner: string | null };
+  buzz: { answering: string | null };
+  roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
@@ -324,6 +333,7 @@ export function initialPartyState(
     banner: null,
     buzz: NO_BUZZ,
     awards: {},
+    roundPoints: {},
     summaryVisible: false,
     ...kept,
   };
@@ -551,16 +561,23 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
         : state;
     case "remove": {
       if (!players.some((p) => p.id === command.id)) return state;
-      const removed = withPlayers(players.filter((p) => p.id !== command.id));
+      const { [command.id]: _dropped, ...roundPoints } = state.roundPoints;
+      const removed = { ...withPlayers(players.filter((p) => p.id !== command.id)), roundPoints };
       // Playback stays paused: the host decides what happens next.
       return state.buzz.playerId === command.id ? { ...removed, buzz: { ...state.buzz, playerId: null } } : removed;
     }
-    case "adjust":
-      return players.some((p) => p.id === command.id) && command.delta !== 0
-        ? withPlayers(players.map((p) => (p.id === command.id ? { ...p, score: p.score + command.delta } : p)))
-        : state;
+    case "adjust": {
+      if (!players.some((p) => p.id === command.id) || command.delta === 0) return state;
+      const adjusted = withPlayers(players.map((p) => (p.id === command.id ? { ...p, score: p.score + command.delta } : p)));
+      // Points given between songs belong to no round.
+      return currentPartyItem(state)
+        ? { ...adjusted, roundPoints: addRoundPoints(state.roundPoints, command.id, command.delta) }
+        : adjusted;
+    }
     case "reset":
-      return players.some((p) => p.score !== 0) ? withPlayers(players.map((p) => ({ ...p, score: 0 }))) : state;
+      return players.some((p) => p.score !== 0)
+        ? { ...withPlayers(players.map((p) => ({ ...p, score: 0 }))), roundPoints: {} }
+        : state;
     case "show":
       return state.scoreboard.visible === command.visible ? state : { ...state, scoreboard: { ...state.scoreboard, visible: command.visible } };
   }
@@ -618,6 +635,7 @@ function judgeBuzz(state: PartyGameState, correct: boolean, now: number): PartyG
       ...state,
       scoreboard: { ...state.scoreboard, players },
       awards: { ...state.awards, [token]: awarded.includes(id) ? awarded : [...awarded, id] },
+      roundPoints: addRoundPoints(state.roundPoints, id, 1),
       buzz: { ...state.buzz, playerId: null, winnerId: id },
       phase: "revealed",
       revealedAtElapsed: state.position?.elapsed ?? 0,
@@ -641,7 +659,19 @@ function applyAward(state: PartyGameState, playerId: number, awarded: boolean): 
   const players = state.scoreboard.players.map((p) => (p.id === playerId ? { ...p, score: p.score + delta } : p));
   const list = awarded ? [...current, playerId] : current.filter((id) => id !== playerId);
   const buzz = !awarded && state.buzz.winnerId === playerId ? { ...state.buzz, winnerId: null } : state.buzz;
-  return { ...state, scoreboard: { ...state.scoreboard, players }, awards: { ...state.awards, [item.token]: list }, buzz };
+  return {
+    ...state,
+    scoreboard: { ...state.scoreboard, players },
+    awards: { ...state.awards, [item.token]: list },
+    roundPoints: addRoundPoints(state.roundPoints, playerId, delta),
+    buzz,
+  };
+}
+
+function addRoundPoints(roundPoints: Record<number, number>, playerId: number, delta: number): Record<number, number> {
+  const { [playerId]: current = 0, ...rest } = roundPoints;
+  const total = current + delta;
+  return total === 0 ? rest : { ...rest, [playerId]: total };
 }
 
 function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
@@ -695,6 +725,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     revealedAtElapsed: null,
     timer: null,
     buzz: NO_BUZZ,
+    roundPoints: {},
     summaryVisible: false,
   };
 }
@@ -881,7 +912,8 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
-    buzz: { answering: playerName(state, state.buzz.playerId), winner: playerName(state, state.buzz.winnerId) },
+    buzz: { answering: playerName(state, state.buzz.playerId) },
+    roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,
   };
 }
@@ -906,6 +938,13 @@ export function buildSummary(state: PartyGameState): PartySummary {
     scorers: (state.awards[item.token] ?? []).map((id) => playerName(state, id)).filter((name) => name !== null),
   }));
   return { standings, songs, played: playedCount, total: state.queue.length };
+}
+
+function listRoundPoints(state: PartyGameState): PartyRoundPoint[] {
+  return state.scoreboard.players
+    .filter((p) => state.roundPoints[p.id])
+    .map((p) => ({ id: p.id, name: p.name, points: state.roundPoints[p.id]! }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 }
 
 function playerName(state: PartyGameState, id: number | null): string | null {

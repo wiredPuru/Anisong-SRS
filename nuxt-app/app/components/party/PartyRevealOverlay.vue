@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PartyAnswer } from "~/composables/usePartyDisplay";
 
-const props = defineProps<{ answer: PartyAnswer; winner?: string | null }>();
+const props = defineProps<{ answer: PartyAnswer }>();
 
 const showRomaji = computed(() => props.answer.animeTitleRomaji !== props.answer.animeTitleEnglish);
 const coverFailed = ref(false);
@@ -27,7 +27,6 @@ watch(() => props.answer.coverImageUrl, () => {
         <span class="reveal-song-title">{{ answer.songTitle }}</span>
         <span class="reveal-artist">{{ answer.artistName }}</span>
       </p>
-      <p v-if="winner" class="reveal-winner">{{ winner }} got it!</p>
     </div>
   </section>
 </template>
@@ -114,11 +113,5 @@ watch(() => props.answer.coverImageUrl, () => {
   .reveal {
     animation: none;
   }
-}
-.reveal-winner {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2.6vw, 40px);
-  color: var(--accent);
 }
 </style>

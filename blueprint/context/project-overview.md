@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 519bb1f4e47949cc8f68f225dd663862bcc93bc00e29d78e4743b05c8977fa75 -->
+<!-- blueprint:source-hash 1643c3b886cfdd35db8dd89b6b4d6e025a87d0834215a138a62fe9952e201d17 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -311,6 +311,10 @@ judges. Decided at intake: a separate LAN player port gated by a 4-letter room
 code (not the host port), a wrong buzz locks that player out for the rest of
 the song and playback resumes, join info is text only (no QR code and no new
 dependency), and joined players are the existing scoreboard's players.
+Feature 91 (party display polish, in two sub-features 91a-91b) was added to
+`build-plan.md` on 2026-09-29. It changes only how the party display presents
+scores and where its pieces sit. No `project-plan.md` change: it polishes
+feature 86/90's existing display rather than adding a product direction.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2228,6 +2232,23 @@ dependency), and joined players are the existing scoreboard's players.
       each played song with who scored it. As built: `summaryVisible` and a
       host `summary` command; Next on the last song and a lightning round's end
       show it; `buildSummary` counts the current song only once revealed.
+91. **Party display polish: round points and a movable layout** - two
+    sub-features on `/party/display`.
+    - **91a. Round points** - done 2026-09-29. Every point a player gains during a song (a
+      buzz judged Correct, a one-tap award, or the scoreboard's +/-) adds to a
+      per-song tally shown in a small side panel until the next song starts.
+      The display settles score changes, waiting until 2 seconds pass with no
+      further change, then shows one prominent "+N name" pop per player and
+      updates the scoreboard, so four quick +1 taps read as a single +4. The
+      host panel stays instant. The reveal card no longer says "<name> got
+      it!".
+    - **91b. Movable, resizable display layout** - a layout mode (`L`, or a
+      button that appears with the pointer) where each floating piece (reveal
+      card, scoreboard, round points, timer, song count, join chip, lightning
+      hints) can be dragged and resized from a corner handle, its contents
+      scaling with it. Pieces not showing appear as samples while arranging.
+      Saved in that display's browser as screen fractions, with a Reset
+      layout action.
 
 ## Data model
 

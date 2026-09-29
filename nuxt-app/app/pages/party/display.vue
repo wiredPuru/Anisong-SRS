@@ -13,6 +13,7 @@ const lobbyMusic = ref<{ unlock: () => void } | null>(null);
 const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted: false, picture: "video" as const };
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
+const { scores, pops } = usePartySettledScores(state);
 
 function start() {
   // Both media elements must receive play() while this click is still active.
@@ -120,7 +121,7 @@ onBeforeUnmount(() => {
 
     <template v-if="started && state?.item">
       <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
-      <PartyRevealOverlay v-if="state.answer" :answer="state.answer" :winner="state.buzz.winner" />
+      <PartyRevealOverlay v-if="state.answer" :answer="state.answer" />
       <PartyRoundSummary v-if="state.summary" :summary="state.summary" />
     </template>
 
@@ -138,10 +139,11 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="started && state">
+      <PartyRoundPoints :rows="scores?.token ? scores.roundPoints : []" :pops="pops" />
       <PartyDisplayOverlays
         :timer="state.timer"
         :guessing="state.phase === 'guessing'"
-        :scoreboard="state.scoreboard"
+        :scoreboard="scores?.scoreboard ?? null"
         :banner="state.banner"
         :join="state.item && !state.answer ? state.join : null"
         :answering="state.item ? state.buzz.answering : null"

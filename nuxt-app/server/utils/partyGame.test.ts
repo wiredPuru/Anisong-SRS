@@ -695,7 +695,7 @@ describe("buzzer rounds (feature 90b)", () => {
     const buzzed = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
     expect(buzzed).toMatchObject({ playing: false, buzz: { playerId: 1, lockedOut: [], winnerId: null } });
     expect(applyPartyCommand(buzzed, { type: "buzz", playerId: 2 })).toBe(buzzed);
-    expect(toDisplayState(buzzed).buzz).toEqual({ answering: "Aki", winner: null });
+    expect(toDisplayState(buzzed).buzz).toEqual({ answering: "Aki" });
     expect(toPlayerState(buzzed, 1).buzzer).toMatchObject({ answeringIsMe: true, canBuzz: false });
     expect(toPlayerState(buzzed, 2).buzzer).toMatchObject({ answering: "Aki", answeringIsMe: false, canBuzz: false });
   });
@@ -716,7 +716,8 @@ describe("buzzer rounds (feature 90b)", () => {
     state = applyPartyCommand(state, { type: "buzzJudge", correct: true });
     expect(state).toMatchObject({ phase: "revealed", playing: true, buzz: { playerId: null, winnerId: 2 } });
     expect(state.scoreboard.players.find((p) => p.id === 2)?.score).toBe(1);
-    expect(toDisplayState(state).buzz).toEqual({ answering: null, winner: "Bea" });
+    expect(toDisplayState(state).buzz).toEqual({ answering: null });
+    expect(toDisplayState(state).roundPoints).toEqual([{ id: 2, name: "Bea", points: 1 }]);
     expect(toPlayerState(state, 1).buzzer.winner).toBe("Bea");
   });
 
@@ -929,5 +930,62 @@ describe("round summary (feature 90d)", () => {
   it("parses the summary command", () => {
     expect(parsePartyCommand({ type: "summary", visible: true })).toEqual({ type: "summary", visible: true });
     expect(parsePartyCommand({ type: "summary", visible: 1 })).toHaveProperty("error");
+  });
+});
+
+describe("round points (feature 91a)", () => {
+  function game(count = 3) {
+    return ["Aki", "Bea"].reduce(
+      (acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }),
+      loaded(count),
+    );
+  }
+  const plus = (state: PartyGameState, id: number, delta = 1) =>
+    applyPartyCommand(state, { type: "score", op: "adjust", id, delta });
+  const round = (state: PartyGameState) => toDisplayState(state).roundPoints;
+
+  it("adds quick +1s into one tally, ranked by points", () => {
+    let state = game();
+    for (let i = 0; i < 4; i++) state = plus(state, 1);
+    state = plus(state, 2);
+    expect(round(state)).toEqual([
+      { id: 1, name: "Aki", points: 4 },
+      { id: 2, name: "Bea", points: 1 },
+    ]);
+  });
+
+  it("drops a player whose net comes back to zero, and keeps a negative net", () => {
+    let state = applyPartyCommand(applyPartyCommand(game(), { type: "reveal" }), { type: "award", playerId: 2, awarded: true });
+    expect(round(state)).toEqual([{ id: 2, name: "Bea", points: 1 }]);
+    state = applyPartyCommand(state, { type: "award", playerId: 2, awarded: false });
+    expect(round(state)).toEqual([]);
+    expect(round(plus(state, 1, -1))).toEqual([{ id: 1, name: "Aki", points: -1 }]);
+  });
+
+  it("starts empty on every song move, a new load, and End game", () => {
+    const scored = plus(game(), 1);
+    for (const command of [
+      { type: "next" },
+      { type: "jump", index: 2 },
+      { type: "clear" },
+    ] as const) {
+      expect(round(applyPartyCommand(scored, command))).toEqual([]);
+    }
+    const second = plus(applyPartyCommand(game(), { type: "next" }), 1);
+    expect(round(applyPartyCommand(second, { type: "previous" }))).toEqual([]);
+    const reloaded = applyPartyCommand(scored, { type: "load", cardIds: [1] }, { loaded: items(2) });
+    expect(round(reloaded)).toEqual([]);
+    const appended = applyPartyCommand(scored, { type: "load", cardIds: [9], append: true }, { loaded: items(5).slice(3) });
+    expect(round(appended)).toEqual([{ id: 1, name: "Aki", points: 1 }]);
+  });
+
+  it("counts no round without a song, and Reset scores or removing a player clears theirs", () => {
+    const idle = ["Aki"].reduce((acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }), initialPartyState());
+    const adjusted = plus(idle, 1);
+    expect(adjusted.scoreboard.players[0]!.score).toBe(1);
+    expect(adjusted.roundPoints).toEqual({});
+    const scored = plus(plus(game(), 1), 2);
+    expect(round(applyPartyCommand(scored, { type: "score", op: "reset" }))).toEqual([]);
+    expect(round(applyPartyCommand(scored, { type: "score", op: "remove", id: 1 }))).toEqual([{ id: 2, name: "Bea", points: 1 }]);
   });
 });

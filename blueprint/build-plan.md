@@ -1008,6 +1008,25 @@ cleaned-up checkbox version before generating the project overview.
     display between songs and automatically at the end of the queue: ranked
     standings plus each played song with who scored it.
 
+- [ ] 91. **Party display polish: round points and a movable layout** - two
+  changes to the party display screen (`/party/display`).
+  - [x] 91a. **Round points** - every point a player gains during a song (a
+    buzz judged Correct, a one-tap award, or the scoreboard's +/-) adds to a
+    per-song tally that the display shows in a small side panel ("This round:
+    Mika +4") until the next song starts. The display settles score changes:
+    it waits until 2 seconds pass with no further change, then shows one
+    prominent "+N name" pop per player and updates the scoreboard, so four
+    quick +1 taps read as a single +4. The host panel stays instant. The
+    reveal card no longer says "<name> got it!".
+  - [ ] 91b. **Movable, resizable display layout** - a layout mode on the
+    display (`L`, or a button that appears with the pointer like full screen)
+    where each floating piece (reveal card, scoreboard, round points, timer,
+    song count, join chip, lightning hints) can be dragged anywhere and
+    resized from a corner handle, with its contents scaling with it. Pieces
+    that aren't showing appear as samples while you arrange them. The layout
+    is saved in that display's browser as screen fractions, so it survives a
+    resolution change, and there's a Reset layout action.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

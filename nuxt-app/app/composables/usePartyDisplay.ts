@@ -39,6 +39,11 @@ export interface PartyPlayer {
   phone: boolean;
   connected: boolean;
 }
+export interface PartyRoundPoint {
+  id: number;
+  name: string;
+  points: number;
+}
 export interface PartySummary {
   standings: { rank: number; name: string; score: number }[];
   songs: { number: number; anime: string; song: string; scorers: string[] }[];
@@ -76,7 +81,8 @@ export interface PartyDisplayState {
   music: PartyMusic;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
-  buzz: { answering: string | null; winner: string | null };
+  buzz: { answering: string | null };
+  roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
 }
 
