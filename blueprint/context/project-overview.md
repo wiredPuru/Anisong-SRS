@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 908b308a1001b59c1aba92f73857fc8072706bea2650b48646c1452a731217ba -->
+<!-- blueprint:source-hash a98ae3d8cb7952dd6b96499e8d873874277650f52dad7d1539811fa4c8088aeb -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -302,8 +302,8 @@ Features 88 (undo last review) and 89 (suspend cards) were added to
 history bullets, since each adds stored state: 88 two before-review columns on
 `ReviewLog`, 89 a suspended flag on `Card`.
 Feature 90 (party players and buzzer, in four sub-features 90a-90d) was added
-to `build-plan.md` on 2026-09-28; 90a and 90b are built and merged, 90c-90d
-are not yet built. It amended
+to `build-plan.md` on 2026-09-28; 90a-90c are built and merged, 90d is not
+yet built. It amended
 `project-plan.md` §2 Users, the §3 party mode bullet, §8's party deployment
 paragraph, and §9's Non-Goals bullet, which had ruled out players answering on
 their own devices: party players now join from their phones to buzz, while
@@ -2180,7 +2180,7 @@ dependency), and joined players are the existing scoreboard's players.
     takes `{ ids (1-500), suspended }`; `/api/cards` and `/api/cards/ids` read
     `suspended=1` through a shared `CardListFilters` object; a suspended row
     shows "-" for Due.
-90. **Party players and buzzer** - in progress, four sub-features (90a and 90b done). Players
+90. **Party players and buzzer** - in progress, four sub-features (90a-90c done). Players
     join `gaq-party` from their phones and buzz in; the host panel and display
     gain scoring, queue editing, and a results screen. Party state stays in
     memory, as with feature 86: no schema change, and party play still never
@@ -2217,10 +2217,13 @@ dependency), and joined players are the existing scoreboard's players.
       answers. The phone view carries the answer only once revealed. The
       display shows a "buzzed in!" overlay with a Web Audio chime and credits
       the winner on the reveal.
-    - **90c. Host scoring and queue editing** - after a reveal, one tap per
+    - **90c. Host scoring and queue editing** - done 2026-09-28. After a reveal, one tap per
       player awards the point, the first buzzer highlighted. The running queue
       can have songs removed, reordered, or appended instead of a new load
-      replacing it.
+      replacing it. As built: `PartyGameState.awards` (token -> player ids,
+      server-side only; the host view gets `currentAwards`), host commands
+      `award`, `queueRemove`, `queueMove` (upcoming songs only), and `load`
+      with `append`.
     - **90d. Round summary** - a display results screen, on demand between
       songs and automatically at the end of the queue: ranked standings and
       each played song with who scored it.

@@ -13,6 +13,7 @@ import {
   currentPartyItem,
   initialPartyState,
   lightningStep,
+  PARTY_LOAD_MAX,
   PARTY_LOOKAHEAD,
   pickPartyClip,
   timerMayReveal,
@@ -122,7 +123,14 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
     commit(applyPartyCommand(state, command));
     return {};
   }
-  const { items, skipped } = resolveQueue(command.cardIds, command.downloadedOnly === true);
+  // Appending skips songs already queued, so the counts reported back describe
+  // what was actually added.
+  const queued = command.append ? new Set(state.queue.map((item) => item.cardId)) : null;
+  const cardIds = queued
+    ? command.cardIds.filter((id) => !queued.has(id)).slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length))
+    : command.cardIds;
+  if (!cardIds.length) return { loaded: 0, skipped: 0 };
+  const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
   commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
 }

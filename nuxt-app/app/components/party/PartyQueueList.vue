@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import type { PartyHostState } from "~/composables/usePartyHost";
+import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
 
 const props = defineProps<{ state: PartyHostState }>();
-const emit = defineEmits<{ jump: [index: number] }>();
+const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCommand] }>();
+
+// Only songs still to come can move or go; the current one moves on with Next.
+const isUpcoming = (index: number) => index > props.state.index;
 
 const list = ref<HTMLOListElement | null>(null);
 
@@ -27,7 +30,7 @@ watch(
   <section class="queue" aria-labelledby="queue-title">
     <h2 id="queue-title" class="queue-title">Queue</h2>
     <ol ref="list" class="queue-list">
-      <li v-for="(item, index) in state.queue" :key="`${index}-${item.cardId}`">
+      <li v-for="(item, index) in state.queue" :key="`${index}-${item.cardId}`" class="queue-row">
         <button
           type="button"
           class="queue-item"
@@ -41,6 +44,34 @@ watch(
             <span class="queue-song">{{ item.answer.songTitle }} · {{ formatThemeSlotLabel(item.answer.themeSlot) }}</span>
           </span>
         </button>
+        <span v-if="isUpcoming(index)" class="queue-edit">
+          <button
+            type="button"
+            class="qbtn"
+            :disabled="index <= state.index + 1"
+            :aria-label="`Move ${item.answer.animeTitleEnglish} up`"
+            @click="emit('command', { type: 'queueMove', from: index, to: index - 1 })"
+          >
+            &#8593;
+          </button>
+          <button
+            type="button"
+            class="qbtn"
+            :disabled="index >= state.queue.length - 1"
+            :aria-label="`Move ${item.answer.animeTitleEnglish} down`"
+            @click="emit('command', { type: 'queueMove', from: index, to: index + 1 })"
+          >
+            &#8595;
+          </button>
+          <button
+            type="button"
+            class="qbtn qbtn-remove"
+            :aria-label="`Remove ${item.answer.animeTitleEnglish} from the queue`"
+            @click="emit('command', { type: 'queueRemove', index })"
+          >
+            &#10005;
+          </button>
+        </span>
       </li>
     </ol>
   </section>
@@ -70,14 +101,48 @@ watch(
   border-radius: var(--radius-sm);
 }
 
+.queue-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+
+.queue-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.qbtn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.qbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.qbtn-remove {
+  color: var(--fail);
+}
+
 .queue-item {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
   border: none;
-  border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--text);
   font-family: var(--font-sans);

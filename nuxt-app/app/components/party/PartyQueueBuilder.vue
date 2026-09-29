@@ -14,6 +14,7 @@ interface DeckListItem {
   cardCount: number;
 }
 
+const props = defineProps<{ gameRunning: boolean }>();
 const emit = defineEmits<{ loaded: [result: { loaded: number; skipped: number; total: number }] }>();
 
 const SOURCE_LABELS: Record<SourceType, string> = {
@@ -114,7 +115,8 @@ watch([scope, filters, downloadedOnly], () => {
   previewTimer = setTimeout(refreshPreview, DEBOUNCE_MS);
 }, { deep: true, immediate: true });
 
-async function loadGame() {
+// append adds to the running game's queue; otherwise the load replaces it.
+async function loadGame(append = false) {
   if (!scope.value || loading.value) return;
   loading.value = true;
   loadError.value = null;
@@ -129,8 +131,12 @@ async function loadGame() {
     }
     const result = await $fetch<{ loaded: number; skipped: number }>("/api/party/host/command", {
       method: "POST",
-      body: { type: "load", cardIds: preview.cardIds, downloadedOnly: downloadedOnly.value },
+      body: { type: "load", cardIds: preview.cardIds, downloadedOnly: downloadedOnly.value, append },
     });
+    if (!result.loaded && append) {
+      loadError.value = "Every matching song is already in the queue.";
+      return;
+    }
     if (!result.loaded) {
       loadError.value = downloadedOnly.value
         ? "None of these songs has a downloaded clip it can play."
@@ -209,7 +215,15 @@ function applyFilters(next: StudyFilters) {
     </p>
 
     <p v-if="loadError" class="builder-error" role="alert">{{ loadError }}</p>
-    <button type="button" class="builder-btn primary" :disabled="!scope || !previewTotal || loading" @click="loadGame">
+    <div v-if="props.gameRunning" class="builder-actions">
+      <button type="button" class="builder-btn primary" :disabled="!scope || !previewTotal || loading" @click="loadGame(true)">
+        {{ loading ? "Adding..." : `Add ${Math.min(previewTotal ?? 0, 2000)} songs to queue` }}
+      </button>
+      <button type="button" class="builder-btn secondary" :disabled="!scope || !previewTotal || loading" @click="loadGame(false)">
+        Start new game
+      </button>
+    </div>
+    <button v-else type="button" class="builder-btn primary" :disabled="!scope || !previewTotal || loading" @click="loadGame()">
       {{ loading ? "Loading..." : `Load ${Math.min(previewTotal ?? 0, 2000)} songs` }}
     </button>
 
@@ -350,6 +364,12 @@ function applyFilters(next: StudyFilters) {
 .builder-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .builder-btn.secondary {

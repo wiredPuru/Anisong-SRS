@@ -110,6 +110,8 @@ export interface PartyGameState {
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
   buzz: PartyBuzz;
+  // Who scored each song, by queue item token (feature 90c).
+  awards: Record<string, number[]>;
 }
 export type PartyScoreCommand =
   | { type: "score"; op: "add"; name: string }
@@ -119,7 +121,9 @@ export type PartyScoreCommand =
   | { type: "score"; op: "reset" }
   | { type: "score"; op: "show"; visible: boolean };
 export type PartyCommand =
-  | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean }
+  | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean; append?: boolean }
+  | { type: "queueRemove"; index: number }
+  | { type: "queueMove"; from: number; to: number }
   | { type: "play" }
   | { type: "pause" }
   | { type: "seek"; seconds: number }
@@ -138,7 +142,8 @@ export type PartyCommand =
   | { type: "music"; enabled: boolean; volume: number }
   | { type: "joinInfo"; visible: boolean }
   | { type: "buzzer"; enabled: boolean }
-  | { type: "buzzJudge"; correct: boolean };
+  | { type: "buzzJudge"; correct: boolean }
+  | { type: "award"; playerId: number; awarded: boolean };
 /**
  * Commands only the server itself issues, on a phone's behalf. parsePartyCommand
  * never produces them, so the host command route cannot forge a phone join.
@@ -210,6 +215,7 @@ export interface PartyHostState {
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
   buzz: PartyBuzz;
+  currentAwards: number[];
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -306,6 +312,7 @@ export function initialPartyState(
     timer: null,
     banner: null,
     buzz: NO_BUZZ,
+    awards: {},
     ...kept,
   };
 }
@@ -418,6 +425,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const { correct } = body as { correct?: unknown };
       return typeof correct === "boolean" ? { type, correct } : { error: "correct must be a boolean" };
     }
+    case "award": {
+      const { playerId, awarded } = body as { playerId?: unknown; awarded?: unknown };
+      if (!Number.isInteger(playerId) || (playerId as number) <= 0) return { error: "playerId must be a player id" };
+      if (typeof awarded !== "boolean") return { error: "awarded must be a boolean" };
+      return { type, playerId: playerId as number, awarded };
+    }
     case "music": {
       const { enabled, volume } = body as { enabled?: unknown; volume?: unknown };
       if (typeof enabled !== "boolean") return { error: "enabled must be a boolean" };
@@ -439,19 +452,35 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return { type, seconds };
     }
     case "load": {
-      const { cardIds, shuffle, downloadedOnly } = body as { cardIds?: unknown; shuffle?: unknown; downloadedOnly?: unknown };
+      const { cardIds, shuffle, downloadedOnly, append } = body as {
+        cardIds?: unknown;
+        shuffle?: unknown;
+        downloadedOnly?: unknown;
+        append?: unknown;
+      };
       if (!Array.isArray(cardIds) || cardIds.length === 0 || cardIds.length > PARTY_LOAD_MAX) {
         return { error: `cardIds must hold 1-${PARTY_LOAD_MAX} card ids` };
       }
       if (!cardIds.every((id) => Number.isInteger(id) && id > 0)) return { error: "cardIds must be positive integers" };
       if (shuffle !== undefined && typeof shuffle !== "boolean") return { error: "shuffle must be a boolean" };
       if (downloadedOnly !== undefined && typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
+      if (append !== undefined && typeof append !== "boolean") return { error: "append must be a boolean" };
       return {
         type,
         cardIds: [...new Set(cardIds as number[])],
         shuffle: shuffle === true,
         downloadedOnly: downloadedOnly === true,
+        append: append === true,
       };
+    }
+    case "queueRemove": {
+      const { index } = body as { index?: unknown };
+      return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
+    }
+    case "queueMove": {
+      const { from, to } = body as { from?: unknown; to?: unknown };
+      const valid = (value: unknown) => Number.isInteger(value) && (value as number) >= 0;
+      return valid(from) && valid(to) ? { type, from: from as number, to: to as number } : { error: "from and to must be whole numbers of 0 or more" };
     }
     default:
       return { error: "Unknown command" };
@@ -567,9 +596,12 @@ function judgeBuzz(state: PartyGameState, correct: boolean, now: number): PartyG
   if (id === null || state.phase !== "guessing") return state;
   if (correct) {
     const players = state.scoreboard.players.map((p) => (p.id === id ? { ...p, score: p.score + 1 } : p));
+    const token = currentPartyItem(state)!.token;
+    const awarded = state.awards[token] ?? [];
     return {
       ...state,
       scoreboard: { ...state.scoreboard, players },
+      awards: { ...state.awards, [token]: awarded.includes(id) ? awarded : [...awarded, id] },
       buzz: { ...state.buzz, playerId: null, winnerId: id },
       phase: "revealed",
       revealedAtElapsed: state.position?.elapsed ?? 0,
@@ -580,6 +612,20 @@ function judgeBuzz(state: PartyGameState, correct: boolean, now: number): PartyG
   // The timer held its reveal for this answer; once it is wrong, it lands.
   const timerExpired = state.timer?.autoReveal === true && now >= state.timer.endsAt;
   return timerExpired ? { ...judged, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0 } : judged;
+}
+
+// One point per player per song, given or taken back, so a mis-tap is undone
+// with a second tap rather than a hunt for the scoreboard's minus button.
+function applyAward(state: PartyGameState, playerId: number, awarded: boolean): PartyGameState {
+  const item = currentPartyItem(state);
+  if (!item || !state.scoreboard.players.some((p) => p.id === playerId)) return state;
+  const current = state.awards[item.token] ?? [];
+  if (current.includes(playerId) === awarded) return state;
+  const delta = awarded ? 1 : -1;
+  const players = state.scoreboard.players.map((p) => (p.id === playerId ? { ...p, score: p.score + delta } : p));
+  const list = awarded ? [...current, playerId] : current.filter((id) => id !== playerId);
+  const buzz = !awarded && state.buzz.winnerId === playerId ? { ...state.buzz, winnerId: null } : state.buzz;
+  return { ...state, scoreboard: { ...state.scoreboard, players }, awards: { ...state.awards, [item.token]: list }, buzz };
 }
 
 function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
@@ -658,8 +704,15 @@ export function applyPartyCommand(
     case "load": {
       const loaded = options.loaded ?? [];
       if (!loaded.length) return state;
-      const queue = command.shuffle ? shuffled(loaded, random) : loaded;
-      next = atItem({ ...state, queue, playing: false }, 0, random);
+      const ordered = command.shuffle ? shuffled(loaded, random) : loaded;
+      if (command.append && hasItem) {
+        // Adds to the end of the running game without touching the song on screen.
+        const queued = new Set(state.queue.map((item) => item.cardId));
+        const added = ordered.filter((item) => !queued.has(item.cardId)).slice(0, PARTY_LOAD_MAX - state.queue.length);
+        if (added.length) next = { ...state, queue: [...state.queue, ...added] };
+        break;
+      }
+      next = atItem({ ...state, queue: ordered, playing: false, awards: {} }, 0, random);
       break;
     }
     case "play":
@@ -708,6 +761,30 @@ export function applyPartyCommand(
       break;
     case "buzzJudge":
       next = judgeBuzz(state, command.correct, now());
+      break;
+    case "award":
+      next = applyAward(state, command.playerId, command.awarded);
+      break;
+    case "queueRemove":
+      // Only songs still to come: the current one moves on with Next.
+      if (hasItem && command.index > state.index && command.index < state.queue.length) {
+        const removed = state.queue[command.index]!;
+        const { [removed.token]: _dropped, ...awards } = state.awards;
+        next = { ...state, queue: state.queue.filter((_, i) => i !== command.index), awards };
+      }
+      break;
+    case "queueMove":
+      if (
+        hasItem &&
+        command.from !== command.to &&
+        Math.min(command.from, command.to) > state.index &&
+        Math.max(command.from, command.to) < state.queue.length
+      ) {
+        const queue = [...state.queue];
+        const [moved] = queue.splice(command.from, 1);
+        queue.splice(command.to, 0, moved!);
+        next = { ...state, queue };
+      }
       break;
     case "music":
       if (state.music.enabled !== command.enabled || state.music.volume !== command.volume) {
@@ -817,6 +894,7 @@ export function toPlayerState(state: PartyGameState, playerId: number): PartyPla
 }
 
 export function toHostState(state: PartyGameState): PartyHostState {
+  const item = currentPartyItem(state);
   return {
     version: state.version,
     phase: state.phase,
@@ -835,6 +913,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     joinInfoVisible: state.joinInfoVisible,
     buzzerEnabled: state.buzzerEnabled,
     buzz: state.buzz,
+    currentAwards: (item && state.awards[item.token]) ?? [],
   };
 }
 

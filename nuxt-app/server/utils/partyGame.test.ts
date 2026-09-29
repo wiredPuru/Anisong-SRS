@@ -132,12 +132,14 @@ describe("parsePartyCommand", () => {
       cardIds: [3, 1],
       shuffle: false,
       downloadedOnly: false,
+      append: false,
     });
     expect(parsePartyCommand({ type: "load", cardIds: [1], shuffle: true, downloadedOnly: true })).toEqual({
       type: "load",
       cardIds: [1],
       shuffle: true,
       downloadedOnly: true,
+      append: false,
     });
     expect(parsePartyCommand({ type: "load", cardIds: [1], downloadedOnly: 1 })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "load", cardIds: [] })).toHaveProperty("error");
@@ -753,5 +755,117 @@ describe("buzzer rounds (feature 90b)", () => {
     expect(parsePartyCommand({ type: "buzz", playerId: 1 })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "buzzer", enabled: true })).toEqual({ type: "buzzer", enabled: true });
     expect(parsePartyCommand({ type: "buzzJudge", correct: "yes" })).toHaveProperty("error");
+  });
+});
+
+describe("per-song awards (feature 90c)", () => {
+  function game() {
+    let state = ["Aki", "Bea"].reduce(
+      (acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }),
+      loaded(3),
+    );
+    state = applyPartyCommand(state, { type: "reveal" });
+    return state;
+  }
+  const score = (state: PartyGameState, id: number) => state.scoreboard.players.find((p) => p.id === id)?.score;
+
+  it("awards and takes back one point per player per song", () => {
+    let state = applyPartyCommand(game(), { type: "award", playerId: 2, awarded: true });
+    expect(score(state, 2)).toBe(1);
+    expect(toHostState(state).currentAwards).toEqual([2]);
+    expect(applyPartyCommand(state, { type: "award", playerId: 2, awarded: true })).toBe(state);
+    state = applyPartyCommand(state, { type: "award", playerId: 2, awarded: false });
+    expect(score(state, 2)).toBe(0);
+    expect(toHostState(state).currentAwards).toEqual([]);
+    expect(applyPartyCommand(state, { type: "award", playerId: 2, awarded: false })).toBe(state);
+  });
+
+  it("refuses an unknown player or no current song", () => {
+    const state = game();
+    expect(applyPartyCommand(state, { type: "award", playerId: 9, awarded: true })).toBe(state);
+    const idle = applyPartyCommand(initialPartyState(), { type: "playerJoin", name: "Aki", claimId: null });
+    expect(applyPartyCommand(idle, { type: "award", playerId: 1, awarded: true })).toBe(idle);
+    expect(parsePartyCommand({ type: "award", playerId: 1, awarded: "yes" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "award", playerId: 0, awarded: true })).toHaveProperty("error");
+  });
+
+  it("records a buzz Correct, and un-awarding that winner clears the winner", () => {
+    let state = ["Aki"].reduce((acc, name) => applyPartyCommand(acc, { type: "playerJoin", name, claimId: null }), loaded(2));
+    state = applyPartyCommand(state, { type: "buzzer", enabled: true });
+    state = applyPartyCommand(state, { type: "buzz", playerId: 1 });
+    state = applyPartyCommand(state, { type: "buzzJudge", correct: true });
+    expect(toHostState(state).currentAwards).toEqual([1]);
+    state = applyPartyCommand(state, { type: "award", playerId: 1, awarded: false });
+    expect(state.buzz.winnerId).toBeNull();
+    expect(score(state, 1)).toBe(0);
+  });
+
+  it("keeps awards across moves and resets them on a new load and on End game", () => {
+    let state = applyPartyCommand(game(), { type: "award", playerId: 1, awarded: true });
+    state = applyPartyCommand(state, { type: "next" });
+    expect(toHostState(state).currentAwards).toEqual([]);
+    state = applyPartyCommand(state, { type: "previous" });
+    expect(toHostState(state).currentAwards).toEqual([1]);
+    const reloaded = applyPartyCommand(state, { type: "load", cardIds: [1] }, { loaded: items(2) });
+    expect(reloaded.awards).toEqual({});
+    expect(applyPartyCommand(state, { type: "clear" }).awards).toEqual({});
+  });
+});
+
+describe("queue editing (feature 90c)", () => {
+  const tokens = (state: PartyGameState) => state.queue.map((item) => item.token);
+  function playing(count = 5) {
+    let state = applyPartyCommand(loaded(count), { type: "jump", index: 1 });
+    state = applyPartyCommand(state, { type: "play" });
+    return state;
+  }
+
+  it("removes and moves only songs still to come", () => {
+    const state = playing();
+    expect(tokens(applyPartyCommand(state, { type: "queueRemove", index: 3 }))).toEqual(["t1", "t2", "t3", "t5"]);
+    expect(applyPartyCommand(state, { type: "queueRemove", index: 1 })).toBe(state);
+    expect(applyPartyCommand(state, { type: "queueRemove", index: 0 })).toBe(state);
+    expect(applyPartyCommand(state, { type: "queueRemove", index: 9 })).toBe(state);
+
+    const moved = applyPartyCommand(state, { type: "queueMove", from: 4, to: 2 });
+    expect(tokens(moved)).toEqual(["t1", "t2", "t5", "t3", "t4"]);
+    expect(moved).toMatchObject({ index: 1, playing: true, phase: "guessing" });
+    expect(applyPartyCommand(state, { type: "queueMove", from: 4, to: 1 })).toBe(state);
+    expect(applyPartyCommand(state, { type: "queueMove", from: 2, to: 5 })).toBe(state);
+    expect(applyPartyCommand(state, { type: "queueMove", from: 3, to: 3 })).toBe(state);
+  });
+
+  it("drops a removed song's awards", () => {
+    let state = applyPartyCommand(playing(), { type: "playerJoin", name: "Aki", claimId: null });
+    state = applyPartyCommand(state, { type: "jump", index: 3 });
+    state = applyPartyCommand(state, { type: "award", playerId: 1, awarded: true });
+    state = applyPartyCommand(state, { type: "jump", index: 1 });
+    expect(Object.keys(applyPartyCommand(state, { type: "queueRemove", index: 3 }).awards)).toEqual([]);
+  });
+
+  it("appends new songs without moving the current one, skipping ones already queued", () => {
+    const state = playing(3);
+    const extra = [
+      toQueueItem(card({ id: 2 }), { kind: "video", source: { type: "remote", url: AMQ } }, "dup"),
+      toQueueItem(card({ id: 7 }), { kind: "video", source: { type: "remote", url: AMQ } }, "t7"),
+    ];
+    const appended = applyPartyCommand(state, { type: "load", cardIds: [2, 7], append: true }, { loaded: extra });
+    expect(tokens(appended)).toEqual(["t1", "t2", "t3", "t7"]);
+    expect(appended).toMatchObject({ index: 1, playing: true, phase: "guessing" });
+    const onlyDup = applyPartyCommand(state, { type: "load", cardIds: [2], append: true }, { loaded: [extra[0]!] });
+    expect(onlyDup).toBe(state);
+  });
+
+  it("starts a fresh game when appending with nothing loaded", () => {
+    const fresh = applyPartyCommand(initialPartyState(), { type: "load", cardIds: [1], append: true }, { loaded: items(2) });
+    expect(fresh).toMatchObject({ index: 0, playing: false });
+  });
+
+  it("parses the queue commands and rejects bad indexes", () => {
+    expect(parsePartyCommand({ type: "queueRemove", index: 2 })).toEqual({ type: "queueRemove", index: 2 });
+    expect(parsePartyCommand({ type: "queueRemove", index: -1 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "queueMove", from: 1, to: "2" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "load", cardIds: [1], append: "yes" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "load", cardIds: [1], append: true })).toMatchObject({ append: true });
   });
 });

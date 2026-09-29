@@ -49,13 +49,13 @@ usePartyHotkeys(state, send, () => {
         </section>
 
         <section v-if="hasGame && state" class="panel">
-          <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" />
+          <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
         </section>
       </div>
 
       <div class="side-column">
         <section class="panel">
-          <PartyQueueBuilder @loaded="lastLoad = $event" />
+          <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
         </section>
 
         <section v-if="state" class="panel">

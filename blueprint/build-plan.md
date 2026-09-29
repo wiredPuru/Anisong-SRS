@@ -999,7 +999,7 @@ cleaned-up checkbox version before generating the project overview.
     playback resumes, and the others can buzz). Phones show whether they can
     buzz, who buzzed, and when the answer is revealed. Buzzes are ordered by
     when the server receives them.
-  - [ ] 90c. **Host scoring and queue editing** - after a reveal, the host
+  - [x] 90c. **Host scoring and queue editing** - after a reveal, the host
     panel offers one tap per player to award the point (the player who buzzed
     first highlighted), replacing the hunt for the small +/- buttons. The
     running queue can have songs removed, reordered, or appended from the

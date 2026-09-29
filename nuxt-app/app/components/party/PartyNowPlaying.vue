@@ -24,6 +24,7 @@ const nameOf = (id: number | null) =>
 const answering = computed(() => nameOf(props.state.buzz.playerId));
 const winner = computed(() => nameOf(props.state.buzz.winnerId));
 const lockedOut = computed(() => props.state.buzz.lockedOut.map(nameOf).filter((name) => name !== null));
+const awarded = computed(() => new Set(props.state.currentAwards));
 
 function formatTime(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return "--:--";
@@ -100,6 +101,23 @@ function clearGame() {
       <span v-if="winner">Got it: <strong>{{ winner }}</strong></span>
       <span v-if="lockedOut.length">Wrong: {{ lockedOut.join(", ") }}</span>
     </p>
+
+    <div v-if="state.phase === 'revealed' && state.scoreboard.players.length" class="np-award">
+      <p class="np-award-label">Who got it? Tap to give a point, tap again to take it back.</p>
+      <div class="np-award-players">
+        <button
+          v-for="player in state.scoreboard.players"
+          :key="player.id"
+          type="button"
+          class="award-btn"
+          :class="{ on: awarded.has(player.id) }"
+          :aria-pressed="awarded.has(player.id)"
+          @click="emit('command', { type: 'award', playerId: player.id, awarded: !awarded.has(player.id) })"
+        >
+          {{ player.name }}<span v-if="awarded.has(player.id)" class="award-mark"> +1</span>
+        </button>
+      </div>
+    </div>
 
     <div class="np-transport">
       <button type="button" class="tbtn" :disabled="atStart" @click="emit('command', { type: 'previous' })">Previous</button>
@@ -364,6 +382,43 @@ function clearGame() {
 .tbtn-wrong {
   border-color: var(--fail);
   color: var(--fail);
+}
+
+.np-award {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.np-award-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.np-award-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.award-btn {
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 2px solid var(--pass);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--pass);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.award-btn.on {
+  background: var(--pass);
+  color: var(--bg);
 }
 
 .np-buzz-log {
