@@ -1201,12 +1201,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div v-if="sessionHistory.length > 0" class="history-actions">
         <button
           type="button"
-          class="previous-card-btn"
+          class="session-log-btn"
           :disabled="Boolean(quizResult)"
-          @click="openPreviousCard"
+          @click="showSessionLog = true"
         >
-          &#8617; Previous card
-          <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+          <span aria-hidden="true">📋</span> Session log
+          <span class="tooltip">See every card from this session &middot; Hotkey: L</span>
         </button>
         <button type="button" class="undo-btn" :disabled="!canUndo" @click="undoLastReview">
           &#8634; Undo review
@@ -1474,12 +1474,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <div v-if="sessionHistory.length > 0" class="history-actions">
             <button
               type="button"
-              class="previous-card-btn"
+              class="session-log-btn"
               :disabled="Boolean(quizResult)"
-              @click="openPreviousCard"
+              @click="showSessionLog = true"
             >
-              &#8617; Previous card
-              <span class="tooltip">View the last card you reviewed &middot; Hotkey: P</span>
+              <span aria-hidden="true">📋</span> Session log
+              <span class="tooltip">See every card from this session &middot; Hotkey: L</span>
             </button>
             <button type="button" class="undo-btn" :disabled="!canUndo" @click="undoLastReview">
               &#8634; Undo review
@@ -1523,7 +1523,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template v-else>
               <span><kbd>S</kbd> play/pause</span>
               <span><kbd>I</kbd> hide info</span>
-              <span><kbd>P</kbd> previous card</span>
               <span><kbd>U</kbd> undo</span>
               <span><kbd>L</kbd> session log</span>
               <span><kbd>E</kbd> edit card</span>
@@ -1895,7 +1894,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 /* The primary action on the completion screen, so it takes the accent fill
-   rather than the outlined treatment "Previous card" below it uses - the two
+   rather than the outlined treatment "Session log" below it uses - the two
    sit together there and should not read as equal-weight choices. */
 .filters-note {
   display: flex;
@@ -1973,7 +1972,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   align-self: center;
 }
 
-.previous-card-btn,
+.session-log-btn,
 .undo-btn {
   position: relative;
   padding: 6px 14px;
@@ -1987,7 +1986,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: pointer;
 }
 
-.previous-card-btn .tooltip,
+.session-log-btn .tooltip,
 .undo-btn .tooltip {
   position: absolute;
   top: calc(100% + 8px);
@@ -2008,8 +2007,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   z-index: 5;
 }
 
-.previous-card-btn:hover .tooltip,
-.previous-card-btn:focus-visible .tooltip,
+.session-log-btn:hover .tooltip,
+.session-log-btn:focus-visible .tooltip,
 .undo-btn:hover .tooltip,
 .undo-btn:focus-visible .tooltip {
   opacity: 1;
@@ -2024,7 +2023,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   transform: none;
 }
 
-.previous-card-btn:disabled,
+.session-log-btn:disabled,
 .undo-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
