@@ -27,6 +27,7 @@ interface ManualDeck {
   gradingCriterion: GradingCriterion;
   cardCount: number;
   passRate: number | null;
+  imageUrl: string | null;
 }
 
 type DeckType = "artist" | "anime" | "created";
@@ -221,6 +222,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+// A custom picture whose file has gone missing 404s; remembering the URL lets
+// the tile fall back to the monogram instead of an empty box.
+const brokenCovers = ref(new Set<string>());
+
+function markCoverBroken(url: string | null) {
+  if (url) brokenCovers.value.add(url);
+}
+
 const deckItems = computed<DeckItem[]>(() => {
   if (activeType.value === "artist") {
     return (rawDecks.value as ArtistDeck[]).map((d) => ({
@@ -239,7 +248,7 @@ const deckItems = computed<DeckItem[]>(() => {
       id: d.id,
       label: d.name,
       sublabel: `Created ${formatDate(d.createdAt)}`,
-      coverImageUrl: null,
+      coverImageUrl: d.imageUrl && !brokenCovers.value.has(d.imageUrl) ? d.imageUrl : null,
       cardCount: d.cardCount,
       passRate: d.passRate,
       dueCount: null,
@@ -285,6 +294,18 @@ const selectedDeckCover = computed<string | null>(() => {
   if (selectedId.value === null) return null;
   return deckItems.value.find((item) => item.id === selectedId.value)?.coverImageUrl ?? null;
 });
+
+// The control reads the raw URL, not the cover: a picture that failed to load
+// still counts as set, so it can be replaced or removed.
+const selectedDeckImageUrl = computed<string | null>(() => {
+  const match = (rawDecks.value as ManualDeck[]).find((d) => d.id === selectedId.value);
+  return match?.imageUrl ?? null;
+});
+
+function onDeckPictureUpdated(imageUrl: string | null) {
+  const match = (rawDecks.value as ManualDeck[]).find((d) => d.id === selectedId.value);
+  if (match) match.imageUrl = imageUrl;
+}
 
 const cardSearchInput = ref("");
 const cardSearchQuery = ref("");
@@ -856,7 +877,7 @@ function backToDecks() {
             @click="editingDeckId === item.id ? undefined : selectDeck(item.id)"
           >
             <div class="deck-tile-cover">
-              <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" />
+              <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" @error="markCoverBroken(item.coverImageUrl)" />
               <div
                 v-else-if="activeType !== 'anime'"
                 class="deck-tile-monogram"
@@ -1019,9 +1040,22 @@ function backToDecks() {
           </div>
           <template v-else>
             <div class="deck-detail-title">
-              <img v-if="selectedDeckCover" :src="selectedDeckCover" alt="" class="cover-thumb cover-thumb-lg" />
+              <img
+                v-if="selectedDeckCover"
+                :src="selectedDeckCover"
+                alt=""
+                class="cover-thumb cover-thumb-lg"
+                @error="markCoverBroken(selectedDeckCover)"
+              />
               <h2>{{ deckLabel }}</h2>
             </div>
+
+            <DeckPictureControl
+              v-if="activeType === 'created' && selectedId !== null"
+              :deck-id="selectedId"
+              :image-url="selectedDeckImageUrl"
+              @updated="onDeckPictureUpdated"
+            />
 
             <div v-if="activeType === 'created' && deckCriterion" class="criterion-block">
               <span class="criterion-label">Graded on</span>

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a5c0218a971361758c52c28046bd96ecf3114ad02c80b88e0ca63f767198eef5 -->
+<!-- blueprint:source-hash de50c23472e4d1d8962b87cce219cbef8d6d7d71f971191220b3c88b9231a3cf -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2263,7 +2263,7 @@ manual deck exist, and this adds an optional display field, like feature 77.
       `{ v: 1, pieces }` with only moved pieces. The lightning hints card
       moves while its full-screen backdrop stays.
 92. **Custom deck pictures** - added to `build-plan.md` 2026-10-03, in two
-    sub-features; 92a is built and merged, 92b is not yet built. A user can give a created deck their own
+    sub-features, both built and merged. A user can give a created deck their own
     picture: they pick an image file, the app stores a copy in the user-data
     directory (so a packaged build keeps it), and the picture replaces the
     tinted placeholder on the deck's `/decks` tile and detail header. It can be
@@ -2278,9 +2278,15 @@ manual deck exist, and this adds an optional display field, like feature 77.
       writes the new file, updates the column, then deletes the old file.
       `POST`/`GET`/`DELETE /api/decks/image`; 413 over 5 MB, 415 for another
       format (`deckImage.ts`, `deckImageStore.ts`).
-    - **92b. Deck picture UI** - upload, replace, and remove controls on a
+    - **92b. Deck picture UI** - done 2026-10-03. Upload, replace, and remove controls on a
       created deck's detail view, and the picture on its tile and detail
       header.
+      As built: `DeckPictureControl.vue` (a "Picture" row above "Graded on" with
+      Choose/Replace and Remove, a saving state and inline errors) and a pure
+      `app/utils/deckPicture.ts` check (PNG, JPEG, WebP, 5 MB) mirror the
+      server's limits. The picture rides the tile's and header's existing
+      `coverImageUrl` slot, updates in place via `rawDecks`, and a picture that
+      404s falls back to the monogram (`brokenCovers`).
 
 ## Data model
 
