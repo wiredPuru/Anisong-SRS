@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 11b0bb0567fbdc6bb0c5bcfc02f199e976b648f9f735bcac6702ad94781fb983 -->
+<!-- blueprint:source-hash a5c0218a971361758c52c28046bd96ecf3114ad02c80b88e0ca63f767198eef5 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -315,6 +315,13 @@ Feature 91 (party display polish, in two sub-features 91a-91b) was added to
 `build-plan.md` on 2026-09-29; both are built and merged. It changes only how the party display presents
 scores and where its pieces sit. No `project-plan.md` change: it polishes
 feature 86/90's existing display rather than adding a product direction.
+Feature 92 (custom deck pictures, in two sub-features 92a-92b) was added to
+`build-plan.md` on 2026-10-03. A created (manual) deck can carry an optional
+picture of the user's own, shown on its `/decks` tile and detail header in
+place of the tinted placeholder. Created decks only: artist and anime decks
+are derived groupings with no row to hold one, and anime decks keep their
+AniList cover. No `project-plan.md` change: §3's Decks bullet already lets a
+manual deck exist, and this adds an optional display field, like feature 77.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2255,6 +2262,25 @@ feature 86/90's existing display rather than adding a product direction.
       dragging; `localStorage` key `gaqSrs:partyLayout` stores
       `{ v: 1, pieces }` with only moved pieces. The lightning hints card
       moves while its full-screen backdrop stays.
+92. **Custom deck pictures** - added to `build-plan.md` 2026-10-03, in two
+    sub-features; 92a is built and merged, 92b is not yet built. A user can give a created deck their own
+    picture: they pick an image file, the app stores a copy in the user-data
+    directory (so a packaged build keeps it), and the picture replaces the
+    tinted placeholder on the deck's `/decks` tile and detail header. It can be
+    replaced or removed, and a deck with none looks exactly as it does today.
+    - **92a. Storage and routes** - done 2026-10-03. A nullable `Deck.imagePath` column
+      (Drizzle migration), a `deck-images/` folder beside the database, and
+      routes to upload (PNG, JPEG, WebP, about 5 MB cap), serve, and remove a
+      picture, with cleanup when a deck is deleted. No UI. As built: the stored name
+      is `<deckId>-<8 hex>.<png|jpg|webp>`, the format comes from the file's
+      magic bytes and never the client's type, `ManualDeck` gains `imageUrl`
+      (`/api/decks/image?id=&v=<name>`, `v` busts the cache only), and a replace
+      writes the new file, updates the column, then deletes the old file.
+      `POST`/`GET`/`DELETE /api/decks/image`; 413 over 5 MB, 415 for another
+      format (`deckImage.ts`, `deckImageStore.ts`).
+    - **92b. Deck picture UI** - upload, replace, and remove controls on a
+      created deck's detail view, and the picture on its tile and detail
+      header.
 
 ## Data model
 
@@ -2479,6 +2505,9 @@ Feature 13a. A user-created, flat (no parent/child) named deck.
   studying this deck, and therefore which `CardTrack` its reviews read and
   write. Manual decks only; artist and anime decks are derived and have no row
   to hold this.
+- `imagePath` (text, nullable) - feature 92a (migration `0027`). File name of the
+  deck's custom picture inside `deck-images/` beside the database; null means
+  the existing tinted placeholder. Manual decks only.
 - `createdAt` (datetime)
 
 ### DeckCard

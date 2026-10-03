@@ -1027,6 +1027,21 @@ cleaned-up checkbox version before generating the project overview.
     is saved in that display's browser as screen fractions, so it survives a
     resolution change, and there's a Reset layout action.
 
+- [ ] 92. **Custom deck pictures** - optional. A user can give a created
+  (manual) deck their own picture, shown on its `/decks` tile and detail header
+  in place of the tinted placeholder. They pick an image file; the app stores a
+  copy in the user-data directory so a packaged build keeps it. They can replace
+  or remove it, and a deck with none looks exactly as it does today. Created
+  decks only: artist and anime decks are derived groupings with no row to hold
+  one, and anime decks keep their AniList cover.
+  - [x] 92a. **Storage and routes** - a nullable `Deck.imagePath` column
+    (Drizzle migration), a `deck-images/` folder beside the database, and routes
+    to upload (PNG, JPEG, WebP, about 5 MB cap), serve, and remove a picture,
+    with cleanup when a deck is deleted. No UI yet.
+  - [ ] 92b. **Deck picture UI** - upload, replace, and remove controls on a
+    created deck's detail view, and the picture on its `/decks` tile and detail
+    header, with the existing placeholder when none is set.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

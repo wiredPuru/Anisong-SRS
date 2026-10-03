@@ -111,6 +111,7 @@ export const deck = sqliteTable("deck", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
   gradingCriterion: text("grading_criterion").$type<GradingCriterion>().notNull().default("title"),
+  imagePath: text("image_path"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

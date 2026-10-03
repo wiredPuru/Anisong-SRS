@@ -4,6 +4,7 @@ import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/sche
 import { baseDueCondition, type Paginated, type StudyScope } from "./cards.ts";
 import type { DeckSource } from "./deckMembership.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
+import { deckImageUrl, deleteDeckImageFile } from "./deckImageStore.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { deriveCounts, passCountExpr, reviewsOfCardFor } from "./stats.ts";
 
@@ -208,6 +209,7 @@ export interface ManualDeck {
   gradingCriterion: GradingCriterion;
   cardCount: number;
   passRate: number | null;
+  imageUrl: string | null;
 }
 
 function manualDeckSearchCondition(query?: string) {
@@ -228,6 +230,7 @@ export function listManualDecks(page: number, query?: string): Paginated<ManualD
       name: deck.name,
       createdAt: deck.createdAt,
       gradingCriterion: deck.gradingCriterion,
+      imagePath: deck.imagePath,
       cardCount: count(deckCard.id),
     })
     .from(deck)
@@ -241,7 +244,11 @@ export function listManualDecks(page: number, query?: string): Paginated<ManualD
 
   const passRates = passRatesByManualDeck(items.map((item) => item.id));
   return {
-    items: items.map((item) => ({ ...item, passRate: passRates.get(item.id) ?? null })),
+    items: items.map(({ imagePath, ...item }) => ({
+      ...item,
+      passRate: passRates.get(item.id) ?? null,
+      imageUrl: deckImageUrl(item.id, imagePath),
+    })),
     total,
   };
 }
@@ -270,6 +277,11 @@ function countCardsInDeck(deckId: number): number {
   return db.select({ count: count(deckCard.id) }).from(deckCard).where(eq(deckCard.deckId, deckId)).get()!.count;
 }
 
+function withImageUrl<T extends { id: number; imagePath: string | null }>(row: T) {
+  const { imagePath, ...rest } = row;
+  return { ...rest, imageUrl: deckImageUrl(row.id, imagePath) };
+}
+
 export type ManualDeckResult = { error: string } | { notFound: true } | { deck: ManualDeck };
 
 export function createManualDeck(rawName: string): ManualDeckResult {
@@ -282,7 +294,7 @@ export function createManualDeck(rawName: string): ManualDeckResult {
   }
 
   const inserted = db.insert(deck).values({ name }).returning().get();
-  return { deck: { ...inserted, cardCount: countCardsInDeck(inserted.id), passRate: null } };
+  return { deck: { ...withImageUrl(inserted), cardCount: countCardsInDeck(inserted.id), passRate: null } };
 }
 
 export function renameManualDeck(id: number, rawName: string): ManualDeckResult {
@@ -300,7 +312,7 @@ export function renameManualDeck(id: number, rawName: string): ManualDeckResult 
   }
 
   const updated = db.update(deck).set({ name }).where(eq(deck.id, id)).returning().get();
-  return { deck: { ...updated, cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
+  return { deck: { ...withImageUrl(updated), cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
 }
 
 export function setManualDeckCriterion(id: number, criterion: GradingCriterion): ManualDeckResult {
@@ -308,7 +320,7 @@ export function setManualDeckCriterion(id: number, criterion: GradingCriterion):
   if (!updated) {
     return { notFound: true };
   }
-  return { deck: { ...updated, cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
+  return { deck: { ...withImageUrl(updated), cardCount: countCardsInDeck(id), passRate: passRatesByManualDeck([id]).get(id) ?? null } };
 }
 
 export function getManualDeckCriterion(id: number): GradingCriterion | undefined {
@@ -316,7 +328,9 @@ export function getManualDeckCriterion(id: number): GradingCriterion | undefined
 }
 
 export function deleteManualDeck(id: number): boolean {
+  const imagePath = db.select({ imagePath: deck.imagePath }).from(deck).where(eq(deck.id, id)).get()?.imagePath ?? null;
   const result = db.delete(deck).where(eq(deck.id, id)).run();
+  if (result.changes > 0) deleteDeckImageFile(imagePath);
   return result.changes > 0;
 }
 
