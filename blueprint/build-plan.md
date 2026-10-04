@@ -1100,6 +1100,22 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 96b. **Browse modal + mass add** - the modal on `/cards`, reusing the
     filter form and feature 94's batch import.
 
+- [ ] 97. **Add to a deck while bulk importing** - the "Browse by filters"
+  modal (96b) and "Import the rest" in the deck filter form (94) get an optional
+  "Add the imported cards to a deck" choice: an existing manual deck, or a new
+  one by name. Each imported show's cards, including any the show already had,
+  join the deck as soon as that show is imported, so a cancelled run still
+  leaves the deck holding what finished. Only deck links are added, so no
+  card's schedule changes. Manual decks only; defaults to no deck.
+  - [x] 97a. **Deck target on the import route** - `POST
+    /api/lookup/import-cards` takes an optional `deckId`; `addCardsForThemes`
+    also reports the ids of the cards it created or found, and the route links
+    them to the deck. Counts gain `addedToDeck` and `alreadyInDeck`. No UI.
+  - [ ] 97b. **Deck picker in both import UIs** - a shared picker (existing
+    manual deck, or "New deck..." with a name) in `CardBrowseModal` and in
+    `StudyFilterForm`'s "Import the rest". A new deck is created before the
+    first import and kept if the run fails or is cancelled.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

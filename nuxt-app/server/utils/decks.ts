@@ -383,6 +383,22 @@ export function addCardsToDeck(deckId: number, cardIds: readonly number[]): Bulk
   return { added, notFound: cardIds.filter((id) => !present.has(id)) };
 }
 
+/** Links cards to a deck, reporting how many were already members. Assumes the deck and cards exist. */
+export function linkCardsToDeck(deckId: number, cardIds: readonly number[]): { addedToDeck: number; alreadyInDeck: number } {
+  if (cardIds.length === 0) return { addedToDeck: 0, alreadyInDeck: 0 };
+  const members = new Set(
+    db.select({ cardId: deckCard.cardId }).from(deckCard)
+      .where(and(eq(deckCard.deckId, deckId), inArray(deckCard.cardId, [...cardIds])))
+      .all()
+      .map((row) => row.cardId),
+  );
+  const fresh = [...new Set(cardIds)].filter((id) => !members.has(id));
+  if (fresh.length) {
+    db.insert(deckCard).values(fresh.map((cardId) => ({ deckId, cardId }))).onConflictDoNothing().run();
+  }
+  return { addedToDeck: fresh.length, alreadyInDeck: members.size };
+}
+
 export type CopyCardsResult =
   | { notFound: true }
   | { added: number; alreadyInDeck: number; missingSources: DeckSource[] };

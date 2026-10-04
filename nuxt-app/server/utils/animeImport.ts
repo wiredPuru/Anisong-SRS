@@ -1,4 +1,7 @@
 import { createAnimeMetadataResolver } from "./animeMetadata.ts";
+import { inArray } from "drizzle-orm";
+import { db } from "../db/client.ts";
+import { card } from "../db/schema.ts";
 import { cardExistsForSong, createCard } from "./cards.ts";
 import { filterClipUrls } from "./clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
@@ -101,11 +104,13 @@ export interface AddCardsResult {
   added: number;
   alreadyAdded: number;
   skipped: number;
+  // Every card for these themes after the run, new or already there.
+  cardIds: number[];
 }
 
 /** Adds a card per theme the way a manual "Add all" does, skipping what cannot be played or is gated. */
 export function addCardsForThemes(themes: ImportedTheme[]): AddCardsResult {
-  const result: AddCardsResult = { added: 0, alreadyAdded: 0, skipped: 0 };
+  const result: AddCardsResult = { added: 0, alreadyAdded: 0, skipped: 0, cardIds: [] };
   for (const theme of themes) {
     if (cardExistsForSong(theme.songId)) {
       result.alreadyAdded += 1;
@@ -116,6 +121,14 @@ export function addCardsForThemes(themes: ImportedTheme[]): AddCardsResult {
     } else {
       result.skipped += 1;
     }
+  }
+  if (themes.length) {
+    result.cardIds = db
+      .select({ id: card.id })
+      .from(card)
+      .where(inArray(card.songId, themes.map((theme) => theme.songId)))
+      .all()
+      .map((row) => row.id);
   }
   return result;
 }

@@ -2391,6 +2391,24 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       cannot close mid-run. Proved against live AniList: a Fall 2013 "Cute Girls
       Doing Cute Things" browse listed Non Non Biyori, importing it added 2 cards,
       and the next browse flagged it in library.
+97. **Add to a deck while bulk importing** - added to `build-plan.md`
+    2026-10-04, in two sub-features, not yet built. After a bulk import (96's
+    "Browse by filters", 94's "Import the rest") the new cards had to be found
+    again in `/cards` and added to a deck by hand. Both imports gain an optional
+    manual-deck target (existing, or a new deck by name); each show's cards,
+    including ones it already had, join the deck as that show is imported, so
+    Cancel keeps what finished. Deck links only: no schedule change. Defaults to
+    no deck. No `project-plan.md` change, like features 73 and 77.
+    - **97a. Deck target on the import route** - done 2026-10-04. `POST
+      /api/lookup/import-cards` takes an optional `deckId` (400 if not a
+      positive integer, 404 for a missing deck before any lookup runs).
+      `addCardsForThemes` also returns `cardIds` (created and already-present
+      cards; skipped themes have none), and `linkCardsToDeck`
+      (`server/utils/decks.ts`) adds them, returning `addedToDeck` and
+      `alreadyInDeck`, which the route adds to its counts only when a deck was
+      given.
+    - **97b. Deck picker in both import UIs** - shared picker in
+      `CardBrowseModal` and `StudyFilterForm`.
 
 ## Data model
 

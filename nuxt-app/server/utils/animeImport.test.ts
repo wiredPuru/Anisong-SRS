@@ -35,7 +35,7 @@ function theme(slot: string, overrides: Partial<ImportedTheme> = {}): ImportedTh
 
 describe("addCardsForThemes", () => {
   it("adds a card for each playable theme", () => {
-    expect(addCardsForThemes([theme("OP1"), theme("ED1")])).toEqual({ added: 2, alreadyAdded: 0, skipped: 0 });
+    expect(addCardsForThemes([theme("OP1"), theme("ED1")])).toMatchObject({ added: 2, alreadyAdded: 0, skipped: 0 });
     expect(db.select().from(card).all()).toHaveLength(2);
   });
 
@@ -45,17 +45,32 @@ describe("addCardsForThemes", () => {
       theme("OP2", { noAnimethemesMatch: true }),
       theme("ED1"),
     ]);
-    expect(result).toEqual({ added: 1, alreadyAdded: 0, skipped: 2 });
+    expect(result).toMatchObject({ added: 1, alreadyAdded: 0, skipped: 2 });
   });
 
   it("counts a theme that already has a card instead of duplicating it", () => {
     const themes = [theme("OP1")];
     addCardsForThemes(themes);
-    expect(addCardsForThemes(themes)).toEqual({ added: 0, alreadyAdded: 1, skipped: 0 });
+    expect(addCardsForThemes(themes)).toMatchObject({ added: 0, alreadyAdded: 1, skipped: 0 });
     expect(db.select().from(card).all()).toHaveLength(1);
   });
 
   it("skips a theme with no source at all", () => {
-    expect(addCardsForThemes([theme("OP1", { videoUrl: null, audioUrl: null })])).toEqual({ added: 0, alreadyAdded: 0, skipped: 1 });
+    expect(addCardsForThemes([theme("OP1", { videoUrl: null, audioUrl: null })])).toMatchObject({ added: 0, alreadyAdded: 0, skipped: 1 });
+  });
+
+  it("reports the ids of created and already-present cards, but not skipped themes", () => {
+    const existing = theme("OP1");
+    addCardsForThemes([existing]);
+    const fresh = theme("ED1");
+    const blocked = theme("OP2", { clipBlocked: true, videoUrl: null });
+    const result = addCardsForThemes([existing, fresh, blocked]);
+    const cardIds = db.select({ id: card.id }).from(card).all().map((row) => row.id);
+    expect(result.cardIds.sort()).toEqual(cardIds.sort());
+    expect(result.cardIds).toHaveLength(2);
+  });
+
+  it("reports no ids for an empty theme list", () => {
+    expect(addCardsForThemes([]).cardIds).toEqual([]);
   });
 });
