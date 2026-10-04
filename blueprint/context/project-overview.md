@@ -2303,7 +2303,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
     `PartyDisplaySkip.vue` shows "Skipping..." for 1.5s when `skipSeq`
     changes, never on a display's first state.
 94. **Import the rest of an anime list** - added to `build-plan.md`
-    2026-10-03, in two sub-features, not yet built. Feature 76c's list filter
+    2026-10-03, done 2026-10-04, in two sub-features. Feature 76c's list filter
     keeps only the Completed-list anime already in the library, so a 502-show
     list shows "27 in your library" and the rest are dropped. When a list is
     active in the deck-building filter form (feature 77), this offers "Import
@@ -2314,11 +2314,20 @@ is a control on feature 86's existing Now playing panel, like feature 91.
     failing anime is skipped and counted. Deck-building modal only, not
     Study's filter popup. No `project-plan.md` change, like features 73 and
     77: it speeds up filling a manual deck.
-    - **94a. Missing-anime resolution + single-anime import** - the list
-      resolver also returns the AniList ids not in the library, plus a server
-      path that imports one anime and adds its themes as cards. No UI.
-    - **94b. "Import the rest" UI** - button and count under the list chip,
-      sequential run with progress, Cancel, and a failure tally.
+    - **94a. Missing-anime resolution + single-anime import** - done
+      2026-10-04. `resolveListAnimeIds` also returns `missingAniListIds` (list
+      ids with no library anime that has cards). `/api/lookup/import`'s body
+      moved to `importAnimeThemes` (`server/utils/animeImport.ts`), and
+      `POST /api/lookup/import-cards` (`{ aniListId }` -> `{ aniListId, title,
+      added, alreadyAdded, skipped }`) imports one anime and adds a card per
+      theme via `addCardsForThemes`, skipping clip-blocked and
+      themes-only-gated themes like a manual "Add all".
+    - **94b. "Import the rest" UI** - done 2026-10-04. `StudyFilterForm`'s
+      `importable` prop (set only by `DeckFilterCardsModal`) shows the missing
+      count and "Import the rest (N)" under the list chip. `importAnimeBatch`
+      (`app/utils/importAnimeBatch.ts`) runs one anime at a time with a progress
+      bar and Cancel between shows, counts failures and shows with nothing
+      addable, then re-fetches the list so new shows arrive ticked.
 95. **Study scope quick-filters + infinite mode** - added to
     `build-plan.md` 2026-10-04, in two sub-features, not yet built. Feature
     76's OP/ED filter already narrows a deck session to openings, but sits in a

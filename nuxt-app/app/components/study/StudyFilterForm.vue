@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import type { StudyFilters, StudyListSite, StudySeason, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
 interface StudyFilterOptions {
@@ -16,7 +17,9 @@ type Choice = "include" | "exclude";
 const draft = defineModel<StudyFilters>({ required: true });
 // Party mode's host panel (feature 86c) reads the same data through its own
 // door, under /api/party/host.
-const props = withDefaults(defineProps<{ apiBase?: string }>(), { apiBase: "/api/study" });
+// importable: offer to import the list's anime that are not in the library yet
+// (feature 94). Only the deck-building modal turns it on.
+const props = withDefaults(defineProps<{ apiBase?: string; importable?: boolean }>(), { apiBase: "/api/study", importable: false });
 
 const SEASONS: { value: StudySeason; label: string }[] = [
   { value: "WINTER", label: "Winter" },
@@ -36,6 +39,7 @@ interface ListAnimeResult {
   aniListIds: number[];
   listSize: number;
   matched: number;
+  missingAniListIds?: number[];
 }
 
 const options = ref<StudyFilterOptions | null>(null);
@@ -46,6 +50,11 @@ const listUsername = ref("");
 const listLoading = ref(false);
 const listError = ref<string | null>(null);
 const listNote = ref<string | null>(null);
+const missingIds = ref<number[]>([]);
+const importing = ref(false);
+const stopImport = ref(false);
+const importProgress = ref<ImportBatchProgress | null>(null);
+const importSummary = ref<ImportBatchResult | null>(null);
 
 // Fetched on every mount, and callers mount the form only while open, so tags
 // from anime added since the last open show up without a reload.
@@ -120,6 +129,7 @@ async function fetchList(site: StudyListSite, username: string) {
   listNote.value = null;
   try {
     const result = await $fetch<ListAnimeResult>(`${props.apiBase}/list-anime`, { query: { site, username } });
+    missingIds.value = result.missingAniListIds ?? [];
     draft.value.listAniListIds = result.aniListIds;
     draft.value.listSource = { site, username, fetchedAt: new Date().toISOString() };
     listNote.value = `${result.matched} of the ${result.listSize} anime on that Completed list ${result.matched === 1 ? "is" : "are"} in your library.`;
@@ -139,6 +149,36 @@ function removeList() {
   draft.value.listAniListIds = null;
   draft.value.listSource = null;
   listNote.value = null;
+  missingIds.value = [];
+  importSummary.value = null;
+}
+
+async function importRest() {
+  const source = draft.value.listSource;
+  if (!source || importing.value || !missingIds.value.length) return;
+  importing.value = true;
+  stopImport.value = false;
+  importSummary.value = null;
+  importProgress.value = null;
+  try {
+    importSummary.value = await importAnimeBatch(
+      missingIds.value,
+      (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", { method: "POST", body: { aniListId } }),
+      { shouldStop: () => stopImport.value, onProgress: (progress) => (importProgress.value = progress) },
+    );
+  } finally {
+    importing.value = false;
+    importProgress.value = null;
+  }
+  await fetchList(source.site, source.username);
+}
+
+function summaryText(summary: ImportBatchResult): string {
+  const parts = [`Imported ${summary.added} ${summary.added === 1 ? "card" : "cards"} from ${summary.done - summary.failed} of ${summary.total} shows.`];
+  if (summary.cancelled) parts.push("Stopped early.");
+  if (summary.failed) parts.push(`${summary.failed} failed.`);
+  if (summary.empty) parts.push(`${summary.empty} had nothing addable under your clip settings.`);
+  return parts.join(" ");
 }
 
 const listCheckedOn = computed(() => {
@@ -184,14 +224,34 @@ const listCheckedOn = computed(() => {
           <button
             type="button"
             class="text-btn"
-            :disabled="listLoading"
+            :disabled="listLoading || importing"
             @click="fetchList(draft.listSource.site, draft.listSource.username)"
           >
             Refresh
           </button>
-          <button type="button" class="text-btn" :disabled="listLoading" @click="removeList">Remove</button>
+          <button type="button" class="text-btn" :disabled="listLoading || importing" @click="removeList">Remove</button>
         </div>
         <p class="empty-hint">Checked {{ listCheckedOn }}. Anime added to your library since then join after Refresh.</p>
+        <div v-if="importable && (missingIds.length || importing)" class="import-rest">
+          <template v-if="importing">
+            <p class="import-line" role="status">
+              Importing {{ (importProgress?.done ?? 0) + 1 }} of {{ importProgress?.total ?? missingIds.length }}<span v-if="importProgress?.current"> &middot; {{ importProgress.current }}</span>
+            </p>
+            <progress class="import-bar" :value="importProgress?.done ?? 0" :max="importProgress?.total ?? missingIds.length" />
+            <button type="button" class="text-btn" :disabled="stopImport" @click="stopImport = true">
+              {{ stopImport ? "Stopping..." : "Cancel" }}
+            </button>
+          </template>
+          <template v-else>
+            <p class="import-line">
+              {{ missingIds.length }} {{ missingIds.length === 1 ? "anime on that list isn't" : "anime on that list aren't" }} in your library yet.
+            </p>
+            <button type="button" class="text-btn import-btn" :disabled="listLoading" @click="importRest">
+              Import the rest ({{ missingIds.length }})
+            </button>
+          </template>
+        </div>
+        <p v-if="importSummary" class="empty-hint">{{ summaryText(importSummary) }}</p>
       </template>
       <form v-else class="list-row" @submit.prevent="useList">
         <select v-model="listSite" class="list-site" aria-label="List site">
@@ -486,6 +546,31 @@ const listCheckedOn = computed(() => {
   color: var(--pass);
   font-size: 13px;
   font-weight: 700;
+}
+
+.import-rest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-line {
+  margin: 0;
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.import-bar {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+
+.import-btn {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .list-username {

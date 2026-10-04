@@ -1049,7 +1049,7 @@ cleaned-up checkbox version before generating the project overview.
   in-memory like the rest of party mode: no schema change, and party play
   still never writes `ReviewLog`, `Card`, or `CardTrack`.
 
-- [ ] 94. **Import the rest of an anime list** - when an Anime list (AniList or
+- [x] 94. **Import the rest of an anime list** - when an Anime list (AniList or
   MyAnimeList Completed) is active in the filter form, show how many of its
   anime are not in the library and offer "Import the rest". It imports each
   missing show's themes as cards, one anime at a time with a progress bar and
@@ -1058,11 +1058,11 @@ cleaned-up checkbox version before generating the project overview.
   insert songs follow the Settings toggle, and themes blocked by Clip source
   are skipped. An anime that fails is skipped and counted, not fatal. The
   deck-building modal only, not Study's own filter popup.
-  - [ ] 94a. **Missing-anime resolution + single-anime import** - the list
+  - [x] 94a. **Missing-anime resolution + single-anime import** - the list
     resolver also returns the list's AniList ids not in the library, and a
     server path imports one anime and adds all its allowed themes as cards,
     reusing the `/api/lookup/import` and `/api/cards` logic. No UI.
-  - [ ] 94b. **"Import the rest" UI** - a button and count under the list chip
+  - [x] 94b. **"Import the rest" UI** - a button and count under the list chip
     in `StudyFilterForm`, shown only in the deck-building modal. Runs
     sequentially with progress, Cancel, and a per-anime failure tally, then
     re-resolves the list.

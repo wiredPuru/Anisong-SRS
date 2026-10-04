@@ -220,7 +220,7 @@ onUnmounted(() => {
 
       <div class="columns">
         <div class="filters-col">
-          <StudyFilterForm v-model="draft" />
+          <StudyFilterForm v-model="draft" importable />
           <p v-if="problem" class="inline-error">{{ problem }}</p>
         </div>
 

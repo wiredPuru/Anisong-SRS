@@ -9,6 +9,7 @@ export interface ListAnimeResult {
   aniListIds: number[];
   listSize: number;
   matched: number;
+  missingAniListIds: number[];
 }
 
 export interface ListDeps {
@@ -34,7 +35,8 @@ async function listAniListIds(site: ListSite, username: string, deps: ListDeps):
 }
 
 // Keeps only anime already in the library with a card, so the stored filter
-// stays small however long the user's list is (feature 76c).
+// stays small however long the user's list is (feature 76c). The rest of the
+// list is returned apart, for importing (feature 94).
 export async function resolveListAnimeIds(site: ListSite, username: string, deps: ListDeps = LIVE_DEPS): Promise<ListAnimeResult> {
   const { ids, listSize } = await listAniListIds(site, username, deps);
   const withCards = db.selectDistinct({ id: song.animeId }).from(song).innerJoin(card, eq(card.songId, song.id));
@@ -46,5 +48,7 @@ export async function resolveListAnimeIds(site: ListSite, username: string, deps
     .map((row) => row.aniListId)
     .filter((id) => ids.has(id))
     .sort((a, b) => a - b);
-  return { aniListIds, listSize, matched: aniListIds.length };
+  const inLibrary = new Set(aniListIds);
+  const missingAniListIds = [...ids].filter((id) => !inLibrary.has(id)).sort((a, b) => a - b);
+  return { aniListIds, listSize, matched: aniListIds.length, missingAniListIds };
 }

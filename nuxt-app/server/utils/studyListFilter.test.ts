@@ -41,20 +41,20 @@ afterEach(() => {
 describe("resolveListAnimeIds", () => {
   it("keeps only listed AniList anime that have cards", async () => {
     const aniListCompleted = vi.fn().mockResolvedValue([{ aniListId: 20 }, { aniListId: 30 }, { aniListId: 99 }, { aniListId: 10 }]);
-    expect(await resolveListAnimeIds("anilist", "Kyoto", deps({ aniListCompleted }))).toEqual({ aniListIds: [10, 20], listSize: 4, matched: 2 });
+    expect(await resolveListAnimeIds("anilist", "Kyoto", deps({ aniListCompleted }))).toEqual({ aniListIds: [10, 20], listSize: 4, matched: 2, missingAniListIds: [30, 99] });
     expect(aniListCompleted).toHaveBeenCalledWith("Kyoto");
   });
 
   it("maps a MAL list through AniList ids once, de-duplicating MAL ids", async () => {
     const aniListIdsByMalIds = vi.fn().mockResolvedValue(new Map([[1, 10], [3, 99]]));
     const malCompleted = vi.fn().mockResolvedValue([{ malId: 1 }, { malId: 2 }, { malId: 3 }, { malId: 1 }]);
-    expect(await resolveListAnimeIds("mal", "Xinil", deps({ malCompleted, aniListIdsByMalIds }))).toEqual({ aniListIds: [10], listSize: 4, matched: 1 });
+    expect(await resolveListAnimeIds("mal", "Xinil", deps({ malCompleted, aniListIdsByMalIds }))).toEqual({ aniListIds: [10], listSize: 4, matched: 1, missingAniListIds: [99] });
     expect(aniListIdsByMalIds).toHaveBeenCalledWith([1, 2, 3]);
   });
 
   it("reports an empty match for a list with nothing in the library", async () => {
     const aniListCompleted = vi.fn().mockResolvedValue([]);
-    expect(await resolveListAnimeIds("anilist", "empty", deps({ aniListCompleted }))).toEqual({ aniListIds: [], listSize: 0, matched: 0 });
+    expect(await resolveListAnimeIds("anilist", "empty", deps({ aniListCompleted }))).toEqual({ aniListIds: [], listSize: 0, matched: 0, missingAniListIds: [] });
   });
 
   it("lets a provider failure propagate", async () => {
