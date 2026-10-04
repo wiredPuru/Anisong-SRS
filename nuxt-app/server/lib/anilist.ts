@@ -33,7 +33,7 @@ export interface AniListAnime {
 let unavailableUntil = 0;
 let recoveryInFlight = false;
 
-async function requestAniList<T>(
+export async function requestAniList<T>(
   query: string,
   variables: Record<string, unknown>,
   parse: (data: Record<string, unknown> | null) => T,

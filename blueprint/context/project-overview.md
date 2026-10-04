@@ -2357,6 +2357,28 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       serving cards after the due queue or daily new limit runs out. Practice
       only: no `ReviewLog` write and no schedule change. No `project-plan.md`
       change, like features 51 and 52: additions to the existing Study screen.
+96. **Browse and mass-add by filters** - added to `build-plan.md`
+    2026-10-04, in two sub-features (96a built). Feature 76's filters only
+    search shows already in the library, so adding many new shows by genre, tag
+    or era meant searching titles one at a time. A "Browse by filters" modal on
+    `/cards` runs the same filter form against AniList's whole catalog, lists
+    matches (in-library ones marked), and mass-imports the ticked ones with
+    feature 94's one-at-a-time importer (progress, Cancel, failures counted).
+    Popularity order, 50 per page, 300-show cap per run, hentai excluded; Study's
+    saved filters are untouched. No `project-plan.md` change, like features 58
+    and 77.
+    - **96a. AniList catalog browse** - done 2026-10-04. `POST
+      /api/lookup/anilist-browse` (`{ filters, page }` -> `{ results,
+      hasNextPage }`; `parseBrowseBody` in `server/utils/anilistBrowseBody.ts`,
+      `browseAniList`/`buildBrowseVariables` in `server/lib/anilistBrowse.ts`)
+      queries AniList's catalog 50 per page by popularity with adult titles
+      excluded. Years use `startDate` with the exclusive bounds widened, and
+      several seasons run as parallel per-season queries merged by popularity.
+      Each result carries `inLibrary`/`cardCount` (`withLibraryFlags`: at least
+      one card). `GET /api/lookup/anilist-options` returns AniList's genres and
+      non-adult tags behind a 24h `createTimedCache`. `requestAniList` is now
+      exported. No UI.
+    - **96b. Browse modal + mass add** - the `/cards` modal over 96a and 94.
 
 ## Data model
 

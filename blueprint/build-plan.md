@@ -1082,6 +1082,24 @@ cleaned-up checkbox version before generating the project overview.
     date, so binging cannot distort the schedule. Session score and combo still
     work. The header shows "Infinite" and a session count instead of "N left".
 
+- [ ] 96. **Browse and mass-add by filters** - a "Browse by filters" action on
+  `/cards` opens a modal with the same filter form as Study, but searching
+  AniList's whole catalog instead of the library, so a user can mass-add, for
+  example, every Ecchi or "Cute Girls Doing Cute Things" show from an era.
+  Matching shows list with cover, year, score and format, with any already in
+  the library marked. Tick the ones wanted (all ticked by default) and "Add N
+  shows" imports them one at a time with a progress bar and Cancel, using
+  feature 94's importer. Same rules as "Add all": insert songs follow the
+  Settings toggle and clip-blocked themes are skipped. Most popular first, 50
+  per page with infinite scroll, one run capped at 300 shows, hentai excluded.
+  Study's saved filters are not touched.
+  - [x] 96a. **AniList catalog browse** - a server route takes filters, a page
+    and a sort, queries AniList's catalog, and returns shows with an in-library
+    flag and card count; a second route supplies AniList's full genre and tag
+    lists. No UI.
+  - [ ] 96b. **Browse modal + mass add** - the modal on `/cards`, reusing the
+    filter form and feature 94's batch import.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
