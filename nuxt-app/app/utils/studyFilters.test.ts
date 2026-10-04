@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogFilterOptions,
   countActiveFilters,
   countTags,
   EMPTY_STUDY_FILTERS,
@@ -7,6 +8,7 @@ import {
   readStoredFilters,
   parseThemesParam,
   studyFiltersProblem,
+  toBrowseFilters,
   tagBreakdown,
   clearThemeTypes,
   onlyThemeType,
@@ -177,5 +179,25 @@ describe("theme chips", () => {
     expect(parseThemesParam("op")).toBeNull();
     expect(parseThemesParam(["OP"])).toBeNull();
     expect(parseThemesParam(undefined)).toBeNull();
+  });
+});
+
+describe("catalog browse helpers", () => {
+  it("adapts AniList's option lists to the form's shape", () => {
+    const options = catalogFilterOptions({ genres: ["Ecchi"], tags: [{ name: "Cute Girls Doing Cute Things", category: "Theme" }] });
+    expect(options).toMatchObject({ yearRange: null, genres: ["Ecchi"], missingDetailsCount: 0 });
+    expect(options.tags).toEqual([{ name: "Cute Girls Doing Cute Things", ranks: [] }]);
+    expect(options.formats).toContain("TV");
+  });
+
+  it("picks only the catalog fields and copies the lists", () => {
+    const filters = { ...EMPTY_STUDY_FILTERS, yearMin: 2010, themeTypes: ["OP" as const], genresInclude: ["Ecchi"], listAniListIds: [1] };
+    const picked = toBrowseFilters(filters);
+    expect(picked).toEqual({
+      yearMin: 2010, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [],
+      genresInclude: ["Ecchi"], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
+    });
+    picked.genresInclude.push("Horror");
+    expect(filters.genresInclude).toEqual(["Ecchi"]);
   });
 });

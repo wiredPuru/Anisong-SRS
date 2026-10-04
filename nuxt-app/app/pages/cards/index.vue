@@ -136,6 +136,7 @@ watch(() => route.query.suspended, applySuspendedParam);
 const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
+const browseOpen = ref(false);
 const nextPage = ref(1);
 const totalPages = ref(1);
 const totalCards = ref(0);
@@ -510,6 +511,7 @@ watch(
 
 <template>
   <main class="cards">
+    <CardBrowseModal :open="browseOpen" @close="browseOpen = false" @imported="loadFirstPage" />
     <header class="cards-header">
       <div class="header-title">
         <h1>Cards</h1>
@@ -542,6 +544,7 @@ watch(
           Suspended
         </button>
       </div>
+      <button type="button" class="import-toggle" @click="browseOpen = true">Browse by filters</button>
       <button
         type="button"
         class="import-toggle"

@@ -151,10 +151,11 @@ export interface TagOption {
 
 // Counts shows at the filter's own relevance cutoff, since a show below it
 // would never match. Most shared first.
-export function countTags(tags: TagOption[], minRank: number, chosen: ReadonlySet<string>): { name: string; count: number }[] {
+// With `catalog`, tags carry no ranks, so every tag counts as present.
+export function countTags(tags: TagOption[], minRank: number, chosen: ReadonlySet<string>, catalog = false): { name: string; count: number }[] {
   return tags
     .filter((tag) => !chosen.has(tag.name))
-    .map((tag) => ({ name: tag.name, count: tag.ranks.filter((rank) => rank >= minRank).length }))
+    .map((tag) => ({ name: tag.name, count: catalog ? 1 : tag.ranks.filter((rank) => rank >= minRank).length }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
@@ -188,4 +189,61 @@ export function onlyThemeType(filters: StudyFilters, type: StudyThemeType): Stud
 /** Reads the `themes` query param that /decks shortcuts send; anything else is ignored. */
 export function parseThemesParam(value: unknown): StudyThemeType | null {
   return value === "OP" || value === "ED" || value === "IN" ? value : null;
+}
+
+// Browse by filters (feature 96): the catalog the form searches is AniList's
+// whole one, so its option lists come from AniList rather than the library.
+export interface CatalogOptionsReply {
+  genres: string[];
+  tags: { name: string; category: string }[];
+}
+
+export interface CatalogFilterOptions {
+  yearRange: null;
+  formats: string[];
+  genres: string[];
+  tags: TagOption[];
+  missingDetailsCount: number;
+}
+
+export function catalogFilterOptions(reply: CatalogOptionsReply): CatalogFilterOptions {
+  return {
+    yearRange: null,
+    formats: Object.keys(ANIME_FORMAT_LABELS),
+    genres: reply.genres,
+    tags: reply.tags.map((tag) => ({ name: tag.name, ranks: [] })),
+    missingDetailsCount: 0,
+  };
+}
+
+// The StudyFilters fields that apply to a catalog, same names and order as the
+// server's BrowseFilters. OP/ED and list filters mean nothing there.
+export interface BrowseFilters {
+  yearMin: number | null;
+  yearMax: number | null;
+  seasons: StudySeason[];
+  scoreMin: number | null;
+  scoreMax: number | null;
+  formats: string[];
+  genresInclude: string[];
+  genresExclude: string[];
+  tagsInclude: string[];
+  tagsExclude: string[];
+  tagMinRank: number;
+}
+
+export function toBrowseFilters(filters: StudyFilters): BrowseFilters {
+  return {
+    yearMin: filters.yearMin,
+    yearMax: filters.yearMax,
+    seasons: [...filters.seasons],
+    scoreMin: filters.scoreMin,
+    scoreMax: filters.scoreMax,
+    formats: [...filters.formats],
+    genresInclude: [...filters.genresInclude],
+    genresExclude: [...filters.genresExclude],
+    tagsInclude: [...filters.tagsInclude],
+    tagsExclude: [...filters.tagsExclude],
+    tagMinRank: filters.tagMinRank,
+  };
 }

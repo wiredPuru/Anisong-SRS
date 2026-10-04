@@ -2358,7 +2358,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       only: no `ReviewLog` write and no schedule change. No `project-plan.md`
       change, like features 51 and 52: additions to the existing Study screen.
 96. **Browse and mass-add by filters** - added to `build-plan.md`
-    2026-10-04, in two sub-features (96a built). Feature 76's filters only
+    2026-10-04, in two sub-features, both built. Feature 76's filters only
     search shows already in the library, so adding many new shows by genre, tag
     or era meant searching titles one at a time. A "Browse by filters" modal on
     `/cards` runs the same filter form against AniList's whole catalog, lists
@@ -2378,7 +2378,19 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       one card). `GET /api/lookup/anilist-options` returns AniList's genres and
       non-adult tags behind a 24h `createTimedCache`. `requestAniList` is now
       exported. No UI.
-    - **96b. Browse modal + mass add** - the `/cards` modal over 96a and 94.
+    - **96b. Browse modal + mass add** - done 2026-10-04. "Browse by filters"
+      on `/cards` opens `CardBrowseModal.vue`: `StudyFilterForm`'s new `catalog`
+      prop (options from `/api/lookup/anilist-options` via
+      `catalogFilterOptions`, OP/ED and list sections hidden, plain-name tag
+      search) on the left, and on the right the matching shows 50 at a time with
+      infinite scroll, refetched from page 1 300ms after a filter change with
+      stale answers dropped. In-library shows are badged and not selectable
+      (`app/utils/browseSelection.ts`); the rest are ticked by default, capped at
+      300 per run. Add runs `importAnimeBatch` over `/api/lookup/import-cards`
+      with progress and Cancel, then reloads the list and `/cards`. The modal
+      cannot close mid-run. Proved against live AniList: a Fall 2013 "Cute Girls
+      Doing Cute Things" browse listed Non Non Biyori, importing it added 2 cards,
+      and the next browse flagged it in library.
 
 ## Data model
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { catalogFilterOptions, type CatalogOptionsReply } from "~/utils/studyFilters";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import type { StudyFilters, StudyListSite, StudySeason, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
@@ -19,7 +20,9 @@ const draft = defineModel<StudyFilters>({ required: true });
 // door, under /api/party/host.
 // importable: offer to import the list's anime that are not in the library yet
 // (feature 94). Only the deck-building modal turns it on.
-const props = withDefaults(defineProps<{ apiBase?: string; importable?: boolean }>(), { apiBase: "/api/study", importable: false });
+// catalog: search AniList's whole catalog (feature 96), so the option lists come
+// from AniList and the library-only sections (OP/ED, Anime list) are hidden.
+const props = withDefaults(defineProps<{ apiBase?: string; importable?: boolean; catalog?: boolean }>(), { apiBase: "/api/study", importable: false, catalog: false });
 
 const SEASONS: { value: StudySeason; label: string }[] = [
   { value: "WINTER", label: "Winter" },
@@ -60,7 +63,9 @@ const importSummary = ref<ImportBatchResult | null>(null);
 // from anime added since the last open show up without a reload.
 onMounted(async () => {
   try {
-    options.value = await $fetch<StudyFilterOptions>(`${props.apiBase}/filter-options`);
+    options.value = props.catalog
+      ? catalogFilterOptions(await $fetch<CatalogOptionsReply>("/api/lookup/anilist-options"))
+      : await $fetch<StudyFilterOptions>(`${props.apiBase}/filter-options`);
   } catch (err) {
     optionsError.value = extractErrorMessage(err, "Failed to load filter options.");
   }
@@ -101,7 +106,7 @@ const chosenTags = computed(() => new Set([...draft.value.tagsInclude, ...draft.
 const tagSuggestions = computed(() => {
   const query = tagQuery.value.trim().toLowerCase();
   if (!query) return [];
-  return countTags(options.value?.tags ?? [], draft.value.tagMinRank, chosenTags.value)
+  return countTags(options.value?.tags ?? [], draft.value.tagMinRank, chosenTags.value, props.catalog)
     .filter((tag) => tag.name.toLowerCase().includes(query))
     .slice(0, TAG_SUGGESTION_LIMIT);
 });
@@ -190,13 +195,13 @@ const listCheckedOn = computed(() => {
 <template>
   <div class="filter-form">
     <p v-if="optionsError" class="control-error">{{ optionsError }}</p>
-    <p v-else-if="options?.missingDetailsCount" class="details-note">
+    <p v-else-if="!catalog && options?.missingDetailsCount" class="details-note">
       {{ options.missingDetailsCount }} {{ options.missingDetailsCount === 1 ? "anime is" : "anime are" }}
       missing some AniList details, so filters on them (such as season) leave those anime out.
       <NuxtLink to="/settings">Fetch them in Settings</NuxtLink>.
     </p>
 
-    <section class="group">
+    <section v-if="!catalog" class="group">
       <h3 class="group-title">Theme</h3>
       <div class="pill-row">
         <button
@@ -213,7 +218,7 @@ const listCheckedOn = computed(() => {
       </div>
     </section>
 
-    <section class="group">
+    <section v-if="!catalog" class="group">
       <h3 class="group-title">Anime list <span class="group-hint">only shows on someone's Completed list</span></h3>
       <template v-if="draft.listSource">
         <div class="list-row">
@@ -378,12 +383,12 @@ const listCheckedOn = computed(() => {
       <template v-if="tagQuery.trim()">
         <div v-if="tagSuggestions.length" class="pill-row">
           <button v-for="tag in tagSuggestions" :key="tag.name" type="button" class="pill" @click="addTag(tag.name)">
-            {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
+            {{ tag.name }} <span v-if="!catalog" class="tag-count">{{ tag.count }}</span>
           </button>
         </div>
-        <p v-else-if="options" class="empty-hint">No tag in your library matches that.</p>
+        <p v-else-if="options" class="empty-hint">{{ catalog ? "No tag matches that." : "No tag in your library matches that." }}</p>
       </template>
-      <template v-else-if="options?.tags.length">
+      <template v-else-if="!catalog && options?.tags.length">
         <p class="breakdown-label">Shared by 2+ shows <span class="tag-count">{{ sharedTags.length }}</span></p>
         <div v-if="sharedTags.length" class="pill-row tag-breakdown">
           <button v-for="tag in sharedTags" :key="tag.name" type="button" class="pill" @click="addTag(tag.name)">

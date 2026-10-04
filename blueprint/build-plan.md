@@ -1082,7 +1082,7 @@ cleaned-up checkbox version before generating the project overview.
     date, so binging cannot distort the schedule. Session score and combo still
     work. The header shows "Infinite" and a session count instead of "N left".
 
-- [ ] 96. **Browse and mass-add by filters** - a "Browse by filters" action on
+- [x] 96. **Browse and mass-add by filters** - a "Browse by filters" action on
   `/cards` opens a modal with the same filter form as Study, but searching
   AniList's whole catalog instead of the library, so a user can mass-add, for
   example, every Ecchi or "Cute Girls Doing Cute Things" show from an era.
@@ -1097,7 +1097,7 @@ cleaned-up checkbox version before generating the project overview.
     and a sort, queries AniList's catalog, and returns shows with an in-library
     flag and card count; a second route supplies AniList's full genre and tag
     lists. No UI.
-  - [ ] 96b. **Browse modal + mass add** - the modal on `/cards`, reusing the
+  - [x] 96b. **Browse modal + mass add** - the modal on `/cards`, reusing the
     filter form and feature 94's batch import.
 
 ## Plan maintenance
