@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { type BrowseAnime, mergePage, selectedForRun, MAX_BROWSE_IMPORT } from "~/utils/browseSelection";
+import { deckTargetProblem, NO_DECK_TARGET, resolveDeckTarget, type DeckTarget } from "~/utils/deckTarget";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import { createLatestRequest } from "~/utils/latestRequest";
 
@@ -27,10 +28,14 @@ const running = ref(false);
 const stopRun = ref(false);
 const progress = ref<ImportBatchProgress | null>(null);
 const summary = ref<ImportBatchResult | null>(null);
+const deckTarget = ref<DeckTarget>(NO_DECK_TARGET);
+const deckSummaryId = ref<number | null>(null);
+const runError = ref<string | null>(null);
 
 const problem = computed(() => studyFiltersProblem(draft.value));
 const run = computed(() => selectedForRun(results.value, unticked.value));
-const canAdd = computed(() => !running.value && !loading.value && !problem.value && run.value.ids.length > 0);
+const targetProblem = computed(() => deckTargetProblem(deckTarget.value));
+const canAdd = computed(() => !running.value && !loading.value && !problem.value && !targetProblem.value && run.value.ids.length > 0);
 
 const requests = createLatestRequest();
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -97,6 +102,8 @@ watch(() => props.open, (open) => {
   summary.value = null;
   progress.value = null;
   stopRun.value = false;
+  runError.value = null;
+  deckTarget.value = NO_DECK_TARGET;
   void loadFirst();
 });
 
@@ -131,6 +138,7 @@ function untickAll() {
 
 function summaryText(result: ImportBatchResult): string {
   const parts = [`Added ${plural(result.added, "card")} from ${plural(result.done - result.failed, "show")}.`];
+  if (deckSummaryId.value !== null) parts.push(`${plural(result.addedToDeck, "card")} joined the deck.`);
   if (result.cancelled) parts.push("Stopped early.");
   if (result.failed) parts.push(`${result.failed} failed.`);
   if (result.empty) parts.push(`${result.empty} had nothing addable under your clip settings.`);
@@ -143,10 +151,27 @@ async function add() {
   stopRun.value = false;
   summary.value = null;
   progress.value = null;
+  runError.value = null;
+  let deckId: number | null;
+  try {
+    deckId = await resolveDeckTarget(
+      deckTarget.value,
+      async (name) => (await $fetch<{ deck: { id: number } }>("/api/decks", { method: "POST", body: { name } })).deck.id,
+      (next) => { deckTarget.value = next; },
+    );
+  } catch (err) {
+    runError.value = extractErrorMessage(err, "Could not create the deck.");
+    running.value = false;
+    return;
+  }
+  deckSummaryId.value = deckId;
   try {
     summary.value = await importAnimeBatch(
       run.value.ids,
-      (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", { method: "POST", body: { aniListId } }),
+      (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", {
+        method: "POST",
+        body: deckId === null ? { aniListId } : { aniListId, deckId },
+      }),
       { shouldStop: () => stopRun.value, onProgress: (value) => (progress.value = value) },
     );
   } finally {
@@ -237,7 +262,11 @@ onUnmounted(() => {
         <button type="button" class="cancel-btn" :disabled="stopRun" @click="stopRun = true">{{ stopRun ? "Stopping..." : "Cancel" }}</button>
       </div>
       <p v-if="summary" class="summary">{{ summaryText(summary) }}</p>
+      <p v-if="runError" class="inline-error">{{ runError }}</p>
       <p v-if="run.truncated" class="picked-note">Only the first {{ MAX_BROWSE_IMPORT }} ticked shows are added per run.</p>
+
+      <DeckTargetPicker v-model="deckTarget" :disabled="running" />
+      <p v-if="targetProblem" class="picked-note">{{ targetProblem }}</p>
 
       <div class="modal-actions">
         <span v-if="run.ids.length" class="picked-note">{{ plural(run.ids.length, "show") }} ticked</span>

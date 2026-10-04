@@ -2392,7 +2392,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       Doing Cute Things" browse listed Non Non Biyori, importing it added 2 cards,
       and the next browse flagged it in library.
 97. **Add to a deck while bulk importing** - added to `build-plan.md`
-    2026-10-04, in two sub-features, not yet built. After a bulk import (96's
+    2026-10-04, in two sub-features, both built. After a bulk import (96's
     "Browse by filters", 94's "Import the rest") the new cards had to be found
     again in `/cards` and added to a deck by hand. Both imports gain an optional
     manual-deck target (existing, or a new deck by name); each show's cards,
@@ -2407,8 +2407,18 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       (`server/utils/decks.ts`) adds them, returning `addedToDeck` and
       `alreadyInDeck`, which the route adds to its counts only when a deck was
       given.
-    - **97b. Deck picker in both import UIs** - shared picker in
-      `CardBrowseModal` and `StudyFilterForm`.
+    - **97b. Deck picker in the browse modal** - done 2026-10-04. Scope
+      narrowed at build time: "Import the rest" needs no picker, since it lives
+      inside `DeckFilterCardsModal`, which already has a target deck, and the
+      shows it imports arrive ticked there and join that deck through the
+      modal's own Add. `DeckTargetPicker.vue` (No deck / an existing manual deck
+      / New deck... with a name; first page of decks only) sits in
+      `CardBrowseModal`. `app/utils/deckTarget.ts` (`deckTargetProblem`,
+      `resolveDeckTarget`) creates a new deck once before the first import and
+      switches the picker to it, so a retry never creates it twice; a failed
+      create stops the run with the error shown. Every `import-cards` call then
+      carries `deckId`, the summary adds how many cards joined the deck, and
+      `/cards` refreshes its cards, deck list and memberships afterwards.
 
 ## Data model
 

@@ -1100,7 +1100,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 96b. **Browse modal + mass add** - the modal on `/cards`, reusing the
     filter form and feature 94's batch import.
 
-- [ ] 97. **Add to a deck while bulk importing** - the "Browse by filters"
+- [x] 97. **Add to a deck while bulk importing** - the "Browse by filters"
   modal (96b) and "Import the rest" in the deck filter form (94) get an optional
   "Add the imported cards to a deck" choice: an existing manual deck, or a new
   one by name. Each imported show's cards, including any the show already had,
@@ -1111,9 +1111,9 @@ cleaned-up checkbox version before generating the project overview.
     /api/lookup/import-cards` takes an optional `deckId`; `addCardsForThemes`
     also reports the ids of the cards it created or found, and the route links
     them to the deck. Counts gain `addedToDeck` and `alreadyInDeck`. No UI.
-  - [ ] 97b. **Deck picker in both import UIs** - a shared picker (existing
-    manual deck, or "New deck..." with a name) in `CardBrowseModal` and in
-    `StudyFilterForm`'s "Import the rest". A new deck is created before the
+  - [x] 97b. **Deck picker in the browse modal** - a picker (existing manual
+    deck, or "New deck..." with a name) in `CardBrowseModal`. "Import the rest"
+    needs none: its modal already has a target deck. A new deck is created before the
     first import and kept if the run fails or is cancelled.
 
 ## Plan maintenance

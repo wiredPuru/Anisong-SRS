@@ -137,6 +137,12 @@ const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
 const browseOpen = ref(false);
+// A run may have created a deck, and added cards to one.
+function onBrowseImported() {
+  void loadFirstPage();
+  void refreshManualDecks();
+  void refreshMemberships();
+}
 const nextPage = ref(1);
 const totalPages = ref(1);
 const totalCards = ref(0);
@@ -246,7 +252,7 @@ const audioOnly = computed(() => mediaLibraryData.value?.playbackMode === "audio
 const autoDownload = computed(() => mediaLibraryData.value?.autoDownload ?? false);
 const clipSource = computed(() => mediaLibraryData.value?.clipSource ?? "anisongdb");
 
-const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
+const { data: manualDecksData, refresh: refreshManualDecks } = await useFetch<{ decks: ManualDeck[] }>("/api/decks", {
   query: { type: "created" },
 });
 const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
@@ -511,7 +517,7 @@ watch(
 
 <template>
   <main class="cards">
-    <CardBrowseModal :open="browseOpen" @close="browseOpen = false" @imported="loadFirstPage" />
+    <CardBrowseModal :open="browseOpen" @close="browseOpen = false" @imported="onBrowseImported" />
     <header class="cards-header">
       <div class="header-title">
         <h1>Cards</h1>

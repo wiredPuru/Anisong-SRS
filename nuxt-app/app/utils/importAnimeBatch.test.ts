@@ -32,4 +32,12 @@ describe("importAnimeBatch", () => {
   it("handles an empty list", async () => {
     expect(await importAnimeBatch([], vi.fn())).toMatchObject({ done: 0, total: 0, cancelled: false });
   });
+
+  it("totals the cards that joined a deck", async () => {
+    const importOne = vi.fn()
+      .mockResolvedValueOnce({ ...ok(2), addedToDeck: 2 })
+      .mockResolvedValueOnce({ ...ok(0, 1), addedToDeck: 1 })
+      .mockResolvedValueOnce(ok(1));
+    expect(await importAnimeBatch([1, 2, 3], importOne)).toMatchObject({ added: 3, addedToDeck: 3 });
+  });
 });
