@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  activeThemeChip,
   countActiveFilters,
   countTags,
   EMPTY_STUDY_FILTERS,
@@ -9,7 +8,9 @@ import {
   parseThemesParam,
   studyFiltersProblem,
   tagBreakdown,
-  withThemeChip,
+  clearThemeTypes,
+  onlyThemeType,
+  toggleThemeType,
   type StudyFilters,
 } from "./studyFilters.ts";
 
@@ -142,17 +143,33 @@ describe("readStoredFilters insert theme type", () => {
 });
 
 describe("theme chips", () => {
-  it("reads the OP/ED filter as a chip, null for a custom mix", () => {
-    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS })).toBe("ALL");
-    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS, themeTypes: ["OP"] })).toBe("OP");
-    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS, themeTypes: ["OP", "ED"] })).toBeNull();
+  const base = { ...EMPTY_STUDY_FILTERS };
+
+  it("toggles a type on and off", () => {
+    const on = toggleThemeType(base, "OP");
+    expect(on.themeTypes).toEqual(["OP"]);
+    expect(toggleThemeType(on, "OP").themeTypes).toEqual([]);
   });
 
-  it("applies a chip without touching other filters", () => {
-    const base = { ...EMPTY_STUDY_FILTERS, yearMin: 2010, themeTypes: ["ED" as const] };
-    expect(withThemeChip(base, "OP")).toMatchObject({ yearMin: 2010, themeTypes: ["OP"] });
-    expect(withThemeChip(base, "ALL").themeTypes).toEqual([]);
-    expect(base.themeTypes).toEqual(["ED"]);
+  it("allows any combination", () => {
+    const mix = toggleThemeType(toggleThemeType(base, "OP"), "IN");
+    expect(mix.themeTypes).toEqual(["OP", "IN"]);
+    expect(toggleThemeType(mix, "OP").themeTypes).toEqual(["IN"]);
+  });
+
+  it("collapses all three types to no filter", () => {
+    const two = { ...base, themeTypes: ["OP" as const, "ED" as const] };
+    expect(toggleThemeType(two, "IN").themeTypes).toEqual([]);
+  });
+
+  it("clears a mix and leaves other filters alone", () => {
+    const filters = { ...base, yearMin: 2010, themeTypes: ["OP" as const, "IN" as const] };
+    expect(clearThemeTypes(filters)).toMatchObject({ yearMin: 2010, themeTypes: [] });
+    expect(filters.themeTypes).toEqual(["OP", "IN"]);
+  });
+
+  it("sets exactly one type for the /decks shortcuts", () => {
+    expect(onlyThemeType({ ...base, themeTypes: ["OP", "ED"] }, "ED").themeTypes).toEqual(["ED"]);
   });
 
   it("accepts only the three theme types from the themes param", () => {

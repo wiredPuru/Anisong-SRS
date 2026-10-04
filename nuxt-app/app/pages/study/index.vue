@@ -106,7 +106,7 @@ function loadStudyFilters(): StudyFilters {
 // /decks' "Openings only" and "Endings only" shortcuts arrive as ?themes=.
 function withThemesParam(filters: StudyFilters): StudyFilters {
   const type = parseThemesParam(route.query.themes);
-  return type ? withThemeChip(filters, type) : filters;
+  return type ? onlyThemeType(filters, type) : filters;
 }
 const studyFilters = ref<StudyFilters>(withThemesParam(loadStudyFilters()));
 watch(() => route.query.themes, () => {

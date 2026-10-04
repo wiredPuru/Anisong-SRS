@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { THEME_CHIPS, activeThemeChip, withThemeChip, type StudyFilters, type ThemeChip } from "~/utils/studyFilters";
+import { THEME_TYPE_CHIPS, clearThemeTypes, toggleThemeType, type StudyFilters, type StudyThemeType } from "~/utils/studyFilters";
 
 const filters = defineModel<StudyFilters>({ required: true });
 defineProps<{ disabled?: boolean }>();
 
-const active = computed(() => activeThemeChip(filters.value));
+const allActive = computed(() => filters.value.themeTypes.length === 0);
 
-function pick(chip: ThemeChip) {
-  filters.value = withThemeChip(filters.value, chip);
+function toggle(type: StudyThemeType) {
+  filters.value = toggleThemeType(filters.value, type);
 }
 </script>
 
@@ -15,16 +15,26 @@ function pick(chip: ThemeChip) {
   <div class="theme-chips" role="group" aria-label="Which songs this session covers">
     <span class="theme-chips-label">Session:</span>
     <button
-      v-for="chip in THEME_CHIPS"
+      v-for="chip in THEME_TYPE_CHIPS"
       :key="chip.value"
       type="button"
       class="theme-chip"
-      :class="{ active: active === chip.value }"
-      :aria-pressed="active === chip.value"
+      :class="{ active: filters.themeTypes.includes(chip.value) }"
+      :aria-pressed="filters.themeTypes.includes(chip.value)"
       :disabled="disabled"
-      @click="pick(chip.value)"
+      @click="toggle(chip.value)"
     >
       {{ chip.label }}
+    </button>
+    <button
+      type="button"
+      class="theme-chip"
+      :class="{ active: allActive }"
+      :aria-pressed="allActive"
+      :disabled="disabled"
+      @click="filters = clearThemeTypes(filters)"
+    >
+      All
     </button>
     <span class="theme-chips-note">Narrows this session only. The deck is unchanged.</span>
   </div>

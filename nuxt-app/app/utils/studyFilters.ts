@@ -162,24 +162,27 @@ export function tagBreakdown(tags: TagOption[], minRank: number, chosen: Readonl
   return countTags(tags, minRank, chosen).filter((tag) => tag.count >= 2);
 }
 
-export type ThemeChip = StudyThemeType | "ALL";
-
-export const THEME_CHIPS: { value: ThemeChip; label: string }[] = [
+export const THEME_TYPE_CHIPS: { value: StudyThemeType; label: string }[] = [
   { value: "OP", label: "Openings" },
   { value: "ED", label: "Endings" },
   { value: "IN", label: "Inserts" },
-  { value: "ALL", label: "All" },
 ];
 
-/** The quick chip that matches the OP/ED filter exactly, or null for a custom mix. */
-export function activeThemeChip(filters: StudyFilters): ThemeChip | null {
-  const { themeTypes } = filters;
-  if (themeTypes.length === 0) return "ALL";
-  return themeTypes.length === 1 ? themeTypes[0]! : null;
+/** Adds or removes one song type; all three together mean no filter, so they collapse to empty. */
+export function toggleThemeType(filters: StudyFilters, type: StudyThemeType): StudyFilters {
+  const next = filters.themeTypes.includes(type)
+    ? filters.themeTypes.filter((entry) => entry !== type)
+    : [...filters.themeTypes, type];
+  return { ...filters, themeTypes: next.length === THEME_TYPE_CHIPS.length ? [] : next };
 }
 
-export function withThemeChip(filters: StudyFilters, chip: ThemeChip): StudyFilters {
-  return { ...filters, themeTypes: chip === "ALL" ? [] : [chip] };
+export function clearThemeTypes(filters: StudyFilters): StudyFilters {
+  return { ...filters, themeTypes: [] };
+}
+
+/** Narrows a session to exactly one song type, as the /decks shortcuts do. */
+export function onlyThemeType(filters: StudyFilters, type: StudyThemeType): StudyFilters {
+  return { ...filters, themeTypes: [type] };
 }
 
 /** Reads the `themes` query param that /decks shortcuts send; anything else is ignored. */
