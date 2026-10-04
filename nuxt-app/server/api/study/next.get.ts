@@ -2,6 +2,7 @@ import {
   getDueCardCount,
   getNewCardsTodayInfo,
   getNextDueCard,
+  getPracticeCard,
   getUpcomingDueCards,
   getWithheldNewCount,
 } from "../../utils/cards.ts";
@@ -13,7 +14,9 @@ import { parseStudyScope } from "../../utils/studyScope.ts";
 const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw, prefer: preferRaw } = getQuery(event);
+  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw, prefer: preferRaw, practice: practiceRaw } = getQuery(event);
+  // Infinite mode (feature 95b): once nothing is due, serve a practice card.
+  const practiceWhenCaughtUp = practiceRaw === "true";
   // Session-only opt-in from Study's "Study new cards" action; anything other
   // than the literal "true" leaves the daily cap in force.
   const includeNewBeyondLimit = includeNew === "true";
@@ -60,8 +63,13 @@ export default defineEventHandler((event) => {
   const criterion = resolveScopeCriterion(scope);
   const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters, recentIds, buriedIds, parsedPrefer.preferId);
 
+  const practiceCard = nextCard || !practiceWhenCaughtUp
+    ? undefined
+    : getPracticeCard(scope, criterion, filters, recentIds, buriedIds, parsedPrefer.preferId);
+
   return {
-    card: nextCard ?? null,
+    card: nextCard ?? practiceCard ?? null,
+    practice: practiceCard !== undefined,
     criterion,
     newCardsToday: getNewCardsTodayInfo(criterion),
     dueCount: getDueCardCount(scope, includeNewBeyondLimit, criterion, filters, buriedIds),

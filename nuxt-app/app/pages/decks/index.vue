@@ -1018,6 +1018,10 @@ function backToDecks() {
             >
               Study this deck
             </NuxtLink>
+            <template v-if="deckLabel">
+              <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}&themes=OP`" class="study-theme-btn">Openings only</NuxtLink>
+              <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}&themes=ED`" class="study-theme-btn">Endings only</NuxtLink>
+            </template>
           </div>
         </div>
         <span class="header-spacer" aria-hidden="true" />
@@ -1376,6 +1380,20 @@ function backToDecks() {
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font-sans);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.study-theme-btn {
+  flex: none;
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 13px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;

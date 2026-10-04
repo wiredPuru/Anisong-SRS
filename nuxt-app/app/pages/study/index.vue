@@ -103,7 +103,15 @@ function loadStudyFilters(): StudyFilters {
     return { ...EMPTY_STUDY_FILTERS };
   }
 }
-const studyFilters = ref<StudyFilters>(loadStudyFilters());
+// /decks' "Openings only" and "Endings only" shortcuts arrive as ?themes=.
+function withThemesParam(filters: StudyFilters): StudyFilters {
+  const type = parseThemesParam(route.query.themes);
+  return type ? withThemeChip(filters, type) : filters;
+}
+const studyFilters = ref<StudyFilters>(withThemesParam(loadStudyFilters()));
+watch(() => route.query.themes, () => {
+  studyFilters.value = withThemesParam(studyFilters.value);
+});
 const activeFilterCount = computed(() => countActiveFilters(studyFilters.value));
 
 watch(studyFilters, (value) => {
@@ -126,6 +134,8 @@ const {
   dueCount,
   withheldNewCount,
   criterion,
+  infinite,
+  practice,
   lastReviewLogId,
   submit,
   undo: undoReview,
@@ -179,7 +189,8 @@ function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
 interface SessionHistoryEntry {
   card: CardWithDetails;
   result: "pass" | "fail";
-  reviewLogId: number;
+  // Null for a practice answer in infinite mode, which is never saved.
+  reviewLogId: number | null;
   // The typed-answer score before this round, so undo can take its points and
   // combo back. Null for a manual Pass/Fail, which never touches the score.
   scoreBefore: QuizScore | null;
@@ -328,7 +339,7 @@ async function submitReview(result: "pass" | "fail") {
       if (saved && stillCurrent()) {
         awaitingNextCard.value = true;
         flashGrade(result);
-        sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value!, scoreBefore: null });
+        sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
       }
       return saved;
     }, async () => {
@@ -489,7 +500,7 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
     quizScore.value = transition.score;
     const bonusResults = gradeBonusCategories(reviewedCard);
     flashGrade(result);
-    sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value!, scoreBefore });
+    sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore });
     launchScoreBursts({
       result,
       answered: shown.selected !== null,
@@ -1173,6 +1184,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <strong class="completion-title">All caught up!</strong>
       <span v-if="activeFilterCount">Nothing due matches your study filters.</span>
       <span v-else>Nothing due right now.</span>
+      <StudyThemeChips v-model="studyFilters" />
       <div v-if="activeFilterCount" class="filters-note">
         <span>{{ activeFilterCount }} {{ activeFilterCount === 1 ? "filter is" : "filters are" }} on, so other due cards may be waiting.</span>
         <div class="filters-note-actions">
@@ -1189,6 +1201,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <span><strong>{{ quizScore.bestCombo }}x</strong> best combo</span>
         </div>
       </div>
+      <button type="button" class="study-new-btn" @click="infinite = true">
+        Keep going (infinite mode)
+        <span class="tooltip">Keep practicing this deck past what is due. Practice answers never change your schedule or stats.</span>
+      </button>
       <button
         v-if="withheldNewCount > 0"
         type="button"
@@ -1219,10 +1235,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <header class="study-header">
         <div class="header-left">
           <span class="chip">{{ scopeChipLabel }}</span>
+          <StudyThemeChips v-model="studyFilters" :disabled="Boolean(quizResult) || submissionBusy" />
           <span class="counts">
             Card {{ reviewedCount + (quizResult ? 0 : 1) }}
             <span class="sep" aria-hidden="true">&middot;</span>
-            {{ dueCount }} left
+            <template v-if="practice">Infinite practice</template>
+            <template v-else>{{ dueCount }} left</template>
           </span>
           <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
             <span class="sep" aria-hidden="true">&middot;</span>
@@ -1283,6 +1301,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
           />
+          <button
+            type="button"
+            class="filters-btn"
+            :class="{ active: infinite }"
+            :aria-pressed="infinite"
+            :disabled="Boolean(quizResult) || submissionBusy"
+            @click="infinite = !infinite"
+          >
+            &infin; Infinite
+            <span class="tooltip">Keep going past what is due. Extra cards are practice only: no schedule or stats change.</span>
+          </button>
           <button
             type="button"
             class="filters-btn"

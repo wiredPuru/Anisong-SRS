@@ -1067,14 +1067,14 @@ cleaned-up checkbox version before generating the project overview.
     sequentially with progress, Cancel, and a per-anime failure tally, then
     re-resolves the list.
 
-- [ ] 95. **Study scope quick-filters + infinite mode** - two sub-features on
+- [x] 95. **Study scope quick-filters + infinite mode** - two sub-features on
   `/study`, both client-led extensions of feature 76's filters:
-  - [ ] 95a. **Obvious session filters** - a visible "Studying: <deck>" bar
+  - [x] 95a. **Obvious session filters** - a visible "Studying: <deck>" bar
     on `/study` with one-tap chips for Openings, Endings, Inserts and All that
     apply Study's existing OP/ED filter, so it is clear the deck itself is
     never altered. "Study this deck" on `/decks` gains "Openings only" and
     "Endings only" shortcuts that open Study with that chip on.
-  - [ ] 95b. **Infinite mode** - a Study toggle, off by default. While on,
+  - [x] 95b. **Infinite mode** - a Study toggle, off by default. While on,
     Study keeps serving cards from the current scope and filters after the due
     queue or the daily new-card limit runs out (due first, then not-yet-due,
     least recently reviewed first; suspended and buried cards stay out). It is

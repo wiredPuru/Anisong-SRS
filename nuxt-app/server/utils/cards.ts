@@ -434,6 +434,57 @@ export function getNextDueCard(
   return preferred ?? orderAwayFromRecent(pool, recentIds, 1)[0];
 }
 
+export interface PracticeEntry {
+  id: number;
+  lastReviewedAt: number;
+}
+
+// Infinite mode (feature 95b): least recently reviewed first, never-reviewed
+// cards (0) at the front in a per-day pseudo-random order, and cards the
+// session just answered go last so a short pool does not repeat back to back.
+export function pickPracticeId(
+  pool: readonly PracticeEntry[],
+  recentIds: readonly number[],
+  preferId: number | null = null,
+  now: Date = new Date(),
+): number | undefined {
+  if (preferId !== null && pool.some((entry) => entry.id === preferId)) return preferId;
+  const dayKey = Math.floor(now.getTime() / DAY_MS);
+  const recent = new Set(recentIds);
+  const byAge = (a: PracticeEntry, b: PracticeEntry) =>
+    a.lastReviewedAt - b.lastReviewedAt || dailyTieBreakRank(a.id, dayKey) - dailyTieBreakRank(b.id, dayKey);
+  const fresh = pool.filter((entry) => !recent.has(entry.id)).sort(byAge);
+  if (fresh.length > 0) return fresh[0]!.id;
+  return [...pool].sort((a, b) => recentIds.lastIndexOf(a.id) - recentIds.lastIndexOf(b.id))[0]?.id;
+}
+
+// A card to practice once nothing is due: anything in scope and filters that is
+// not suspended or buried, due or not. Serving it never touches the schedule.
+export function getPracticeCard(
+  scope: StudyScope,
+  criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
+  filters: StudyFilters | null = null,
+  recentIds: readonly number[] = [],
+  excludedIds: readonly number[] = [],
+  preferId: number | null = null,
+): CardWithDetails | undefined {
+  const lastReviewed = sql<number>`coalesce((select max(${reviewLog.reviewedAt}) from ${reviewLog} where ${reviewLog.cardId} = ${card.id} and ${reviewLog.criterion} = ${criterion}), 0)`;
+  const playable = and(
+    eq(card.suspended, false),
+    getThemesOnly() ? inArray(card.songId, db.select({ id: song.id }).from(song).where(isNotNull(song.animethemesThemeId))) : undefined,
+  );
+  const pool = db
+    .select({ id: card.id, lastReviewedAt: lastReviewed })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(artist, eq(song.artistId, artist.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(and(playable, scopeFilter(scope), studyFilterCondition(filters), notBuried(excludedIds)))
+    .all();
+  const id = pickPracticeId(pool, recentIds, preferId);
+  return id === undefined ? undefined : cardQuery(criterion).where(eq(card.id, id)).get();
+}
+
 // A best-effort snapshot of the next `limit` due cards after `excludeCardId`,
 // for prefetching - not a guarantee, since the real due order can shift once
 // the excluded card is actually reviewed (see current-feature.md notes), and

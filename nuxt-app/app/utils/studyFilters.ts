@@ -161,3 +161,28 @@ export function countTags(tags: TagOption[], minRank: number, chosen: ReadonlySe
 export function tagBreakdown(tags: TagOption[], minRank: number, chosen: ReadonlySet<string>): { name: string; count: number }[] {
   return countTags(tags, minRank, chosen).filter((tag) => tag.count >= 2);
 }
+
+export type ThemeChip = StudyThemeType | "ALL";
+
+export const THEME_CHIPS: { value: ThemeChip; label: string }[] = [
+  { value: "OP", label: "Openings" },
+  { value: "ED", label: "Endings" },
+  { value: "IN", label: "Inserts" },
+  { value: "ALL", label: "All" },
+];
+
+/** The quick chip that matches the OP/ED filter exactly, or null for a custom mix. */
+export function activeThemeChip(filters: StudyFilters): ThemeChip | null {
+  const { themeTypes } = filters;
+  if (themeTypes.length === 0) return "ALL";
+  return themeTypes.length === 1 ? themeTypes[0]! : null;
+}
+
+export function withThemeChip(filters: StudyFilters, chip: ThemeChip): StudyFilters {
+  return { ...filters, themeTypes: chip === "ALL" ? [] : [chip] };
+}
+
+/** Reads the `themes` query param that /decks shortcuts send; anything else is ignored. */
+export function parseThemesParam(value: unknown): StudyThemeType | null {
+  return value === "OP" || value === "ED" || value === "IN" ? value : null;
+}

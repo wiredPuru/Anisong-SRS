@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
-import { baseDueCondition, orderAwayFromRecent, pathsToRemove, pickRandomDueOrder } from "./cards.ts";
+import { baseDueCondition, orderAwayFromRecent, pathsToRemove, pickPracticeId, pickRandomDueOrder } from "./cards.ts";
 
 const themesOnly = vi.hoisted(() => ({ value: false }));
 const dailyNewCardLimit = vi.hoisted(() => ({ value: null as number | null }));
@@ -226,5 +226,38 @@ describe("baseDueCondition daily new-card cap", () => {
   it("does not filter by criterion when the cap is not in force", () => {
     dailyNewCardLimit.value = null;
     expect(db.select().from(card).where(baseDueCondition(false, "song")).toSQL().sql).not.toContain("review_log");
+  });
+});
+
+describe("pickPracticeId", () => {
+  const pool = [
+    { id: 1, lastReviewedAt: 300 },
+    { id: 2, lastReviewedAt: 100 },
+    { id: 3, lastReviewedAt: 200 },
+  ];
+
+  it("serves the least recently reviewed card first", () => {
+    expect(pickPracticeId(pool, [])).toBe(2);
+  });
+
+  it("puts never-reviewed cards ahead of reviewed ones", () => {
+    expect(pickPracticeId([...pool, { id: 9, lastReviewedAt: 0 }], [])).toBe(9);
+  });
+
+  it("holds back the cards the session just answered", () => {
+    expect(pickPracticeId(pool, [2])).toBe(3);
+  });
+
+  it("falls back to the one answered longest ago when only recent cards remain", () => {
+    expect(pickPracticeId(pool, [3, 1, 2])).toBe(3);
+  });
+
+  it("honours a preferred card that is in the pool and ignores one that is not", () => {
+    expect(pickPracticeId(pool, [], 1)).toBe(1);
+    expect(pickPracticeId(pool, [], 42)).toBe(2);
+  });
+
+  it("returns nothing for an empty pool", () => {
+    expect(pickPracticeId([], [])).toBeUndefined();
   });
 });

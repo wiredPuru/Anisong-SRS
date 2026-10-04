@@ -2329,14 +2329,31 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       bar and Cancel between shows, counts failures and shows with nothing
       addable, then re-fetches the list so new shows arrive ticked.
 95. **Study scope quick-filters + infinite mode** - added to
-    `build-plan.md` 2026-10-04, in two sub-features, not yet built. Feature
+    `build-plan.md` 2026-10-04, in two sub-features, both built. Feature
     76's OP/ED filter already narrows a deck session to openings, but sits in a
     small header popup; Study has no way past "All caught up".
-    - **95a. Obvious session filters** - a visible "Studying: <deck>" bar with
+    - **95a. Obvious session filters** - done 2026-10-04. As built:
+      `StudyThemeChips.vue` (Openings / Endings / Inserts / All, with a note
+      that the deck is unchanged) sits in Study's header and on "All caught
+      up", driven by `activeThemeChip`/`withThemeChip` in `app/utils/
+      studyFilters.ts`; `?themes=OP|ED|IN` (`parseThemesParam`) sets the same
+      filter from `/decks`' "Openings only" / "Endings only" links beside
+      "Study this deck". Originally: a visible "Studying: <deck>" bar with
       Openings / Endings / Inserts / All chips that apply the existing OP/ED
       filter without altering the deck, plus "Openings only" / "Endings only"
       shortcuts beside "Study this deck" on `/decks`.
-    - **95b. Infinite mode** - an off-by-default Study toggle that keeps
+    - **95b. Infinite mode** - done 2026-10-04. As built: `GET /api/study/next`
+      takes `practice=true`; when nothing is due it returns `getPracticeCard`
+      (`server/utils/cards.ts`: scope and filters, not suspended or buried,
+      themes-only honoured, least recently reviewed first via
+      `pickPracticeId`, just-answered cards last) with `practice: true`.
+      `useStudySession` gains session-only `infinite` and `practice`; a
+      practice `submit` skips `/api/study/review` entirely, so no `ReviewLog`
+      row or schedule change, and its history entry has a null `reviewLogId`
+      that undo handles without a server call. Study's header gets an
+      "Infinite" toggle, "N left" reads "Infinite practice" on a practice card,
+      and "All caught up" offers "Keep going (infinite mode)". Originally: an
+      off-by-default Study toggle that keeps
       serving cards after the due queue or daily new limit runs out. Practice
       only: no `ReviewLog` write and no schedule change. No `project-plan.md`
       change, like features 51 and 52: additions to the existing Study screen.

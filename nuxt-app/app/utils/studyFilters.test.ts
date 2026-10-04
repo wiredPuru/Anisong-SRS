@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeThemeChip,
   countActiveFilters,
   countTags,
   EMPTY_STUDY_FILTERS,
   filtersQueryValue,
   readStoredFilters,
+  parseThemesParam,
   studyFiltersProblem,
   tagBreakdown,
+  withThemeChip,
   type StudyFilters,
 } from "./studyFilters.ts";
 
@@ -135,5 +138,27 @@ describe("tag counts", () => {
 describe("readStoredFilters insert theme type", () => {
   it("keeps a saved Inserts theme filter", () => {
     expect(readStoredFilters(JSON.stringify({ themeTypes: ["IN"] })).themeTypes).toEqual(["IN"]);
+  });
+});
+
+describe("theme chips", () => {
+  it("reads the OP/ED filter as a chip, null for a custom mix", () => {
+    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS })).toBe("ALL");
+    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS, themeTypes: ["OP"] })).toBe("OP");
+    expect(activeThemeChip({ ...EMPTY_STUDY_FILTERS, themeTypes: ["OP", "ED"] })).toBeNull();
+  });
+
+  it("applies a chip without touching other filters", () => {
+    const base = { ...EMPTY_STUDY_FILTERS, yearMin: 2010, themeTypes: ["ED" as const] };
+    expect(withThemeChip(base, "OP")).toMatchObject({ yearMin: 2010, themeTypes: ["OP"] });
+    expect(withThemeChip(base, "ALL").themeTypes).toEqual([]);
+    expect(base.themeTypes).toEqual(["ED"]);
+  });
+
+  it("accepts only the three theme types from the themes param", () => {
+    expect(parseThemesParam("ED")).toBe("ED");
+    expect(parseThemesParam("op")).toBeNull();
+    expect(parseThemesParam(["OP"])).toBeNull();
+    expect(parseThemesParam(undefined)).toBeNull();
   });
 });

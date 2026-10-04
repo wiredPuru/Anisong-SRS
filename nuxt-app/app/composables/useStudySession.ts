@@ -69,6 +69,11 @@ export function useStudySession(
   // and reset on scope change below, never persisted. The daily limit setting
   // itself is never written to - this only widens what this session asks for.
   const includeNewBeyondLimit = ref(false);
+  // Infinite mode (feature 95b), session-only: once nothing is due the server
+  // serves practice cards instead of ending the session. `practice` says the
+  // card on screen is one of them, which is never reviewed or scheduled.
+  const infinite = ref(false);
+  const practice = ref(false);
   // Echoed back to /api/study/review so a review advances the same track the
   // card was served from, rather than the server re-resolving the deck.
   const criterion = ref<GradingCriterion>("title");
@@ -93,6 +98,7 @@ export function useStudySession(
         card: CardWithDetails | null;
         criterion: GradingCriterion;
         newCardsToday: NewCardsToday;
+        practice?: boolean;
         dueCount: number;
         withheldNewCount: number;
         upcoming: CardWithDetails[];
@@ -100,6 +106,7 @@ export function useStudySession(
         query: {
           ...scopeQuery(scope.value),
           ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
+          ...(infinite.value ? { practice: "true" } : {}),
           filters: filtersQueryValue(filters.value),
           ...(recentCardIds.value.length > 0 ? { recent: recentCardIds.value.join(",") } : {}),
           ...(buriedCardIds.value.length > 0 ? { bury: buriedCardIds.value.join(",") } : {}),
@@ -108,6 +115,7 @@ export function useStudySession(
       });
       currentCard.value = result.card;
       criterion.value = result.criterion;
+      practice.value = result.practice === true;
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
       dueCount.value = result.dueCount;
@@ -133,6 +141,12 @@ export function useStudySession(
   async function submit(result: "pass" | "fail") {
     if (reviewing.value || !currentCard.value) return false;
     const cardId = currentCard.value.id;
+    if (practice.value) {
+      lastReviewLogId.value = null;
+      reviewedCount.value += 1;
+      recentCardIds.value = withRecentCard(recentCardIds.value, cardId);
+      return true;
+    }
     reviewing.value = true;
     error.value = null;
     try {
@@ -153,17 +167,20 @@ export function useStudySession(
   }
 
   // Reverses a saved review on the server, then serves that card again.
-  async function undo(reviewLogId: number, cardId: number): Promise<boolean> {
+  // A practice answer (null id) was never saved, so there is nothing to reverse.
+  async function undo(reviewLogId: number | null, cardId: number): Promise<boolean> {
     if (reviewing.value || loading.value) return false;
-    reviewing.value = true;
-    error.value = null;
-    try {
-      await $fetch("/api/study/undo", { method: "POST", body: { reviewLogId } });
-    } catch (err) {
-      error.value = extractErrorMessage(err, "Failed to undo the review.");
-      return false;
-    } finally {
-      reviewing.value = false;
+    if (reviewLogId !== null) {
+      reviewing.value = true;
+      error.value = null;
+      try {
+        await $fetch("/api/study/undo", { method: "POST", body: { reviewLogId } });
+      } catch (err) {
+        error.value = extractErrorMessage(err, "Failed to undo the review.");
+        return false;
+      } finally {
+        reviewing.value = false;
+      }
     }
     reviewedCount.value = Math.max(0, reviewedCount.value - 1);
     recentCardIds.value = withoutCard(recentCardIds.value, cardId);
@@ -206,6 +223,8 @@ export function useStudySession(
       error.value = null;
       currentCard.value = null;
       includeNewBeyondLimit.value = false;
+      infinite.value = false;
+      practice.value = false;
       if (value) fetchNext();
     },
     { immediate: true },
@@ -214,6 +233,10 @@ export function useStudySession(
   // Unlike a scope change, the session itself carries on: only the queue it
   // draws from narrows or widens, so the card on screen is replaced.
   watch(filters, () => {
+    if (scope.value) fetchNext();
+  });
+
+  watch(infinite, () => {
     if (scope.value) fetchNext();
   });
 
@@ -229,6 +252,8 @@ export function useStudySession(
     dueCount,
     withheldNewCount,
     criterion,
+    infinite,
+    practice,
     lastReviewLogId,
     submit,
     undo,
