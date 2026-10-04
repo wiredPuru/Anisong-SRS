@@ -66,7 +66,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
     <PartyLayoutFrame v-if="joinShown" piece="join">
       <p class="join-chip">
-        Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template> · code <strong>{{ joinShown.code }}</strong>
+        Join<template v-if="joinAddress"> at <strong>{{ joinAddress }}</strong></template>
       </p>
     </PartyLayoutFrame>
 

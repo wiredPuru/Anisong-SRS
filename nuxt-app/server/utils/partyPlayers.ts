@@ -1,30 +1,15 @@
-import { randomBytes, randomInt } from "node:crypto";
-import { createLoginLimiter } from "./partyAuth.ts";
+import { randomBytes } from "node:crypto";
 import { planJoin, planRename, type PartyInternalCommand, type PartyPlayer } from "./partyGame.ts";
-
-// No I, L, or O, which read as 1 and 0 across a room.
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
-export const ROOM_CODE_LENGTH = 4;
-
-export function generateRoomCode(pick: (max: number) => number = randomInt): string {
-  return Array.from({ length: ROOM_CODE_LENGTH }, () => CODE_ALPHABET[pick(CODE_ALPHABET.length)]).join("");
-}
-
-export function roomCodeMatches(expected: string, given: unknown): boolean {
-  return typeof given === "string" && given.trim().toUpperCase() === expected;
-}
 
 export type PlayerJoinResult =
   | { ok: true; token: string; player: PartyPlayer }
-  | { ok: false; status: 400 | 401 | 409 | 429; message: string };
+  | { ok: false; status: 400 | 409; message: string };
 
 type RenameCommand = { type: "score"; op: "rename"; id: number; name: string };
 
 interface RegistryDeps {
   getPlayers: () => readonly PartyPlayer[];
   apply: (command: PartyInternalCommand | RenameCommand) => void;
-  pickCode?: (max: number) => number;
-  limiter?: ReturnType<typeof createLoginLimiter>;
 }
 
 const JOIN_ERRORS = {
@@ -38,8 +23,7 @@ const JOIN_ERRORS = {
  * a token is only good while its player is still on the scoreboard, so a
  * removal or a party restart signs that phone out.
  */
-export function createPlayerRegistry({ getPlayers, apply, pickCode = randomInt, limiter = createLoginLimiter() }: RegistryDeps) {
-  let code = generateRoomCode(pickCode);
+export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
   const sessions = new Map<string, number>();
   const openStreams = new Map<number, number>();
 
@@ -59,21 +43,11 @@ export function createPlayerRegistry({ getPlayers, apply, pickCode = randomInt, 
   };
 
   return {
-    roomCode: () => code,
-    regenerateRoomCode(): string {
-      code = generateRoomCode(pickCode);
-      return code;
-    },
     playerFor,
 
-    join({ code: given, name, token, ip }: { code: unknown; name: unknown; token?: string | null; ip: string }): PlayerJoinResult {
+    join({ name, token }: { name: unknown; token?: string | null }): PlayerJoinResult {
       const existing = playerFor(token);
       if (existing && token) return { ok: true, token, player: existing };
-      if (limiter.isBlocked(ip)) return { ok: false, status: 429, message: "Too many tries. Wait a minute and try again." };
-      if (!roomCodeMatches(code, given)) {
-        limiter.recordFailure(ip);
-        return { ok: false, status: 401, message: "That room code is wrong." };
-      }
 
       const plan = planJoin(getPlayers(), name);
       if ("error" in plan) return { ok: false, ...JOIN_ERRORS[plan.error] };

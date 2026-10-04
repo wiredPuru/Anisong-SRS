@@ -143,15 +143,7 @@ export const partyPlayers = createPlayerRegistry({
 
 export function partyJoinInfo(): PartyJoinInfo {
   const urls = (process.env.GAQ_PARTY_PLAYER_URLS ?? "").split(",").filter(Boolean);
-  return { code: partyPlayers.roomCode(), urls };
-}
-
-// The room code lives outside the game state, so a new one bumps the version
-// to push the displays a fresh view.
-export function regeneratePartyRoomCode(): string {
-  const code = partyPlayers.regenerateRoomCode();
-  commit({ ...state, version: state.version + 1 });
-  return code;
+  return { urls };
 }
 
 /** A phone's buzz; true when it made that player the one answering. */

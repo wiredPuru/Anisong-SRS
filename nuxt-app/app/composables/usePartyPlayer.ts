@@ -117,11 +117,11 @@ export function usePartyPlayer() {
     }
   }
 
-  async function join(code: string, name: string): Promise<string | null> {
+  async function join(name: string): Promise<string | null> {
     try {
       const result = await $fetch<{ player: { name: string } }>("/api/party/player/join", {
         method: "POST",
-        body: { code, name },
+        body: { name },
       });
       storeName(result.player.name);
       savedName.value = result.player.name;

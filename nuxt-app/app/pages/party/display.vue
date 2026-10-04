@@ -153,7 +153,6 @@ onBeforeUnmount(() => {
       <div v-if="state?.join" class="display-join">
         <p class="display-join-label">Join on your phone</p>
         <p v-for="url in state.join.urls" :key="url" class="display-join-url">{{ shortUrl(url) }}</p>
-        <p class="display-join-code">Code <strong>{{ state.join.code }}</strong></p>
       </div>
     </div>
 
@@ -331,17 +330,6 @@ onBeforeUnmount(() => {
 .display-join-url {
   font-family: var(--font-display);
   font-size: clamp(22px, 3vw, 48px);
-}
-
-.display-join-code {
-  font-size: clamp(18px, 2vw, 32px);
-}
-
-.display-join-code strong {
-  font-family: var(--font-display);
-  font-size: clamp(32px, 4.5vw, 72px);
-  letter-spacing: 0.15em;
-  color: var(--accent);
 }
 
 .display-hint {

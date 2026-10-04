@@ -97,8 +97,8 @@ game, behind a password.
   screen for a projector or stream, and a password-locked host panel (usable
   from a phone on the same network) with queue, playback, reveal, screen
   effects (blur, pixelate, mute, blackout), and timed lightning rounds.
-  Players can join from their phones with a room code shown on the display and
-  buzz in; the host judges each buzz and awards points. Party play never counts
+  Players can join from their phones with just a name, at the address shown on
+  the display, and buzz in; the host judges each buzz and awards points. Party play never counts
   as a review.
 
 ## 4. Data - What are we storing?
@@ -237,9 +237,9 @@ only, but its host control port and a player port bind to the LAN, so a phone
 can act as a remote or a buzzer. The control port requires the host password
 on every route, hashes it at rest, rate-limits login attempts, and only lets
 the password be first created from the machine itself. The player port serves
-only the join and buzzer page, requires the room code shown on the display,
-rate-limits join attempts, and never sees an answer before the host reveals
-it. No port is meant to be exposed to the internet.
+only the join and buzzer page, needs only a player name (no room code, since
+the host runs it on their own network), and never sees an answer before the
+host reveals it. No port is meant to be exposed to the internet.
 
 ## 9. Non-Goals
 

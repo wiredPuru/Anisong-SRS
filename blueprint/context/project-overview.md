@@ -25,7 +25,7 @@ local training tool.
   for a room or a stream from their own machine. The audience watches a
   screen; the host alone controls it, behind a password.
 - **Party players** - feature 90 (built). People in the room join from
-  their phones with a room code and buzz in. They get no account and cannot
+  their phones with just a name and buzz in. They get no account and cannot
   control the game; the host judges each buzz.
 
 ## Features
@@ -307,8 +307,8 @@ to `build-plan.md` on 2026-09-28; all four are built and merged. It amended
 paragraph, and §9's Non-Goals bullet, which had ruled out players answering on
 their own devices: party players now join from their phones to buzz, while
 typing or picking answers on a phone stays out of scope and the host still
-judges. Decided at intake: a separate LAN player port gated by a 4-letter room
-code (not the host port), a wrong buzz locks that player out for the rest of
+judges. Decided at intake: a separate LAN player port (not the host port; a 4-letter
+room code gated it at first and was removed 2026-10-03, so joining is by name only), a wrong buzz locks that player out for the rest of
 the song and playback resumes, join info is text only (no QR code and no new
 dependency), and joined players are the existing scoreboard's players.
 Feature 91 (party display polish, in two sub-features 91a-91b) was added to
@@ -2198,22 +2198,21 @@ manual deck exist, and this adds an optional display field, like feature 77.
     - **90a. Player door and joining** - done 2026-09-28. A third `gaq-party` port,
       `0.0.0.0:4003` (`GAQ_PARTY_PLAYER_PORT`), serving only the player page
       and player API, beside feature 86a's display (`127.0.0.1:4000`) and
-      control (`0.0.0.0:4001`) doors. A 4-letter room code, new on each
-      `gaq-party` start and regenerable by the host, is shown on the display
-      with the join address. A player enters the code and a name; the name and
+      control (`0.0.0.0:4001`) doors. The join address is shown on the display.
+      A player enters a name (a 4-letter room code originally gated joining and
+      was removed 2026-10-03 by the `remove-party-room-code` fix); the name and
       a player session are remembered on the phone, so a reload or rejoin goes
       straight back in. Joined players are scoreboard players (86f's
       `PartyScoreboard`, 20-player cap), marked connected or not, and the host
-      can rename or remove them. Join attempts are rate-limited per IP, and
-      the player door never receives an answer before the reveal. As built:
+      can rename or remove them. The player door never receives an answer before the reveal. As built:
       `createPlayerRegistry` (`server/utils/partyPlayers.ts`, one instance as
-      `partyPlayers` in `partyStore.ts`) holds the code, token -> player id
+      `partyPlayers` in `partyStore.ts`) holds token -> player id
       sessions (valid only while the player exists), and open-stream counts;
       `PartyPlayer` gained `phone`/`connected`, `PartyGameState` gained
       `joinInfoVisible`, `toPlayerState` builds the phone view, and
       `playerJoin`/`playerConnection` are internal commands the host route
       cannot send. Routes: `/api/party/player/{join,me,name,stream}` and host
-      `GET join-info` / `POST room-code`. Page `/party/play`.
+      `GET join-info`. Page `/party/play`.
     - **90b. Buzzer rounds** - done 2026-09-28. A host toggle for buzzer mode. While a song is
       guessing, phones show a Buzz button; the first buzz, ordered by server
       receipt, pauses playback, locks the others out, and names the buzzer on
@@ -2882,7 +2881,7 @@ standalone executable.
   rest, rate-limits login attempts, and only lets the password be first
   created from the machine itself. Feature 90a adds a LAN player port
   (`4003`, `GAQ_PARTY_PLAYER_PORT`) serving only the join and buzzer page,
-  gated by the room code shown on the display, with rate-limited joins and no
+  joined by name only (the room code was removed 2026-10-03), with no
   answer before the reveal. No port is meant for the internet.
 - **Health check / domain**: not applicable (local-only)
 

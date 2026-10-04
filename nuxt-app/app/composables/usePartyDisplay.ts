@@ -51,7 +51,6 @@ export interface PartySummary {
   total: number;
 }
 export interface PartyJoinInfo {
-  code: string;
   urls: string[];
 }
 export interface PartyBanner {

@@ -7,28 +7,14 @@ const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const info = ref<PartyJoinInfo | null>(null);
 const error = ref<string | null>(null);
-const renewing = ref(false);
 
 onMounted(async () => {
   try {
     info.value = await $fetch<PartyJoinInfo>("/api/party/host/join-info");
   } catch (err) {
-    error.value = extractErrorMessage(err, "Could not load the room code.");
+    error.value = extractErrorMessage(err, "Could not load the join address.");
   }
 });
-
-// Players already in keep their seats; only new joins need the new code.
-async function newCode() {
-  renewing.value = true;
-  error.value = null;
-  try {
-    info.value = await $fetch<PartyJoinInfo>("/api/party/host/room-code", { method: "POST" });
-  } catch (err) {
-    error.value = extractErrorMessage(err, "Could not make a new code.");
-  } finally {
-    renewing.value = false;
-  }
-}
 
 const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 </script>
@@ -41,11 +27,6 @@ const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
         <li v-for="url in info.urls" :key="url"><code>{{ shortUrl(url) }}</code></li>
       </ul>
       <p v-else class="hint">No network address found. Players need to be on the same network as this computer.</p>
-      <div class="code-row">
-        <span class="code-label">Room code</span>
-        <strong class="code">{{ info.code }}</strong>
-        <button type="button" class="mini" :disabled="renewing" @click="newCode">New code</button>
-      </div>
       <label class="check">
         <input
           type="checkbox"
@@ -84,42 +65,6 @@ const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 .urls code {
   font-size: 15px;
   font-weight: 700;
-}
-
-.code-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.code-label {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.code {
-  font-family: var(--font-display);
-  font-size: 26px;
-  letter-spacing: 0.2em;
-  color: var(--accent);
-}
-
-.mini {
-  margin-left: auto;
-  padding: 4px 14px;
-  border: 1px solid var(--accent-secondary);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--accent-secondary);
-  font-family: var(--font-sans);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mini:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .check {

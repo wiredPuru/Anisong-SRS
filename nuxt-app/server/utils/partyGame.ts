@@ -113,7 +113,7 @@ export interface PartyGameState {
   nextPlayerId: number;
   banner: PartyBanner | null;
   music: PartyMusic;
-  // The display's corner chip with the player join address and room code.
+  // The display's corner chip with the player join address.
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
   buzz: PartyBuzz;
@@ -170,7 +170,6 @@ export type PartyInternalCommand =
   | { type: "playerConnection"; id: number; connected: boolean }
   | { type: "buzz"; playerId: number };
 export interface PartyJoinInfo {
-  code: string;
   urls: string[];
 }
 

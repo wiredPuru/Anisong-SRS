@@ -2,10 +2,8 @@
 definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party - Join" });
 
-const route = useRoute();
 const { view, state, connected, notice, savedName, join, rename, buzz, buzzing } = usePartyPlayer();
 
-const code = ref(typeof route.query.code === "string" ? route.query.code.toUpperCase() : "");
 const name = ref("");
 const joinError = ref<string | null>(null);
 const joining = ref(false);
@@ -16,7 +14,7 @@ watch(savedName, (value) => {
 
 async function submitJoin() {
   joining.value = true;
-  joinError.value = await join(code.value.trim(), name.value);
+  joinError.value = await join(name.value);
   joining.value = false;
 }
 
@@ -61,30 +59,17 @@ const stage = computed<Stage>(() => {
         <MascotKai pose="wave" size="companion" />
         <div>
           <h1 class="play-title">Join the party</h1>
-          <p class="play-note">Use the room code on the big screen.</p>
+          <p class="play-note">Enter your name to join.</p>
         </div>
       </header>
       <p v-if="notice" class="play-notice" role="status">{{ notice }}</p>
       <form class="play-form" @submit.prevent="submitJoin">
         <label class="play-field">
-          <span>Room code</span>
-          <input
-            v-model="code"
-            class="code-input"
-            maxlength="4"
-            autocomplete="off"
-            autocapitalize="characters"
-            spellcheck="false"
-            required
-            @input="code = code.toUpperCase()"
-          />
-        </label>
-        <label class="play-field">
           <span>Your name</span>
           <input v-model="name" maxlength="24" autocomplete="nickname" required />
         </label>
         <p v-if="joinError" class="play-error" role="alert">{{ joinError }}</p>
-        <button type="submit" class="play-btn" :disabled="joining || !code.trim() || !name.trim()">
+        <button type="submit" class="play-btn" :disabled="joining || !name.trim()">
           {{ joining ? "Joining..." : "Join" }}
         </button>
       </form>
@@ -234,12 +219,6 @@ const stage = computed<Stage>(() => {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 18px;
-}
-
-.code-input {
-  letter-spacing: 0.4em;
-  text-transform: uppercase;
-  font-family: var(--font-display);
 }
 
 .play-error {
