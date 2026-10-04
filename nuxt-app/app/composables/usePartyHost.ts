@@ -42,7 +42,7 @@ export interface PartyHostState {
 export type PartyHostCommand =
   | { type: "play" }
   | { type: "pause" }
-  | { type: "seek"; seconds: number }
+  | { type: "seek"; seconds: number; skip?: boolean }
   | { type: "next" }
   | { type: "previous" }
   | { type: "reveal" }

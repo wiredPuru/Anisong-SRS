@@ -322,6 +322,10 @@ place of the tinted placeholder. Created decks only: artist and anime decks
 are derived groupings with no row to hold one, and anime decks keep their
 AniList cover. No `project-plan.md` change: §3's Decks bullet already lets a
 manual deck exist, and this adds an optional display field, like feature 77.
+Feature 93 (party Skip to end) was added to `build-plan.md` on 2026-10-03: a
+host-panel button that jumps the current song to its last 3 seconds, with a
+brief "Skipping..." indicator on the display. No `project-plan.md` change: it
+is a control on feature 86's existing Now playing panel, like feature 91.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2286,6 +2290,47 @@ manual deck exist, and this adds an optional display field, like feature 77.
       server's limits. The picture rides the tile's and header's existing
       `coverImageUrl` slot, updates in place via `rawDecks`, and a picture that
       404s falls back to the monogram (`brokenCovers`).
+93. **Party: Skip to end** - done 2026-10-04, added to `build-plan.md`
+    2026-10-03. A "Skip to end" button in the host panel's Now playing sends the
+    existing `seek` command to `duration - 3` (clamped to 0), using the
+    duration the display already reports. A `skipSeq` counter in the party
+    state makes the display show a short "Skipping..." overlay that carries no
+    answer. Works during lightning rounds too. Host-only and in-memory: no
+    schema change, and party play never writes `ReviewLog`, `Card`, or
+    `CardTrack`. As built: `seek` gained an optional `skip` flag that bumps
+    `skipSeq` (kept across End game); `skipTarget` (`app/utils/partySkip.ts`)
+    gives `duration - 3` to 0.1s; the host button and `E` hotkey send it; and
+    `PartyDisplaySkip.vue` shows "Skipping..." for 1.5s when `skipSeq`
+    changes, never on a display's first state.
+94. **Import the rest of an anime list** - added to `build-plan.md`
+    2026-10-03, in two sub-features, not yet built. Feature 76c's list filter
+    keeps only the Completed-list anime already in the library, so a 502-show
+    list shows "27 in your library" and the rest are dropped. When a list is
+    active in the deck-building filter form (feature 77), this offers "Import
+    the rest": each missing show is imported one at a time (progress, Cancel),
+    its allowed themes added as cards under the same rules as a manual "Add
+    all" (insert songs follow the Settings toggle, Clip source blocks apply),
+    then the list match is re-resolved so the new shows arrive ticked. A
+    failing anime is skipped and counted. Deck-building modal only, not
+    Study's filter popup. No `project-plan.md` change, like features 73 and
+    77: it speeds up filling a manual deck.
+    - **94a. Missing-anime resolution + single-anime import** - the list
+      resolver also returns the AniList ids not in the library, plus a server
+      path that imports one anime and adds its themes as cards. No UI.
+    - **94b. "Import the rest" UI** - button and count under the list chip,
+      sequential run with progress, Cancel, and a failure tally.
+95. **Study scope quick-filters + infinite mode** - added to
+    `build-plan.md` 2026-10-04, in two sub-features, not yet built. Feature
+    76's OP/ED filter already narrows a deck session to openings, but sits in a
+    small header popup; Study has no way past "All caught up".
+    - **95a. Obvious session filters** - a visible "Studying: <deck>" bar with
+      Openings / Endings / Inserts / All chips that apply the existing OP/ED
+      filter without altering the deck, plus "Openings only" / "Endings only"
+      shortcuts beside "Study this deck" on `/decks`.
+    - **95b. Infinite mode** - an off-by-default Study toggle that keeps
+      serving cards after the due queue or daily new limit runs out. Practice
+      only: no `ReviewLog` write and no schedule change. No `project-plan.md`
+      change, like features 51 and 52: additions to the existing Study screen.
 
 ## Data model
 

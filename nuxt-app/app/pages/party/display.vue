@@ -156,6 +156,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" />
+
     <template v-if="started && state">
       <PartyLayoutFrame piece="round">
         <PartyRoundPoints :rows="roundRows" :pops="pops" />

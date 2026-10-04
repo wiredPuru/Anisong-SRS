@@ -101,6 +101,7 @@ export interface PartyGameState {
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  skipSeq: number;
   position: PartyPosition | null;
   randomStart: boolean;
   startFraction: number;
@@ -142,7 +143,7 @@ export type PartyCommand =
   | { type: "queueMove"; from: number; to: number }
   | { type: "play" }
   | { type: "pause" }
-  | { type: "seek"; seconds: number }
+  | { type: "seek"; seconds: number; skip?: boolean }
   | { type: "next" }
   | { type: "previous" }
   | { type: "reveal" }
@@ -184,6 +185,7 @@ export interface PartyDisplayState {
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  skipSeq: number;
   startFraction: number;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
@@ -304,12 +306,13 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible" | "buzzerEnabled"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible" | "buzzerEnabled" | "skipSeq"> = {
     scoreboard: { players: [], visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
     joinInfoVisible: true,
     buzzerEnabled: false,
+    skipSeq: 0,
   },
 ): PartyGameState {
   return {
@@ -321,6 +324,7 @@ export function initialPartyState(
     startAt: 0,
     seekTo: null,
     seekSeq: 0,
+    skipSeq: kept.skipSeq,
     position: null,
     randomStart,
     startFraction: 0,
@@ -474,7 +478,9 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
         return { error: "seconds must be a number of 0 or more" };
       }
-      return { type, seconds };
+      const { skip } = body as { skip?: unknown };
+      if (skip !== undefined && typeof skip !== "boolean") return { error: "skip must be a boolean" };
+      return skip === true ? { type, seconds, skip } : { type, seconds };
     }
     case "load": {
       const { cardIds, shuffle, downloadedOnly, append } = body as {
@@ -767,7 +773,10 @@ export function applyPartyCommand(
       if (hasItem && state.playing !== (command.type === "play")) next = { ...state, playing: command.type === "play" };
       break;
     case "seek":
-      if (hasItem) next = { ...state, seekTo: command.seconds, seekSeq: state.seekSeq + 1 };
+      if (hasItem) {
+        next = { ...state, seekTo: command.seconds, seekSeq: state.seekSeq + 1 };
+        if (command.skip) next = { ...next, skipSeq: state.skipSeq + 1 };
+      }
       break;
     case "next":
       if (hasItem && state.index < state.queue.length - 1) next = atItem(state, state.index + 1, random);
@@ -861,6 +870,7 @@ export function applyPartyCommand(
           music: state.music,
           joinInfoVisible: state.joinInfoVisible,
           buzzerEnabled: state.buzzerEnabled,
+          skipSeq: state.skipSeq,
         });
       }
       break;
@@ -894,6 +904,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     startAt: state.startAt,
     seekTo: state.seekTo,
     seekSeq: state.seekSeq,
+    skipSeq: state.skipSeq,
     startFraction: state.startFraction,
     effects: state.effects,
     lightning: state.lightning

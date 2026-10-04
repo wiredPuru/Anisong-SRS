@@ -71,6 +71,7 @@ export interface PartyDisplayState {
   startAt: number;
   seekTo: number | null;
   seekSeq: number;
+  skipSeq: number;
   startFraction: number;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;

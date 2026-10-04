@@ -127,6 +127,14 @@ describe("parsePartyCommand", () => {
     }
   });
 
+  it("validates the skip flag on seek", () => {
+    expect(parsePartyCommand({ type: "seek", seconds: 12, skip: true })).toEqual({ type: "seek", seconds: 12, skip: true });
+    expect(parsePartyCommand({ type: "seek", seconds: 12, skip: false })).toEqual({ type: "seek", seconds: 12 });
+    for (const skip of ["yes", 1, null]) {
+      expect(parsePartyCommand({ type: "seek", seconds: 12, skip })).toHaveProperty("error");
+    }
+  });
+
   it("validates and dedupes load", () => {
     expect(parsePartyCommand({ type: "load", cardIds: [3, 1, 3] })).toEqual({
       type: "load",
@@ -200,6 +208,17 @@ describe("applyPartyCommand", () => {
     expect([once.seekTo, once.seekSeq, twice.seekSeq]).toEqual([30, 1, 2]);
   });
 
+  it("bumps skipSeq only on a skip seek, and keeps it across End game", () => {
+    const plain = applyPartyCommand(loaded(), { type: "seek", seconds: 30 });
+    expect(plain.skipSeq).toBe(0);
+    const skipped = applyPartyCommand(plain, { type: "seek", seconds: 87, skip: true });
+    expect([skipped.seekTo, skipped.seekSeq, skipped.skipSeq]).toEqual([87, 2, 1]);
+    const moved = applyPartyCommand(skipped, { type: "next" });
+    expect(moved.skipSeq).toBe(1);
+    expect(applyPartyCommand(skipped, { type: "clear" }).skipSeq).toBe(1);
+    expect(applyPartyCommand(initialPartyState(), { type: "seek", seconds: 5, skip: true }).skipSeq).toBe(0);
+  });
+
   it("keeps a playing game playing across moves and a paused one paused", () => {
     const playing = applyPartyCommand(loaded(3), { type: "play" });
     for (const command of [{ type: "next" }, { type: "jump", index: 2 }] as const) {
@@ -254,6 +273,7 @@ describe("toDisplayState", () => {
     const display = toDisplayState(loaded());
     expect(display.answer).toBeNull();
     expect(display.item).toEqual({ token: "t1", kind: "video", number: 1, total: 3 });
+    expect(display.skipSeq).toBe(0);
     const json = JSON.stringify(display);
     expect(json).not.toContain("animemusicquiz");
     expect(json).not.toContain("K-On");

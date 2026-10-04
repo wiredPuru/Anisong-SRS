@@ -1042,6 +1042,46 @@ cleaned-up checkbox version before generating the project overview.
     created deck's detail view, and the picture on its `/decks` tile and detail
     header, with the existing placeholder when none is set.
 
+- [x] 93. **Party: Skip to end** - a host-panel "Skip to end" button in Now
+  playing that jumps the current song to its last 3 seconds, so the host can
+  get to the end of a clip without scrubbing. The display shows a brief
+  "Skipping..." indicator over the picture while it jumps. Host-only and
+  in-memory like the rest of party mode: no schema change, and party play
+  still never writes `ReviewLog`, `Card`, or `CardTrack`.
+
+- [ ] 94. **Import the rest of an anime list** - when an Anime list (AniList or
+  MyAnimeList Completed) is active in the filter form, show how many of its
+  anime are not in the library and offer "Import the rest". It imports each
+  missing show's themes as cards, one anime at a time with a progress bar and
+  Cancel, then refreshes the list match so the new shows appear ticked in "New
+  deck from filters" and "From filters". Same rules as a manual "Add all":
+  insert songs follow the Settings toggle, and themes blocked by Clip source
+  are skipped. An anime that fails is skipped and counted, not fatal. The
+  deck-building modal only, not Study's own filter popup.
+  - [ ] 94a. **Missing-anime resolution + single-anime import** - the list
+    resolver also returns the list's AniList ids not in the library, and a
+    server path imports one anime and adds all its allowed themes as cards,
+    reusing the `/api/lookup/import` and `/api/cards` logic. No UI.
+  - [ ] 94b. **"Import the rest" UI** - a button and count under the list chip
+    in `StudyFilterForm`, shown only in the deck-building modal. Runs
+    sequentially with progress, Cancel, and a per-anime failure tally, then
+    re-resolves the list.
+
+- [ ] 95. **Study scope quick-filters + infinite mode** - two sub-features on
+  `/study`, both client-led extensions of feature 76's filters:
+  - [ ] 95a. **Obvious session filters** - a visible "Studying: <deck>" bar
+    on `/study` with one-tap chips for Openings, Endings, Inserts and All that
+    apply Study's existing OP/ED filter, so it is clear the deck itself is
+    never altered. "Study this deck" on `/decks` gains "Openings only" and
+    "Endings only" shortcuts that open Study with that chip on.
+  - [ ] 95b. **Infinite mode** - a Study toggle, off by default. While on,
+    Study keeps serving cards from the current scope and filters after the due
+    queue or the daily new-card limit runs out (due first, then not-yet-due,
+    least recently reviewed first; suspended and buried cards stay out). It is
+    practice only: no `ReviewLog` row and no change to any box, streak, or due
+    date, so binging cannot distort the schedule. Session score and combo still
+    work. The header shows "Infinite" and a session count instead of "N left".
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

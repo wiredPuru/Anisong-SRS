@@ -42,6 +42,13 @@ function seekFromBar(event: MouseEvent) {
   emit("command", { type: "seek", seconds: Math.round(fraction * duration * 10) / 10 });
 }
 
+const skipSeconds = computed(() => (current.value ? skipTarget(position.value?.duration) : null));
+
+function skipToEnd() {
+  if (skipSeconds.value === null) return;
+  emit("command", { type: "seek", seconds: skipSeconds.value, skip: true });
+}
+
 function clearGame() {
   confirmingClear.value = false;
   emit("command", { type: "clear" });
@@ -143,6 +150,7 @@ function clearGame() {
       >
         Reveal
       </button>
+      <button type="button" class="tbtn" :disabled="skipSeconds === null" @click="skipToEnd">Skip to end</button>
     </div>
 
     <div class="np-options">
