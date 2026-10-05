@@ -27,6 +27,9 @@ const props = defineProps<{
   // How far the answer boxes reach up from the frame's bottom, in px.
   guessingInset?: number | null;
   autoDownload?: boolean;
+  // For a player the user opened with a Play press of its own, so that one
+  // press starts the clip instead of leaving a second "Ready?" click.
+  startOnMount?: boolean;
   clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
 const emit = defineEmits<{
@@ -520,6 +523,9 @@ function triggerAutoDownload(kind: "video" | "audio" | null) {
 
 onMounted(() => triggerAutoDownload(autoDownloadTarget.value));
 watch(autoDownloadTarget, (kind) => triggerAutoDownload(kind));
+onMounted(() => {
+  if (props.startOnMount) nextTick(playIfPaused);
+});
 
 function playIfPaused() {
   const el = activeEl.value;

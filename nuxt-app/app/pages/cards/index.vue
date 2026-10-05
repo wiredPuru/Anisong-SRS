@@ -531,6 +531,7 @@ watch(
           class="search-input"
           @input="onSearchInput"
         />
+        <button type="button" class="browse-btn" @click="browseOpen = true">Browse by filters</button>
         <button
           type="button"
           class="filter-toggle"
@@ -550,7 +551,6 @@ watch(
           Suspended
         </button>
       </div>
-      <button type="button" class="import-toggle" @click="browseOpen = true">Browse by filters</button>
       <button
         type="button"
         class="import-toggle"
@@ -835,7 +835,7 @@ watch(
 .cards-header {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr minmax(0, 520px) 1fr;
+  grid-template-columns: 1fr minmax(0, 900px) 1fr;
   align-items: center;
   gap: 20px;
   padding: 16px 28px;
@@ -922,22 +922,23 @@ h1 {
 
 .import-toggle {
   justify-self: end;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  border: 1px solid var(--muted);
   background: transparent;
-  color: var(--muted);
+  color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .import-toggle:hover,
 .import-toggle:focus-visible,
 .import-toggle.active {
-  border-color: var(--border);
-  color: var(--text);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .import-form {
@@ -997,6 +998,7 @@ h1 {
 
 .search-area {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -1005,7 +1007,7 @@ h1 {
 .search-input {
   display: block;
   width: 100%;
-  flex: 1;
+  flex: 1 1 260px;
   min-width: 0;
   margin: 0;
   padding: 9px 14px;
@@ -1024,15 +1026,35 @@ h1 {
   box-shadow: var(--shadow-accent);
 }
 
+.browse-btn {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.browse-btn:hover,
+.browse-btn:focus-visible {
+  background: var(--accent-glow);
+}
+
 /* Border and glow rather than a fill for the active state, matching the
    convention feature 24 set so the control stays glass under ambient mode. */
 .filter-toggle {
   flex: none;
   padding: 8px 14px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
+  border: 1px solid var(--muted);
   background: transparent;
-  color: var(--muted);
+  color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;

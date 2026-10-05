@@ -69,10 +69,14 @@ const sourceLinks = computed(() => (props.card ? buildSourceLinks(props.card) : 
 
 // Reset per card so expanding one card does not carry into the next selection.
 const immersive = ref(false);
+// Selecting a row only shows its details. The player prefetches, streams and
+// may auto-download the clip as soon as it mounts, so it waits for Play.
+const playRequested = ref(false);
 watch(
   () => props.card?.id,
   () => {
     immersive.value = false;
+    playRequested.value = false;
   },
 );
 
@@ -215,12 +219,14 @@ async function toggleSuspended(target: CardWithDetails) {
       <MascotState pose="point" size="companion">Select a card to see its details.</MascotState>
     </div>
     <template v-else>
-      <!-- The rail is the preview now: a real player rather than a still.
-           A card with no source at all has nothing to play, so it keeps
-           the plain cover tile. -->
+      <!-- The rail is the preview now: a real player rather than a still,
+           mounted on Play so that selecting a card loads nothing. A card
+           with no source at all has nothing to play, so it keeps the plain
+           cover tile. -->
       <StudyMediaPlayer
-        v-if="sourceBadges(card).length"
+        v-if="sourceBadges(card).length && playRequested"
         :key="card.id"
+        start-on-mount
         :card="card"
         :audio-only="audioOnly"
         :has-default-download-folder="hasDefaultDownloadFolder"
@@ -234,6 +240,10 @@ async function toggleSuspended(target: CardWithDetails) {
       <div v-else class="inspector-cover">
         <img v-if="card.animeCoverImageUrl" :src="card.animeCoverImageUrl" alt="" />
         <span class="inspector-slot">{{ formatThemeSlotLabel(card.themeSlot) }}</span>
+        <button v-if="sourceBadges(card).length" type="button" class="inspector-play" @click="playRequested = true">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+          Play
+        </button>
       </div>
       <div class="inspector-body">
         <div class="inspector-titles">
@@ -434,6 +444,31 @@ async function toggleSuspended(target: CardWithDetails) {
   height: 100%;
   object-fit: cover;
   opacity: 0.85;
+}
+
+.inspector-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--outline);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.inspector-play:hover,
+.inspector-play:focus-visible {
+  box-shadow: var(--shadow-accent);
 }
 
 .inspector-slot {
