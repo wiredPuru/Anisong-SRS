@@ -4,6 +4,7 @@ import { filterClipUrls } from "../../utils/clipSource.ts";
 import { getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex, matchLinkSlugs } from "../../utils/themeSource.ts";
+import { saveAnimeCoverInBackground } from "../../utils/animeCoverSave.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -33,6 +34,7 @@ export default defineEventHandler(async (event) => {
     coverImageUrl: aniListAnime.coverImageUrl,
     details: aniListAnime.details,
   });
+  saveAnimeCoverInBackground(animeRow.id);
 
   const artistRow = getOrCreateArtist(body.artistName ?? "Unknown Artist");
 

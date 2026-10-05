@@ -6,6 +6,7 @@ import { filterClipUrls } from "../../utils/clipSource.ts";
 import { findSongByAnimeAndSlot, getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } from "../../utils/lookup.ts";
 import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, matchLinkSlugs, startMatchIndexLoads } from "../../utils/themeSource.ts";
+import { saveAnimeCoverInBackground } from "../../utils/animeCoverSave.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -94,6 +95,7 @@ export default defineEventHandler(async (event) => {
           coverImageUrl: aniListAnime.coverImageUrl,
           details: aniListAnime.details,
         });
+        saveAnimeCoverInBackground(animeRow.id);
 
         const matchIndex = await matchIndexes.get(aniListId);
         if (matchIndex) setAnimeAnimethemesSlug(animeRow.id, matchLinkSlugs(matchIndex, null).animethemesSlug);

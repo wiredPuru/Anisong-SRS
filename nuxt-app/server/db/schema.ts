@@ -12,6 +12,7 @@ export const anime = sqliteTable("anime", {
   titleRomaji: text("title_romaji").notNull(),
   titleNative: text("title_native").notNull(),
   coverImageUrl: text("cover_image_url"),
+  coverImagePath: text("cover_image_path"),
   animethemesSlug: text("animethemes_slug"),
   year: integer("year"),
   season: text("season").$type<AnimeSeason>(),

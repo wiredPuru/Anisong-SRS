@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gte, lt, notInArray, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, cardTrack, deck, reviewLog, song } from "../db/schema.ts";
+import { animeCoverUrl } from "./animeCoverSql.ts";
 import {
   trackBoxExpr,
   trackDueBeforeCondition,
@@ -306,7 +307,7 @@ export function getWeakestDecks(
     .select({
       id: anime.id,
       titleEnglish: anime.titleEnglish,
-      coverImageUrl: anime.coverImageUrl,
+      coverImageUrl: animeCoverUrl,
       totalReviews: count(reviewLog.id),
       passCount: passCountExpr,
     })
@@ -777,7 +778,7 @@ export function getDeckTrends(criterion: GradingCriterion = DEFAULT_GRADING_CRIT
     .all();
 
   const animeRows = db
-    .select({ id: anime.id, label: anime.titleEnglish, coverImageUrl: anime.coverImageUrl, ...windows })
+    .select({ id: anime.id, label: anime.titleEnglish, coverImageUrl: animeCoverUrl, ...windows })
     .from(reviewLog)
     .innerJoin(card, eq(reviewLog.cardId, card.id))
     .innerJoin(song, eq(card.songId, song.id))

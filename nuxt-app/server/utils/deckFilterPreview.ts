@@ -1,6 +1,7 @@
 import { and, asc, count, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, card, deck, deckCard, song } from "../db/schema.ts";
+import { animeCoverUrl } from "./animeCoverSql.ts";
 import { parseStudyFilters, studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
 
 // Load-bearing for 77b, which keeps a hand-written client copy in the same
@@ -34,7 +35,7 @@ export function listFilteredAnime(filters: StudyFilters | null): FilteredAnimePr
       titleEnglish: anime.titleEnglish,
       titleRomaji: anime.titleRomaji,
       titleNative: anime.titleNative,
-      coverImageUrl: anime.coverImageUrl,
+      coverImageUrl: animeCoverUrl,
       year: anime.year,
       format: anime.format,
       cardCount: count(card.id),

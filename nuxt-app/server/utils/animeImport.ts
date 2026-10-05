@@ -7,6 +7,7 @@ import { filterClipUrls } from "./clipSource.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "./mediaLibrary.ts";
 import { isMissingAnimeThemesMatch, resolveThemes } from "./themeSource.ts";
+import { saveAnimeCoverInBackground } from "./animeCoverSave.ts";
 
 export interface ImportedTheme {
   songId: number;
@@ -55,6 +56,7 @@ export async function importAnimeThemes(aniListId: number): Promise<ImportedAnim
     coverImageUrl: aniListAnime.coverImageUrl,
     details: aniListAnime.details,
   });
+  saveAnimeCoverInBackground(animeRow.id);
 
   const themes = resolved.themes.map((theme) => {
     // A theme with a title but no credited artist still needs a Song.artistId

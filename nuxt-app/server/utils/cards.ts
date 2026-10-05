@@ -3,6 +3,7 @@ import { isAbsolute, normalize } from "node:path";
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
+import { animeCoverUrl } from "./animeCoverSql.ts";
 import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { trackBoxExpr, trackDueCondition, trackNextReviewAtExpr, trackStreakExpr } from "./cardTrack.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
@@ -74,7 +75,7 @@ const cardSelection = (criterion: GradingCriterion) => ({
   animeTitleEnglish: anime.titleEnglish,
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,
-  animeCoverImageUrl: anime.coverImageUrl,
+  animeCoverImageUrl: animeCoverUrl,
 });
 
 function cardQuery(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION) {

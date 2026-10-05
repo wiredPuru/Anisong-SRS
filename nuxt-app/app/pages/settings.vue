@@ -12,6 +12,7 @@ const { data, pending, error, refresh } = await useFetch<{
   includeInsertSongs: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
   missingCoverCount: number;
+  coversNotLocalCount: number;
   missingAnimeDetailsCount: number;
   animethemesUncheckedCount: number;
   animethemesMissingLinkCount: number;
@@ -339,7 +340,7 @@ async function importDeck() {
                 <p v-else class="state">Add a folder to configure downloads.</p>
               </div>
 
-              <SettingsCoverArtControl :missing-count="data.missingCoverCount" @saved="refresh" />
+              <SettingsCoverArtControl :missing-count="data.missingCoverCount" :not-local-count="data.coversNotLocalCount" @saved="refresh" />
 
               <SettingsAnimeDetailsControl :missing-count="data.missingAnimeDetailsCount" @saved="refresh" />
 

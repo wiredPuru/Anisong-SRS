@@ -1,6 +1,7 @@
 import { and, count, countDistinct, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deck, deckCard, reviewLog, song } from "../db/schema.ts";
+import { animeCoverUrl } from "./animeCoverSql.ts";
 import { baseDueCondition, type Paginated, type StudyScope } from "./cards.ts";
 import type { DeckSource } from "./deckMembership.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
@@ -168,7 +169,7 @@ export function listAnimeDecks(page: number, query?: string): Paginated<AnimeDec
       id: anime.id,
       titleEnglish: anime.titleEnglish,
       titleRomaji: anime.titleRomaji,
-      coverImageUrl: anime.coverImageUrl,
+      coverImageUrl: animeCoverUrl,
       cardCount: count(card.id),
     })
     .from(card)

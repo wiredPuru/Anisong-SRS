@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ missingCount: number }>();
+const props = defineProps<{ missingCount: number; notLocalCount: number }>();
 const emit = defineEmits<{ saved: [] }>();
 
 interface CoverBackfillResult {
@@ -8,12 +8,29 @@ interface CoverBackfillResult {
   skipped: number;
 }
 
+interface CoverSaveResult {
+  checked: number;
+  saved: number;
+  failed: number;
+}
+
 const isFetching = ref(false);
+const isSaving = ref(false);
 const error = ref<string | null>(null);
 // useState, not ref: emitting `saved` re-runs the page's useFetch, whose
 // `pending` state unmounts this whole panel and remounts it, which would
 // discard a plain ref and leave the run with no visible outcome.
 const result = useState<CoverBackfillResult | null>("gaqSrs:coverBackfillResult", () => null);
+
+const saveResult = useState<CoverSaveResult | null>("gaqSrs:coverSaveResult", () => null);
+
+const saveSummary = computed(() => {
+  const done = saveResult.value;
+  if (!done) return null;
+  if (!done.checked) return "Every cover was already saved.";
+  const saved = `Saved ${done.saved} of ${done.checked}.`;
+  return done.failed ? `${saved} ${done.failed} could not be downloaded; run it again to retry them.` : saved;
+});
 
 const summary = computed(() => {
   const done = result.value;
@@ -38,6 +55,20 @@ async function fetchMissing() {
     isFetching.value = false;
   }
 }
+
+async function saveLocally() {
+  error.value = null;
+  saveResult.value = null;
+  isSaving.value = true;
+  try {
+    saveResult.value = await $fetch<CoverSaveResult>("/api/anime/covers/save-local", { method: "POST" });
+    emit("saved");
+  } catch (err) {
+    error.value = extractErrorMessage(err, "Failed to save covers locally.");
+  } finally {
+    isSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -53,11 +84,24 @@ async function fetchMissing() {
     <p v-else class="cover-art-count cover-art-count-clear">Every anime has cover art.</p>
 
     <ActivityStatus v-if="isFetching" label="Fetching cover art from AniList" request-key="cover-backfill" />
-    <button v-else type="button" class="cover-art-btn" :disabled="!props.missingCount" @click="fetchMissing">
+    <button v-else type="button" class="cover-art-btn" :disabled="!props.missingCount || isSaving" @click="fetchMissing">
       Fetch missing cover art
     </button>
 
     <p v-if="summary" class="cover-art-summary">{{ summary }}</p>
+
+    <p v-if="props.notLocalCount" class="cover-art-count">
+      {{ props.notLocalCount }} {{ props.notLocalCount === 1 ? "cover is" : "covers are" }} only on AniList, so
+      {{ props.notLocalCount === 1 ? "it disappears" : "they disappear" }} when AniList is down.
+    </p>
+    <p v-else class="cover-art-count cover-art-count-clear">Every cover is saved on this computer.</p>
+
+    <ActivityStatus v-if="isSaving" label="Saving covers to this computer" request-key="cover-save-local" />
+    <button v-else type="button" class="cover-art-btn" :disabled="!props.notLocalCount || isFetching" @click="saveLocally">
+      Save covers locally
+    </button>
+
+    <p v-if="saveSummary" class="cover-art-summary">{{ saveSummary }}</p>
     <p v-if="error" class="control-error">{{ error }}</p>
   </div>
 </template>

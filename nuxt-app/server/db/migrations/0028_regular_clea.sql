@@ -1,0 +1,1 @@
+ALTER TABLE `anime` ADD `cover_image_path` text;
