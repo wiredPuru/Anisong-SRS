@@ -23,6 +23,9 @@ const TARGETS: Target[] = [
   { label: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "gaq-srs", partyBinaryName: "gaq-party" },
 ];
 
+// --no-party ships the study app alone, for a release that holds party mode back.
+const INCLUDE_PARTY = !process.argv.includes("--no-party");
+
 const SERVER_ENTRY = ".output/server/index.mjs";
 const LAUNCHER_ENTRY = "launcher/index.ts";
 const PARTY_LAUNCHER_ENTRY = "launcher/party.ts";
@@ -158,7 +161,7 @@ for (const target of TARGETS) {
 
   const binaries = [
     { entry: LAUNCHER_ENTRY, outfile: join(releaseDir, target.binaryName) },
-    { entry: PARTY_LAUNCHER_ENTRY, outfile: join(releaseDir, target.partyBinaryName) },
+    ...(INCLUDE_PARTY ? [{ entry: PARTY_LAUNCHER_ENTRY, outfile: join(releaseDir, target.partyBinaryName) }] : []),
   ];
   if (!binaries.every(({ entry, outfile }) => compileBinary(target, entry, outfile))) {
     results.push({ label: target.label, ok: false });

@@ -212,7 +212,7 @@ checks do not make the Blueprint unusable.
   (created on first use).
 - Package release binaries (after `bun run build`): `bun run package` -
   cross-compiles the launcher (and the `gaq-party` party-mode launcher,
-  feature 86) into standalone executables for each of
+  feature 86; pass `--no-party` to leave it out of the zips) into standalone executables for each of
   Windows x64, macOS x64, macOS arm64, and Linux x64, using Bun's
   `--target` (no per-OS machine needed). Each target lands at
   `nuxt-app/release/<target>/`, alongside sibling `migrations/`,
