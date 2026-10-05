@@ -857,6 +857,8 @@ function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
   if (event.key.toLowerCase() === "s") {
     togglePlay();
+  } else if (event.key.toLowerCase() === "f" && props.allowExpand && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    emit("update:immersive", !props.immersive);
   } else if (event.key === "Escape" && props.immersive) {
     emit("update:immersive", false);
   }
@@ -923,7 +925,7 @@ onUnmounted(() => stopDrag?.());
         @click="emit('update:immersive', !immersive)"
       >
         {{ immersive ? "⤡" : "⤢" }}
-        <span class="tooltip">Hotkey: E</span>
+        <span class="tooltip">Hotkey: F</span>
       </button>
 
       <video

@@ -80,8 +80,6 @@ function onKeydown(event: KeyboardEvent) {
     // so this handler and that one don't both fire the same keypress.
     if (immersive.value) return;
     emit("close");
-  } else if (event.key.toLowerCase() === "e" && !editing.value) {
-    immersive.value = !immersive.value;
   }
 }
 
