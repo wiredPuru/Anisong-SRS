@@ -20,6 +20,7 @@ const props = defineProps<{
 	togglingMembership: Record<string, boolean>
 	deckToggleError: string | null
 	hasDefaultDownloadFolder: boolean
+	deckName?: string | null
 	disabled?: boolean
 }>()
 const emit = defineEmits<{
@@ -29,6 +30,8 @@ const emit = defineEmits<{
 	deleted: [cardId: number]
 	buried: [cardId: number]
 	suspended: [cardId: number]
+	'find-source': []
+	'remove-from-deck': []
 }>()
 
 const editing = ref(false)
@@ -40,13 +43,19 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const clearing = reactive<Record<string, boolean>>({})
 
-function startEdit() {
+const formRef = ref<HTMLElement | null>(null)
+
+// The form opens below the info panel inside a scrolling column, so on a short
+// window it was open but entirely off screen.
+async function startEdit() {
 	if (props.disabled) return
 	videoPath.value = props.card.localVideoPath ?? ''
 	audioPath.value = props.card.localAudioPath ?? ''
 	notes.value = props.card.notes ?? ''
 	error.value = null
 	editing.value = true
+	await nextTick()
+	formRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 
 function cancelEdit() {
@@ -189,7 +198,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			Edit card
 			<span class="tooltip">Hotkey: E</span>
 		</button>
-		<form v-else class="edit-form" @submit.prevent="save">
+		<form v-else ref="formRef" class="edit-form" @submit.prevent="save">
 			<div class="skip-actions">
 				<button
 					type="button"
@@ -216,7 +225,24 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				>
 					Delete
 				</button>
-				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards.</p>
+				<button
+					type="button"
+					class="source-btn"
+					:disabled="saving || deleting || suspending"
+					@click="emit('find-source')"
+				>
+					Find another source
+				</button>
+				<button
+					v-if="deckName"
+					type="button"
+					class="delete-btn"
+					:disabled="saving || deleting || suspending"
+					@click="emit('remove-from-deck')"
+				>
+					Remove from {{ deckName }}
+				</button>
+				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards. Removing from a deck leaves the card in your library.</p>
 			</div>
 			<div
 				v-if="confirmingDelete"
@@ -595,6 +621,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 
 .bury-btn,
 .suspend-btn,
+.source-btn,
 .delete-btn {
 	white-space: nowrap;
 	padding: 6px 14px;
@@ -611,7 +638,8 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 	color: var(--accent-secondary);
 }
 
-.suspend-btn {
+.suspend-btn,
+.source-btn {
 	border: 1px solid var(--accent);
 	color: var(--accent);
 }
@@ -650,6 +678,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .cancel-btn:disabled,
 .bury-btn:disabled,
 .suspend-btn:disabled,
+.source-btn:disabled,
 .delete-btn:disabled,
 .delete-confirm-btn:disabled,
 .edit-toggle-btn:disabled {

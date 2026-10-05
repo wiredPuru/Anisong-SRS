@@ -321,13 +321,14 @@ watch([presentationKey, scope], () => {
   scoreChipRef.value?.settle();
   quizResult.value = null;
   cardEditing.value = false;
+  sourceActionError.value = null;
   themeSlotSelection.value = null;
   songAnswerText.value = null;
   artistAnswerText.value = null;
 });
 
 async function submitReview(result: "pass" | "fail") {
-  if (submissionBusy.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || !currentCard.value) return;
+  if (submissionBusy.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || showFindSource.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
   const presentation = presentationKey.value;
   const scopeKey = JSON.stringify(scope.value);
@@ -473,7 +474,7 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
 }
 
 async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: string | null) {
-  if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || !currentCard.value) return;
+  if (submissionBusy.value || quizResult.value || loading.value || cardEditing.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || showFindSource.value || !currentCard.value) return;
   const reviewedCard = currentCard.value;
   const result = gradeTypedRound(criterion.value, {
     anime: selectedTitle === null ? null : animeResult,
@@ -523,7 +524,7 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
 }
 
 function submitTypedAnswer(selection: AnimeAnswerOption) {
-  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value) return;
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || showFindSource.value) return;
   const result = evaluateAnimeAnswer(currentCard.value?.animeAniListId, selection.aniListId);
   if (result !== "unavailable") void saveTypedAnswer(result, selection.titleEnglish || selection.titleRomaji || selection.titleNative);
 }
@@ -531,7 +532,7 @@ function submitTypedAnswer(selection: AnimeAnswerOption) {
 // The song or artist box as the main answer: no anime is asked, so the anime
 // result passed here is never read by gradeTypedRound.
 function submitMainAnswer() {
-  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value) return;
+  if (!typedAnswers.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || showFindSource.value) return;
   void saveTypedAnswer("fail", null);
 }
 
@@ -587,7 +588,7 @@ function clearStudyFilters() {
 // the bonus controls can never disagree about whether the round is answerable.
 const answerControlsDisabled = computed(() =>
   cardEditing.value || submissionBusy.value || awaitingNextCard.value || loading.value
-  || viewedHistoryEntry.value !== null || showSessionLog.value || showFilters.value,
+  || viewedHistoryEntry.value !== null || showSessionLog.value || showFilters.value || showFindSource.value,
 );
 
 function openHistoryCard(entry: SessionHistoryEntry) {
@@ -598,7 +599,7 @@ function openHistoryCard(entry: SessionHistoryEntry) {
 
 const canUndo = computed(() =>
   sessionHistory.value.length > 0 && !cardEditing.value && !submissionBusy.value && !loading.value
-  && viewedHistoryEntry.value === null && !showSessionLog.value && !showFilters.value,
+  && viewedHistoryEntry.value === null && !showSessionLog.value && !showFilters.value && !showFindSource.value,
 );
 
 // The entry is dropped only once the server has undone it, so a refused undo
@@ -700,6 +701,42 @@ function onCardDeleted(cardId: number) {
   cardEditing.value = false;
   sessionHistory.value = sessionHistory.value.filter((entry) => entry.card.id !== cardId);
   removeDeleted(cardId);
+}
+
+const showFindSource = ref(false);
+const sourceActionError = ref<string | null>(null);
+
+// Only a manual deck can lose a card; artist and anime decks are groupings.
+const removableDeck = computed(() => {
+  const result = scopeResult.value;
+  if (!result.valid || result.scope.type !== "created" || !deckLabel.value) return null;
+  return { id: result.scope.id, name: deckLabel.value };
+});
+
+// Only the clip links are taken: the response carries the title track's
+// box and streak, which would overwrite a song-graded deck's own.
+function onSourceFound(updated: Pick<CardWithDetails, "id" | "animethemesVideoUrl" | "animethemesAudioUrl">) {
+  onCardEdited({
+    id: updated.id,
+    animethemesVideoUrl: updated.animethemesVideoUrl,
+    animethemesAudioUrl: updated.animethemesAudioUrl,
+  });
+  showFindSource.value = false;
+}
+
+async function removeCardFromStudyDeck(cardId: number) {
+  const deck = removableDeck.value;
+  if (!deck) return;
+  sourceActionError.value = null;
+  try {
+    await $fetch("/api/decks/cards", { method: "DELETE", body: { deckId: deck.id, cardId } });
+  } catch (err) {
+    sourceActionError.value = extractErrorMessage(err, "Failed to remove the card from the deck.");
+    return;
+  }
+  cardEditing.value = false;
+  await refreshMemberships();
+  skipCard(cardId);
 }
 
 const showNewCardLimitPopover = ref(false);
@@ -1128,7 +1165,7 @@ onUnmounted(() => setAmbientGlass(false));
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
-  if (isTypingTarget(event) || showFilters.value) return;
+  if (isTypingTarget(event) || showFilters.value || showFindSource.value) return;
   if (event.key.toLowerCase() === "u" && !event.repeat) {
     void undoLastReview();
     return;
@@ -1358,6 +1395,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @local-path-cleared="onLocalPathCleared"
             @update:media-kind="currentMediaKind = $event"
           >
+            <template #error-actions>
+              <StudyCardTroubleActions
+                :deck-name="removableDeck?.name ?? null"
+                @find-source="showFindSource = true"
+                @bury="onCardBuried(currentCard.id)"
+                @remove-from-deck="removeCardFromStudyDeck(currentCard.id)"
+              />
+            </template>
             <template #overlay>
               <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
                 <StudyTypedAnswer
@@ -1476,7 +1521,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 type="button"
                 class="info-reveal-target"
                 aria-label="Reveal card information"
-                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters"
+                :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters || showFindSource"
                 @click="revealCurrentCard"
                 @keydown.enter.stop
                 @keydown.space.stop
@@ -1491,7 +1536,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :toggling-membership="togglingMembership"
               :deck-toggle-error="deckToggleError"
               :has-default-download-folder="hasDefaultDownloadFolder"
+              :deck-name="removableDeck?.name ?? null"
               :disabled="Boolean(quizResult)"
+              @find-source="showFindSource = true"
+              @remove-from-deck="removeCardFromStudyDeck(currentCard!.id)"
               @updated="onCardEdited"
               @buried="onCardBuried"
               @suspended="onCardSuspended"
@@ -1516,6 +1564,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </button>
           </div>
           <p v-if="error" role="alert">{{ error }}</p>
+          <p v-if="sourceActionError" role="alert">{{ sourceActionError }}</p>
           <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
           <!-- Here rather than as a header chip: the header already has no
                spare width at 1400px with Typed Answers on, and one more chip
@@ -1525,7 +1574,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </p>
           <StudyAnswerControls
             v-if="!typedAnswers"
-            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters"
+            :disabled="cardEditing || submissionBusy || awaitingNextCard || loading || viewedHistoryEntry !== null || showSessionLog || showFilters || showFindSource"
             :awaiting-reveal="hideInfo && !autoRevealedThisCard"
             @pass="submitReview('pass')"
             @fail="submitReview('fail')"
@@ -1578,6 +1627,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         @select="openHistoryCard"
       />
     </div>
+    <StudyFindSourceModal
+      v-if="currentCard"
+      :open="showFindSource"
+      :card="currentCard"
+      @close="showFindSource = false"
+      @applied="onSourceFound"
+    />
     <StudyFiltersModal
       :open="showFilters"
       :filters="studyFilters"
