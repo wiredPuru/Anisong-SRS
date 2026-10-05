@@ -244,10 +244,26 @@ function markBuffering() {
   isBuffering.value = true;
 }
 
+// Whether the user has asked this clip to play and has not paused it since.
+// A reload (the source swapping to a finished download, say) tears down a
+// pending play request and leaves the element paused WITHOUT a `pause` event,
+// so neither `isPlaying` nor anything else hears about it.
+let playWanted = false;
+watch(
+  () => props.card.id,
+  () => {
+    playWanted = false;
+  },
+);
+
 function onLoadStart() {
   hasStarted.value = false;
   loadAttempt.value += 1;
   markBuffering();
+  const el = activeEl.value;
+  if (!el?.paused) return;
+  isPlaying.value = false;
+  if (playWanted) nextTick(playIfPaused);
 }
 
 function settleBuffering() {
@@ -530,6 +546,7 @@ onMounted(() => {
 function playIfPaused() {
   const el = activeEl.value;
   if (!el?.paused) return;
+  playWanted = true;
   // A veil can outlive a source that never finished loading, so pressing
   // play reloads first. The S hotkey always reached this function, while
   // the button itself was disabled by the veil - this is what made a
@@ -542,6 +559,7 @@ function playIfPaused() {
     // The reload above tears down an in-flight play request. That abort is
     // ours, the same way MEDIA_ERR_ABORTED is in onError.
     if (error?.name === "AbortError") return;
+    playWanted = false;
     errorMessage.value = "Couldn't play this clip.";
     // Without a kind the veil below renders its message and no actions at
     // all, which is the dead end this fix exists to remove.
@@ -809,6 +827,7 @@ function onPlaying() {
 
 function onPause() {
   isPlaying.value = false;
+  playWanted = false;
   stopAmbientLoop();
   stopVisualizerLoop();
   emit("playback-paused");
