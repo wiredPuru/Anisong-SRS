@@ -1,4 +1,5 @@
 import type { CardListFilters } from "./cards.ts";
+import { parseStudyFilters } from "./studyFilters.ts";
 
 export const BULK_DELETE_MAX = 500;
 
@@ -33,12 +34,27 @@ export function parseMatchingQuery(q: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-/** The /cards library toggles from a list route's query string. */
-export function parseCardListFilters(query: Record<string, unknown>): CardListFilters {
-  return { missingAnimeThemesMatch: query.missingAnimeThemes === "1", suspendedOnly: query.suspended === "1" };
+/** The /cards library toggles and anime-level filters from a list route's query string, or why they are unusable. */
+export function parseCardListFilters(query: Record<string, unknown>): { filters: CardListFilters } | { error: string } {
+  const parsed = parseStudyFilters(query.filters);
+  if ("error" in parsed) return parsed;
+  return {
+    filters: {
+      missingAnimeThemesMatch: query.missingAnimeThemes === "1",
+      suspendedOnly: query.suspended === "1",
+      downloadedOnly: query.downloaded === "1",
+      studyFilters: parsed.filters,
+    },
+  };
 }
 
 /** GET /api/cards/ids must have at least one active filter, so it can never accidentally match the whole library. */
 export function hasAnyCardsIdsFilter(q: string | null, filters: CardListFilters): boolean {
-  return q !== null || Boolean(filters.missingAnimeThemesMatch) || Boolean(filters.suspendedOnly);
+  return (
+    q !== null ||
+    Boolean(filters.missingAnimeThemesMatch) ||
+    Boolean(filters.suspendedOnly) ||
+    Boolean(filters.downloadedOnly) ||
+    Boolean(filters.studyFilters)
+  );
 }

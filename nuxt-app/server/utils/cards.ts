@@ -95,6 +95,10 @@ export function searchCards(query: string): CardWithDetails[] {
 export interface CardListFilters {
   missingAnimeThemesMatch?: boolean;
   suspendedOnly?: boolean;
+  /** Any local video or audio file, whatever its kind. */
+  downloadedOnly?: boolean;
+  /** Feature 76b's anime-level filters, so the library can be asked what Study can. */
+  studyFilters?: StudyFilters | null;
 }
 
 export function cardSearchCondition(query?: string, filters: CardListFilters = {}) {
@@ -113,6 +117,8 @@ export function cardSearchCondition(query?: string, filters: CardListFilters = {
     textCondition,
     filters.missingAnimeThemesMatch ? isNull(song.animethemesThemeId) : undefined,
     filters.suspendedOnly ? eq(card.suspended, true) : undefined,
+    filters.downloadedOnly ? or(isNotNull(card.localVideoPath), isNotNull(card.localAudioPath)) : undefined,
+    studyFilterCondition(filters.studyFilters ?? null),
   ].filter((condition) => condition !== undefined);
 
   return conditions.length > 1 ? and(...conditions) : conditions[0];

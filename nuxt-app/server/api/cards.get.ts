@@ -6,7 +6,11 @@ export default defineEventHandler((event) => {
   const query = getQuery(event);
   const requestedPage = parsePage(query.page);
   const q = typeof query.q === "string" ? query.q : undefined;
-  const filters = parseCardListFilters(query);
+  const parsedFilters = parseCardListFilters(query);
+  if ("error" in parsedFilters) {
+    throw createError({ statusCode: 400, statusMessage: parsedFilters.error });
+  }
+  const { filters } = parsedFilters;
   const { items, total } = listCards(requestedPage, q, filters);
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
   const page = Math.min(requestedPage, totalPages);

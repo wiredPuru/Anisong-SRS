@@ -1122,6 +1122,22 @@ cleaned-up checkbox version before generating the project overview.
   rail, which already shows both. The Song and Anime columns can be dragged
   wider at the cost of each other, double-click resets, and the widths are
   remembered.
+- [ ] 99. **Search your library from Browse by filters** - the "Browse by
+  filters" modal on `/cards` gets a switch between **Add from AniList** (today's
+  behaviour) and **Search my library**. Library mode uses the same filter form
+  (year, season, score, format, genres, tags, OP/ED including Insert) plus a
+  **Downloaded** toggle (the card has a local video or audio file). "Show N
+  cards" closes the modal and narrows the `/cards` list to those cards, with a
+  "Library filter" chip that clears it, so the inspector, Play, and bulk actions
+  all work on the results. Searching adds and changes nothing. The Anime-list
+  filter is left out of this mode, because a long list does not fit in a request
+  URL.
+  - [x] 99a. **Library filters on the card list routes** - `GET /api/cards` and
+    `GET /api/cards/ids` take the filter set and a `downloaded` flag, reusing
+    `studyFilterCondition`, and "Delete all matching" counts them as an active
+    filter. No UI.
+  - [ ] 99b. **Mode switch + apply to the list** - the modal switch, the
+    Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
 
 ## Plan maintenance
 
