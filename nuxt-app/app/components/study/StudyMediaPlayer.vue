@@ -1047,6 +1047,7 @@ onUnmounted(() => stopDrag?.());
             include this host.
           </p>
         </div>
+        <slot name="error-actions" />
       </div>
       <div
         v-else-if="showVeil"
