@@ -80,6 +80,22 @@ watch(
   },
 );
 
+// The player owns the S hotkey, but it is not mounted until Play, so until
+// then S does the same as the Play button. Once it is mounted this stands
+// down and the player's own handler toggles play and pause.
+const { isTypingTarget } = useHotkeyGuard();
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key.toLowerCase() !== "s" || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.defaultPrevented || isTypingTarget(event)) return;
+  if (!props.card || playRequested.value || editingId.value !== null) return;
+  if (!sourceBadges(props.card).length) return;
+  playRequested.value = true;
+}
+
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
   if (!props.card) return;
   emit("updated", {
