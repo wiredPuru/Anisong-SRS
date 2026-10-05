@@ -1115,6 +1115,13 @@ cleaned-up checkbox version before generating the project overview.
     deck, or "New deck..." with a name) in `CardBrowseModal`. "Import the rest"
     needs none: its modal already has a target deck. A new deck is created before the
     first import and kept if the run fails or is cancelled.
+- [x] 98. **Compact, resizable Cards table** - the Cards and deck-detail table
+  shows only the cover, the song with its artist stacked beneath it, and the
+  anime, instead of also showing Sources and Due, so important text is no
+  longer cut off on smaller screens. Sources and Due stay in the inspector
+  rail, which already shows both. The Song and Anime columns can be dragged
+  wider at the cost of each other, double-click resets, and the widths are
+  remembered.
 
 ## Plan maintenance
 

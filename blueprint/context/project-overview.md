@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash de50c23472e4d1d8962b87cce219cbef8d6d7d71f971191220b3c88b9231a3cf -->
+<!-- blueprint:source-hash 60a38133fd6240a828eb850865df8f2a89ddf53a64c1fe48084fb131f3efabd4 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2419,6 +2419,20 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       create stops the run with the error shown. Every `import-cards` call then
       carries `deckId`, the summary adds how many cards joined the deck, and
       `/cards` refreshes its cards, deck list and memberships afterwards.
+98. **Compact, resizable Cards table** - added to `build-plan.md` and built 2026-10-05.
+    On smaller screens `CardTable.vue`'s fixed Anime (200px),
+    Sources (140px) and Due (92px) columns left the Song column only the
+    remainder, cutting song and artist text to "H..". The table (shared by
+    `/cards` and `/decks`, features 50c and 81) drops its Sources and Due
+    columns, which `CardInspector.vue` already shows as a Sources block and a
+    Due tile, and keeps the cover, the song with its artist stacked beneath
+    it, and the anime. The Song and Anime columns can be dragged wider at the
+    cost of each other, a double-click resets them, and the widths are
+    remembered in the browser (`localStorage`, the way the inspector
+    width is). Decided at intake: the artist stays stacked under the song
+    rather than becoming its own column. Presentation only: no data, route,
+    or server change, and no `project-plan.md` change, like features 50h and
+    81.
 
 ## Data model
 

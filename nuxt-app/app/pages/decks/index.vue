@@ -1153,7 +1153,6 @@ function backToDecks() {
               v-if="deckCards.length"
               :cards="deckCards"
               :selected-id="selectedCardId"
-              :show-due="showSchedule"
               @select="selectCard"
             />
             <div v-else-if="cardSearchQuery" class="state">
