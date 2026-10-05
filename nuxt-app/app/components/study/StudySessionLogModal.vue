@@ -1,13 +1,8 @@
 <script setup lang="ts">
-interface SessionHistoryCard {
-  id: number;
-  songTitle: string;
-  artistName: string;
-  animeTitleEnglish: string;
-}
+import { buildSessionLogCsv, sessionLogFileName, type SessionLogExportEntry } from "~/utils/sessionLogExport";
 
 interface SessionHistoryEntry {
-  card: SessionHistoryCard;
+  card: SessionLogExportEntry["card"] & { id: number };
   result: "pass" | "fail";
 }
 
@@ -20,6 +15,16 @@ const emit = defineEmits<{ close: []; select: [entry: SessionHistoryEntry] }>();
 const reversedEntries = computed(() =>
   props.entries.map((entry, index) => ({ entry, index })).reverse(),
 );
+
+function downloadLog() {
+  const blob = new Blob(["\uFEFF", buildSessionLogCsv(props.entries)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = sessionLogFileName();
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const { isTypingTarget } = useHotkeyGuard();
 
@@ -42,7 +47,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         }}</template>
       </h2>
       <p v-if="entries.length === 0" class="empty-hint">No cards reviewed yet this session.</p>
-      <ul v-else class="log-list">
+      <button v-else type="button" class="download-btn" @click="downloadLog">Download CSV</button>
+      <ul v-if="entries.length > 0" class="log-list">
         <li v-for="{ entry, index } in reversedEntries" :key="index">
           <button type="button" class="log-row" @click="emit('select', entry)">
             <span class="result-chip" :class="entry.result">{{ entry.result === "pass" ? "Pass" : "Fail" }}</span>
@@ -105,6 +111,24 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 18px;
   font-weight: 800;
   color: var(--text);
+}
+
+.download-btn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.download-btn:hover,
+.download-btn:focus-visible {
+  border-color: var(--accent-secondary);
 }
 
 .empty-hint {
