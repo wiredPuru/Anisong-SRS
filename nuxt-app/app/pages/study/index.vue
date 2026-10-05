@@ -1272,7 +1272,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <header class="study-header">
         <div class="header-left">
           <span class="chip">{{ scopeChipLabel }}</span>
-          <StudyThemeChips v-model="studyFilters" :disabled="Boolean(quizResult) || submissionBusy" />
           <span class="counts">
             Card {{ reviewedCount + (quizResult ? 0 : 1) }}
             <span class="sep" aria-hidden="true">&middot;</span>
@@ -1369,6 +1368,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span aria-hidden="true">📋</span>
             <span class="tooltip">Session log &middot; Hotkey: L</span>
           </button>
+        </div>
+        <div class="header-themes">
+          <StudyThemeChips v-model="studyFilters" :disabled="Boolean(quizResult) || submissionBusy" />
         </div>
       </header>
       <div class="study-grid">
@@ -1773,6 +1775,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex: 1 1 0;
   gap: 14px;
   min-width: min-content;
+}
+
+/* The session chips get a row of their own: sharing the left group squeezed
+   them into a wrapped stack beside the counts. */
+.header-themes {
+  flex: 0 0 100%;
 }
 
 .header-right {
