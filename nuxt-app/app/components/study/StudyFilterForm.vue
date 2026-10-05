@@ -22,7 +22,14 @@ const draft = defineModel<StudyFilters>({ required: true });
 // (feature 94). Only the deck-building modal turns it on.
 // catalog: search AniList's whole catalog (feature 96), so the option lists come
 // from AniList and the library-only sections (OP/ED, Anime list) are hidden.
-const props = withDefaults(defineProps<{ apiBase?: string; importable?: boolean; catalog?: boolean }>(), { apiBase: "/api/study", importable: false, catalog: false });
+// hideList: leave out the Anime list section, for a caller whose filters travel in
+// a GET query string (feature 99), which cannot carry a list's ids.
+const props = withDefaults(defineProps<{ apiBase?: string; importable?: boolean; catalog?: boolean; hideList?: boolean }>(), {
+  apiBase: "/api/study",
+  importable: false,
+  catalog: false,
+  hideList: false,
+});
 
 const SEASONS: { value: StudySeason; label: string }[] = [
   { value: "WINTER", label: "Winter" },
@@ -218,7 +225,7 @@ const listCheckedOn = computed(() => {
       </div>
     </section>
 
-    <section v-if="!catalog" class="group">
+    <section v-if="!catalog && !hideList" class="group">
       <h3 class="group-title">Anime list <span class="group-hint">only shows on someone's Completed list</span></h3>
       <template v-if="draft.listSource">
         <div class="list-row">

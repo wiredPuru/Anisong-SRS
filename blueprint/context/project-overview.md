@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 710c8fa89a4fa320df0cde6440950bb315c616d46d9c9b2e6f31da7694700528 -->
+<!-- blueprint:source-hash 5250ded496bbd88ea31a91708ed45d7c22102b71c170503a76030e4801efe9b5 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2434,7 +2434,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
     or server change, and no `project-plan.md` change, like features 50h and
     81.
 99. **Search your library from Browse by filters** - added to
-    `build-plan.md` 2026-10-05, in two sub-features. Feature 96's "Browse by
+    `build-plan.md` and built 2026-10-05, in two sub-features, both done. Feature 96's "Browse by
     filters" modal on `/cards` only searches AniList's catalog and can only
     add, so there was no way to ask the library itself a question such as "which
     insert songs have I downloaded". The modal gains a switch between Add from
@@ -2450,11 +2450,11 @@ is a control on feature 86's existing Now playing panel, like feature 91.
     inside the modal, and Downloaded means any local file. No
     `project-plan.md` change: it deepens §3's existing "Flashcard CRUD"
     bullet, like features 70 and 96.
-    - **99a. Library filters on the card list routes** - `GET /api/cards` and
+    - **99a. Library filters on the card list routes** - done. `GET /api/cards` and
       `GET /api/cards/ids` take the filter set and a `downloaded` flag,
       reusing `studyFilterCondition` (feature 76b), and "Delete all matching"
       counts them as an active filter. No UI.
-    - **99b. Mode switch + apply to the list** - the modal switch, the
+    - **99b. Mode switch + apply to the list** - done. The modal switch, the
       Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
 
 ## Data model

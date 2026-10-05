@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { describeLibraryFilter, EMPTY_LIBRARY_FILTER, libraryFilterActive, libraryQuery, type LibraryFilter } from "~/utils/libraryFilter";
 interface CardWithDetails {
   id: number;
   songId: number;
@@ -137,6 +138,30 @@ const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
 const initialError = ref(false);
 const browseOpen = ref(false);
+// Session only, like the page's own toggles are not in the URL: it narrows the
+// list to what "Search my library" in the Browse modal asked for.
+const libraryFilter = ref<LibraryFilter>({ filters: structuredClone(EMPTY_LIBRARY_FILTER.filters), downloadedOnly: false });
+const libraryActive = computed(() => libraryFilterActive(libraryFilter.value));
+const libraryDescription = computed(() => describeLibraryFilter(libraryFilter.value));
+
+function applyLibraryFilter(filter: LibraryFilter) {
+  libraryFilter.value = filter;
+}
+
+function clearLibraryFilter() {
+  libraryFilter.value = { filters: structuredClone(EMPTY_LIBRARY_FILTER.filters), downloadedOnly: false };
+}
+
+// One query for the list, "load more", and "Delete all matching", so a filter
+// can never apply to one of them and not the others.
+function matchQuery() {
+  return {
+    q: searchQuery.value || undefined,
+    missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
+    suspended: suspendedOnly.value ? "1" : undefined,
+    ...libraryQuery(libraryFilter.value),
+  };
+}
 // A run may have created a deck, and added cards to one.
 function onBrowseImported() {
   void loadFirstPage();
@@ -159,12 +184,7 @@ async function loadFirstPage() {
   initialError.value = false;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
-      query: {
-        page: 1,
-        q: searchQuery.value || undefined,
-        missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
-        suspended: suspendedOnly.value ? "1" : undefined,
-      },
+      query: { page: 1, ...matchQuery() },
     });
     if (!isCurrent()) return;
     cards.value = res.cards;
@@ -183,12 +203,7 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
-      query: {
-        page: nextPage.value,
-        q: searchQuery.value || undefined,
-        missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
-        suspended: suspendedOnly.value ? "1" : undefined,
-      },
+      query: { page: nextPage.value, ...matchQuery() },
     });
     cards.value.push(...res.cards);
     nextPage.value += 1;
@@ -215,10 +230,11 @@ const matchingFilterDescription = computed(() => {
   if (searchQuery.value) parts.push(`matching "${searchQuery.value}"`);
   if (missingAnimeThemesMatch.value) parts.push("with no AnimeThemes.moe match");
   if (suspendedOnly.value) parts.push("that are suspended");
+  if (libraryActive.value) parts.push(`in the library filter (${libraryDescription.value.toLowerCase()})`);
   return parts.join(" ");
 });
 
-watch([searchQuery, missingAnimeThemesMatch, suspendedOnly], () => {
+watch([searchQuery, missingAnimeThemesMatch, suspendedOnly, libraryFilter], () => {
   clearChecked();
   confirmingDeleteMatching.value = false;
   loadFirstPage();
@@ -461,19 +477,12 @@ const confirmingDeleteMatching = ref(false);
 // Ids are fetched at Confirm time so cards infinite scroll never loaded are
 // included.
 async function deleteAllMatching() {
-  const q = searchQuery.value;
   bulkDeleteError.value = null;
   bulkDeleting.value = true;
   let ids: number[];
   try {
     ids = (
-      await $fetch<{ ids: number[] }>("/api/cards/ids", {
-        query: {
-          q,
-          missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
-          suspended: suspendedOnly.value ? "1" : undefined,
-        },
-      })
+      await $fetch<{ ids: number[] }>("/api/cards/ids", { query: matchQuery() })
     ).ids;
   } catch (err) {
     bulkDeleteError.value = extractErrorMessage(err, "Failed to find matching cards.");
@@ -517,7 +526,13 @@ watch(
 
 <template>
   <main class="cards">
-    <CardBrowseModal :open="browseOpen" @close="browseOpen = false" @imported="onBrowseImported" />
+    <CardBrowseModal
+      :open="browseOpen"
+      :applied="libraryFilter"
+      @close="browseOpen = false"
+      @imported="onBrowseImported"
+      @show-library="applyLibraryFilter"
+    />
     <header class="cards-header">
       <div class="header-title">
         <h1>Cards</h1>
@@ -550,6 +565,10 @@ watch(
         >
           Suspended
         </button>
+        <span v-if="libraryActive" class="library-chip">
+          Library filter: {{ libraryDescription }}
+          <button type="button" class="library-chip-clear" aria-label="Clear library filter" @click="clearLibraryFilter">&times;</button>
+        </span>
       </div>
       <button
         type="button"
@@ -618,7 +637,7 @@ watch(
       <div class="list-pane">
         <div v-if="initialPending" class="state">
           <MascotState pose="laptop">
-            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${suspendedOnly}`" label="Loading your cards" />
+            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${suspendedOnly}|${libraryDescription}`" label="Loading your cards" />
           </MascotState>
         </div>
         <div v-else-if="initialError" class="state state-error">
@@ -626,7 +645,7 @@ watch(
         </div>
         <template v-else>
           <div
-            v-if="(searchQuery || missingAnimeThemesMatch || suspendedOnly) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
+            v-if="(searchQuery || missingAnimeThemesMatch || suspendedOnly || libraryActive) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
             class="selection-bar"
           >
             <span class="selection-count">{{ totalCards }} matching</span>
@@ -753,6 +772,9 @@ watch(
           />
           <div v-else-if="searchQuery" class="state">
             <MascotState pose="surprised">No cards match "{{ searchQuery }}".</MascotState>
+          </div>
+          <div v-else-if="libraryActive" class="state">
+            <MascotState pose="surprised">No cards match the library filter.</MascotState>
           </div>
           <div v-else-if="suspendedOnly" class="state">
             <MascotState pose="clap">No suspended cards.</MascotState>
@@ -1066,6 +1088,38 @@ h1 {
   border-color: var(--accent);
   color: var(--accent);
   box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.library-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.library-chip-clear {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.library-chip-clear:hover,
+.library-chip-clear:focus-visible {
+  background: var(--accent-glow);
 }
 
 .state {
