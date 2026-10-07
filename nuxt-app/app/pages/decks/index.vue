@@ -853,6 +853,7 @@ function backToDecks() {
               </button>
             </div>
             <NuxtLink to="/study?type=all" class="study-all-btn">Study all</NuxtLink>
+            <NuxtLink to="/listen?type=all" class="study-theme-btn">Listen all</NuxtLink>
           </div>
         </div>
         <span class="header-spacer" aria-hidden="true" />
@@ -1018,6 +1019,7 @@ function backToDecks() {
             >
               Study this deck
             </NuxtLink>
+            <NuxtLink :to="`/listen?type=${activeType}&id=${selectedId}`" class="study-theme-btn">Listen</NuxtLink>
             <template v-if="deckLabel">
               <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}&themes=OP`" class="study-theme-btn">Openings only</NuxtLink>
               <NuxtLink :to="`/study?type=${activeType}&id=${selectedId}&themes=ED`" class="study-theme-btn">Endings only</NuxtLink>

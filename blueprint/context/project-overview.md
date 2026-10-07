@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 9b14f664a8ba5b5d5d2863091cc35fee6b1319bffd33dbf48f4e04014e103e56 -->
+<!-- blueprint:source-hash bf437acdcd8e3323e7d8f9deca95343bdc6b6260ed0f49c97281c0e12adc7384 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -326,6 +326,11 @@ Feature 93 (party Skip to end) was added to `build-plan.md` on 2026-10-03: a
 host-panel button that jumps the current song to its last 3 seconds, with a
 brief "Skipping..." indicator on the display. No `project-plan.md` change: it
 is a control on feature 86's existing Now playing panel, like feature 91.
+Feature 101 (Listen mode) was added to `build-plan.md` on 2026-10-07 and is built: a
+`/listen` page that plays a deck, or all cards, in order or shuffled, with
+Study's player and display toggles but no grading, scheduling or score. It
+amended `project-plan.md` §3 with one Listen mode bullet, since it is a new
+route rather than a control on an existing one.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2479,6 +2484,19 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       a shared composable that `CardBrowseModal` also uses. No ticks, no import.
     - **100b. Import and add to the deck** - done. Ticks and the 300 cap; Add runs both
       parts with one combined summary, keeping what finished on failure or cancel.
+101. **Listen mode** - added to `build-plan.md` 2026-10-07, done 2026-10-07. A
+    `/listen` page paired with `/study` for hosting a guess-the-anime session
+    from a deck without the party server (feature 86). It plays every song of a
+    scope (all cards, artist, anime, or manual deck, narrowed by Study's filter
+    set, saved separately from Study's own) in deck order or shuffled, with Study's player, info panel and
+    display toggles (Hide Video, Hide Info, Random start, Auto Reveal), and
+    Next/Previous with a "N / total" position. No Pass/Fail, typed answers,
+    score, undo, bury or suspend, and nothing is written: no `ReviewLog`,
+    `Card` or `CardTrack` change. Reached from a "Listen" button beside "Study
+    this deck" on `/decks` and from the rail. Decided at intake: a separate
+    page rather than a mode inside `/study`, since `study/index.vue` is
+    SRS-and-typed-answer heavy; shuffle default on; the playlist stops at its
+    end with a Play again action rather than looping.
 
 ## Data model
 

@@ -1161,6 +1161,15 @@ cleaned-up checkbox version before generating the project overview.
     runs both parts with one combined summary; a failed or cancelled run keeps
     what finished.
 
+- [x] 101. **Listen mode** - a `/listen` page paired with `/study`: it plays
+  every song of a deck (or all cards, or an artist/anime), in order or
+  shuffled, with Study's player, info panel and display toggles, but no
+  grading, scheduling, typed answers or score. Next/Previous step through the
+  playlist with a "N / total" position, and nothing is written (no `ReviewLog`,
+  `Card` or `CardTrack` change). Meant for hosting a guess-the-anime session
+  from a deck without the party server. Reached from a "Listen" button
+  beside "Study this deck" on `/decks`, and from the rail.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

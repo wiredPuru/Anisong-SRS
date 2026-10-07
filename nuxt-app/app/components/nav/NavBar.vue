@@ -8,6 +8,7 @@ interface NavLink {
 const links: NavLink[] = [
   { to: "/", label: "Home", icon: "◈" },
   { to: "/study", label: "Study", icon: "▶" },
+  { to: "/listen", label: "Listen", icon: "♪" },
   { to: "/cards", label: "Cards", icon: "▤" },
   { to: "/decks", label: "Decks", icon: "◫" },
   { to: "/stats", label: "Stats", icon: "◲" },

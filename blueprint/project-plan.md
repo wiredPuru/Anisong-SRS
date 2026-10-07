@@ -73,6 +73,11 @@ game, behind a password.
   session can be undone, restoring the card's previous schedule so it can be
   graded again. A card can be suspended to keep it in the library but out of
   Study until it is unsuspended.
+- **Listen mode** - plays the songs of a deck, or of all cards, in order or
+  shuffled, using the Study screen's player and display toggles. It has no
+  grading, scheduling or score and never changes a card's review state.
+  Study's filters narrow it. A casual way to run a guess-the-anime session
+  from a deck.
 - **Language display** - English, Romaji, and Japanese are each independently
   toggleable and can all be shown at once if desired; Furigana is a separate
   sub-toggle under Japanese (only relevant when Japanese is on). Furigana is

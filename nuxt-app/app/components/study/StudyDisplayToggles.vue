@@ -18,6 +18,8 @@ defineProps<{
   requiredCategories?: RequiredCategories;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
+  // /listen has no answers to grade: Typed Answers does not apply there.
+  listen?: boolean;
 }>();
 const emit = defineEmits<{
   "toggle-hide-video": [];
@@ -39,6 +41,7 @@ const showTypedAnswerCategories = ref(false);
 <template>
   <div class="display-toggles">
     <button
+      v-if="!listen"
       type="button"
       class="toggle-btn"
       :class="{ on: typedAnswers }"
@@ -50,7 +53,7 @@ const showTypedAnswerCategories = ref(false);
       <span class="tooltip">{{ typedAnswersLocked ? "Continue before changing answer mode" : "Remember your preference for typed anime answers" }}</span>
     </button>
     <button
-      v-if="typedAnswers"
+      v-if="typedAnswers && !listen"
       type="button"
       class="categories-btn"
       aria-label="Answer categories"
