@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { browseAnimeMeta } from "~/utils/browseSelection";
+import { needsMorePages } from "~/utils/browseAutoContinue";
 import type { StudyFilters } from "~/utils/studyFilters";
 
 // Client copies of server/utils/deckFilterPreview.ts, same field order.
@@ -49,6 +51,40 @@ const summary = ref<string | null>(null);
 
 const problem = computed(() => studyFiltersProblem(draft.value));
 
+// The "Not in your library yet" section. AniList is searched only once asked,
+// so opening the window or ticking a filter never costs a request before that.
+const anilistRequested = ref(false);
+const anilistSectionRef = ref<HTMLElement | null>(null);
+const sentinelRef = ref<HTMLElement | null>(null);
+const browse = useAniListBrowse(draft);
+const unowned = computed(() => browse.results.value.filter((anime) => !anime.inLibrary));
+const filtersAniListIgnores = computed(() => draft.value.themeTypes.length > 0 || draft.value.listAniListIds !== null);
+let observer: IntersectionObserver | null = null;
+
+// Pages are loaded until enough unowned shows are listed; see needsMorePages.
+async function fillUnowned() {
+  while (
+    anilistRequested.value
+    && !browse.loadError.value
+    && needsMorePages(unowned.value.length, browse.hasNextPage.value, browse.page.value)
+  ) {
+    const before = browse.page.value;
+    await browse.loadMore();
+    if (browse.page.value === before) break;
+  }
+}
+
+async function searchAniList() {
+  if (problem.value) return;
+  anilistRequested.value = true;
+  if (await browse.loadFirst()) await fillUnowned();
+}
+
+async function showAniListSection() {
+  await searchAniList();
+  anilistSectionRef.value?.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
 // Each request takes a number; an answer arriving after a newer request was
 // sent is dropped, so a slow response can't overwrite a fresher list.
 let latestRequest = 0;
@@ -79,7 +115,10 @@ async function loadPreview() {
 watch(draft, () => {
   clearTimeout(debounceTimer);
   if (!props.open || problem.value) return;
-  debounceTimer = setTimeout(() => void loadPreview(), PREVIEW_DEBOUNCE_MS);
+  debounceTimer = setTimeout(() => {
+    void loadPreview();
+    if (anilistRequested.value) void searchAniList();
+  }, PREVIEW_DEBOUNCE_MS);
 }, { deep: true });
 
 watch(
@@ -87,6 +126,8 @@ watch(
   (open) => {
     clearTimeout(debounceTimer);
     latestRequest += 1;
+    anilistRequested.value = false;
+    browse.reset();
     if (!open) {
       createdDeckId.value = null;
       return;
@@ -190,10 +231,21 @@ function onKeydown(event: KeyboardEvent) {
   if (props.open && event.key === "Escape" && !event.isComposing) close();
 }
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+watch(sentinelRef, (el, previous) => {
+  if (previous) observer?.unobserve(previous);
+  if (el) observer?.observe(el);
+});
+
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) void browse.loadMore();
+  });
+});
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
   clearTimeout(debounceTimer);
+  observer?.disconnect();
 });
 </script>
 
@@ -230,9 +282,14 @@ onUnmounted(() => {
               {{ plural(preview.anime.length, "show") }}, {{ plural(preview.totalCards, "card") }}
             </span>
             <span v-if="previewLoading" class="results-loading">Loading...</span>
-            <span v-if="preview?.anime.length" class="tick-actions">
-              <button type="button" class="link-btn" :disabled="submitting" @click="tickAll">Tick all</button>
-              <button type="button" class="link-btn" :disabled="submitting" @click="untickAll">Untick all</button>
+            <span v-if="preview?.anime.length || !anilistRequested" class="tick-actions">
+              <button v-if="!anilistRequested" type="button" class="link-btn" :disabled="Boolean(problem)" @click="showAniListSection">
+                Search AniList for more
+              </button>
+              <template v-if="preview?.anime.length">
+                <button type="button" class="link-btn" :disabled="submitting" @click="tickAll">Tick all</button>
+                <button type="button" class="link-btn" :disabled="submitting" @click="untickAll">Untick all</button>
+              </template>
             </span>
           </div>
           <p v-if="previewError" class="inline-error">{{ previewError }}</p>
@@ -258,6 +315,38 @@ onUnmounted(() => {
               </label>
             </li>
           </ul>
+
+          <section ref="anilistSectionRef" class="anilist-section">
+            <h3 class="section-title">Not in your library yet</h3>
+            <template v-if="!anilistRequested">
+              <p class="empty-note">Find shows on AniList that match these filters and that you have no cards for.</p>
+              <button type="button" class="search-btn" :disabled="Boolean(problem)" @click="searchAniList">Search AniList</button>
+            </template>
+            <template v-else>
+              <p class="results-head">
+                <span v-if="!browse.loading.value">{{ plural(unowned.length, "show") }}{{ browse.hasNextPage.value ? "+" : "" }} on AniList you don't have yet</span>
+                <span v-if="browse.loading.value || browse.loadingMore.value" class="results-loading">Searching AniList...</span>
+              </p>
+              <p v-if="filtersAniListIgnores" class="empty-note">OP/ED and Anime list filters don't apply to AniList results.</p>
+              <p v-if="browse.loadError.value" class="inline-error">{{ browse.loadError.value }}</p>
+              <p v-else-if="!browse.loading.value && !browse.loadingMore.value && !unowned.length" class="empty-note">
+                {{ browse.hasNextPage.value ? "None yet. Scroll to keep searching." : "Every show on AniList that matches these filters is already in your library." }}
+              </p>
+              <ul v-if="unowned.length" class="anime-list">
+                <li v-for="anime in unowned" :key="anime.aniListId">
+                  <div class="anime-row static">
+                    <img v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
+                    <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
+                    <span class="anime-text">
+                      <span class="anime-title">{{ anime.titleRomaji }}</span>
+                      <span class="anime-meta">{{ browseAnimeMeta(anime) }}</span>
+                    </span>
+                  </div>
+                </li>
+              </ul>
+              <div v-if="browse.hasNextPage.value" ref="sentinelRef" class="sentinel" />
+            </template>
+          </section>
         </div>
       </div>
 
@@ -331,6 +420,47 @@ h2 {
   margin: -4px 0 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.anilist-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.search-btn {
+  align-self: flex-start;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.anime-row.static {
+  cursor: default;
+}
+
+.sentinel {
+  height: 1px;
 }
 
 .name-input {

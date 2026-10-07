@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 5250ded496bbd88ea31a91708ed45d7c22102b71c170503a76030e4801efe9b5 -->
+<!-- blueprint:source-hash eefa83cace4660b8bbd78c289cb9da90f4464360bc73710eee886945ac04a9a1 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2456,6 +2456,29 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       counts them as an active filter. No UI.
     - **99b. Mode switch + apply to the list** - done. The modal switch, the
       Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
+100. **AniList matches in the deck filter window** - added to `build-plan.md`
+    2026-10-05, in two sub-features. Feature 77's "Add cards from filters" window
+    searches only the shows already in the library, by design (an anime with no
+    cards would add nothing to a deck), so a user filtering a deck by genre could
+    not find the matching shows they had not imported yet; that path existed only
+    on `/cards`, in Browse by filters (feature 96) with its deck picker (97).
+    The deck window gains a "Not in your library yet" section: after a Search
+    AniList press, the same filters run against AniList's catalog through feature
+    96a's route and list the shows with no cards. Genre, tag, year, season, score
+    and format apply; OP/ED and the Anime list do not, since AniList has neither.
+    Add puts the ticked library shows' cards into the deck, then imports the
+    ticked AniList shows one at a time with feature 94's importer and links their
+    cards to the deck (97a's `deckId`), under the same rules as "Add all", capped
+    at 300 shows per run. Decided at intake: AniList is searched only on request,
+    so filter changes do not hit it every time; the filter options stay the
+    library's own lists; library cards are added first so a cancelled run keeps
+    them. No `project-plan.md` change, like features 73, 77 and 96.
+    - **100a. AniList section in the deck filter window** - done. The Search AniList
+      button and a read-only list of shows not in the library, with infinite
+      scroll that loads until enough unowned shows are listed. Fetching moves into
+      a shared composable that `CardBrowseModal` also uses. No ticks, no import.
+    - **100b. Import and add to the deck** - ticks and the 300 cap; Add runs both
+      parts with one combined summary, keeping what finished on failure or cancel.
 
 ## Data model
 

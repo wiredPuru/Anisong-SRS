@@ -1139,6 +1139,28 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 99b. **Mode switch + apply to the list** - the modal switch, the
     Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
 
+- [ ] 100. **AniList matches in the deck filter window** - "Add cards from
+  filters" (feature 77) gains a **Not in your library yet** section. After you
+  press **Search AniList**, the same filters run against AniList's whole catalog
+  (feature 96) and list the shows you don't have cards for. Genre, tag, year,
+  season, score and format apply. OP/ED and the Anime list don't, because
+  AniList has neither. Each show shows its cover, year and format, ticked by
+  default, most popular first, 50 per page, one run capped at 300. **Add** puts
+  the ticked library shows' cards into the deck as today, then imports the
+  ticked AniList shows one at a time with progress and Cancel (features 94 and
+  97's importer, same rules as "Add all": insert songs follow the Settings
+  toggle, clip-blocked themes are skipped) and adds their cards to the deck
+  too. It works for the "+ New deck" form as well.
+  - [x] 100a. **AniList section in the deck filter window** - the Search
+    AniList button and a read-only list of matching shows you don't have
+    (library shows are left out), with infinite scroll that keeps loading until
+    enough unowned shows are listed. Reuses feature 96a's route through a
+    shared fetch composable that Browse by filters also moves onto. Nothing is
+    ticked or imported yet.
+  - [ ] 100b. **Import and add to the deck** - ticks and the 300 cap, and Add
+    runs both parts with one combined summary; a failed or cancelled run keeps
+    what finished.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

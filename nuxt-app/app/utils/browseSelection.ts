@@ -1,3 +1,5 @@
+import { ANIME_FORMAT_LABELS } from "./studyFilters";
+
 // Client copy of server/utils/anilistBrowseLibrary.ts's BrowseAnime.
 export interface BrowseAnime {
   aniListId: number;
@@ -14,6 +16,13 @@ export interface BrowseAnime {
 }
 
 export const MAX_BROWSE_IMPORT = 300;
+
+/** "2012 · TV · 78%": whatever of year, format and AniList score the show has. */
+export function browseAnimeMeta(anime: BrowseAnime): string {
+  const format = anime.format ? ANIME_FORMAT_LABELS[anime.format] ?? anime.format : null;
+  const score = anime.averageScore !== null ? `${anime.averageScore}%` : null;
+  return [anime.year, format, score].filter(Boolean).join(" · ");
+}
 
 /** A show already holding cards is never selectable, so the Add count matches what runs. */
 export function selectableIds(results: readonly BrowseAnime[]): number[] {

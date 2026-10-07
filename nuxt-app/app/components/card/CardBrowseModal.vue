@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { type BrowseAnime, mergePage, selectedForRun, MAX_BROWSE_IMPORT } from "~/utils/browseSelection";
+import { browseAnimeMeta, selectedForRun, MAX_BROWSE_IMPORT } from "~/utils/browseSelection";
 import { deckTargetProblem, NO_DECK_TARGET, resolveDeckTarget, type DeckTarget } from "~/utils/deckTarget";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import { createLatestRequest } from "~/utils/latestRequest";
 import { libraryFilterActive, libraryQuery, type LibraryFilter } from "~/utils/libraryFilter";
-
-interface BrowseReply {
-  results: BrowseAnime[];
-  hasNextPage: boolean;
-}
 
 const BROWSE_DEBOUNCE_MS = 300;
 
@@ -26,12 +21,7 @@ const downloadedOnly = ref(false);
 const matchCount = ref<number | null>(null);
 const matchLoading = ref(false);
 const matchError = ref<string | null>(null);
-const results = ref<BrowseAnime[]>([]);
-const page = ref(0);
-const hasNextPage = ref(false);
-const loading = ref(false);
-const loadingMore = ref(false);
-const loadError = ref<string | null>(null);
+const { results, hasNextPage, loading, loadingMore, loadError, loadFirst: fetchFirst, loadMore: fetchMore, invalidate } = useAniListBrowse(draft);
 const unticked = ref(new Set<number>());
 const sentinelRef = ref<HTMLElement | null>(null);
 
@@ -52,55 +42,16 @@ const run = computed(() => selectedForRun(results.value, unticked.value));
 const targetProblem = computed(() => deckTargetProblem(deckTarget.value));
 const canAdd = computed(() => !running.value && !loading.value && !problem.value && !targetProblem.value && run.value.ids.length > 0);
 
-const requests = createLatestRequest();
 const matchRequests = createLatestRequest();
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let observer: IntersectionObserver | null = null;
 
-async function fetchPage(nextPage: number): Promise<BrowseReply | null> {
-  const isCurrent = requests.start();
-  try {
-    const reply = await $fetch<BrowseReply>("/api/lookup/anilist-browse", {
-      method: "POST",
-      body: { filters: toBrowseFilters(draft.value), page: nextPage },
-    });
-    return isCurrent() ? reply : null;
-  } catch (err) {
-    if (isCurrent()) loadError.value = extractErrorMessage(err, "Could not search AniList.");
-    return null;
-  }
-}
-
-// A filter change restarts from page 1; an answer that arrives after a newer
-// request was sent is dropped, so a slow response cannot overwrite a fresher list.
 async function loadFirst() {
-  loading.value = true;
-  loadingMore.value = false;
-  loadError.value = null;
-  const reply = await fetchPage(1);
-  if (reply) {
-    results.value = reply.results;
-    page.value = 1;
-    hasNextPage.value = reply.hasNextPage;
-    unticked.value = new Set();
-    loading.value = false;
-  } else if (loadError.value) {
-    loading.value = false;
-  }
+  if (await fetchFirst()) unticked.value = new Set();
 }
 
-async function loadMore() {
-  if (!hasNextPage.value || loading.value || loadingMore.value || running.value) return;
-  loadingMore.value = true;
-  const reply = await fetchPage(page.value + 1);
-  if (reply) {
-    results.value = mergePage(results.value, reply.results);
-    page.value += 1;
-    hasNextPage.value = reply.hasNextPage;
-    loadingMore.value = false;
-  } else if (loadError.value) {
-    loadingMore.value = false;
-  }
+function loadMore() {
+  if (!running.value) void fetchMore();
 }
 
 // The library list route already answers "how many", so the count asks it for
@@ -148,7 +99,7 @@ watch(mode, (next) => {
 
 watch(() => props.open, (open) => {
   clearTimeout(debounceTimer);
-  requests.invalidate();
+  invalidate();
   matchRequests.invalidate();
   if (!open) {
     mode.value = "add";
@@ -175,12 +126,6 @@ watch(sentinelRef, (el, previous) => {
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
-function animeMeta(anime: BrowseAnime): string {
-  const format = anime.format ? ANIME_FORMAT_LABELS[anime.format] ?? anime.format : null;
-  const score = anime.averageScore !== null ? `${anime.averageScore}%` : null;
-  return [anime.year, format, score].filter(Boolean).join(" · ");
 }
 
 function toggle(id: number) {
@@ -326,7 +271,7 @@ onUnmounted(() => {
                   <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
                   <span class="anime-text">
                     <span class="anime-title">{{ anime.titleRomaji }}</span>
-                    <span class="anime-meta">{{ animeMeta(anime) }}</span>
+                    <span class="anime-meta">{{ browseAnimeMeta(anime) }}</span>
                   </span>
                   <span v-if="anime.inLibrary" class="library-badge">In library &middot; {{ plural(anime.cardCount, "card") }}</span>
                 </label>
