@@ -1139,7 +1139,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 99b. **Mode switch + apply to the list** - the modal switch, the
     Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
 
-- [ ] 100. **AniList matches in the deck filter window** - "Add cards from
+- [x] 100. **AniList matches in the deck filter window** - "Add cards from
   filters" (feature 77) gains a **Not in your library yet** section. After you
   press **Search AniList**, the same filters run against AniList's whole catalog
   (feature 96) and list the shows you don't have cards for. Genre, tag, year,
@@ -1157,7 +1157,7 @@ cleaned-up checkbox version before generating the project overview.
     enough unowned shows are listed. Reuses feature 96a's route through a
     shared fetch composable that Browse by filters also moves onto. Nothing is
     ticked or imported yet.
-  - [ ] 100b. **Import and add to the deck** - ticks and the 300 cap, and Add
+  - [x] 100b. **Import and add to the deck** - ticks and the 300 cap, and Add
     runs both parts with one combined summary; a failed or cancelled run keeps
     what finished.
 

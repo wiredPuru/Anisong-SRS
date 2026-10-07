@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { browseAnimeMeta } from "~/utils/browseSelection";
+import { browseAnimeMeta, selectedForRun, MAX_BROWSE_IMPORT } from "~/utils/browseSelection";
+import { combinedAddedCount, summarizeDeckFilterRun } from "~/utils/deckFilterRun";
+import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import { needsMorePages } from "~/utils/browseAutoContinue";
 import type { StudyFilters } from "~/utils/studyFilters";
 
@@ -58,6 +60,12 @@ const anilistSectionRef = ref<HTMLElement | null>(null);
 const sentinelRef = ref<HTMLElement | null>(null);
 const browse = useAniListBrowse(draft);
 const unowned = computed(() => browse.results.value.filter((anime) => !anime.inLibrary));
+// Unticked rather than ticked, as for the library list, so a show that turns up
+// on a later page or after a refresh arrives ticked.
+const anilistUnticked = ref(new Set<number>());
+const anilistRun = computed(() => selectedForRun(browse.results.value, anilistUnticked.value));
+const stopRun = ref(false);
+const importProgress = ref<ImportBatchProgress | null>(null);
 const filtersAniListIgnores = computed(() => draft.value.themeTypes.length > 0 || draft.value.listAniListIds !== null);
 let observer: IntersectionObserver | null = null;
 
@@ -114,7 +122,7 @@ async function loadPreview() {
 // A draft with a problem keeps the last list: the server would only reject it.
 watch(draft, () => {
   clearTimeout(debounceTimer);
-  if (!props.open || problem.value) return;
+  if (!props.open || problem.value || submitting.value) return;
   debounceTimer = setTimeout(() => {
     void loadPreview();
     if (anilistRequested.value) void searchAniList();
@@ -127,6 +135,7 @@ watch(
     clearTimeout(debounceTimer);
     latestRequest += 1;
     anilistRequested.value = false;
+    anilistUnticked.value = new Set();
     browse.reset();
     if (!open) {
       createdDeckId.value = null;
@@ -155,13 +164,42 @@ const tickedAnime = computed(() => (preview.value?.anime ?? []).filter((anime) =
 const tickedCardTotal = computed(() => tickedAnime.value.reduce((sum, anime) => sum + anime.cardCount, 0));
 const hasTarget = computed(() => targetDeckId.value !== null || (props.create === true && name.value.trim() !== ""));
 const canAdd = computed(
-  () => hasTarget.value && !submitting.value && !previewLoading.value && !problem.value && tickedAnime.value.length > 0,
+  () =>
+    hasTarget.value
+    && !submitting.value
+    && !previewLoading.value
+    && !browse.loading.value
+    && !problem.value
+    && (tickedAnime.value.length > 0 || anilistRun.value.ids.length > 0),
 );
+const footerNote = computed(() => {
+  const parts: string[] = [];
+  const importing = anilistRun.value.ids.length > 0;
+  if (preview.value?.anime.length && (tickedAnime.value.length > 0 || !importing)) {
+    parts.push(`${plural(tickedAnime.value.length, "show")}, ${plural(tickedCardTotal.value, "card")}`);
+  }
+  if (importing) parts.push(`${plural(anilistRun.value.ids.length, "AniList show")} to import`);
+  return parts.join(" + ");
+});
 
 function toggleAnime(id: number) {
   const next = new Set(unticked.value);
   if (!next.delete(id)) next.add(id);
   unticked.value = next;
+}
+
+function toggleAniList(id: number) {
+  const next = new Set(anilistUnticked.value);
+  if (!next.delete(id)) next.add(id);
+  anilistUnticked.value = next;
+}
+
+function tickAllAniList() {
+  anilistUnticked.value = new Set();
+}
+
+function untickAllAniList() {
+  anilistUnticked.value = new Set(unowned.value.map((anime) => anime.aniListId));
 }
 
 function tickAll() {
@@ -170,12 +208,6 @@ function tickAll() {
 
 function untickAll() {
   unticked.value = new Set(preview.value?.anime.map((anime) => anime.id));
-}
-
-function describe(result: CopyFilteredResult): string {
-  let text = `Added ${plural(result.added, "card")}`;
-  if (result.alreadyInDeck) text += ` (${result.alreadyInDeck} already in deck)`;
-  return `${text}.`;
 }
 
 // Only a failed create returns null; the error is already shown.
@@ -196,6 +228,8 @@ async function ensureTargetDeck(): Promise<number | null> {
 async function add() {
   if (!canAdd.value) return;
   submitting.value = true;
+  stopRun.value = false;
+  importProgress.value = null;
   error.value = null;
   summary.value = null;
   const wasCreated = createdDeckId.value !== null;
@@ -204,19 +238,39 @@ async function add() {
     submitting.value = false;
     return;
   }
+  // Captured now, so a list refresh while the run is going cannot change it.
+  const animeIds = tickedAnime.value.map((anime) => anime.id);
+  const aniListIds = anilistRun.value.ids;
+  let library: CopyFilteredResult | null = null;
+  let imports: ImportBatchResult | null = null;
   try {
-    const result = await $fetch<CopyFilteredResult>("/api/decks/copy-filtered", {
-      method: "POST",
-      body: { deckId, animeIds: tickedAnime.value.map((anime) => anime.id), filters: shownFilters.value },
-    });
-    summary.value = describe(result);
-    emit("copied", result);
+    if (animeIds.length) {
+      library = await $fetch<CopyFilteredResult>("/api/decks/copy-filtered", {
+        method: "POST",
+        body: { deckId, animeIds, filters: shownFilters.value },
+      });
+    }
+    if (aniListIds.length) {
+      imports = await importAnimeBatch(
+        aniListIds,
+        (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", { method: "POST", body: { aniListId, deckId } }),
+        { shouldStop: () => stopRun.value, onProgress: (value) => (importProgress.value = value) },
+      );
+    }
+    summary.value = summarizeDeckFilterRun(library, imports);
+    emit("copied", { added: combinedAddedCount(library, imports), alreadyInDeck: library?.alreadyInDeck ?? 0 });
   } catch (err) {
     const message = extractErrorMessage(err, "Failed to add cards.");
     // The deck is kept rather than rolled back, so a retry adds into it.
     error.value = props.create && !wasCreated ? `Deck created, but adding cards failed: ${message}` : message;
   } finally {
     submitting.value = false;
+    importProgress.value = null;
+  }
+  // Imported shows now have cards: they join the library list and leave AniList's.
+  if (imports) {
+    void loadPreview();
+    if (anilistRequested.value) void searchAniList();
   }
 }
 
@@ -252,7 +306,7 @@ onUnmounted(() => {
 <template>
   <div v-if="open" class="backdrop" @click.self="close">
     <div class="panel" role="dialog" aria-modal="true" aria-labelledby="deck-filter-cards-title">
-      <button type="button" class="close-btn" aria-label="Close" @click="close">✕</button>
+      <button type="button" class="close-btn" aria-label="Close" :disabled="submitting" @click="close">✕</button>
 
       <h2 id="deck-filter-cards-title">{{ create ? "New deck from filters" : "Add cards from filters" }}</h2>
       <p v-if="create" class="subtitle">Name the deck, then filter your library and pick the shows whose cards it starts with.</p>
@@ -326,6 +380,10 @@ onUnmounted(() => {
               <p class="results-head">
                 <span v-if="!browse.loading.value">{{ plural(unowned.length, "show") }}{{ browse.hasNextPage.value ? "+" : "" }} on AniList you don't have yet</span>
                 <span v-if="browse.loading.value || browse.loadingMore.value" class="results-loading">Searching AniList...</span>
+                <span v-if="unowned.length" class="tick-actions">
+                  <button type="button" class="link-btn" :disabled="submitting" @click="tickAllAniList">Tick all</button>
+                  <button type="button" class="link-btn" :disabled="submitting" @click="untickAllAniList">Untick all</button>
+                </span>
               </p>
               <p v-if="filtersAniListIgnores" class="empty-note">OP/ED and Anime list filters don't apply to AniList results.</p>
               <p v-if="browse.loadError.value" class="inline-error">{{ browse.loadError.value }}</p>
@@ -334,34 +392,49 @@ onUnmounted(() => {
               </p>
               <ul v-if="unowned.length" class="anime-list">
                 <li v-for="anime in unowned" :key="anime.aniListId">
-                  <div class="anime-row static">
+                  <label class="anime-row" :class="{ unticked: anilistUnticked.has(anime.aniListId) }">
+                    <input
+                      type="checkbox"
+                      class="anime-check"
+                      :checked="!anilistUnticked.has(anime.aniListId)"
+                      :disabled="submitting"
+                      @change="toggleAniList(anime.aniListId)"
+                    />
                     <img v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
                     <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
                     <span class="anime-text">
                       <span class="anime-title">{{ anime.titleRomaji }}</span>
                       <span class="anime-meta">{{ browseAnimeMeta(anime) }}</span>
                     </span>
-                  </div>
+                  </label>
                 </li>
               </ul>
+              <p v-if="anilistRun.truncated" class="empty-note">
+                Only the first {{ MAX_BROWSE_IMPORT }} ticked shows are imported per run.
+              </p>
               <div v-if="browse.hasNextPage.value" ref="sentinelRef" class="sentinel" />
             </template>
           </section>
         </div>
       </div>
 
+      <div v-if="submitting && importProgress" class="run-progress" role="status">
+        <span>
+          Importing {{ importProgress.done + 1 }} of {{ importProgress.total }}<span v-if="importProgress.current"> &middot; {{ importProgress.current }}</span>
+        </span>
+        <progress class="run-bar" :value="importProgress.done" :max="importProgress.total" />
+        <button type="button" class="cancel-btn" :disabled="stopRun" @click="stopRun = true">{{ stopRun ? "Stopping..." : "Stop" }}</button>
+      </div>
       <p v-if="summary" class="summary">{{ summary }}</p>
       <p v-if="error" class="inline-error">{{ error }}</p>
 
       <div class="modal-actions">
-        <span v-if="preview?.anime.length" class="picked-note">
-          {{ plural(tickedAnime.length, "show") }}, {{ plural(tickedCardTotal, "card") }}
-        </span>
+        <span v-if="footerNote" class="picked-note">{{ footerNote }}</span>
         <button type="button" class="cancel-btn" :disabled="submitting" @click="close">
           {{ summary ? "Done" : "Cancel" }}
         </button>
         <button type="button" class="done-btn" :disabled="!canAdd" @click="add">
-          {{ submitting ? "Adding..." : create && createdDeckId === null ? "Create and add" : "Add" }}
+          {{ submitting ? (importProgress ? "Importing..." : "Adding...") : create && createdDeckId === null ? "Create and add" : "Add" }}
         </button>
       </div>
     </div>
@@ -455,8 +528,17 @@ h2 {
   cursor: not-allowed;
 }
 
-.anime-row.static {
-  cursor: default;
+.run-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.run-bar {
+  flex: 1;
+  accent-color: var(--accent);
 }
 
 .sentinel {

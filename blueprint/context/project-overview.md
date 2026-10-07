@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash eefa83cace4660b8bbd78c289cb9da90f4464360bc73710eee886945ac04a9a1 -->
+<!-- blueprint:source-hash 9b14f664a8ba5b5d5d2863091cc35fee6b1319bffd33dbf48f4e04014e103e56 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2457,7 +2457,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
     - **99b. Mode switch + apply to the list** - done. The modal switch, the
       Downloaded toggle, "Show N cards", and the clearable chip on `/cards`.
 100. **AniList matches in the deck filter window** - added to `build-plan.md`
-    2026-10-05, in two sub-features. Feature 77's "Add cards from filters" window
+    2026-10-05 and built 2026-10-06, in two sub-features, both done. Feature 77's "Add cards from filters" window
     searches only the shows already in the library, by design (an anime with no
     cards would add nothing to a deck), so a user filtering a deck by genre could
     not find the matching shows they had not imported yet; that path existed only
@@ -2477,7 +2477,7 @@ is a control on feature 86's existing Now playing panel, like feature 91.
       button and a read-only list of shows not in the library, with infinite
       scroll that loads until enough unowned shows are listed. Fetching moves into
       a shared composable that `CardBrowseModal` also uses. No ticks, no import.
-    - **100b. Import and add to the deck** - ticks and the 300 cap; Add runs both
+    - **100b. Import and add to the deck** - done. Ticks and the 300 cap; Add runs both
       parts with one combined summary, keeping what finished on failure or cancel.
 
 ## Data model
