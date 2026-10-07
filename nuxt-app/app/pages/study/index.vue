@@ -8,6 +8,7 @@ import type { BonusCategoryResult, QuizScore } from "~/utils/quizScore";
 import type { BurstRect } from "~/utils/scoreBurst";
 import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
 import { buildSourceLinks } from "~/utils/sourceLinks";
+import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
 
 const route = useRoute();
 const typedAnswers = ref(false);
@@ -802,6 +803,10 @@ const scopeChipLabel = computed(() => {
   return result.scope.type === "all" ? "All decks" : (deckLabel.value ?? "...");
 });
 
+function switchScope(pick: ScopePick) {
+  return navigateTo({ path: route.path, query: scopeToQuery(pick) });
+}
+
 const hideVideo = ref(false);
 const hideInfo = ref(true);
 const hideCover = ref(false);
@@ -1271,7 +1276,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <template v-else-if="currentCard">
       <header class="study-header">
         <div class="header-left">
-          <span class="chip">{{ scopeChipLabel }}</span>
+          <StudyScopePicker
+            :scope="scope"
+            :label="scopeChipLabel"
+            :disabled="Boolean(quizResult) || submissionBusy"
+            @select="switchScope"
+          />
           <span class="counts">
             Card {{ reviewedCount + (quizResult ? 0 : 1) }}
             <span class="sep" aria-hidden="true">&middot;</span>
@@ -1798,19 +1808,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 13px;
   font-weight: 700;
   text-align: center;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .counts {

@@ -2,6 +2,7 @@
 import type { StudyFilters } from "~/utils/studyFilters";
 import type { StudyScope } from "~/composables/useStudySession";
 import { buildSourceLinks } from "~/utils/sourceLinks";
+import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
 
 const route = useRoute();
 
@@ -158,6 +159,10 @@ async function fetchDeckLabel() {
 watch(scopeResult, fetchDeckLabel, { immediate: true });
 
 const scopeChipLabel = computed(() => (scope.value?.type === "all" ? "All decks" : (deckLabel.value ?? "...")));
+
+function switchScope(pick: ScopePick) {
+  return navigateTo({ path: route.path, query: scopeToQuery(pick) });
+}
 const progress = computed(() => (total.value ? Math.round(((finished.value ? total.value : index.value) / total.value) * 100) : 0));
 const canGoBack = computed(() => finished.value || index.value > 0);
 
@@ -221,7 +226,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <template v-else-if="currentCard">
       <header class="listen-header">
         <div class="header-left">
-          <span class="chip">{{ scopeChipLabel }}</span>
+          <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
           <span class="counts">{{ positionLabel(index, total) }}</span>
           <div
             class="progress"
@@ -481,19 +486,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   margin: 0;
   color: var(--faint);
   font-size: 12px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .counts {
