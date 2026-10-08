@@ -18,6 +18,7 @@ defineProps<{
   requiredCategories?: RequiredCategories;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
+  autoplay: boolean;
   // /listen has no answers to grade: Typed Answers does not apply there.
   listen?: boolean;
 }>();
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   "toggle-random-start": [];
   "toggle-ambient-mode": [];
   "toggle-audio-only": [];
+  "toggle-autoplay": [];
   "toggle-typed-answers": [];
   "update:typed-answer-categories": [TypedAnswerCategories];
   "update:auto-reveal-mode": [AutoRevealMode];
@@ -118,6 +120,16 @@ const showTypedAnswerCategories = ref(false);
       <span class="tooltip">
         {{ typedAnswers ? "Submits your answer when its timer runs out" : "Choose what it hides (video/cover, info, or both) and its timer" }}
       </span>
+    </button>
+    <button
+      type="button"
+      class="toggle-btn"
+      :class="{ on: autoplay }"
+      :aria-pressed="autoplay"
+      @click="emit('toggle-autoplay')"
+    >
+      Autoplay
+      <span class="tooltip">Starts each song by itself. Downloads it first if it is not saved yet.</span>
     </button>
     <button
       type="button"

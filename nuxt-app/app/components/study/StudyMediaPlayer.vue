@@ -30,6 +30,12 @@ const props = defineProps<{
   // For a player the user opened with a Play press of its own, so that one
   // press starts the clip instead of leaving a second "Ready?" click.
   startOnMount?: boolean;
+  // Starts the clip by itself on mount, saving a remote-only one to the
+  // library first when a default download folder is set.
+  autoplay?: boolean;
+  // Seconds the host will play before moving on, so Random start leaves room
+  // for all of them. Unset or 0 keeps the plain end margin.
+  playLength?: number;
   clipSource?: "anisongdb" | "both" | "animethemes";
 }>();
 const emit = defineEmits<{
@@ -37,6 +43,7 @@ const emit = defineEmits<{
   "update:media-kind": ["video" | "audio"];
   "playback-started": [];
   "playback-paused": [];
+  "playback-ended": [];
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
 }>();
@@ -249,6 +256,9 @@ function markBuffering() {
 // pending play request and leaves the element paused WITHOUT a `pause` event,
 // so neither `isPlaying` nor anything else hears about it.
 let playWanted = false;
+// Set while the play request in flight is an autoplay one, including the
+// replay after its download swaps the source, so a browser refusal stays quiet.
+let quietPlay = false;
 watch(
   () => props.card.id,
   () => {
@@ -363,11 +373,6 @@ function onTimeUpdate() {
   if (activeEl.value) currentTime.value = activeEl.value.currentTime;
 }
 
-function randomStartTime(resolvedDuration: number): number {
-  const safeRange = resolvedDuration - 15;
-  return safeRange > 0 ? Math.random() * safeRange : Math.random() * resolvedDuration;
-}
-
 function onLoadedMetadata() {
   const el = activeEl.value;
   if (!el) return;
@@ -375,7 +380,7 @@ function onLoadedMetadata() {
   if (Number.isFinite(el.duration) && el.duration > 0) {
     duration.value = el.duration;
     if (props.randomStart) {
-      el.currentTime = randomStartTime(el.duration);
+      el.currentTime = randomStartTime(el.duration, props.playLength);
     }
     return;
   }
@@ -401,7 +406,7 @@ function onLoadedMetadata() {
     if (!isResolved && durationAttempts < MAX_DURATION_ATTEMPTS) return;
     el.removeEventListener("durationchange", onDurationChange);
     duration.value = isResolved ? resolved : 0;
-    el.currentTime = props.randomStart && isResolved ? randomStartTime(resolved) : 0;
+    el.currentTime = props.randomStart && isResolved ? randomStartTime(resolved, props.playLength) : 0;
   };
   el.addEventListener("durationchange", onDurationChange);
   el.currentTime = 1e101;
@@ -537,11 +542,42 @@ function triggerAutoDownload(kind: "video" | "audio" | null) {
   runDownload(kind);
 }
 
-onMounted(() => triggerAutoDownload(autoDownloadTarget.value));
+const autoplayPlan = computed(() =>
+  planAutoplay({
+    autoplay: Boolean(props.autoplay),
+    hasSource: Boolean(src.value),
+    canDownloadFirst: props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
+  }),
+);
+
+// The autoplay download is the one download for this mount, so Auto Download
+// must not start a second one for the same card and kind.
+onMounted(() => {
+  if (autoplayPlan.value !== "download-then-play") triggerAutoDownload(autoDownloadTarget.value);
+});
 watch(autoDownloadTarget, (kind) => triggerAutoDownload(kind));
 onMounted(() => {
   if (props.startOnMount) nextTick(playIfPaused);
 });
+onMounted(() => {
+  if (autoplayPlan.value !== "none") runAutoplay(autoplayPlan.value);
+});
+
+const savingForAutoplay = ref<"video" | "audio" | null>(null);
+
+async function runAutoplay(plan: "play" | "download-then-play") {
+  quietPlay = true;
+  if (plan === "download-then-play") {
+    const kind = mediaKind.value;
+    savingForAutoplay.value = kind;
+    // A failed download is already reported through downloadError; the
+    // remote stream still plays.
+    await retryDownload(kind);
+    savingForAutoplay.value = null;
+    await nextTick();
+  }
+  playIfPaused();
+}
 
 function playIfPaused() {
   const el = activeEl.value;
@@ -560,6 +596,11 @@ function playIfPaused() {
     // ours, the same way MEDIA_ERR_ABORTED is in onError.
     if (error?.name === "AbortError") return;
     playWanted = false;
+    // The browser holds back autoplay until the page has had a click or key
+    // press, so the first song after a reload stays on "Ready?".
+    const quiet = quietPlay;
+    quietPlay = false;
+    if (quiet && error?.name === "NotAllowedError") return;
     errorMessage.value = "Couldn't play this clip.";
     // Without a kind the veil below renders its message and no actions at
     // all, which is the dead end this fix exists to remove.
@@ -570,6 +611,7 @@ function playIfPaused() {
 function togglePlay() {
   const el = activeEl.value;
   if (!el) return;
+  quietPlay = false;
   if (el.paused) playIfPaused();
   else el.pause();
 }
@@ -821,6 +863,7 @@ function onPlay() {
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
   hasStarted.value = true;
+  quietPlay = false;
   markPlayable();
   emit("playback-started");
 }
@@ -962,6 +1005,7 @@ onUnmounted(() => stopDrag?.());
         @play="onPlay"
         @playing="onPlaying"
         @pause="onPause"
+        @ended="emit('playback-ended')"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @loadeddata="onLoadedData"
@@ -983,6 +1027,7 @@ onUnmounted(() => stopDrag?.());
         @play="onPlay"
         @playing="onPlaying"
         @pause="onPause"
+        @ended="emit('playback-ended')"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @loadeddata="onLoadedData"
@@ -1083,7 +1128,14 @@ onUnmounted(() => stopDrag?.());
         :style="raisedStyle"
         @click="togglePlay"
       >
-        <template v-if="showLoadingMessage">
+        <StudyPlayerKai v-if="savingForAutoplay" mood="loading">
+          <DownloadProgress
+            :label="`Downloading ${savingForAutoplay}`"
+            :request-key="downloadKey(card.id, savingForAutoplay)"
+            :progress="downloadProgress[downloadKey(card.id, savingForAutoplay)]"
+          />
+        </StudyPlayerKai>
+        <template v-else-if="showLoadingMessage">
           <StudyPlayerKai mood="loading">
             <ActivityStatus :label="`Loading ${mediaKind}`" :request-key="loadAttempt" />
           </StudyPlayerKai>

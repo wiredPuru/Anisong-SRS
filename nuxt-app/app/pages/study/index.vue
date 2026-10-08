@@ -92,6 +92,8 @@ const clipSource = computed(() => studySettings.value?.clipSource ?? "anisongdb"
 // exactly what caused features 18 and 32 to be abandoned (overlapping
 // audio streams). Resets every visit, like Hide Video/Hide Info/Random
 // start already do; never persisted to localStorage.
+const { autoplayNext, toggle: toggleAutoplay } = useAutoplayNext();
+
 const sessionAudioOnlyOverride = ref<boolean | null>(null);
 
 // Read during setup, not onMounted: the session's first fetch fires from an
@@ -1331,6 +1333,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :random-start="randomStart"
             :ambient-mode="ambientMode"
             :audio-only="effectiveAudioOnly"
+            :autoplay="autoplayNext"
             :typed-answers="typedAnswers"
             :typed-answers-locked="Boolean(quizResult)"
             :typed-answer-categories="typedAnswerCategories"
@@ -1345,6 +1348,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @toggle-random-start="randomStart = !randomStart"
             @toggle-ambient-mode="ambientMode = !ambientMode"
             @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
+            @toggle-autoplay="toggleAutoplay"
             @update:auto-reveal-seconds="onUpdateAutoRevealSeconds"
           />
           <button
@@ -1396,6 +1400,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :has-default-download-folder="hasDefaultDownloadFolder"
             :audio-only="playerAudioOnly"
             :auto-download="autoDownload"
+            :autoplay="autoplayNext"
             :clip-source="clipSource"
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
             :guessing="typedAnswers && !quizResult"

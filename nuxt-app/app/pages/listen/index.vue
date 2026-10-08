@@ -93,6 +93,19 @@ watch(presentationKey, () => {
   playerAudioOnly.value = effectiveAudioOnly.value;
 });
 
+const { autoplayNext, toggle: toggleAutoplay } = useAutoplayNext();
+
+// Autoplay also carries the playlist on by itself. Each song advances at most
+// once, so an ended clip and a later trigger for the same song cannot skip two.
+let advancedFrom = -1;
+function advanceOnce() {
+  if (!autoplayNext.value || advancedFrom === presentationKey.value) return;
+  advancedFrom = presentationKey.value;
+  next();
+}
+
+const playLimit = useListenPlayLimit(autoplayNext, presentationKey, advanceOnce);
+
 const hideVideo = ref(false);
 const hideInfo = ref(true);
 const hideCover = ref(false);
@@ -174,6 +187,16 @@ function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
   patchCurrent(kind === "video" ? { localVideoPath: null } : { localAudioPath: null });
 }
 
+function onPlaybackStarted() {
+  autoReveal.onPlaybackStarted();
+  playLimit.onPlaybackStarted();
+}
+
+function onPlaybackPaused() {
+  autoReveal.onPlaybackPaused();
+  playLimit.onPlaybackPaused();
+}
+
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
@@ -252,6 +275,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           >
             Shuffle
           </button>
+          <select
+            v-model.number="playLimit.seconds.value"
+            class="header-btn play-length"
+            aria-label="How much of each song to play"
+            :disabled="!autoplayNext"
+            :title="autoplayNext ? 'How much of each song to hear before moving on' : 'Needs Autoplay on'"
+          >
+            <option v-for="length in PLAY_LENGTH_OPTIONS" :key="length" :value="length">
+              {{ length === 0 ? "Play: Full song" : `Play: ${formatPlayLength(length)}` }}
+            </option>
+          </select>
           <button type="button" class="header-btn" :disabled="!anythingVeiled" @click="reveal">Reveal</button>
           <button type="button" class="header-btn" :disabled="!canGoBack" @click="previous">&larr; Previous</button>
           <button type="button" class="header-btn" @click="next">Next &rarr;</button>
@@ -266,6 +300,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           :random-start="randomStart"
           :ambient-mode="ambientMode"
           :audio-only="effectiveAudioOnly"
+          :autoplay="autoplayNext"
           :typed-answers="false"
           :typed-answers-locked="false"
           :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
@@ -277,6 +312,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @toggle-random-start="randomStart = !randomStart"
           @toggle-ambient-mode="ambientMode = !ambientMode"
           @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
+          @toggle-autoplay="toggleAutoplay"
           @update:auto-reveal-seconds="autoReveal.setSeconds"
         />
         <p v-if="skippedCount || capped" class="header-note">
@@ -297,9 +333,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :has-default-download-folder="hasDefaultDownloadFolder"
             :audio-only="playerAudioOnly"
             :auto-download="autoDownload"
+            :autoplay="autoplayNext"
+            :play-length="autoplayNext ? playLimit.seconds.value : 0"
             :clip-source="clipSource"
-            @playback-started="autoReveal.onPlaybackStarted"
-            @playback-paused="autoReveal.onPlaybackPaused"
+            @playback-started="onPlaybackStarted"
+            @playback-paused="onPlaybackPaused"
+            @playback-ended="advanceOnce"
             @local-path-updated="onLocalPathUpdated"
             @local-path-cleared="onLocalPathCleared"
             @update:media-kind="currentMediaKind = $event"
@@ -443,6 +482,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .header-btn:hover:not(:disabled),
 .ghost-btn:hover {
   color: var(--text);
+}
+
+.play-length {
+  appearance: auto;
 }
 
 .header-btn:disabled {
