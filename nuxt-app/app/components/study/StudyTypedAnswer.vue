@@ -164,17 +164,48 @@ small { display: block; color: var(--muted); }
 p { margin: 0; font-size: 12px; color: var(--muted); }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* The study page's .answer-stack owns the placement inside the player frame;
-   this stays relative only so the suggestion list anchors to it. */
+/* Inside Study's Now playing bar: the input, then Guess and Give up on one
+   row, with the status line quiet underneath. Suggestions open upward, over
+   the picture, since the bar sits at the bottom of the screen. */
 .typed-answer.overlay {
   position: relative;
-  padding: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--glass-surface);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-soft);
+  gap: 6px 10px;
+}
+
+.overlay input {
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.overlay input:focus,
+.overlay input:focus-visible {
+  outline: none;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+.overlay ul {
+  padding: 6px;
+  border-radius: 14px;
+  border-color: var(--border);
+  background: #141418;
+}
+
+.overlay li {
+  padding: 9px 12px;
+  border-radius: 10px;
+}
+
+.overlay li.active,
+.overlay li:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
 }
 
 .overlay label {
@@ -189,21 +220,41 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   border: 0;
 }
 
+.overlay button {
+  height: 52px;
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.overlay .submit-btn {
+  border: 0;
+  background: #ffffff;
+  color: #0b0b0d;
+}
+
+.overlay .give-up-btn {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .overlay input { grid-column: 1; grid-row: 1; min-width: 0; }
 .typed-answer.overlay.has-selection { grid-template-columns: minmax(0, 1fr) auto auto; }
 .overlay .submit-btn { grid-column: 2; grid-row: 1; }
 .overlay .give-up-btn { grid-column: 2; grid-row: 1; }
 .overlay.has-selection .give-up-btn { grid-column: 3; }
-.overlay .answer-status { grid-column: 1 / -1; grid-row: 2; }
+.overlay .answer-status { grid-column: 1 / -1; grid-row: 2; padding-left: 4px; color: var(--faint); }
 .overlay .answer-unavailable { grid-column: 1 / -1; grid-row: 3; }
 
 .overlay ul {
   position: absolute;
-  right: 0;
   bottom: calc(100% + 8px);
   left: 0;
-  max-height: min(220px, 42vh);
-  box-shadow: var(--shadow-soft);
+  width: min(100%, 560px);
+  z-index: 20;
+  max-height: min(280px, 46vh);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
 @media (max-width: 600px) {

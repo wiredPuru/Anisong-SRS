@@ -176,7 +176,6 @@ const scopeChipLabel = computed(() => (scope.value?.type === "all" ? "All decks"
 function switchScope(pick: ScopePick) {
   return navigateTo({ path: route.path, query: scopeToQuery(pick) });
 }
-const progress = computed(() => (total.value ? Math.round(((finished.value ? total.value : index.value) / total.value) * 100) : 0));
 const canGoBack = computed(() => finished.value || index.value > 0);
 
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
@@ -197,6 +196,26 @@ function onPlaybackPaused() {
   playLimit.onPlaybackPaused();
 }
 
+const playerPaneRef = ref<HTMLElement | null>(null);
+const stageStyle = usePlayerFrameBox(playerPaneRef, presentationKey);
+
+const DETAILS_STORAGE_KEY = "gaqSrs:listenDetails";
+const showDetails = ref(false);
+onMounted(() => {
+  try {
+    showDetails.value = localStorage.getItem(DETAILS_STORAGE_KEY) === "1";
+  } catch {
+    showDetails.value = false;
+  }
+});
+watch(showDetails, (open) => {
+  try {
+    localStorage.setItem(DETAILS_STORAGE_KEY, open ? "1" : "0");
+  } catch {
+    // Not remembered without storage; the drawer still opens and closes.
+  }
+});
+
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
@@ -209,6 +228,7 @@ function onKeydown(event: KeyboardEvent) {
   else if (key === "c") hideCover.value = !hideCover.value;
   else if (key === "a") ambientMode.value = !ambientMode.value;
   else if (key === "r") reveal();
+  else if (key === "d") showDetails.value = !showDetails.value;
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -247,87 +267,95 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </div>
     </div>
     <template v-else-if="currentCard">
-      <header class="listen-header">
+      <header class="listen-header on-picture">
         <div class="header-left">
           <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
-          <span class="counts">{{ positionLabel(index, total) }}</span>
-          <div
-            class="progress"
-            role="progressbar"
-            aria-label="Playlist progress"
-            :aria-valuenow="progress"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <span class="progress-fill" :style="{ width: `${progress}%` }" />
-          </div>
         </div>
         <div class="header-right">
-          <button type="button" class="header-btn" :class="{ active: activeFilterCount > 0 }" @click="showFilters = true">
-            Filters<span v-if="activeFilterCount" class="filters-badge">{{ activeFilterCount }}</span>
+          <StudyDisplayMenu label="Display">
+            <StudyDisplayToggles
+              listen
+              :hide-video="hideVideo"
+              :hide-info="hideInfo"
+              :hide-cover="hideCover"
+              :media-kind="currentMediaKind"
+              :random-start="randomStart"
+              :ambient-mode="ambientMode"
+              :audio-only="effectiveAudioOnly"
+              :autoplay="autoplayNext"
+              :typed-answers="false"
+              :typed-answers-locked="false"
+              :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
+              v-model:auto-reveal-mode="autoReveal.mode.value"
+              :auto-reveal-seconds="autoReveal.seconds.value"
+              @toggle-hide-video="hideVideo = !hideVideo"
+              @toggle-hide-info="hideInfo = !hideInfo"
+              @toggle-hide-cover="hideCover = !hideCover"
+              @toggle-random-start="randomStart = !randomStart"
+              @toggle-ambient-mode="ambientMode = !ambientMode"
+              @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
+              @toggle-autoplay="toggleAutoplay"
+              @update:auto-reveal-seconds="autoReveal.setSeconds"
+            />
+            <button
+              type="button"
+              class="menu-toggle"
+              :class="{ on: shuffle }"
+              :aria-pressed="shuffle"
+              @click="shuffle = !shuffle"
+            >
+              Shuffle
+            </button>
+              <select
+                v-model.number="playLimit.seconds.value"
+                class="menu-select"
+                aria-label="How much of each song to play"
+                :disabled="!autoplayNext"
+                :title="autoplayNext ? 'How much of each song to hear before moving on' : 'Needs Autoplay on'"
+              >
+                <option v-for="length in PLAY_LENGTH_OPTIONS" :key="length" :value="length">
+                  {{ length === 0 ? "Play: Full song" : `Play: ${formatPlayLength(length)}` }}
+                </option>
+              </select>
+          </StudyDisplayMenu>
+          <button
+            type="button"
+            class="icon-btn"
+            :class="{ active: activeFilterCount > 0 }"
+            aria-label="Filters"
+            @click="showFilters = true"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" /></svg>
+            <span v-if="activeFilterCount" class="icon-badge">{{ activeFilterCount }}</span>
+            <span class="tooltip">Filters</span>
           </button>
           <button
             type="button"
-            class="header-btn"
-            :class="{ active: shuffle }"
-            :aria-pressed="shuffle"
-            @click="shuffle = !shuffle"
+            class="icon-btn"
+            :class="{ active: showDetails }"
+            aria-label="Details"
+            :aria-pressed="showDetails"
+            @click="showDetails = !showDetails"
           >
-            Shuffle
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
+            <span class="tooltip">Details &middot; D</span>
           </button>
-          <select
-            v-model.number="playLimit.seconds.value"
-            class="header-btn play-length"
-            aria-label="How much of each song to play"
-            :disabled="!autoplayNext"
-            :title="autoplayNext ? 'How much of each song to hear before moving on' : 'Needs Autoplay on'"
-          >
-            <option v-for="length in PLAY_LENGTH_OPTIONS" :key="length" :value="length">
-              {{ length === 0 ? "Play: Full song" : `Play: ${formatPlayLength(length)}` }}
-            </option>
-          </select>
-          <button type="button" class="header-btn" :disabled="!anythingVeiled" @click="reveal">Reveal</button>
-          <button type="button" class="header-btn" :disabled="!canGoBack" @click="previous">&larr; Previous</button>
-          <button type="button" class="header-btn" @click="next">Next &rarr;</button>
         </div>
-        <StudyDisplayToggles
-          class="header-toggles"
-          listen
-          :hide-video="hideVideo"
-          :hide-info="hideInfo"
-          :hide-cover="hideCover"
-          :media-kind="currentMediaKind"
-          :random-start="randomStart"
-          :ambient-mode="ambientMode"
-          :audio-only="effectiveAudioOnly"
-          :autoplay="autoplayNext"
-          :typed-answers="false"
-          :typed-answers-locked="false"
-          :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
-          v-model:auto-reveal-mode="autoReveal.mode.value"
-          :auto-reveal-seconds="autoReveal.seconds.value"
-          @toggle-hide-video="hideVideo = !hideVideo"
-          @toggle-hide-info="hideInfo = !hideInfo"
-          @toggle-hide-cover="hideCover = !hideCover"
-          @toggle-random-start="randomStart = !randomStart"
-          @toggle-ambient-mode="ambientMode = !ambientMode"
-          @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
-          @toggle-autoplay="toggleAutoplay"
-          @update:auto-reveal-seconds="autoReveal.setSeconds"
-        />
         <p v-if="skippedCount || capped" class="header-note">
           <template v-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song was" : "songs were" }} left out: no playable clip with your Clip source setting.</template>
           <template v-if="capped"> Showing the first {{ total + skippedCount }} songs.</template>
         </p>
       </header>
-      <div class="listen-grid">
-        <div class="player-pane">
+      <div class="stage" :style="stageStyle">
+        <div ref="playerPaneRef" class="player-pane on-picture">
           <StudyMediaPlayer
             :key="presentationKey"
             :card="currentCard"
             :hide-video="videoHidden"
             :hide-cover="coverHidden"
-            :hide-theme-badge="infoHidden"
+            hide-theme-badge
+            tint-chrome
+            :last-played="{ songTitle: currentCard.songTitle, animeTitle: currentCard.animeTitleEnglish }"
             :random-start="randomStart"
             :ambient="ambientMode"
             :has-default-download-folder="hasDefaultDownloadFolder"
@@ -344,18 +372,22 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @update:media-kind="currentMediaKind = $event"
           >
             <template #error-actions>
-              <button type="button" class="header-btn" @click="next">Next song &rarr;</button>
+              <button type="button" class="transport-btn" @click="next">Next song &rarr;</button>
             </template>
-          </StudyMediaPlayer>
-        </div>
-        <div class="side">
-          <div class="side-scroll">
-            <div class="info-panel-wrap">
+            <template #overlay>
               <StudyAutoRevealCountdown
                 v-if="autoReveal.countdownActive.value"
                 :seconds="autoReveal.displaySeconds.value"
                 :ambient="ambientMode"
               />
+            </template>
+          </StudyMediaPlayer>
+          <StudyDetailsCard
+            :open="showDetails"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="infoHidden"
+          >
+            <div class="info-panel-wrap">
               <StudyInfoPanel
                 :blurred="infoHidden"
                 :inert="infoHidden"
@@ -380,7 +412,46 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 @click="reveal"
               />
             </div>
-          </div>
+          </StudyDetailsCard>
+        </div>
+        <div class="np-wrap">
+          <StudyNowPlaying
+            class="on-picture"
+            :theme-slot="currentCard.themeSlot"
+            :anime-title-english="currentCard.animeTitleEnglish"
+            :anime-title-native="currentCard.animeTitleNative"
+            :song-title="currentCard.songTitle"
+            :artist-name="currentCard.artistName"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="infoHidden"
+            hidden-line="Click to reveal"
+            revealable
+            @reveal="reveal"
+          >
+            <div class="transport" role="group" aria-label="Playlist">
+              <button
+                v-if="anythingVeiled && !infoHidden"
+                type="button"
+                class="transport-btn"
+                @click="reveal"
+              >
+                Reveal <kbd>R</kbd>
+              </button>
+              <button
+                type="button"
+                class="transport-btn round"
+                aria-label="Previous song"
+                :disabled="!canGoBack"
+                @click="previous"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
+              </button>
+              <span class="position">{{ positionLabel(index, total) }}</span>
+              <button type="button" class="transport-btn next" @click="next">
+                Next <kbd>&rarr;</kbd>
+              </button>
+            </div>
+          </StudyNowPlaying>
         </div>
       </div>
     </template>
@@ -401,20 +472,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* Ambient mode lets the glow run under the header and side column too, so it
-   fades out evenly instead of stopping at their opaque edges. */
-.listen.ambient .listen-header,
-.listen.ambient .side {
-  background: var(--ambient-chrome-surface);
-  border-color: var(--glass-border);
-}
-
-.listen.ambient .header-btn,
-.listen.ambient :deep(.scope-picker > .chip) {
-  background: var(--glass-surface);
-  backdrop-filter: var(--glass-blur);
 }
 
 .state {
@@ -457,7 +514,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .primary-btn,
 .ghost-btn,
-.header-btn {
+.menu-toggle,
+.menu-select {
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
@@ -476,47 +534,41 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   color: var(--accent-ink);
 }
 
-.filters-badge {
-  min-width: 18px;
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-secondary);
-  color: var(--accent-secondary-ink);
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-}
-
-.header-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.header-btn:hover:not(:disabled),
 .ghost-btn:hover {
   color: var(--text);
 }
 
-.play-length {
-  appearance: auto;
+.menu-toggle,
+.menu-select {
+  padding: 8px 14px;
+  background: var(--surface);
+  text-align: left;
 }
 
-.header-btn:disabled {
+.menu-toggle.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu-select:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
+/* No strip: the header floats over the page as a few chips and icon
+   buttons, so the stage below reads as the whole screen. */
 .listen-header {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 16px;
-  padding: 12px 20px;
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--border);
+  gap: 10px 16px;
+  padding: 14px 24px 18px;
+  /* No wash behind the header: every control carries its own dark pill, and
+     on an ultrawide screen a wash would end in a hard edge where the content
+     column is capped. */
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
 }
 
 .header-left,
@@ -532,10 +584,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .header-right {
-  gap: 6px;
-  flex: 0 1 auto;
-  min-width: 0;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .header-note {
@@ -545,72 +594,114 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 12px;
 }
 
-.counts {
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.progress {
-  flex: 0 1 230px;
-  min-width: 60px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  overflow: hidden;
-}
-
-.progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
-}
-
-.listen-grid {
+/* The video takes the stage; the Now playing bar sits under it, as wide as
+   the picture. */
+.stage {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 480px);
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 28px 26px;
 }
 
 .player-pane {
   position: relative;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 24px;
 }
 
 .player-pane :deep(.player-card) {
   min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-.side {
-  min-width: 0;
-  min-height: 0;
+.player-pane :deep(.player-frame) {
+  border: 0;
+  border-radius: 22px;
+  box-shadow:
+    0 0 110px 20px rgba(var(--amb-rgb, 150, 150, 165), 0.28),
+    0 22px 48px rgba(0, 0, 0, 0.5);
+}
+
+.np-wrap {
+  flex: none;
+  align-self: center;
+  width: max(min(100%, 820px), var(--frame-w, 100%));
+  max-width: 100%;
+}
+
+.transport {
+  flex: none;
   display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 26px;
-  overflow: hidden;
-  background: var(--surface-sunken);
-  border-left: 1px solid var(--border);
+  align-items: center;
+  gap: 8px;
 }
 
-.header-toggles {
-  flex: 0 0 100%;
+.transport-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: 700 15px var(--font-sans);
+  cursor: pointer;
+}
+
+.transport-btn.round {
+  justify-content: center;
+  width: 48px;
+  padding: 0;
+}
+
+.transport-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.transport-btn.next {
+  border-color: transparent;
+  background: #ffffff;
+  color: #0b0b0d;
+}
+
+.transport-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.transport-btn kbd {
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.position {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .info-panel-wrap {
   position: relative;
-}
-
-.info-panel-wrap :deep(.auto-reveal-countdown) {
-  pointer-events: none;
 }
 
 .info-reveal-target {
@@ -623,31 +714,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: pointer;
 }
 
-.side > .side-scroll {
-  flex: 0 1 auto;
-  min-height: 0;
-  margin: -6px;
-  padding: 6px;
-  overflow-y: auto;
-}
-
 @media (max-width: 820px) {
   .header-left {
     flex-wrap: wrap;
   }
 
-  .listen-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .side {
-    overflow: visible;
-    border-left: none;
-    border-top: 1px solid var(--border);
-  }
-
-  .side > .side-scroll {
-    overflow: visible;
+  .stage {
+    padding: 4px 14px 16px;
   }
 }
 </style>

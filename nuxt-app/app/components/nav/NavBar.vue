@@ -66,7 +66,7 @@ function isActive(to: string): boolean {
   gap: 6px;
   padding: 18px 0;
   background: var(--surface-sunken);
-  border-right: 2px solid var(--outline);
+  border-right: 1px solid var(--outline);
 }
 
 /* Kai's head as the rail's logo (84e), after the head on the sheet's
@@ -117,6 +117,11 @@ function isActive(to: string): boolean {
 .nav-icon {
   font-size: 17px;
   line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.nav-link:hover .nav-icon {
+  transform: translateY(-1px) scale(1.12);
 }
 
 .nav-label {
@@ -178,8 +183,13 @@ function isActive(to: string): boolean {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-logo {
+  .nav-logo,
+  .nav-icon {
     transition: none;
+  }
+
+  .nav-link:hover .nav-icon {
+    transform: none;
   }
 }
 </style>

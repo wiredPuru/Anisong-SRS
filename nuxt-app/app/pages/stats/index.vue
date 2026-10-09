@@ -1227,6 +1227,7 @@ function setType(type: StatsType) {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  min-height: var(--header-height);
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
@@ -1258,6 +1259,7 @@ function setType(type: StatsType) {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--surface);
 }
 
 .tab-seg-btn {
@@ -1277,8 +1279,8 @@ function setType(type: StatsType) {
 }
 
 .tab-seg-btn.active {
-  background: var(--surface-raised);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 
 .track-picker {
@@ -1313,8 +1315,8 @@ function setType(type: StatsType) {
 .refresh-btn {
   flex: none;
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);
@@ -1335,16 +1337,29 @@ function setType(type: StatsType) {
   gap: 10px;
 }
 
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Quiet at rest, so the one destructive control in the header does not
+   outshout the filters beside it; it takes the wrong-answer colour on hover. */
 .clear-btn {
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--fail);
-  background: transparent;
-  color: var(--fail);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--muted);
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+}
+
+.clear-btn:hover:not(:disabled),
+.clear-btn:focus-visible {
+  border-color: var(--fail);
+  color: var(--fail);
 }
 
 .clear-btn:disabled {
@@ -1362,7 +1377,7 @@ function setType(type: StatsType) {
 .clear-confirm-btn,
 .clear-cancel-btn {
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 13px;

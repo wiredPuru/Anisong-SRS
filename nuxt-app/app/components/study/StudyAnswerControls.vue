@@ -33,21 +33,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <button
       v-if="awaitingReveal"
       type="button"
-      class="reveal-btn"
+      class="grade-btn reveal"
       :disabled="disabled"
       @click="emit('reveal')"
     >
-      <span class="answer-label">Reveal</span>
-      <span class="key">Enter</span>
+      Reveal <kbd>Enter</kbd>
     </button>
     <template v-else>
-      <button type="button" class="answer-btn fail" :disabled="disabled" @click="emit('fail')">
-        <span class="answer-label">Fail</span>
-        <span class="key">&larr; Arrow</span>
+      <button type="button" class="grade-btn fail" :disabled="disabled" @click="emit('fail')">
+        Missed <kbd aria-label="Left arrow">&larr;</kbd>
       </button>
-      <button type="button" class="answer-btn pass" :disabled="disabled" @click="emit('pass')">
-        <span class="answer-label">Pass</span>
-        <span class="key">Arrow &rarr;</span>
+      <button type="button" class="grade-btn pass" :disabled="disabled" @click="emit('pass')">
+        Got it <kbd aria-label="Right arrow">&rarr;</kbd>
       </button>
     </template>
   </div>
@@ -55,122 +52,55 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 <style scoped>
 .answer-bar {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 12px;
 }
 
-/* Arcade cabinet buttons: a solid lip under each one (box-shadow 0 4px 0)
-   rather than a soft drop shadow, so they read as physical keys. The lip is
-   part of the resting state, so the hover lift shortens it by the same 2px
-   it rises - otherwise the button appears to float away from its own base. */
-.answer-btn {
-  display: flex;
-  flex-direction: column;
+.grade-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-family: var(--font-sans);
+  gap: 10px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: var(--radius-pill);
+  font: 700 15px var(--font-sans);
+  white-space: nowrap;
   cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
 }
 
-.answer-label {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.answer-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.answer-btn:active:not(:disabled) {
-  transform: translateY(2px);
-}
-
-.answer-btn:disabled {
+.grade-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.answer-btn.fail {
+.grade-btn kbd {
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  font: 700 11px var(--font-sans);
+  opacity: 0.6;
+}
+
+.fail {
+  border: 1px solid rgba(255, 138, 138, 0.3);
+  background: rgba(255, 138, 138, 0.08);
   color: var(--fail);
-  border-color: var(--fail);
-  background: color-mix(in srgb, var(--fail) 12%, var(--bg));
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--fail) 42%, var(--bg));
 }
 
-.answer-btn.fail:hover:not(:disabled) {
-  box-shadow: 0 6px 0 color-mix(in srgb, var(--fail) 42%, var(--bg));
+.fail:hover:not(:disabled) {
+  background: rgba(255, 138, 138, 0.16);
 }
 
-.answer-btn.fail:active:not(:disabled) {
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--fail) 42%, var(--bg));
+.pass,
+.reveal {
+  border: 0;
+  background: #ffffff;
+  color: #0b0b0d;
 }
 
-.answer-btn.pass {
-  color: var(--pass);
-  border-color: var(--pass);
-  background: color-mix(in srgb, var(--pass) 12%, var(--bg));
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--pass) 42%, var(--bg));
-}
-
-.answer-btn.pass:hover:not(:disabled) {
-  box-shadow: 0 6px 0 color-mix(in srgb, var(--pass) 42%, var(--bg));
-}
-
-.answer-btn.pass:active:not(:disabled) {
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--pass) 42%, var(--bg));
-}
-
-.key {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  opacity: 0.75;
-}
-
-.reveal-btn {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--accent-secondary);
-  background: color-mix(in srgb, var(--accent-secondary) 12%, var(--bg));
-  color: var(--accent-secondary);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.reveal-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
-}
-
-.reveal-btn:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-secondary) 42%, var(--bg));
-}
-
-.reveal-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.pass:hover:not(:disabled),
+.reveal:hover:not(:disabled) {
+  background: #e9e9ee;
 }
 </style>

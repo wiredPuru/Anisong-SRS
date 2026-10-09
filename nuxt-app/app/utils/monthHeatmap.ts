@@ -90,3 +90,28 @@ export function buildMonthHeatmap(days: ReviewHeatmapDay[], monthKey: string): M
 
   return { label: `${MONTH_NAMES_FULL[monthIndex]} ${year}`, weeks, maxCount, totalReviews };
 }
+
+export interface MonthSummary {
+  activeDays: number;
+  elapsedDays: number;
+  bestDay: { day: number; count: number } | null;
+  averagePerActiveDay: number;
+}
+
+/** Totals shown beside the month calendar. `todayKey` is a local YYYY-MM-DD
+    date; days after it are not elapsed even when the heatmap has no entry for
+    them, since its grid ends with the current week. */
+export function summarizeMonth(month: MonthHeatmap, todayKey: string): MonthSummary {
+  let activeDays = 0;
+  let elapsedDays = 0;
+  let bestDay: MonthSummary["bestDay"] = null;
+  for (const cell of month.weeks.flat()) {
+    if (cell.date === null || cell.future || cell.date > todayKey) continue;
+    elapsedDays++;
+    if (cell.count === 0) continue;
+    activeDays++;
+    if (!bestDay || cell.count > bestDay.count) bestDay = { day: cell.day ?? 0, count: cell.count };
+  }
+  const averagePerActiveDay = activeDays ? Math.round((month.totalReviews / activeDays) * 10) / 10 : 0;
+  return { activeDays, elapsedDays, bestDay, averagePerActiveDay };
+}

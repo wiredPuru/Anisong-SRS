@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { buildMonthHeatmap, currentMonthKey } from "~/utils/monthHeatmap";
+import { buildMonthHeatmap, currentMonthKey, summarizeMonth } from "~/utils/monthHeatmap";
 import type { MonthHeatmapCell, ReviewHeatmap, ReviewHeatmapDay } from "~/utils/monthHeatmap";
 
 const props = defineProps<{ heatmap: ReviewHeatmap }>();
@@ -22,11 +22,22 @@ const monthHeatmap = computed(() => {
   return buildMonthHeatmap(allDays, currentMonthKey());
 });
 
+const monthSummary = computed(() => {
+  const today = new Date();
+  const todayKey = `${currentMonthKey(today)}-${String(today.getDate()).padStart(2, "0")}`;
+  return summarizeMonth(monthHeatmap.value, todayKey);
+});
+
 function monthCellClass(cell: MonthHeatmapCell): string {
   if (!cell.date || cell.future || cell.count === 0) return "heat-0";
   const max = monthHeatmap.value.maxCount;
   const tier = max > 0 ? Math.min(4, Math.max(1, Math.ceil((cell.count / max) * 4))) : 0;
   return `heat-${tier}`;
+}
+
+function ordinalSuffix(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return "th";
+  return ["th", "st", "nd", "rd"][n % 10] ?? "th";
 }
 
 function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
@@ -68,27 +79,50 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
     </div>
     <template v-if="heatmapView === 'month'">
       <p v-if="!monthHeatmap.totalReviews" class="state">No reviews yet this month.</p>
-      <div v-else class="month-heatmap">
-        <span class="month-heatmap-label">{{ monthHeatmap.label }}</span>
-        <div class="month-grid">
-          <span
-            v-for="(wd, wdIndex) in ['S', 'M', 'T', 'W', 'T', 'F', 'S']"
-            :key="wdIndex"
-            class="month-weekday"
-            >{{ wd }}</span
-          >
-          <template v-for="(week, weekIndex) in monthHeatmap.weeks" :key="weekIndex">
+      <div v-else class="month-layout">
+        <div class="month-heatmap">
+          <span class="month-heatmap-label">{{ monthHeatmap.label }}</span>
+          <div class="month-grid">
             <span
-              v-for="(cell, cellIndex) in week"
-              :key="cellIndex"
-              class="month-cell"
-              :class="[monthCellClass(cell), { 'month-cell-empty': !cell.date }]"
-              :title="monthCellTitle(cell)"
+              v-for="(wd, wdIndex) in ['S', 'M', 'T', 'W', 'T', 'F', 'S']"
+              :key="wdIndex"
+              class="month-weekday"
+              >{{ wd }}</span
             >
-              <span v-if="cell.day" class="month-cell-day">{{ cell.day }}</span>
-            </span>
-          </template>
+            <template v-for="(week, weekIndex) in monthHeatmap.weeks" :key="weekIndex">
+              <span
+                v-for="(cell, cellIndex) in week"
+                :key="cellIndex"
+                class="month-cell"
+                :class="[monthCellClass(cell), { 'month-cell-empty': !cell.date }]"
+                :title="monthCellTitle(cell)"
+              >
+                <span v-if="cell.day" class="month-cell-day">{{ cell.day }}</span>
+              </span>
+            </template>
+          </div>
         </div>
+        <dl class="month-summary">
+          <div class="month-stat">
+            <dt>Days studied</dt>
+            <dd>
+              {{ monthSummary.activeDays }}<span class="month-stat-unit"> / {{ monthSummary.elapsedDays }}</span>
+            </dd>
+          </div>
+          <div class="month-stat">
+            <dt>Best day</dt>
+            <dd v-if="monthSummary.bestDay">
+              {{ monthSummary.bestDay.count }}<span class="month-stat-unit">
+                on the {{ monthSummary.bestDay.day }}{{ ordinalSuffix(monthSummary.bestDay.day) }}</span
+              >
+            </dd>
+            <dd v-else>-</dd>
+          </div>
+          <div class="month-stat">
+            <dt>Per study day</dt>
+            <dd>{{ monthSummary.averagePerActiveDay }}<span class="month-stat-unit"> reviews</span></dd>
+          </div>
+        </dl>
       </div>
     </template>
     <template v-else>
@@ -166,6 +200,7 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--surface);
 }
 
 .tab-seg-btn {
@@ -185,14 +220,61 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
 }
 
 .tab-seg-btn.active {
-  background: var(--surface-raised);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.month-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px 40px;
 }
 
 .month-heatmap {
+  flex: 1 1 300px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.month-summary {
+  flex: 1 1 220px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-content: start;
+  gap: 12px;
+  margin: 26px 0 0;
+}
+
+.month-stat {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+.month-stat dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.month-stat dd {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.month-stat-unit {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .month-heatmap-label {
@@ -203,7 +285,7 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
 
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(7, 44px);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -230,6 +312,13 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
 .month-cell-day {
   font-size: 11px;
   color: var(--muted);
+}
+
+/* the two strongest tiers are near-solid accent, where --muted vanishes */
+.month-cell.heat-3 .month-cell-day,
+.month-cell.heat-4 .month-cell-day {
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 .heatmap-scroll {
@@ -265,24 +354,22 @@ function monthCellTitle(cell: MonthHeatmapCell): string | undefined {
   background: var(--surface-raised);
 }
 
+/* Mixed into the surface rather than faded with opacity, which also faded
+   each month cell's day number. */
 .heat-1 {
-  background: var(--accent);
-  opacity: 0.35;
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-raised));
 }
 
 .heat-2 {
-  background: var(--accent);
-  opacity: 0.55;
+  background: color-mix(in srgb, var(--accent) 52%, var(--surface-raised));
 }
 
 .heat-3 {
-  background: var(--accent);
-  opacity: 0.75;
+  background: color-mix(in srgb, var(--accent) 76%, var(--surface-raised));
 }
 
 .heat-4 {
   background: var(--accent);
-  opacity: 1;
 }
 
 .heatmap-legend {

@@ -24,8 +24,6 @@ const props = defineProps<{
   hideListeningLabel?: boolean;
   // A typed-answer round is open: Kai thinks instead of just listening.
   guessing?: boolean;
-  // How far the answer boxes reach up from the frame's bottom, in px.
-  guessingInset?: number | null;
   autoDownload?: boolean;
   // For a player the user opened with a Play press of its own, so that one
   // press starts the clip instead of leaving a second "Ready?" click.
@@ -37,6 +35,10 @@ const props = defineProps<{
   // for all of them. Unset or 0 keeps the plain end margin.
   playLength?: number;
   clipSource?: "anisongdb" | "both" | "animethemes";
+  // Recolours the page's accents from the clip while ambient mode is on.
+  tintChrome?: boolean;
+  // Remembers this clip as the backdrop for the rest of the app.
+  lastPlayed?: { songTitle: string; animeTitle: string } | null;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -47,11 +49,6 @@ const emit = defineEmits<{
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
 }>();
-
-const raisedClass = computed(() => ({ raised: props.guessing, measured: props.guessing && props.guessingInset != null }));
-const raisedStyle = computed(() =>
-  props.guessing && props.guessingInset != null ? { "--guess-inset": `${props.guessingInset}px` } : undefined,
-);
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
@@ -624,11 +621,7 @@ defineExpose({ pause: () => activeEl.value?.pause(), playIfPaused });
 // showCoverArt is active instead, samples the cover <img> already rendered
 // in the frame the same way - one shared canvas, whichever source is on
 // screen.
-// The halo is a second, frame-sized copy of the same sample drawn right behind
-// the player, so the light reads as coming off the video's edges rather than
-// only as a page-wide wash.
 const ambientCanvasRef = ref<HTMLCanvasElement | null>(null);
-const ambientHaloRef = ref<HTMLCanvasElement | null>(null);
 const coverImageRef = ref<HTMLImageElement | null>(null);
 let ambientInterval: ReturnType<typeof setInterval> | null = null;
 let ambientPrimed = false;
@@ -663,48 +656,83 @@ function drawAmbientFrame(blend = true) {
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
   ctx.globalAlpha = 1;
   ambientPrimed = true;
-  copyAmbientHalo();
+  if (props.tintChrome && ambientDraws++ % TINT_EVERY_DRAWS === 0) updateTint(ctx, canvas);
 }
 
-function copyAmbientHalo() {
-  const canvas = ambientCanvasRef.value;
-  const halo = ambientHaloRef.value;
-  const haloCtx = halo?.getContext("2d");
-  if (!canvas || !halo || !haloCtx) return;
-  haloCtx.clearRect(0, 0, halo.width, halo.height);
-  haloCtx.drawImage(canvas, 0, 0, halo.width, halo.height);
+// Accent colours follow the clip at a calmer pace than the glow itself, so
+// buttons don't flicker through every cut.
+const TINT_EVERY_DRAWS = 10;
+let ambientDraws = 0;
+const { setTint } = useAmbientTint();
+
+function updateTint(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+  try {
+    setTint(dominantTint(ctx.getImageData(0, 0, canvas.width, canvas.height).data));
+  } catch {
+    // A cross-origin cover taints the canvas; the accents stay pink.
+    setTint(null);
+  }
 }
 
-// The frame is centred and can be narrower than the card (height-capped), so
-// the halo is placed over the frame's own box rather than the card's.
-const playerCardRef = ref<HTMLElement | null>(null);
-const playerFrameRef = ref<HTMLElement | null>(null);
-const haloStyle = ref<Record<string, string>>({});
-let haloObserver: ResizeObserver | null = null;
-
-function placeAmbientHalo() {
-  const frame = playerFrameRef.value;
-  if (!frame) return;
-  haloStyle.value = {
-    left: `${frame.offsetLeft}px`,
-    top: `${frame.offsetTop}px`,
-    width: `${frame.offsetWidth}px`,
-    height: `${frame.offsetHeight}px`,
-  };
-}
-
-onMounted(() => {
-  if (typeof ResizeObserver === "undefined") return;
-  haloObserver = new ResizeObserver(placeAmbientHalo);
-  if (playerCardRef.value) haloObserver.observe(playerCardRef.value);
-  if (playerFrameRef.value) haloObserver.observe(playerFrameRef.value);
+watch(
+  () => Boolean(props.tintChrome) && ambientActive.value,
+  (on) => {
+    if (!on) setTint(null);
+  },
+);
+onUnmounted(() => {
+  if (props.tintChrome) setTint(null);
 });
 
-onUnmounted(() => haloObserver?.disconnect());
+// Last played: a small frame (or the cover, for an audio card) kept for the
+// rest of the app's ambient backdrop. Refreshed while playing so it ends up
+// on wherever the user stopped rather than the clip's first second.
+const LAST_PLAYED_EVERY_MS = 5000;
+const MIN_BACKDROP_LUMA = 24;
+const { setLastPlayed } = useLastPlayed();
+let lastPlayedTimer: ReturnType<typeof setInterval> | null = null;
+let snapshotCanvas: HTMLCanvasElement | null = null;
 
-// The halo unmounts while expanded, so a paused player leaving immersive mode
-// would otherwise show an empty halo until playback resumes.
-watch(() => props.immersive, copyAmbientHalo, { flush: "post" });
+function recordLastPlayed() {
+  const meta = props.lastPlayed;
+  if (!meta) return;
+  const base = { cardId: props.card.id, songTitle: meta.songTitle, animeTitle: meta.animeTitle };
+  if (showCoverArt.value) {
+    const cover = props.card.animeCoverImageUrl;
+    if (cover?.startsWith("https://")) setLastPlayed({ ...base, image: cover, tint: null });
+    return;
+  }
+  const video = videoRef.value;
+  if (!video || video.readyState < 2) return;
+  snapshotCanvas ??= Object.assign(document.createElement("canvas"), { width: 192, height: 108 });
+  const ctx = snapshotCanvas.getContext("2d");
+  if (!ctx) return;
+  try {
+    ctx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+    const pixels = ctx.getImageData(0, 0, snapshotCanvas.width, snapshotCanvas.height).data;
+    // A fade-in or fade-out frame would blank the backdrop on every page.
+    if (meanLuma(pixels) < MIN_BACKDROP_LUMA) return;
+    const tint = dominantTint(pixels);
+    setLastPlayed({ ...base, image: snapshotCanvas.toDataURL("image/jpeg", 0.72), tint });
+  } catch {
+    // A tainted frame can't be read back; keep the previous backdrop.
+  }
+}
+
+function startLastPlayedTimer() {
+  stopLastPlayedTimer();
+  if (!props.lastPlayed) return;
+  recordLastPlayed();
+  lastPlayedTimer = setInterval(recordLastPlayed, LAST_PLAYED_EVERY_MS);
+}
+
+function stopLastPlayedTimer() {
+  if (lastPlayedTimer !== null) {
+    clearInterval(lastPlayedTimer);
+    lastPlayedTimer = null;
+  }
+}
+onUnmounted(stopLastPlayedTimer);
 
 function stopAmbientInterval() {
   if (ambientInterval !== null) {
@@ -925,6 +953,7 @@ function onPlaying() {
   hasStarted.value = true;
   quietPlay = false;
   markPlayable();
+  startLastPlayedTimer();
   emit("playback-started");
 }
 
@@ -933,6 +962,7 @@ function onPause() {
   playWanted = false;
   stopAmbientLoop();
   stopVisualizerLoop();
+  stopLastPlayedTimer();
   emit("playback-paused");
 }
 
@@ -1031,25 +1061,14 @@ onUnmounted(() => stopDrag?.());
 
 <template>
   <Teleport to="body">
-    <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
+    <canvas v-if="ambientActive" ref="ambientCanvasRef" width="96" height="54" class="ambient-glow" aria-hidden="true" />
   </Teleport>
   <div
-    ref="playerCardRef"
     class="player-card"
     :class="{ expanded: immersive, 'ambient-glass': ambient }"
     @click.self="emit('update:immersive', false)"
   >
-    <canvas
-      v-if="ambientActive && !immersive"
-      ref="ambientHaloRef"
-      width="40"
-      height="22"
-      class="ambient-halo"
-      :style="haloStyle"
-      aria-hidden="true"
-    />
     <div
-      ref="playerFrameRef"
       class="player-frame"
       :class="{ 'ambient-glass': ambient }"
       @mousemove="onPlayerPointerMove"
@@ -1136,7 +1155,7 @@ onUnmounted(() => stopDrag?.());
         :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
       />
 
-      <div v-if="errorMessage" class="veil error-veil" :class="raisedClass" :style="raisedStyle">
+      <div v-if="errorMessage" class="veil error-veil">
         <StudyPlayerKai v-if="!guessing" mood="error" />
         <p>{{ errorMessage }}</p>
         <div class="failure-actions">
@@ -1195,8 +1214,7 @@ onUnmounted(() => stopDrag?.());
       <div
         v-else-if="showVeil"
         class="veil"
-        :class="[quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil', raisedClass]"
-        :style="raisedStyle"
+        :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
         @click="togglePlay"
       >
         <StudyPlayerKai v-if="savingForAutoplay" mood="loading">
@@ -1279,73 +1297,26 @@ onUnmounted(() => stopDrag?.());
   animation: ambient-fade-in 0.8s ease-out;
 }
 
-/* Light spilling off the video's edges, like a screen in a dark room. Scaled
-   past the frame so the blur reaches out around it instead of hiding behind
-   it. Positioned by placeAmbientHalo(). */
-.ambient-halo {
-  position: absolute;
-  z-index: 0;
-  border-radius: var(--radius);
-  transform: scale(1.06, 1.12);
-  filter: var(--ambient-halo-filter);
-  opacity: var(--ambient-halo-opacity);
-  pointer-events: none;
-  animation: ambient-fade-in 0.8s ease-out;
-}
-
 @keyframes ambient-fade-in {
   from { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :global(.ambient-glow),
-  .ambient-halo {
+  :global(.ambient-glow) {
     animation: none;
   }
 }
 
-/* Kai's sticker look (84c): a soft outline like the sheet's banners, with a
-   star and a music note stuck on two corners. */
 .player-card {
   position: relative;
   padding: 24px;
   background: var(--surface);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 8px);
   box-shadow: var(--shadow-soft);
 }
 
-.player-card::before,
-.player-card::after {
-  position: absolute;
-  z-index: 1;
-  font-size: 30px;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.player-card::before {
-  content: "★";
-  top: -14px;
-  right: 22px;
-  color: var(--star);
-  transform: rotate(12deg);
-}
-
-.player-card::after {
-  content: "♪";
-  bottom: -12px;
-  left: 18px;
-  color: var(--note);
-  transform: rotate(-10deg);
-}
-
-.player-card.expanded::before,
-.player-card.expanded::after {
-  display: none;
-}
-
-/* No slab around the video in ambient mode: the halo is the frame. */
+/* No slab or border in ambient mode: the video feathers into the glow. */
 .player-card.ambient-glass {
   background: transparent;
   border-color: transparent;
@@ -1353,8 +1324,21 @@ onUnmounted(() => stopDrag?.());
 }
 
 .player-frame.ambient-glass {
-  border-color: var(--glass-border);
-  box-shadow: var(--ambient-frame-shadow);
+  border-color: transparent;
+  box-shadow: none;
+}
+/* Spill: the picture's edges fade into the page-wide glow behind it, so the
+   scene seems to carry on past the frame. On the video only, so the overlays
+   on top keep hard edges. */
+.player-frame.ambient-glass .media-el {
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(180deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent),
+    linear-gradient(180deg, transparent, #000 8%, #000 92%, transparent);
+  mask-composite: intersect;
 }
 
 /* Insets past the rail rather than covering it, keeping the pre-50a intent
@@ -1391,7 +1375,7 @@ onUnmounted(() => stopDrag?.());
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--accent);
   font-size: 16px;
@@ -1449,7 +1433,7 @@ onUnmounted(() => stopDrag?.());
   aspect-ratio: 16 / 9;
   max-height: 100%;
   margin-inline: auto;
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   border-radius: var(--radius);
   overflow: hidden;
   /* Lets immersive-overlay content (info card, language toggles, Pass/Fail
@@ -1570,7 +1554,7 @@ onUnmounted(() => stopDrag?.());
   padding: 4px 14px;
   border-radius: var(--radius-pill);
   background: var(--surface);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   font-family: var(--font-display);
   font-size: 12px;
   letter-spacing: 1px;
@@ -1607,32 +1591,6 @@ onUnmounted(() => stopDrag?.());
 
 .player-card.expanded .veil {
   --bar-top: calc(clamp(8px, 0.83cqw, 19px) + 2 * clamp(4px, 0.41cqw, 10px) + clamp(31px, 3.31cqw, 77px) + 4px);
-}
-
-/* A typed-answer round covers the bottom of the frame with its answer boxes.
-   Once their height is known the veil centres in the space above them; until
-   then it falls back to the top so it can never sit underneath. */
-.veil.raised {
-  justify-content: flex-start;
-  padding-top: clamp(10px, 2.5cqw, 36px);
-}
-
-.veil.raised.measured {
-  --veil-gap: clamp(8px, 1.5cqw, 24px);
-  justify-content: center;
-  padding-top: var(--veil-gap);
-  padding-bottom: calc(var(--guess-inset) + var(--veil-gap));
-  /* Kai stands on the answer boxes instead, sinking behind their top edge.
-     The frame is a 16:9 inline-size container, so its height is 56.25cqw;
-     with several answer rows on a small frame the space left can be shorter
-     than Kai, so StudyPlayerKai caps her to it. */
-  --kai-bottom: calc(var(--guess-inset) - var(--kai-sink));
-  --kai-max-height: max(40px, calc(56.25cqw - var(--guess-inset) - var(--veil-gap)));
-}
-
-/* Until the answer boxes are measured there is nothing to stand on. */
-.veil.raised:not(.measured) :deep(.player-kai:not(.mood-loading)) {
-  visibility: hidden;
 }
 
 .paused-veil {
@@ -1747,9 +1705,8 @@ onUnmounted(() => stopDrag?.());
   gap: 14px;
   padding: 6px 16px 6px 6px;
   border-radius: var(--radius-pill);
-  border: 2px solid var(--outline);
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  background: rgba(14, 14, 17, 0.82);
   box-shadow: var(--shadow-soft);
 }
 
@@ -1783,7 +1740,6 @@ onUnmounted(() => stopDrag?.());
   border: none;
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 0 3px var(--accent-glow);
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -1852,10 +1808,9 @@ onUnmounted(() => stopDrag?.());
 
 .scrub {
   flex: 1;
-  height: 8px;
+  height: 6px;
   border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  border: 1.5px solid var(--outline);
+  background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
   cursor: pointer;
   transition: height 0.15s ease;
@@ -1863,7 +1818,7 @@ onUnmounted(() => stopDrag?.());
 
 .scrub:hover,
 .scrub.dragging {
-  height: 12px;
+  height: 10px;
 }
 
 .player-card.expanded .scrub {
@@ -1879,7 +1834,7 @@ onUnmounted(() => stopDrag?.());
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--note), var(--accent));
+  background: #ffffff;
 }
 
 .time {

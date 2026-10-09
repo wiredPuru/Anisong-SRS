@@ -12,6 +12,9 @@ const props = defineProps<{
   busy: boolean;
   retry: boolean;
   overlay?: boolean;
+  // One row inside Study's Now playing bar, which already shows the answer.
+  bar?: boolean;
+  mainLabel?: string;
   canUndo: boolean;
 }>();
 const emit = defineEmits<{ continue: []; undo: [] }>();
@@ -25,6 +28,12 @@ const bannerClass = computed(() =>
 );
 const niceGuess = computed(() => props.bonusResults.some((bonus) => bonus.pointsAwarded > 0));
 
+const BAR_LABELS: Record<BonusCategoryResult["category"], string> = {
+  songName: "Song",
+  themeSlot: "OP/ED",
+  artist: "Artist",
+};
+
 const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
   songName: "Song name",
   themeSlot: "Opening/Ending",
@@ -32,13 +41,38 @@ const BONUS_CATEGORY_LABELS: Record<BonusCategoryResult["category"], string> = {
 };
 
 onMounted(() => nextTick(() => {
-  if (!props.overlay) resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
+  if (!props.overlay && !props.bar) resultPanel.value?.scrollIntoView({ block: "start", behavior: "auto" });
   continueButton.value?.focus({ preventScroll: true });
 }));
 </script>
 
 <template>
-  <section ref="resultPanel" class="quiz-result" :class="[result, { overlay }]" role="status" aria-live="polite" aria-atomic="true">
+  <section v-if="bar" class="result-bar" :class="result" role="status" aria-live="polite" aria-atomic="true">
+    <h2 class="bar-heading">{{ heading }}</h2>
+    <span class="bar-points" :class="{ empty: pointsAwarded === 0 }">
+      +{{ pointsAwarded }}<template v-if="combo > 1"> &middot; {{ combo }}x</template>
+    </span>
+    <span class="bar-pill" :class="result === 'pass' ? 'ok' : 'no'">{{ result === "pass" ? "✓" : "✕" }} {{ mainLabel ?? "Anime" }}</span>
+    <span
+      v-for="bonus in bonusResults"
+      :key="bonus.category"
+      class="bar-pill"
+      :class="bonus.correct ? 'ok' : 'no'"
+      :title="bonus.correct ? bonus.correctLabel : `${bonus.selectedLabel} → ${bonus.correctLabel}`"
+    >
+      {{ bonus.correct ? "✓" : "✕" }} {{ BAR_LABELS[bonus.category] }}
+    </span>
+    <span v-if="result === 'fail' && selectedTitle && selectedTitle !== correctTitle" class="bar-said">
+      You said {{ selectedTitle }}
+    </span>
+    <span class="bar-spacer" />
+    <button type="button" class="bar-btn ghost" :disabled="busy || !canUndo" @click="emit('undo')">Undo</button>
+    <button ref="continueButton" type="button" class="bar-btn primary" :disabled="busy" @click="emit('continue')">
+      {{ retry ? "Retry" : "Next" }}
+      <kbd>&#9166;</kbd>
+    </button>
+  </section>
+  <section v-else ref="resultPanel" class="quiz-result" :class="[result, { overlay }]" role="status" aria-live="polite" aria-atomic="true">
     <div class="result-kai" aria-hidden="true">
       <span v-if="result === 'pass'" class="kai-stars"><span>★</span><span>★</span><span>★</span></span>
       <MascotKai :pose="kaiPose" :size="overlay ? 'small' : 'companion'" />
@@ -99,6 +133,84 @@ onMounted(() => nextTick(() => {
 </template>
 
 <style scoped>
+.result-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  min-width: 0;
+  animation: result-arrive 300ms cubic-bezier(0.2, 0.9, 0.25, 1.15);
+}
+
+.result-bar.pass { --result-color: var(--pass); }
+.result-bar.fail { --result-color: var(--fail); }
+
+.bar-heading {
+  margin: 0;
+  color: var(--result-color);
+  font: 700 20px var(--font-display);
+}
+
+.bar-points {
+  font: 700 17px var(--font-display);
+  color: var(--text);
+  animation: points-pop 520ms 140ms both cubic-bezier(0.2, 1.4, 0.3, 1);
+}
+
+.bar-points.empty { color: var(--faint); }
+
+.bar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bar-pill.ok { background: rgba(126, 224, 161, 0.1); border: 1px solid rgba(126, 224, 161, 0.3); color: var(--pass); }
+.bar-pill.no { background: rgba(255, 138, 138, 0.1); border: 1px solid rgba(255, 138, 138, 0.3); color: var(--fail); }
+
+.bar-said {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bar-spacer { flex: 1; }
+
+.result-bar .bar-btn {
+  min-width: 0;
+  height: 48px;
+  padding: 0 22px;
+  gap: 10px;
+  border-radius: var(--radius-pill);
+  font: 700 15px var(--font-sans);
+}
+
+.result-bar .bar-btn.primary {
+  border: 0;
+  background: #ffffff;
+  color: #0b0b0d;
+}
+
+.result-bar .bar-btn.ghost {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.result-bar .bar-btn kbd {
+  border-color: currentColor;
+  opacity: 0.6;
+}
+
 .quiz-result {
   position: relative;
   isolation: isolate;
@@ -254,9 +366,7 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
   padding: 14px 18px;
   background:
     radial-gradient(circle at 6% 20%, color-mix(in srgb, var(--result-color) 18%, transparent), transparent 40%),
-    color-mix(in srgb, var(--surface) 72%, transparent);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+    var(--glass-surface-panel);
 }
 
 .overlay .result-copy {
@@ -302,6 +412,7 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .result-bar, .bar-points,
   .quiz-result, .result-kai, .points, .bonus-row, .nice-guess, .kai-stars span { animation: none; }
 }
 </style>

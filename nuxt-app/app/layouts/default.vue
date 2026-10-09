@@ -1,5 +1,10 @@
+<script setup lang="ts">
+const backdropTint = ref<Record<string, string> | null>(null);
+</script>
+
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'ambient-tinted': backdropTint }" :style="backdropTint ?? undefined">
+    <AmbientBackdrop @update:tint="backdropTint = $event" />
     <NavBar />
     <div class="app-content">
       <slot />
