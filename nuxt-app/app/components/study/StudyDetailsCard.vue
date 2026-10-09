@@ -78,7 +78,7 @@ watch(() => props.coverImageUrl, () => (coverFailed.value = false));
   flex: 1;
   min-height: 0;
   display: grid;
-  align-content: start;
+  align-content: space-between;
   gap: 18px;
   overflow-x: hidden;
   overflow-y: auto;

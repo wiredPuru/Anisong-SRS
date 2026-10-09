@@ -442,7 +442,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 
 .tooltip {
 	position: absolute;
-	top: calc(100% + 8px);
+	bottom: calc(100% + 8px);
 	left: 50%;
 	transform: translateX(-50%);
 	padding: 4px 10px;
