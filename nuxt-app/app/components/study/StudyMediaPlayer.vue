@@ -624,30 +624,87 @@ defineExpose({ pause: () => activeEl.value?.pause(), playIfPaused });
 // showCoverArt is active instead, samples the cover <img> already rendered
 // in the frame the same way - one shared canvas, whichever source is on
 // screen.
+// The halo is a second, frame-sized copy of the same sample drawn right behind
+// the player, so the light reads as coming off the video's edges rather than
+// only as a page-wide wash.
 const ambientCanvasRef = ref<HTMLCanvasElement | null>(null);
+const ambientHaloRef = ref<HTMLCanvasElement | null>(null);
 const coverImageRef = ref<HTMLImageElement | null>(null);
 let ambientInterval: ReturnType<typeof setInterval> | null = null;
+let ambientPrimed = false;
+
+const AMBIENT_SAMPLE_MS = 100;
+// Each sample is blended over the last at this opacity, so a hard cut in the
+// video eases into the new colours over roughly half a second instead of
+// snapping on the next tick.
+const AMBIENT_BLEND = 0.22;
 
 const ambientActive = computed(
   () => Boolean(props.ambient) && (quizType.value === "video" || showCoverArt.value),
 );
 
-function drawAmbientFrame() {
-  const canvas = ambientCanvasRef.value;
-  const ctx = canvas?.getContext("2d");
-  if (!canvas || !ctx) return;
-
+function ambientSource(): CanvasImageSource | null {
   if (showCoverArt.value) {
     const img = coverImageRef.value;
-    if (!img || !img.complete || img.naturalWidth === 0) return;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return;
+    return img && img.complete && img.naturalWidth > 0 ? img : null;
   }
-
   const video = videoRef.value;
-  if (!video || video.readyState < 2) return;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return video && video.readyState >= 2 ? video : null;
 }
+
+function drawAmbientFrame(blend = true) {
+  const canvas = ambientCanvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  const source = ambientSource();
+  if (!canvas || !ctx || !source) return;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  ctx.globalAlpha = blend && ambientPrimed && !reduceMotion ? AMBIENT_BLEND : 1;
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
+  ambientPrimed = true;
+  copyAmbientHalo();
+}
+
+function copyAmbientHalo() {
+  const canvas = ambientCanvasRef.value;
+  const halo = ambientHaloRef.value;
+  const haloCtx = halo?.getContext("2d");
+  if (!canvas || !halo || !haloCtx) return;
+  haloCtx.clearRect(0, 0, halo.width, halo.height);
+  haloCtx.drawImage(canvas, 0, 0, halo.width, halo.height);
+}
+
+// The frame is centred and can be narrower than the card (height-capped), so
+// the halo is placed over the frame's own box rather than the card's.
+const playerCardRef = ref<HTMLElement | null>(null);
+const playerFrameRef = ref<HTMLElement | null>(null);
+const haloStyle = ref<Record<string, string>>({});
+let haloObserver: ResizeObserver | null = null;
+
+function placeAmbientHalo() {
+  const frame = playerFrameRef.value;
+  if (!frame) return;
+  haloStyle.value = {
+    left: `${frame.offsetLeft}px`,
+    top: `${frame.offsetTop}px`,
+    width: `${frame.offsetWidth}px`,
+    height: `${frame.offsetHeight}px`,
+  };
+}
+
+onMounted(() => {
+  if (typeof ResizeObserver === "undefined") return;
+  haloObserver = new ResizeObserver(placeAmbientHalo);
+  if (playerCardRef.value) haloObserver.observe(playerCardRef.value);
+  if (playerFrameRef.value) haloObserver.observe(playerFrameRef.value);
+});
+
+onUnmounted(() => haloObserver?.disconnect());
+
+// The halo unmounts while expanded, so a paused player leaving immersive mode
+// would otherwise show an empty halo until playback resumes.
+watch(() => props.immersive, copyAmbientHalo, { flush: "post" });
 
 function stopAmbientInterval() {
   if (ambientInterval !== null) {
@@ -659,21 +716,24 @@ function stopAmbientInterval() {
 function startAmbientLoop() {
   stopAmbientInterval();
   drawAmbientFrame();
-  ambientInterval = setInterval(drawAmbientFrame, 150);
+  ambientInterval = setInterval(() => drawAmbientFrame(), AMBIENT_SAMPLE_MS);
 }
 
+// Settles on the exact paused frame rather than leaving a half-blended one.
 function stopAmbientLoop() {
   stopAmbientInterval();
-  drawAmbientFrame();
+  drawAmbientFrame(false);
 }
 
+// flush: "post" so a freshly mounted canvas exists before the first draw.
 watch(ambientActive, (active) => {
+  ambientPrimed = false;
   if (active && isPlaying.value) {
     startAmbientLoop();
   } else {
     stopAmbientLoop();
   }
-});
+}, { flush: "post" });
 
 onUnmounted(stopAmbientInterval);
 
@@ -877,7 +937,7 @@ function onPause() {
 }
 
 function onSeeked() {
-  if (ambientActive.value) drawAmbientFrame();
+  if (ambientActive.value) drawAmbientFrame(false);
 }
 
 function onLoadedData() {
@@ -895,7 +955,7 @@ function onLoadedData() {
 // onPlay's own draw takes over as before.
 function retryAmbientPreload(retriesLeft: number) {
   if (!ambientActive.value) return;
-  drawAmbientFrame();
+  drawAmbientFrame(false);
   if (retriesLeft <= 0) return;
   const canvas = ambientCanvasRef.value;
   const ctx = canvas?.getContext("2d");
@@ -974,11 +1034,22 @@ onUnmounted(() => stopDrag?.());
     <canvas v-if="ambientActive" ref="ambientCanvasRef" width="40" height="22" class="ambient-glow" aria-hidden="true" />
   </Teleport>
   <div
+    ref="playerCardRef"
     class="player-card"
     :class="{ expanded: immersive, 'ambient-glass': ambient }"
     @click.self="emit('update:immersive', false)"
   >
+    <canvas
+      v-if="ambientActive && !immersive"
+      ref="ambientHaloRef"
+      width="40"
+      height="22"
+      class="ambient-halo"
+      :style="haloStyle"
+      aria-hidden="true"
+    />
     <div
+      ref="playerFrameRef"
       class="player-frame"
       :class="{ 'ambient-glass': ambient }"
       @mousemove="onPlayerPointerMove"
@@ -1202,9 +1273,35 @@ onUnmounted(() => stopDrag?.());
   width: 100%;
   height: 100%;
   z-index: -1;
-  filter: blur(80px) saturate(1.6) brightness(0.9);
-  opacity: 0.55;
+  filter: var(--ambient-wash-filter);
+  opacity: var(--ambient-wash-opacity);
   pointer-events: none;
+  animation: ambient-fade-in 0.8s ease-out;
+}
+
+/* Light spilling off the video's edges, like a screen in a dark room. Scaled
+   past the frame so the blur reaches out around it instead of hiding behind
+   it. Positioned by placeAmbientHalo(). */
+.ambient-halo {
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--radius);
+  transform: scale(1.06, 1.12);
+  filter: var(--ambient-halo-filter);
+  opacity: var(--ambient-halo-opacity);
+  pointer-events: none;
+  animation: ambient-fade-in 0.8s ease-out;
+}
+
+@keyframes ambient-fade-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.ambient-glow),
+  .ambient-halo {
+    animation: none;
+  }
 }
 
 /* Kai's sticker look (84c): a soft outline like the sheet's banners, with a
@@ -1248,10 +1345,16 @@ onUnmounted(() => stopDrag?.());
   display: none;
 }
 
+/* No slab around the video in ambient mode: the halo is the frame. */
 .player-card.ambient-glass {
-  background: var(--glass-surface);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.player-frame.ambient-glass {
   border-color: var(--glass-border);
-  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--ambient-frame-shadow);
 }
 
 /* Insets past the rail rather than covering it, keeping the pre-50a intent
