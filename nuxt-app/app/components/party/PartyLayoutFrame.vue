@@ -3,6 +3,8 @@ import {
   frameStyle,
   movePlacement,
   PIECE_ANCHORS,
+  categoryOf,
+  PIECE_LABELS,
   type PartyPieceId,
   type PartyPlacement,
   resizePlacement,
@@ -10,17 +12,13 @@ import {
 
 const props = defineProps<{ piece: PartyPieceId }>();
 
-const PIECE_LABELS: Record<PartyPieceId, string> = {
-  reveal: "Answer",
-  scoreboard: "Scores",
-  round: "This round",
-  timer: "Timer",
-  count: "Song count",
-  join: "Join chip",
-  hints: "Hints",
-};
-
-const { layout, editing, place, save } = usePartyLayout();
+const { layout, editing, category, selected, place, save, isHidden } = usePartyLayout();
+const hidden = computed(() => isHidden(props.piece));
+// While arranging, only the chosen category is live; the rest stay put, dimmed.
+const inactive = computed(() =>
+  editing.value && (selected.value ? selected.value !== props.piece : categoryOf(props.piece) !== category.value),
+);
+const isSelected = computed(() => editing.value && selected.value === props.piece);
 const anchor = computed(() => PIECE_ANCHORS[props.piece]);
 const placement = computed(() => ({
   ...frameStyle(layout.value[props.piece], anchor.value),
@@ -42,8 +40,9 @@ let drag: {
 
 function begin(event: PointerEvent, mode: "move" | "resize") {
   const box = frame.value?.offsetParent?.getBoundingClientRect();
-  if (!editing.value || !box || event.button !== 0) return;
+  if (!editing.value || inactive.value || !box || event.button !== 0) return;
   event.preventDefault();
+  selected.value = props.piece;
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   drag = { mode, pointerId: event.pointerId, start: layout.value[props.piece], startX: event.clientX, startY: event.clientY, box };
 }
@@ -68,9 +67,10 @@ function end(event: PointerEvent) {
 
 <template>
   <div
+    v-if="editing || !hidden"
     ref="frame"
     class="layout-frame"
-    :class="{ editing }"
+    :class="{ editing: editing && !inactive, inactive, selected: isSelected, ghost: editing && hidden }"
     :style="placement"
     @pointerdown="begin($event, 'move')"
     @pointermove="onMove"
@@ -78,8 +78,8 @@ function end(event: PointerEvent) {
     @pointercancel="end"
   >
     <slot />
-    <template v-if="editing">
-      <span class="layout-label">{{ PIECE_LABELS[piece] }}</span>
+    <template v-if="editing && !inactive">
+      <span class="layout-label">{{ PIECE_LABELS[piece] }}<template v-if="hidden"> (hidden)</template></span>
       <span
         class="layout-handle"
         :class="handleCorner"
@@ -107,6 +107,19 @@ function end(event: PointerEvent) {
   outline: 3px dashed var(--accent);
   outline-offset: 4px;
   user-select: none;
+}
+
+.layout-frame.selected {
+  z-index: var(--z-chrome);
+  outline-style: solid;
+}
+
+.layout-frame.inactive {
+  opacity: 0.35;
+}
+
+.layout-frame.ghost {
+  opacity: 0.4;
 }
 
 .layout-label {

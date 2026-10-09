@@ -10,6 +10,7 @@ const PICTURES: { value: PartyPicture; label: string }[] = [
   { value: "video", label: "Video" },
   { value: "blackout", label: "Blackout" },
   { value: "cover", label: "Cover art" },
+  { value: "bubbles", label: "Bubbles" },
 ];
 const SEND_THROTTLE_MS = 150;
 

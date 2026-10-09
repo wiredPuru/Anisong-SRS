@@ -1,5 +1,5 @@
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
 export type PartyLightningMode = "regular" | "blind" | "peek" | "cover" | "clues" | "tags" | "title";
 export type PartyHints =
   | { kind: "clues"; items: { label: string; value: string }[] }
@@ -38,6 +38,13 @@ export interface PartyPlayer {
   score: number;
   phone: boolean;
   connected: boolean;
+  teamId: number | null;
+}
+export interface PartyScoreRow {
+  id: number;
+  name: string;
+  score: number;
+  members?: string[];
 }
 export interface PartyRoundPoint {
   id: number;
@@ -74,11 +81,14 @@ export interface PartyDisplayState {
   skipSeq: number;
   startFraction: number;
   effects: PartyEffects;
-  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
+  choices: string[] | null;
+  stake: { multiplier: number; risk: boolean; player: string | null } | null;
   timer: PartyTimer | null;
-  scoreboard: PartyPlayer[] | null;
+  scoreboard: PartyScoreRow[] | null;
   banner: PartyBanner | null;
   music: PartyMusic;
+  songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   buzz: { answering: string | null };
@@ -93,6 +103,7 @@ export interface PartyPositionReport {
   playing: boolean;
   blocked: boolean;
   elapsed: number;
+  ended?: boolean;
 }
 
 const RETRY_MIN_MS = 1000;

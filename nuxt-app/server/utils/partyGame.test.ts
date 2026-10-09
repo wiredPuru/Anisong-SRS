@@ -566,8 +566,8 @@ describe("timer, scoreboard, banner, and music", () => {
     state = applyPartyCommand(state, { type: "score", op: "adjust", id: 1, delta: -1 });
     state = applyPartyCommand(state, { type: "score", op: "rename", id: 1, name: "Akira" });
     expect(state.scoreboard.players).toEqual([
-      { id: 1, name: "Akira", score: -1, phone: false, connected: false },
-      { id: 2, name: "Bea", score: 3, phone: false, connected: false },
+      { id: 1, name: "Akira", score: -1, phone: false, connected: false, teamId: null },
+      { id: 2, name: "Bea", score: 3, phone: false, connected: false, teamId: null },
     ]);
     const shown = applyPartyCommand(state, { type: "score", op: "show", visible: true });
     expect(toDisplayState(shown).scoreboard?.map((p) => p.name)).toEqual(["Bea", "Akira"]);
@@ -620,7 +620,7 @@ describe("timer, scoreboard, banner, and music", () => {
 
 describe("phone players (feature 90a)", () => {
   const player = (id: number, name: string, extra: Partial<PartyPlayer> = {}): PartyPlayer => ({
-    id, name, score: 0, phone: false, connected: false, ...extra,
+    id, name, score: 0, phone: false, connected: false, teamId: null, ...extra,
   });
 
   it("plans a join: add, claim a host-added or disconnected player, refuse a connected name", () => {

@@ -447,6 +447,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
               </button>
+              <span v-if="playLimit.remainingSeconds.value !== null" class="next-in" aria-live="off">
+                Next in <strong>{{ playLimit.remainingSeconds.value }}s</strong>
+              </span>
               <span class="position">{{ positionLabel(index, total) }}</span>
               <button type="button" class="transport-btn next" @click="next">
                 Next <kbd>&rarr;</kbd>
@@ -644,6 +647,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.next-in {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.next-in strong {
+  display: inline-block;
+  min-width: 2.2em;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
 }
 
 .transport-btn {

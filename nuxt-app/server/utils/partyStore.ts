@@ -4,8 +4,12 @@ import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
-import { getClipSource, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
+import { getClipSource, getIncludeInsertSongs, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { resolveCachedPath } from "./streamCache.ts";
+import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
+import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
+import { listEndlessCandidates } from "./partySources.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import { createPlayerRegistry } from "./partyPlayers.ts";
 import {
@@ -16,6 +20,7 @@ import {
   PARTY_LOAD_MAX,
   PARTY_LOOKAHEAD,
   pickPartyClip,
+  shouldRevealEarly,
   timerMayReveal,
   toQueueItem,
   type PartyCommand,
@@ -66,6 +71,136 @@ function scheduleTimer(): void {
   }, Math.max(0, timer.endsAt - Date.now()));
 }
 
+let toppingUp = false;
+let fetchingCatalog = false;
+
+// A song straight from AnisongDB has no card behind it, so its id is the
+// negated AMQ song id: unique, and never colliding with a library card.
+interface CatalogSong {
+  annSongId: number;
+  themeSlot: string;
+  songTitle: string;
+  artistName: string;
+  animeEnglish: string;
+  animeRomaji: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+}
+
+function catalogItem(song: CatalogSong): PartyQueueItem | null {
+  const clip = pickPartyClip(
+    { localVideoPath: null, localAudioPath: null, animethemesVideoUrl: song.videoUrl, animethemesAudioUrl: song.audioUrl },
+    { clipSource: getClipSource(), playbackMode: getPlaybackMode() },
+  );
+  if (!clip) return null;
+  return {
+    token: randomBytes(12).toString("hex"),
+    cardId: -song.annSongId,
+    clip,
+    details: EMPTY_DETAILS,
+    answer: {
+      animeTitleEnglish: song.animeEnglish,
+      animeTitleRomaji: song.animeRomaji,
+      animeTitleNative: song.animeRomaji,
+      songTitle: song.songTitle,
+      artistName: song.artistName,
+      themeSlot: song.themeSlot,
+      coverImageUrl: null,
+    },
+  };
+}
+
+function fromRandom(song: AnisongRandomSong): PartyQueueItem | null {
+  const themeSlot = toThemeSlot(song.songType) ?? (getIncludeInsertSongs() ? `IN-${song.annSongId}` : null);
+  return themeSlot ? catalogItem({ ...song, themeSlot }) : null;
+}
+
+// The last catalog search, so adding a result needs no second AnisongDB call.
+let lastCatalogSearch = new Map<number, CatalogSong>();
+
+export function rememberCatalogSearch(results: AnisongSongResult[]): void {
+  lastCatalogSearch = new Map(
+    results.map((song) => [
+      song.annSongId,
+      { ...song, artistName: song.artistName ?? "Unknown artist", animeEnglish: song.animeTitleRomaji, animeRomaji: song.animeTitleRomaji },
+    ]),
+  );
+}
+
+/** Adds songs from the last catalog search to the queue; the count actually added. */
+export function addCatalogSongs(annSongIds: number[]): number {
+  const queued = new Set(state.queue.map((item) => item.cardId));
+  const items = annSongIds
+    .map((id) => lastCatalogSearch.get(id))
+    .map((song) => (song ? catalogItem(song) : null))
+    .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+    .slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length));
+  if (!items.length) return 0;
+  commit(
+    applyPartyCommand(
+      state,
+      { type: "load", cardIds: items.map((item) => item.cardId), shuffle: false, downloadedOnly: false, append: true },
+      { loaded: items },
+    ),
+  );
+  return items.length;
+}
+
+async function topUpCatalog(hasGame: boolean): Promise<void> {
+  fetchingCatalog = true;
+  try {
+    const queued = new Set(state.queue.map((item) => item.cardId));
+    const items = (await fetchRandomSongs(ENDLESS_BATCH * 2))
+      .map(fromRandom)
+      .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+      .slice(0, ENDLESS_BATCH);
+    // The host may have stopped endless or switched source while this was out.
+    if (!items.length || !state.endless?.outsideLibrary) return;
+    const stillHasGame = state.index >= 0 && state.index < state.queue.length;
+    commit(
+      applyPartyCommand(
+        state,
+        { type: "load", cardIds: items.map((item) => item.cardId), shuffle: false, downloadedOnly: false, append: hasGame && stillHasGame },
+        { loaded: items },
+      ),
+    );
+  } catch {
+    // AnisongDB being down just means no new songs this round; the next change retries.
+  } finally {
+    fetchingCatalog = false;
+  }
+}
+
+// An endless queue keeps a few songs ready ahead of the current one. It runs
+// after every change, so a skip, a jump or a removal refills it too.
+function topUpEndless(): void {
+  const config = state.endless;
+  if (!config || toppingUp) return;
+  const hasGame = state.index >= 0 && state.index < state.queue.length;
+  const upcoming = hasGame ? state.queue.length - 1 - state.index : 0;
+  if (hasGame && upcoming >= ENDLESS_AHEAD) return;
+  if (state.queue.length >= PARTY_LOAD_MAX) return;
+  if (config.outsideLibrary) {
+    if (!fetchingCatalog) void topUpCatalog(hasGame);
+    return;
+  }
+  toppingUp = true;
+  try {
+    // A few spare picks cover songs the clip settings drop.
+    const cardIds = pickEndlessBatch({
+      candidates: listEndlessCandidates(),
+      difficulty: config.difficulty,
+      downloadedOnly: config.downloadedOnly,
+      queue: state.queue.map((item) => item.cardId),
+      count: ENDLESS_BATCH + 4,
+    });
+    if (!cardIds.length) return;
+    runPartyCommand({ type: "load", cardIds, append: hasGame, downloadedOnly: config.downloadedOnly });
+  } finally {
+    toppingUp = false;
+  }
+}
+
 function commit(next: PartyGameState): void {
   if (next === state) return;
   const moved = next.index !== state.index || next.queue !== state.queue;
@@ -74,6 +209,7 @@ function commit(next: PartyGameState): void {
   if (moved) prefetchAround(state);
   if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
+  topUpEndless();
 }
 
 function localFileUsable(path: string): boolean {
@@ -118,7 +254,32 @@ function resolveQueue(cardIds: number[], downloadedOnly: boolean): { items: Part
   return { items, skipped: cardIds.length - items.length };
 }
 
+// Decoy titles come from every show in the library, so a catalog song still
+// gets real options even though it has no card.
+function choicesFor(item: PartyQueueItem): string[] {
+  const rows = db
+    .select({
+      title: anime.titleEnglish,
+      year: anime.year,
+      season: anime.season,
+      format: anime.format,
+      averageScore: anime.averageScore,
+      genres: anime.genres,
+      tags: anime.tags,
+    })
+    .from(anime)
+    .all();
+  const candidates: ChoiceCandidate[] = rows.map(({ title, ...details }) => ({ title, details }));
+  return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
+}
+
 export function runPartyCommand(command: PartyCommand): { loaded?: number; skipped?: number } {
+  if (command.type === "choices" && command.enabled) {
+    const item = currentPartyItem(state);
+    commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
+    return {};
+  }
+  if (command.type === "queueReroll") return rerollQueueItem(command.index);
   if (command.type !== "load") {
     commit(applyPartyCommand(state, command));
     return {};
@@ -133,6 +294,39 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
   const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
   commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
+}
+
+// Swaps an upcoming song for another pick, following the endless settings when
+// they are on and otherwise drawing from the whole library.
+function rerollQueueItem(index: number): { loaded: number } {
+  if (!(index > state.index && index < state.queue.length)) return { loaded: 0 };
+  const config = state.endless;
+  if (config?.outsideLibrary) {
+    void rerollCatalogItem(index);
+    return { loaded: 0 };
+  }
+  const downloadedOnly = config?.downloadedOnly ?? false;
+  const cardIds = pickEndlessBatch({
+    candidates: listEndlessCandidates(),
+    difficulty: config?.difficulty ?? "random",
+    downloadedOnly,
+    queue: state.queue.map((item) => item.cardId),
+    count: 6,
+  });
+  const { items } = resolveQueue(cardIds, downloadedOnly);
+  if (!items.length) return { loaded: 0 };
+  commit(applyPartyCommand(state, { type: "queueReroll", index }, { loaded: items.slice(0, 1) }));
+  return { loaded: 1 };
+}
+
+async function rerollCatalogItem(index: number): Promise<void> {
+  try {
+    const queued = new Set(state.queue.map((item) => item.cardId));
+    const replacement = (await fetchRandomSongs(10)).map(fromRandom).find((item) => item && !queued.has(item.cardId));
+    if (replacement) commit(applyPartyCommand(state, { type: "queueReroll", index }, { loaded: [replacement] }));
+  } catch {
+    // The song stays when AnisongDB cannot answer.
+  }
 }
 
 // Phones joining through the player door (feature 90a).
@@ -152,6 +346,12 @@ export function buzzParty(playerId: number): boolean {
   return state.buzz.playerId === playerId;
 }
 
+/** A phone's multiple-choice pick; true when it was recorded as that player's answer. */
+export function pickPartyChoice(playerId: number, index: number): boolean {
+  commit(applyPartyCommand(state, { type: "choicePick", playerId, index }));
+  return state.choicePicks[playerId] === index;
+}
+
 export function findPartyItemByToken(token: string): PartyQueueItem | null {
   return state.queue.find((item) => item.token === token) ?? null;
 }
@@ -162,7 +362,9 @@ export function findPartyItemByToken(token: string): PartyQueueItem | null {
 export function reportPartyPosition(position: PartyPosition): boolean {
   if (currentPartyItem(state)?.token !== position.token) return false;
   commit({ ...state, position });
+  if (shouldRevealEarly(state)) commit(applyPartyCommand(state, { type: "reveal" }));
   driveLightning();
+  driveAutoAdvance(position);
   return true;
 }
 
@@ -173,4 +375,29 @@ function driveLightning(): void {
   if (step === "reveal") commit(applyPartyCommand(state, { type: "reveal" }));
   else if (step === "next") commit(applyPartyCommand(applyPartyCommand(state, { type: "next" }), { type: "play" }));
   else if (step === "stop") commit(applyPartyCommand(applyPartyCommand(state, { type: "pause" }), { type: "summary", visible: true }));
+}
+
+// How long the answer stays up when a song ends unrevealed, and the pause
+// before moving on from one that was already revealed.
+const END_REVEAL_HOLD_MS = 6000;
+const END_REVEALED_HOLD_MS = 1500;
+let endedToken: string | null = null;
+
+// A song that plays to its end moves the game on by itself: reveal it first if
+// the host has not, then go to the next song and keep playing. Lightning rounds
+// run their own clock, and a player answering a buzz is the host's to judge.
+function driveAutoAdvance(position: PartyPosition): void {
+  if (!position.ended && endedToken === position.token) endedToken = null;
+  if (!position.ended || !state.autoAdvance || state.lightning || state.buzz.playerId !== null) return;
+  if (endedToken === position.token) return;
+  endedToken = position.token;
+  const wasRevealed = state.phase === "revealed";
+  if (!wasRevealed) commit(applyPartyCommand(state, { type: "reveal" }));
+  setTimeout(
+    () => {
+      if (currentPartyItem(state)?.token !== position.token || !state.autoAdvance) return;
+      commit(applyPartyCommand(applyPartyCommand(state, { type: "next" }), { type: "play" }));
+    },
+    wasRevealed ? END_REVEALED_HOLD_MS : END_REVEAL_HOLD_MS,
+  );
 }

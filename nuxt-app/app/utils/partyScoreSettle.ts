@@ -1,4 +1,4 @@
-import type { PartyPlayer, PartyRoundPoint } from "~/composables/usePartyDisplay";
+import type { PartyRoundPoint, PartyScoreRow } from "~/composables/usePartyDisplay";
 
 /** How long the display waits for score changes to stop before showing them. */
 export const SCORE_SETTLE_MS = 2000;
@@ -7,7 +7,7 @@ export const SCORE_SETTLE_MS = 2000;
 export interface PartyScoreView {
   token: string | null;
   roundPoints: PartyRoundPoint[];
-  scoreboard: PartyPlayer[] | null;
+  scoreboard: PartyScoreRow[] | null;
 }
 
 const pointsOf = (view: PartyScoreView) => new Map(view.roundPoints.map((row) => [row.id, row.points]));
@@ -17,7 +17,7 @@ function sameRoundPoints(a: PartyScoreView, b: PartyScoreView): boolean {
   return a.roundPoints.length === b.roundPoints.length && b.roundPoints.every((row) => before.get(row.id) === row.points);
 }
 
-function sameScores(a: PartyPlayer[], b: PartyPlayer[]): boolean {
+function sameScores(a: PartyScoreRow[], b: PartyScoreRow[]): boolean {
   const before = new Map(a.map((p) => [p.id, p.score]));
   return b.every((p) => !before.has(p.id) || before.get(p.id) === p.score);
 }

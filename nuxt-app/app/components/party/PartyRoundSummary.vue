@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PartySummary } from "~/composables/usePartyDisplay";
 
-const props = defineProps<{ summary: PartySummary }>();
+const props = defineProps<{ summary: PartySummary; sample?: boolean }>();
 
 const SONGS_SHOWN = 12;
 const recentSongs = computed(() => [...props.summary.songs].reverse().slice(0, SONGS_SHOWN));
@@ -9,14 +9,16 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
 </script>
 
 <template>
-  <section class="summary" aria-labelledby="summary-title">
-    <header class="summary-head">
-      <MascotKai pose="cheer" size="companion" />
-      <h2 id="summary-title" class="kai-banner kai-banner-pass summary-title">Results</h2>
-      <p class="summary-count">{{ summary.played }} of {{ summary.total }} songs played</p>
-    </header>
+  <section class="summary" :class="{ sample }" aria-labelledby="summary-title">
+    <PartyLayoutFrame piece="summaryTitle">
+      <header class="summary-head">
+        <MascotKai pose="cheer" size="companion" />
+        <h2 id="summary-title" class="kai-banner kai-banner-pass summary-title">Results</h2>
+        <p class="summary-count">{{ summary.played }} of {{ summary.total }} songs played</p>
+      </header>
+    </PartyLayoutFrame>
 
-    <div class="summary-body">
+    <PartyLayoutFrame piece="standings">
       <div class="panel standings">
         <h3 class="panel-title">Standings</h3>
         <ol v-if="summary.standings.length" class="standings-list">
@@ -33,7 +35,9 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
         </ol>
         <p v-else class="empty">No players this game.</p>
       </div>
+    </PartyLayoutFrame>
 
+    <PartyLayoutFrame piece="songList">
       <div class="panel songs">
         <h3 class="panel-title">Songs</h3>
         <ol v-if="recentSongs.length" class="songs-list">
@@ -49,7 +53,7 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
         <p v-else class="empty">No songs played yet.</p>
         <p v-if="earlier" class="empty">and {{ earlier }} earlier</p>
       </div>
-    </div>
+    </PartyLayoutFrame>
   </section>
 </template>
 
@@ -57,13 +61,16 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
 .summary {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(12px, 2vh, 24px);
-  padding: clamp(16px, 3vw, 48px);
   background: var(--bg);
   overflow: hidden;
   animation: summary-in 300ms ease-out;
+}
+
+/* Samples float over the game while arranging, so the backdrop stays clear. */
+.summary.sample {
+  background: transparent;
+  pointer-events: none;
+  animation: none;
 }
 
 .summary-head {
@@ -83,15 +90,17 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
   font-size: clamp(14px, 1.6vw, 24px);
 }
 
-.summary-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  gap: clamp(12px, 2vw, 32px);
+
+.standings {
+  width: min(560px, 38vw);
+}
+
+.songs {
+  width: min(900px, 56vw);
 }
 
 .panel {
+  max-height: 72vh;
   min-height: 0;
   display: flex;
   flex-direction: column;

@@ -11,9 +11,14 @@ const controlPort = Number(process.env.GAQ_PARTY_CONTROL_PORT || 4001);
 const internalPort = Number(process.env.GAQ_PARTY_INTERNAL_PORT || 4002);
 const playerPort = Number(process.env.GAQ_PARTY_PLAYER_PORT || 4003);
 
+// Opt-in: serves the display to other devices too (a laptop or TV browser).
+// Its door only reaches the display routes, and answers stay hidden until the
+// host reveals them, but it is on the network for anyone who finds the port.
+const displayOnLan = process.env.GAQ_PARTY_DISPLAY_LAN === "1";
 const displayUrl = `http://127.0.0.1:${displayPort}${DOOR_HOME.display}`;
 const localControlUrl = `http://127.0.0.1:${controlPort}${DOOR_HOME.control}`;
 const lanIps = lanAddresses(networkInterfaces());
+const lanDisplayUrls = displayOnLan ? lanIps.map((ip) => `http://${ip}:${displayPort}${DOOR_HOME.display}`) : [];
 const lanControlUrls = lanIps.map((ip) => `http://${ip}:${controlPort}${DOOR_HOME.control}`);
 // Bare host:port, since the player door redirects its root to the join page
 // and this is what the display shows for people to type.
@@ -84,7 +89,7 @@ function serveDoor(door: Door, hostname: string, port: number) {
   }
 }
 
-serveDoor("display", "127.0.0.1", displayPort);
+serveDoor("display", displayOnLan ? "0.0.0.0" : "127.0.0.1", displayPort);
 serveDoor("control", "0.0.0.0", controlPort);
 serveDoor("player", "0.0.0.0", playerPort);
 
@@ -96,6 +101,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 console.log("GAQ Party is running.");
 console.log(`  Display (this machine only): ${displayUrl}`);
+for (const lanUrl of lanDisplayUrls) console.log(`  Display on your network:     ${lanUrl}`);
 console.log(`  Host panel:                  ${localControlUrl}`);
 for (const lanUrl of lanControlUrls) console.log(`  Host panel on your network:  ${lanUrl}`);
 for (const lanUrl of lanPlayerUrls) console.log(`  Players join at:             ${lanUrl}`);

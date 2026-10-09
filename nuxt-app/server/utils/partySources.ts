@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
 import { scopeFilter, type StudyScope } from "./cards.ts";
+import type { EndlessCandidate } from "./partyEndless.ts";
 import { PARTY_LOAD_MAX } from "./partyGame.ts";
 import { parseStudyFilters, studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
 
@@ -78,4 +79,21 @@ export function pickPartyQueue(
     }
   }
   return { cardIds: ordered.slice(0, PARTY_LOAD_MAX), total: ids.length };
+}
+
+/** Every card with the anime's AniList score and whether it has a local file, for endless queues. */
+export function listEndlessCandidates(): EndlessCandidate[] {
+  return db
+    .select({
+      cardId: card.id,
+      animeId: anime.id,
+      score: anime.averageScore,
+      localVideoPath: card.localVideoPath,
+      localAudioPath: card.localAudioPath,
+    })
+    .from(card)
+    .innerJoin(song, eq(card.songId, song.id))
+    .innerJoin(anime, eq(song.animeId, anime.id))
+    .all()
+    .map(({ localVideoPath, localAudioPath, ...rest }) => ({ ...rest, downloaded: Boolean(localVideoPath || localAudioPath) }));
 }

@@ -2,7 +2,7 @@
 definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party - Join" });
 
-const { view, state, connected, notice, savedName, join, rename, buzz, buzzing } = usePartyPlayer();
+const { view, state, connected, notice, savedName, join, rename, buzz, buzzing, pickChoice, picking } = usePartyPlayer();
 
 const name = ref("");
 const joinError = ref<string | null>(null);
@@ -98,6 +98,25 @@ const stage = computed<Stage>(() => {
         <p v-else-if="stage === 'other'" class="play-note"><strong>{{ state?.buzzer.answering }}</strong> is answering...</p>
         <p v-else-if="stage === 'locked'" class="play-note">Not this one. Wait for the next song.</p>
       </div>
+
+      <div v-if="state?.choices && state.phase === 'guessing'" class="choice-list" role="group" aria-label="Which anime is this?">
+        <button
+          v-for="(option, index) in state.choices.options"
+          :key="option"
+          type="button"
+          class="choice-btn"
+          :class="{ picked: state.choices.picked === index }"
+          :disabled="picking || state.choices.picked !== null"
+          @click="pickChoice(index)"
+        >
+          <span class="choice-letter">{{ "ABCDEF"[index] }}</span>
+          {{ option }}
+        </button>
+        <p v-if="state.choices.picked !== null" class="play-note">Locked in. Wait for the reveal!</p>
+      </div>
+      <p v-else-if="state?.choices && state.choices.picked !== null && state.phase === 'revealed'" class="choice-result" role="status">
+        {{ state.choices.picked === state.choices.correct ? "Your pick was right!" : "Not that one." }}
+      </p>
 
       <button
         v-if="stage === 'ready'"
@@ -291,6 +310,59 @@ const stage = computed<Stage>(() => {
 
 .song {
   margin: 0;
+  font-weight: 700;
+}
+
+.choice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 3px solid var(--outline);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.choice-btn.picked {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.choice-btn:disabled:not(.picked) {
+  opacity: 0.55;
+}
+
+.choice-letter {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.choice-btn.picked .choice-letter {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
+
+.choice-result {
+  margin: 0;
+  text-align: center;
   font-weight: 700;
 }
 

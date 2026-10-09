@@ -10,6 +10,9 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
   const seconds = ref(0);
   const playing = ref(false);
   const active = computed(() => enabled.value && seconds.value > 0);
+  // Re-read every 250ms while counting so the page can show when the song ends.
+  const tick = ref(0);
+  let ticker: ReturnType<typeof setInterval> | null = null;
 
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let armedAt = 0;
@@ -20,12 +23,16 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
   function stop() {
     if (timeout !== null) clearTimeout(timeout);
     timeout = null;
+    if (ticker !== null) clearInterval(ticker);
+    ticker = null;
+    tick.value += 1;
   }
 
   function arm(durationMs: number) {
     stop();
     armedAt = Date.now();
     armedMs = durationMs;
+    ticker = setInterval(() => (tick.value += 1), 250);
     timeout = setTimeout(() => {
       stop();
       remainingMs = null;
@@ -79,5 +86,13 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
 
   onScopeDispose(stop);
 
-  return { seconds, onPlaybackStarted, onPlaybackPaused };
+  // Whole seconds until the song moves on; null when no play length applies.
+  const remainingSeconds = computed<number | null>(() => {
+    void tick.value;
+    if (!active.value) return null;
+    const ms = timeout !== null ? armedMs - (Date.now() - armedAt) : (remainingMs ?? seconds.value * 1000);
+    return Math.max(0, Math.ceil(ms / 1000));
+  });
+
+  return { seconds, remainingSeconds, onPlaybackStarted, onPlaybackPaused };
 }

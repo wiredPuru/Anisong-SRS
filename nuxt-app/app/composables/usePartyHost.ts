@@ -10,6 +10,33 @@ import type {
   PartyTimer,
 } from "./usePartyDisplay";
 
+export type PartyEndlessDifficulty = "easy" | "medium" | "hard" | "random";
+
+export interface PartyEndless {
+  difficulty: PartyEndlessDifficulty;
+  downloadedOnly: boolean;
+  outsideLibrary: boolean;
+}
+
+export interface PartyRevealFields {
+  anime: boolean;
+  artist: boolean;
+  song: boolean;
+  slot: boolean;
+}
+
+export interface PartyStake {
+  multiplier: number;
+  risk: boolean;
+  playerId: number | null;
+}
+
+export interface PartyLive {
+  mode: Exclude<PartyLightningMode, "regular">;
+  guessSeconds: number;
+  offset: number;
+}
+
 export interface PartyLightning {
   mode: PartyLightningMode;
   guessSeconds: number;
@@ -28,12 +55,20 @@ export interface PartyHostState {
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
+  live: PartyLive | null;
+  choices: string[] | null;
+  choicePicks: Record<number, number>;
+  stake: PartyStake | null;
   timer: PartyTimer | null;
-  scoreboard: { players: PartyPlayer[]; visible: boolean };
+  scoreboard: { players: PartyPlayer[]; teams: { id: number; name: string }[]; nextTeamId: number; visible: boolean };
   banner: PartyBanner | null;
   music: PartyMusic;
+  songVolume: number;
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
+  endless: PartyEndless | null;
+  revealFields: PartyRevealFields;
+  autoAdvance: boolean;
   buzz: { playerId: number | null; lockedOut: number[]; winnerId: number | null };
   currentAwards: number[];
   summaryVisible: boolean;
@@ -51,6 +86,13 @@ export type PartyHostCommand =
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "lightning"; config: PartyLightning | null }
+  | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
+  | { type: "choices"; enabled: boolean }
+  | { type: "stake"; config: PartyStake | null }
+  | { type: "endless"; config: PartyEndless | null }
+  | { type: "revealFields"; fields: PartyRevealFields }
+  | { type: "autoAdvance"; enabled: boolean }
+  | { type: "queueReroll"; index: number }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
   | { type: "score"; op: "add"; name: string }
@@ -59,8 +101,12 @@ export type PartyHostCommand =
   | { type: "score"; op: "adjust"; id: number; delta: number }
   | { type: "score"; op: "reset" }
   | { type: "score"; op: "show"; visible: boolean }
+  | { type: "score"; op: "teamAdd"; name: string }
+  | { type: "score"; op: "teamRemove"; id: number }
+  | { type: "score"; op: "assign"; id: number; teamId: number | null }
   | { type: "banner"; text: string | null }
   | { type: "music"; enabled: boolean; volume: number }
+  | { type: "songVolume"; volume: number }
   | { type: "joinInfo"; visible: boolean }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }

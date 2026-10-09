@@ -5,6 +5,7 @@ export interface PartyPlayerState {
   phase: "idle" | "guessing" | "revealed";
   song: { number: number; total: number } | null;
   players: { name: string; score: number }[];
+  choices: { options: string[]; picked: number | null; correct: number | null } | null;
   buzzer: {
     enabled: boolean;
     canBuzz: boolean;
@@ -161,11 +162,27 @@ export function usePartyPlayer() {
     }
   }
 
+  const picking = ref(false);
+
+  // One pick per song: the server keeps the first and ignores the rest.
+  async function pickChoice(index: number): Promise<void> {
+    if (picking.value || state.value?.choices?.picked != null) return;
+    picking.value = true;
+    try {
+      await $fetch("/api/party/player/choice", { method: "POST", body: { index } });
+      navigator.vibrate?.(60);
+    } catch {
+      // The stream still shows the true state; a lost pick can be tapped again.
+    } finally {
+      picking.value = false;
+    }
+  }
+
   onMounted(() => {
     savedName.value = readStoredName();
     void resume();
   });
   onBeforeUnmount(closeStream);
 
-  return { view, state, connected, notice, savedName, join, rename, buzz, buzzing };
+  return { view, state, connected, notice, savedName, join, rename, buzz, buzzing, pickChoice, picking };
 }

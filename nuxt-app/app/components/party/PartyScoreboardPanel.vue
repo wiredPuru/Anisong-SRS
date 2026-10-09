@@ -12,6 +12,19 @@ const editName = ref("");
 const confirmingReset = ref(false);
 
 const players = computed(() => props.state.scoreboard.players);
+const teams = computed(() => props.state.scoreboard.teams);
+const newTeam = ref("");
+
+function addTeam() {
+  const name = newTeam.value.trim();
+  if (!name) return;
+  emit("command", { type: "score", op: "teamAdd", name });
+  newTeam.value = "";
+}
+
+function assign(playerId: number, value: string) {
+  emit("command", { type: "score", op: "assign", id: playerId, teamId: value === "" ? null : Number(value) });
+}
 const full = computed(() => players.value.length >= PLAYER_LIMIT);
 
 function addPlayer() {
@@ -64,6 +77,16 @@ function resetScores() {
             <span class="dot" aria-hidden="true" />{{ player.connected ? "Phone" : "Phone, offline" }}
           </span>
         </button>
+        <select
+          v-if="teams.length"
+          class="team-select"
+          :value="player.teamId ?? ''"
+          :aria-label="`Team for ${player.name}`"
+          @change="assign(player.id, ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">No team</option>
+          <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
+        </select>
         <span class="score">{{ player.score }}</span>
         <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
         <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+</button>
@@ -76,6 +99,20 @@ function resetScores() {
       <input v-model="newName" class="text" type="text" maxlength="24" :placeholder="full ? 'Scoreboard is full' : 'Player or team name'" :disabled="full" />
       <button type="submit" class="mini" :disabled="!newName.trim() || full">Add</button>
     </form>
+
+    <div class="teams">
+      <p class="teams-label">Teams: members keep their own scores, and the screen shows each team's total.</p>
+      <ul v-if="teams.length" class="team-list">
+        <li v-for="team in teams" :key="team.id" class="team-chip">
+          {{ team.name }}
+          <button type="button" class="remove" :aria-label="`Remove team ${team.name}`" @click="emit('command', { type: 'score', op: 'teamRemove', id: team.id })">✕</button>
+        </li>
+      </ul>
+      <form class="add" @submit.prevent="addTeam">
+        <input v-model="newTeam" class="text" type="text" maxlength="24" placeholder="New team name" />
+        <button type="submit" class="mini" :disabled="!newTeam.trim()">Add team</button>
+      </form>
+    </div>
 
     <div v-if="players.length" class="reset">
       <template v-if="confirmingReset">
@@ -272,5 +309,48 @@ function resetScores() {
 
 .phone.online .dot {
   background: var(--pass);
+}
+.teams {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teams-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.team-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.team-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.team-select {
+  max-width: 110px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
 }
 </style>

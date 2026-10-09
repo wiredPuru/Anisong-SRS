@@ -4,6 +4,7 @@ import type { PartyAnswer } from "~/composables/usePartyDisplay";
 const props = defineProps<{ answer: PartyAnswer }>();
 
 const showRomaji = computed(() => props.answer.animeTitleRomaji !== props.answer.animeTitleEnglish);
+const hasSong = computed(() => Boolean(props.answer.songTitle || props.answer.artistName));
 const coverFailed = ref(false);
 watch(() => props.answer.coverImageUrl, () => {
   coverFailed.value = false;
@@ -20,12 +21,12 @@ watch(() => props.answer.coverImageUrl, () => {
       @error="coverFailed = true"
     />
     <div class="reveal-text">
-      <p class="kai-banner kai-banner-pass reveal-banner">{{ formatThemeSlotLabel(answer.themeSlot) }}</p>
-      <h2 class="reveal-title">{{ answer.animeTitleEnglish }}</h2>
-      <p v-if="showRomaji" class="reveal-sub">{{ answer.animeTitleRomaji }}</p>
-      <p class="reveal-song">
-        <span class="reveal-song-title">{{ answer.songTitle }}</span>
-        <span class="reveal-artist">{{ answer.artistName }}</span>
+      <p v-if="answer.themeSlot" class="kai-banner kai-banner-pass reveal-banner">{{ formatThemeSlotLabel(answer.themeSlot) }}</p>
+      <h2 v-if="answer.animeTitleEnglish" class="reveal-title">{{ answer.animeTitleEnglish }}</h2>
+      <p v-if="answer.animeTitleEnglish && showRomaji" class="reveal-sub">{{ answer.animeTitleRomaji }}</p>
+      <p v-if="hasSong" class="reveal-song">
+        <span v-if="answer.songTitle" class="reveal-song-title">{{ answer.songTitle }}</span>
+        <span v-if="answer.artistName" class="reveal-artist">{{ answer.artistName }}</span>
       </p>
     </div>
   </section>

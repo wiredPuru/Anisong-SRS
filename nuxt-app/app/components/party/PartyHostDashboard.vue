@@ -45,7 +45,20 @@ usePartyHotkeys(state, send, () => {
         </section>
 
         <section v-if="state" class="panel">
+          <PartyStakePanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
+          <PartyLivePanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
           <PartyEffectsPanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
+          <h2 class="search-title">Add songs</h2>
+          <PartyQueueSearch :state="state" />
         </section>
 
         <section v-if="hasGame && state" class="panel">
@@ -56,6 +69,14 @@ usePartyHotkeys(state, send, () => {
       <div class="side-column">
         <section class="panel">
           <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
+        </section>
+
+        <section v-if="state" class="panel">
+          <PartyEndlessPanel :state="state" @command="send" />
+        </section>
+
+        <section v-if="state" class="panel">
+          <PartyRevealPanel :state="state" @command="send" />
         </section>
 
         <section v-if="state" class="panel">
@@ -90,6 +111,12 @@ usePartyHotkeys(state, send, () => {
 </template>
 
 <style scoped>
+.search-title {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
 .dashboard {
   max-width: 1200px;
   margin: 0 auto;

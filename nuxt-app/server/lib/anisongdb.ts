@@ -337,3 +337,34 @@ export async function fetchArtistCatalog(artistId: number, options: ThemeOptions
     ignore_duplicate: true,
   }), options);
 }
+
+export interface AnisongRandomSong {
+  annSongId: number;
+  /** AMQ's own label, e.g. "Opening 1" or "Insert Song". */
+  songType: string;
+  songTitle: string;
+  artistName: string;
+  animeEnglish: string;
+  animeRomaji: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+}
+
+/** Random songs from AnisongDB's whole catalog, whether or not the library has them. */
+export async function fetchRandomSongs(count: number): Promise<AnisongRandomSong[]> {
+  const entries = await postJson("get_n_random_songs", { n: count });
+  const songs: AnisongRandomSong[] = [];
+  for (const entry of entries) {
+    if (!isRecord(entry)) continue;
+    const annSongId = typeof entry.annSongId === "number" ? entry.annSongId : null;
+    const songTitle = text(entry.songName);
+    const animeRomaji = text(entry.animeJPName) ?? text(entry.animeENName);
+    const animeEnglish = text(entry.animeENName) ?? animeRomaji;
+    const songType = text(entry.songType);
+    const videoUrl = mediaUrl(entry.HQ) ?? mediaUrl(entry.MQ);
+    const audioUrl = mediaUrl(entry.audio);
+    if (annSongId === null || !songTitle || !animeRomaji || !animeEnglish || !songType || (!videoUrl && !audioUrl)) continue;
+    songs.push({ annSongId, songType, songTitle, artistName: text(entry.songArtist) ?? "Unknown artist", animeEnglish, animeRomaji, videoUrl, audioUrl });
+  }
+  return songs;
+}

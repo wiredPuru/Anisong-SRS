@@ -13,7 +13,8 @@ const props = defineProps<{
   startFraction: number;
   effects: PartyEffects;
   revealed: boolean;
-  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
+  volume: number;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
@@ -79,16 +80,19 @@ const showVeil = computed(() => {
   if (showCover.value) return false;
   return picture.value === "blackout" || picture.value === "cover" || props.kind === "audio";
 });
+// A hint mode turned on mid-song counts up from the moment it was turned on.
+const roundElapsed = computed(() => elapsed.value - (props.lightning?.offset ?? 0));
 const blurPx = computed(() =>
-  active.value ? effectStrength(fx.value.blur, fx.value.decay, fx.value.decaySeconds, elapsed.value) : 0,
+  active.value ? effectStrength(fx.value.blur, fx.value.decay, fx.value.decaySeconds, roundElapsed.value) : 0,
 );
 const pixelBlock = computed(() =>
-  active.value ? pixelBlockSize(fx.value.pixelate, fx.value.decay, fx.value.decaySeconds, elapsed.value) : 0,
+  active.value ? pixelBlockSize(fx.value.pixelate, fx.value.decay, fx.value.decaySeconds, roundElapsed.value) : 0,
 );
 // The canvas draws whichever picture is showing; the element itself stays
 // loaded (and the clip keeps playing) underneath it.
+const bubbleSource = computed(() => (picture.value === "bubbles" && !showVeil.value ? media.value : null));
 const pixelSource = computed(() => {
-  if (pixelBlock.value <= 0 || showVeil.value) return null;
+  if (pixelBlock.value <= 0 || showVeil.value || bubbleSource.value) return null;
   return showCover.value ? cover.value : media.value;
 });
 // Peek: a round window onto the clip that grows over the guess time and
@@ -98,10 +102,10 @@ const PEEK_END = 45;
 const peekSeed = computed(() => [...props.token].reduce((sum, char) => sum + char.charCodeAt(0), 0));
 const peekClip = computed(() => {
   if (!active.value || props.lightning?.mode !== "peek") return undefined;
-  const progress = Math.min(1, Math.max(0, elapsed.value) / props.lightning.guessSeconds);
+  const progress = Math.min(1, Math.max(0, roundElapsed.value) / props.lightning.guessSeconds);
   const radius = PEEK_START + (PEEK_END - PEEK_START) * progress;
-  const x = 50 + 28 * Math.sin(elapsed.value * 0.6 + peekSeed.value);
-  const y = 50 + 22 * Math.cos(elapsed.value * 0.45 + peekSeed.value);
+  const x = 50 + 28 * Math.sin(roundElapsed.value * 0.6 + peekSeed.value);
+  const y = 50 + 22 * Math.cos(roundElapsed.value * 0.45 + peekSeed.value);
   return `circle(${radius.toFixed(1)}% at ${x.toFixed(1)}% ${y.toFixed(1)}%)`;
 });
 const visualStyle = computed(() => {
@@ -115,7 +119,7 @@ const visualStyle = computed(() => {
 });
 const countdown = computed(() => {
   if (!active.value || !props.lightning) return null;
-  return Math.max(0, 1 - Math.max(0, elapsed.value) / props.lightning.guessSeconds);
+  return Math.max(0, 1 - Math.max(0, roundElapsed.value) / props.lightning.guessSeconds);
 });
 const hints = computed(() => (props.lightning?.hints && !failed.value ? props.lightning.hints : null));
 
@@ -129,6 +133,7 @@ function report() {
     playing: !blocked.value && !element.paused && audible.value,
     blocked: blocked.value,
     elapsed: Math.max(0, element.currentTime - startPosition.value),
+    ended: element.ended,
   });
 }
 
@@ -171,6 +176,7 @@ function registerElement(slot: number, element: unknown) {
   if (elements[slot] === element) return;
   elements[slot] = element;
   element.muted = true;
+  element.volume = props.volume;
 }
 
 function matchesSlotSource(slot: number) {
@@ -258,6 +264,12 @@ watch(
   { flush: "pre" },
 );
 watch(() => props.playing, followPlaying);
+watch(
+  () => props.volume,
+  (volume) => {
+    for (const element of elements) if (element) element.volume = volume;
+  },
+);
 watch([() => fx.value.muted, active], followMuted);
 watch(
   () => props.seekSeq,
@@ -289,8 +301,8 @@ onBeforeUnmount(() => {
       :key="slotIndex"
       :ref="(element) => registerElement(slotIndex - 1, element)"
       class="party-media"
-      :class="slots[slotIndex - 1] === token && token ? { hidden: showVeil || showCover || pixelSource } : 'preload'"
-      :style="slots[slotIndex - 1] !== token || !token || showVeil || showCover || pixelSource ? undefined : visualStyle"
+      :class="slots[slotIndex - 1] === token && token ? { hidden: showVeil || showCover || pixelSource || bubbleSource } : 'preload'"
+      :style="slots[slotIndex - 1] !== token || !token || showVeil || showCover || pixelSource || bubbleSource ? undefined : visualStyle"
       :src="slots[slotIndex - 1] ? clipSrc(slots[slotIndex - 1]!) : UNLOCK_SRC"
       preload="auto"
       playsinline
@@ -299,6 +311,7 @@ onBeforeUnmount(() => {
       @waiting="onAudible(slotIndex - 1, false)"
       @pause="onAudible(slotIndex - 1, false)"
       @seeked="report"
+      @ended="report"
       @error="onError(slotIndex - 1)"
     />
     <img
@@ -311,6 +324,7 @@ onBeforeUnmount(() => {
       alt=""
       @error="coverFailed = true"
     />
+    <PartyBubbleCanvas v-if="bubbleSource" :source="bubbleSource" :seed="token" :style="visualStyle" />
     <PartyPixelCanvas v-if="pixelSource" :source="pixelSource" :block-size="pixelBlock" :style="visualStyle" />
     <div v-if="failed" class="party-veil">
       <StudyPlayerKai mood="error" text="This clip won't play" />

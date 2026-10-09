@@ -1,5 +1,21 @@
 /** The party display's floating pieces the host can move and resize (feature 91b). */
-export const PARTY_PIECES = ["reveal", "scoreboard", "round", "timer", "count", "join", "hints"] as const;
+export const PARTY_PIECES = [
+  "reveal",
+  "scoreboard",
+  "round",
+  "timer",
+  "count",
+  "join",
+  "hints",
+  "choices",
+  "stake",
+  "buzz",
+  "banner",
+  "skip",
+  "summaryTitle",
+  "standings",
+  "songList",
+] as const;
 export type PartyPieceId = (typeof PARTY_PIECES)[number];
 
 /** Where a piece's anchor sits, as fractions of the display, and its size. */
@@ -30,6 +46,14 @@ export const PIECE_ANCHORS: Record<PartyPieceId, PartyAnchor> = {
   count: { ax: 1, ay: 0 },
   join: { ax: 0, ay: 1 },
   hints: { ax: 0.5, ay: 0.5 },
+  choices: { ax: 0.5, ay: 1 },
+  stake: { ax: 0.5, ay: 0 },
+  buzz: { ax: 0.5, ay: 0.5 },
+  banner: { ax: 0.5, ay: 0.5 },
+  skip: { ax: 0.5, ay: 0.5 },
+  summaryTitle: { ax: 0, ay: 0 },
+  standings: { ax: 0, ay: 0 },
+  songList: { ax: 1, ay: 0 },
 };
 
 // Approximates the fixed spots each piece had before it could move.
@@ -41,6 +65,14 @@ export const DEFAULT_LAYOUT: PartyLayout = {
   count: { x: 0.985, y: 0.02, scale: 1 },
   join: { x: 0.015, y: 0.98, scale: 1 },
   hints: { x: 0.5, y: 0.5, scale: 1 },
+  choices: { x: 0.5, y: 0.97, scale: 1 },
+  stake: { x: 0.5, y: 0.02, scale: 1 },
+  buzz: { x: 0.5, y: 0.5, scale: 1 },
+  banner: { x: 0.5, y: 0.5, scale: 1 },
+  skip: { x: 0.5, y: 0.5, scale: 1 },
+  summaryTitle: { x: 0.03, y: 0.03, scale: 1 },
+  standings: { x: 0.03, y: 0.2, scale: 1 },
+  songList: { x: 0.97, y: 0.2, scale: 1 },
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -75,13 +107,78 @@ export function parseLayout(raw: string | null): PartyLayout {
 
 const samePlacement = (a: PartyPlacement, b: PartyPlacement) => a.x === b.x && a.y === b.y && a.scale === b.scale;
 
-/** Stores only the pieces moved from their default. */
-export function serializeLayout(layout: PartyLayout): string {
+/** Groups the host edits one at a time, so arranging stays manageable. */
+export const PIECE_CATEGORIES = [
+  { id: "main", label: "Main", pieces: ["count", "reveal", "scoreboard", "round"] },
+  { id: "game", label: "Game", pieces: ["timer", "stake", "hints", "join", "buzz", "banner", "skip"] },
+  { id: "choices", label: "Multiple choice", pieces: ["choices"] },
+  { id: "results", label: "Results", pieces: ["summaryTitle", "standings", "songList"] },
+] as const satisfies readonly { id: string; label: string; pieces: readonly PartyPieceId[] }[];
+export type PartyCategoryId = (typeof PIECE_CATEGORIES)[number]["id"];
+
+export const PIECE_LABELS: Record<PartyPieceId, string> = {
+  reveal: "Answer",
+  scoreboard: "Scores",
+  round: "This round",
+  timer: "Timer",
+  count: "Song count",
+  join: "Join chip",
+  hints: "Hints",
+  choices: "Answer options",
+  stake: "Challenge badge",
+  buzz: "Buzz-in name",
+  banner: "Host banner",
+  skip: "Skipping label",
+  summaryTitle: "Results heading",
+  standings: "Final standings",
+  songList: "Songs played",
+};
+
+export function categoryOf(piece: PartyPieceId): PartyCategoryId {
+  return PIECE_CATEGORIES.find((category) => (category.pieces as readonly PartyPieceId[]).includes(piece))!.id;
+}
+
+/** How the multiple-choice options are arranged. */
+export const CHOICE_STYLES = [
+  { id: "grid", label: "2 by 2 grid" },
+  { id: "list", label: "Stacked list" },
+  { id: "row", label: "One row" },
+] as const;
+export type ChoiceStyle = (typeof CHOICE_STYLES)[number]["id"];
+
+/** Choices about the pieces that are not where they sit. */
+export interface PartyLayoutSettings {
+  hidden: PartyPieceId[];
+  choiceStyle: ChoiceStyle;
+}
+export const DEFAULT_SETTINGS: PartyLayoutSettings = { hidden: [], choiceStyle: "grid" };
+
+/** The hidden pieces and choice arrangement from a saved layout; defaults for anything unreadable. */
+export function parseLayoutSettings(raw: string | null): PartyLayoutSettings {
+  if (!raw) return { ...DEFAULT_SETTINGS, hidden: [] };
+  try {
+    const { hidden, choiceStyle } = JSON.parse(raw) as { hidden?: unknown; choiceStyle?: unknown };
+    return {
+      hidden: Array.isArray(hidden) ? PARTY_PIECES.filter((id) => hidden.includes(id)) : [],
+      choiceStyle: CHOICE_STYLES.some((style) => style.id === choiceStyle) ? (choiceStyle as ChoiceStyle) : "grid",
+    };
+  } catch {
+    return { ...DEFAULT_SETTINGS, hidden: [] };
+  }
+}
+
+/** Stores only the pieces moved from their default, and settings that are not the default. */
+export function serializeLayout(layout: PartyLayout, settings: PartyLayoutSettings = DEFAULT_SETTINGS): string {
   const pieces: Partial<PartyLayout> = {};
   for (const id of PARTY_PIECES) {
     if (!samePlacement(layout[id], DEFAULT_LAYOUT[id])) pieces[id] = layout[id];
   }
-  return JSON.stringify({ v: LAYOUT_VERSION, pieces });
+  return JSON.stringify({
+    v: LAYOUT_VERSION,
+    pieces,
+    ...(settings.hidden.length ? { hidden: settings.hidden } : {}),
+    ...(settings.choiceStyle !== "grid" ? { choiceStyle: settings.choiceStyle } : {}),
+  });
 }
 
 /** Moves the anchor by `dx`/`dy` fractions of the display, keeping it on screen. */

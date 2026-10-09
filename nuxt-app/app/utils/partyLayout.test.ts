@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LAYOUT,
+  DEFAULT_SETTINGS,
+  categoryOf,
+  parseLayoutSettings,
+  PIECE_CATEGORIES,
   frameStyle,
   movePlacement,
   PARTY_PIECES,
@@ -85,5 +89,30 @@ describe("frameStyle", () => {
       transform: "translate(-50%, -50%) scale(1)",
       transformOrigin: "50% 50%",
     });
+  });
+});
+
+describe("layout settings", () => {
+  it("defaults when nothing usable is saved", () => {
+    for (const raw of [null, "", "not json", '{"v":1,"pieces":{}}']) expect(parseLayoutSettings(raw)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("keeps known hidden pieces and a valid choice style only", () => {
+    const raw = JSON.stringify({ v: 1, pieces: {}, hidden: ["timer", "mystery", "choices"], choiceStyle: "row" });
+    expect(parseLayoutSettings(raw)).toEqual({ hidden: ["timer", "choices"], choiceStyle: "row" });
+    expect(parseLayoutSettings('{"hidden":"timer","choiceStyle":"diagonal"}')).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("round-trips, writing nothing extra for the defaults", () => {
+    const settings = { hidden: ["join" as const], choiceStyle: "list" as const };
+    expect(parseLayoutSettings(serializeLayout(DEFAULT_LAYOUT, settings))).toEqual(settings);
+    expect(JSON.parse(serializeLayout(DEFAULT_LAYOUT, DEFAULT_SETTINGS))).toEqual({ v: 1, pieces: {} });
+  });
+
+  it("puts every piece in exactly one category", () => {
+    const listed = PIECE_CATEGORIES.flatMap((category) => [...category.pieces]);
+    expect([...listed].sort()).toEqual([...PARTY_PIECES].sort());
+    expect(categoryOf("choices")).toBe("choices");
+    expect(categoryOf("timer")).toBe("game");
   });
 });

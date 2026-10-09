@@ -14,7 +14,8 @@ const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
 const { scores, pops } = usePartySettledScores(state);
-const { editing: arranging } = usePartyLayout();
+const { editing: arranging, settings, category, selected } = usePartyLayout();
+const showSummary = computed(() => started.value && Boolean(state.value?.summary || (arranging.value && category.value === 'results')));
 const roundRows = computed(() => {
   const rows = scores.value?.token ? scores.value.roundPoints : [];
   return arranging.value && !rows.length && !pops.value.length ? SAMPLE_ROUND : rows;
@@ -43,6 +44,13 @@ function onPointerMove() {
   idleTimer = setTimeout(() => (pointerActive.value = false), IDLE_MS);
 }
 
+// Clicking empty screen while arranging puts every piece back in play.
+function onPointerDown(event: PointerEvent) {
+  if (!arranging.value || !selected.value) return;
+  if (event.target instanceof Element && event.target.closest(".layout-frame, .layout-toolbar, .display-buttons")) return;
+  selected.value = null;
+}
+
 function onDoubleClick(event: MouseEvent) {
   // A double-click on "Click to start" would otherwise leave full screen the
   // moment its first click entered it.
@@ -62,9 +70,12 @@ function onKeydown(event: KeyboardEvent) {
   } else if (key === "l") {
     event.preventDefault();
     arranging.value = !arranging.value;
+    selected.value = null;
   } else if (key === "escape" && arranging.value) {
     event.preventDefault();
-    arranging.value = false;
+    // One piece being edited steps back to the full view first.
+    if (selected.value) selected.value = null;
+    else arranging.value = false;
   }
 }
 
@@ -109,6 +120,7 @@ onBeforeUnmount(() => {
     class="display"
     :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
     @mousemove="onPointerMove"
+    @pointerdown="onPointerDown"
     @dblclick="onDoubleClick"
   >
     <button v-if="!started" type="button" class="display-start" @click="start">
@@ -130,6 +142,7 @@ onBeforeUnmount(() => {
       :start-fraction="state?.startFraction ?? 0"
       :effects="state?.effects ?? idleEffects"
       :revealed="state?.phase === 'revealed'"
+      :volume="state?.songVolume ?? 1"
       :lightning="state?.lightning ?? null"
       @position="reportPosition"
     />
@@ -138,10 +151,15 @@ onBeforeUnmount(() => {
       <PartyLayoutFrame piece="count">
         <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
       </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="state.stake" piece="stake">
+        <PartyStakeBadge :stake="state.stake" />
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="state.choices && !state.answer" piece="choices">
+        <PartyChoices :options="state.choices" :variant="settings.choiceStyle" />
+      </PartyLayoutFrame>
       <PartyLayoutFrame v-if="state.answer" piece="reveal">
         <PartyRevealOverlay :answer="state.answer" />
       </PartyLayoutFrame>
-      <PartyRoundSummary v-if="state.summary" :summary="state.summary" />
     </template>
 
     <div v-else-if="started" class="display-waiting">
@@ -156,7 +174,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" />
+    <PartyRoundSummary v-if="showSummary" :summary="state?.summary ?? SAMPLE_SUMMARY" :sample="!state?.summary" />
+
+    <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" :arranging="arranging" />
 
     <template v-if="started && state">
       <PartyLayoutFrame piece="round">
@@ -180,6 +200,12 @@ onBeforeUnmount(() => {
       </PartyLayoutFrame>
       <PartyLayoutFrame v-if="!state?.answer" piece="reveal">
         <PartyRevealOverlay :answer="SAMPLE_ANSWER" />
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="!state?.stake" piece="stake">
+        <PartyStakeBadge :stake="SAMPLE_STAKE" />
+      </PartyLayoutFrame>
+      <PartyLayoutFrame v-if="!(state?.choices && !state?.answer)" piece="choices">
+        <PartyChoices :options="SAMPLE_CHOICES" :variant="settings.choiceStyle" />
       </PartyLayoutFrame>
       <PartyLayoutFrame v-if="!hintsOnScreen" piece="hints">
         <PartyLightningHintsCard :hints="SAMPLE_HINTS" />

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { PartyBanner, PartyJoinInfo, PartyPlayer, PartyTimer } from "~/composables/usePartyDisplay";
+import type { PartyBanner, PartyJoinInfo, PartyScoreRow, PartyTimer } from "~/composables/usePartyDisplay";
 
 const props = defineProps<{
   timer: PartyTimer | null;
   guessing: boolean;
-  scoreboard: PartyPlayer[] | null;
+  scoreboard: PartyScoreRow[] | null;
   banner: PartyBanner | null;
   join: PartyJoinInfo | null;
   answering: string | null;
@@ -32,6 +32,9 @@ onBeforeUnmount(() => {
 
 const secondsLeft = computed(() => (props.timer ? Math.max(0, Math.ceil((props.timer.endsAt - now.value) / 1000)) : null));
 const showTimer = computed(() => props.guessing && secondsLeft.value !== null);
+const { isHidden } = usePartyLayout();
+const buzzName = computed(() => props.answering ?? (props.arranging ? SAMPLE_BUZZER : null));
+const bannerText = computed(() => (showBanner.value && props.banner ? props.banner.text : props.arranging ? SAMPLE_BANNER : null));
 const showBanner = computed(() => Boolean(props.banner && now.value - props.banner.shownAt < BANNER_MS));
 </script>
 
@@ -51,7 +54,10 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
         <ol class="scoreboard-list">
           <li v-for="(player, index) in board" :key="player.id" class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0 }">
             <span class="scoreboard-rank">{{ index + 1 }}</span>
-            <span class="scoreboard-name">{{ player.name }}</span>
+            <span class="scoreboard-name">
+              {{ player.name }}
+              <span v-if="player.members?.length" class="scoreboard-members">{{ player.members.join(", ") }}</span>
+            </span>
             <span class="scoreboard-score">{{ player.score }}</span>
           </li>
           <li v-if="!board.length" class="scoreboard-empty">No players yet</li>
@@ -59,10 +65,13 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       </aside>
     </PartyLayoutFrame>
 
-    <div v-if="answering" class="buzz-layer" role="status">
-      <p class="kai-banner kai-banner-pass buzz-name">{{ answering }}</p>
-      <p class="buzz-label">buzzed in!</p>
-    </div>
+    <div v-if="answering && !isHidden('buzz')" class="buzz-layer" aria-hidden="true" />
+    <PartyLayoutFrame v-if="buzzName" piece="buzz">
+      <div class="buzz-card" role="status">
+        <p class="kai-banner kai-banner-pass buzz-name">{{ buzzName }}</p>
+        <p class="buzz-label">buzzed in!</p>
+      </div>
+    </PartyLayoutFrame>
 
     <PartyLayoutFrame v-if="joinShown" piece="join">
       <p class="join-chip">
@@ -70,9 +79,10 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       </p>
     </PartyLayoutFrame>
 
-    <div v-if="showBanner && banner" :key="banner.shownAt" class="banner-layer">
-      <p class="kai-banner kai-banner-pass banner-text">{{ banner.text }}</p>
-    </div>
+    <div v-if="showBanner && !isHidden('banner')" :key="banner?.shownAt" class="banner-layer" aria-hidden="true" />
+    <PartyLayoutFrame v-if="bannerText" :key="`b${banner?.shownAt}`" piece="banner">
+      <p class="kai-banner kai-banner-pass banner-text">{{ bannerText }}</p>
+    </PartyLayoutFrame>
   </div>
 </template>
 
@@ -158,7 +168,25 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 .scoreboard-row.leader .scoreboard-name,
-.scoreboard-row.leader .scoreboard-score {
+.scoreboard-row.leader .scoreboard-members {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 0.7em;
+  font-weight: 400;
+}
+
+.scoreboard-members {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 0.7em;
+  font-weight: 400;
+}
+
+.scoreboard-score {
   color: var(--accent);
 }
 
@@ -185,21 +213,23 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 .buzz-layer {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
   background: var(--scrim);
   animation: banner-in 200ms ease-out;
 }
 
-.buzz-layer p {
+.buzz-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.buzz-card p {
   margin: 0;
 }
 
 .buzz-name {
-  max-width: 90%;
+  max-width: 90vw;
   font-size: clamp(40px, 8vw, 140px);
   text-align: center;
   overflow-wrap: anywhere;
@@ -215,15 +245,12 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 .banner-layer {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: var(--scrim);
   animation: banner-in 300ms ease-out;
 }
 
 .banner-text {
-  max-width: 90%;
+  max-width: 90vw;
   font-size: clamp(36px, 7vw, 120px);
   text-align: center;
 }

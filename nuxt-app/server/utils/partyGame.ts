@@ -1,11 +1,38 @@
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
+import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
 import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
 
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
 export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
 export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
+export interface PartyEndless {
+  difficulty: EndlessDifficulty;
+  downloadedOnly: boolean;
+  /** Draw from AnisongDB's whole catalog instead of the library's cards. */
+  outsideLibrary: boolean;
+}
+
+/** Which parts of the answer the reveal shows. */
+export interface PartyRevealFields {
+  anime: boolean;
+  artist: boolean;
+  song: boolean;
+  slot: boolean;
+}
+export const ALL_REVEAL_FIELDS: PartyRevealFields = { anime: true, artist: true, song: true, slot: true };
+/** With auto-advance on, the answer shows this many seconds before the clip ends. */
+export const AUTO_REVEAL_LEAD_SECONDS = 5;
+
+/** A hint mode the host turns on for the current song only, with no timed round around it. */
+export interface PartyLive {
+  mode: Exclude<PartyLightningMode, "regular">;
+  guessSeconds: number;
+  /** Play time when it was turned on; hints and the picture count up from here. */
+  offset: number;
+}
+
 export interface PartyLightning {
   mode: PartyLightningMode;
   guessSeconds: number;
@@ -46,9 +73,32 @@ export interface PartyPlayer {
   // typed in by the host. Only a phone player can be connected.
   phone: boolean;
   connected: boolean;
+  /** Members share their team's total on the scoreboard. */
+  teamId: number | null;
 }
+export interface PartyTeam {
+  id: number;
+  name: string;
+}
+/** A scoreboard line: one player, or a team with its members' combined score. */
+export interface PartyScoreRow {
+  id: number;
+  name: string;
+  score: number;
+  members?: string[];
+}
+/** Points for the current song are multiplied; with risk, a wrong buzz costs the same multiple. */
+export interface PartyStake {
+  multiplier: number;
+  risk: boolean;
+  /** Whose points count; null means whoever scores. */
+  playerId: number | null;
+}
+export const TEAM_LIMIT = 10;
 export interface PartyScoreboard {
   players: PartyPlayer[];
+  teams: PartyTeam[];
+  nextTeamId: number;
   visible: boolean;
 }
 export interface PartyBanner {
@@ -91,6 +141,8 @@ export interface PartyPosition {
   // Seconds played since the song's own start position; lightning rounds
   // time their reveal and advance from it.
   elapsed: number;
+  /** The clip played to its end; the store may then move the game on. */
+  ended?: boolean;
 }
 export interface PartyGameState {
   version: number;
@@ -108,18 +160,29 @@ export interface PartyGameState {
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
+  live: PartyLive | null;
+  choices: string[] | null;
+  // Which option each phone player picked (player id to option index) for the current song.
+  choicePicks: Record<number, number>;
+  stake: PartyStake | null;
   revealedAtElapsed: number | null;
   timer: PartyTimer | null;
   scoreboard: PartyScoreboard;
   nextPlayerId: number;
   banner: PartyBanner | null;
   music: PartyMusic;
+  songVolume: number;
   // The display's corner chip with the player join address.
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
+  endless: PartyEndless | null;
+  revealFields: PartyRevealFields;
+  autoAdvance: boolean;
   buzz: PartyBuzz;
   // Who scored each song, by queue item token (feature 90c).
   awards: Record<string, number[]>;
+  // Points each award was worth, so taking one back returns exactly that.
+  awardValue: Record<string, Record<number, number>>;
   // Net points per player id on the current song only (feature 91a).
   roundPoints: Record<number, number>;
   summaryVisible: boolean;
@@ -136,7 +199,10 @@ export type PartyScoreCommand =
   | { type: "score"; op: "remove"; id: number }
   | { type: "score"; op: "adjust"; id: number; delta: number }
   | { type: "score"; op: "reset" }
-  | { type: "score"; op: "show"; visible: boolean };
+  | { type: "score"; op: "show"; visible: boolean }
+  | { type: "score"; op: "teamAdd"; name: string }
+  | { type: "score"; op: "teamRemove"; id: number }
+  | { type: "score"; op: "assign"; id: number; teamId: number | null };
 export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean; append?: boolean }
   | { type: "queueRemove"; index: number }
@@ -152,11 +218,19 @@ export type PartyCommand =
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "lightning"; config: PartyLightning | null }
+  | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
+  | { type: "choices"; enabled: boolean }
+  | { type: "stake"; config: PartyStake | null }
+  | { type: "endless"; config: PartyEndless | null }
+  | { type: "revealFields"; fields: PartyRevealFields }
+  | { type: "autoAdvance"; enabled: boolean }
+  | { type: "queueReroll"; index: number }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
   | PartyScoreCommand
   | { type: "banner"; text: string | null }
   | { type: "music"; enabled: boolean; volume: number }
+  | { type: "songVolume"; volume: number }
   | { type: "joinInfo"; visible: boolean }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }
@@ -169,7 +243,8 @@ export type PartyCommand =
 export type PartyInternalCommand =
   | { type: "playerJoin"; name: string; claimId: number | null }
   | { type: "playerConnection"; id: number; connected: boolean }
-  | { type: "buzz"; playerId: number };
+  | { type: "buzz"; playerId: number }
+  | { type: "choicePick"; playerId: number; index: number };
 export interface PartyJoinInfo {
   urls: string[];
 }
@@ -188,11 +263,15 @@ export interface PartyDisplayState {
   skipSeq: number;
   startFraction: number;
   effects: PartyEffects;
-  lightning: { mode: PartyLightningMode; guessSeconds: number; hints: PartyHints } | null;
+  lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
+  /** Anime titles to pick from; hidden once the answer is revealed. */
+  choices: string[] | null;
+  stake: { multiplier: number; risk: boolean; player: string | null } | null;
   timer: PartyTimer | null;
-  scoreboard: PartyPlayer[] | null;
+  scoreboard: PartyScoreRow[] | null;
   banner: PartyBanner | null;
   music: PartyMusic;
+  songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   buzz: { answering: string | null };
@@ -206,6 +285,8 @@ export interface PartyPlayerState {
   phase: PartyPhase;
   song: { number: number; total: number } | null;
   players: { name: string; score: number }[];
+  /** Multiple choice for this phone; the right one is named only after the reveal. */
+  choices: { options: string[]; picked: number | null; correct: number | null } | null;
   buzzer: {
     enabled: boolean;
     canBuzz: boolean;
@@ -228,12 +309,20 @@ export interface PartyHostState {
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
+  live: PartyLive | null;
+  choices: string[] | null;
+  choicePicks: Record<number, number>;
+  stake: PartyStake | null;
   timer: PartyTimer | null;
   scoreboard: PartyScoreboard;
   banner: PartyBanner | null;
   music: PartyMusic;
+  songVolume: number;
   joinInfoVisible: boolean;
   buzzerEnabled: boolean;
+  endless: PartyEndless | null;
+  revealFields: PartyRevealFields;
+  autoAdvance: boolean;
   buzz: PartyBuzz;
   currentAwards: number[];
   summaryVisible: boolean;
@@ -255,7 +344,7 @@ export const NO_EFFECTS: PartyEffects = {
   muted: false,
   picture: "video",
 };
-const PICTURES: readonly PartyPicture[] = ["video", "blackout", "cover"];
+const PICTURES: readonly PartyPicture[] = ["video", "blackout", "cover", "bubbles"];
 const BLUR_MAX = 40;
 const PIXELATE_MIN = 4;
 const PIXELATE_MAX = 64;
@@ -288,7 +377,7 @@ export function parsePartyEffects(raw: unknown): PartyEffects | { error: string 
     return { error: "blur, pixelate, and decaySeconds must be numbers" };
   }
   if (typeof decay !== "boolean" || typeof muted !== "boolean") return { error: "decay and muted must be booleans" };
-  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'blackout', or 'cover'" };
+  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'blackout', 'cover', or 'bubbles'" };
   return {
     blur: Math.round(clamp(blur, 0, BLUR_MAX)),
     pixelate: pixelate <= 0 ? 0 : Math.round(clamp(pixelate, PIXELATE_MIN, PIXELATE_MAX)),
@@ -306,12 +395,16 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "joinInfoVisible" | "buzzerEnabled" | "skipSeq"> = {
-    scoreboard: { players: [], visible: false },
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq"> = {
+    scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
+    songVolume: 1,
     joinInfoVisible: true,
     buzzerEnabled: false,
+    endless: null,
+    revealFields: ALL_REVEAL_FIELDS,
+    autoAdvance: true,
     skipSeq: 0,
   },
 ): PartyGameState {
@@ -331,11 +424,16 @@ export function initialPartyState(
     effects,
     nextEffects: null,
     lightning,
+    live: null,
+    choices: null,
+    choicePicks: {},
+    stake: null,
     revealedAtElapsed: null,
     timer: null,
     banner: null,
     buzz: NO_BUZZ,
     awards: {},
+    awardValue: {},
     roundPoints: {},
     summaryVisible: false,
     ...kept,
@@ -419,6 +517,46 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const parsed = parsePartyLightning(config);
       return "error" in parsed ? parsed : { type, config: parsed };
     }
+    case "live": {
+      const { config } = body as { config?: unknown };
+      if (config === null) return { type, config: null };
+      const { mode, guessSeconds } = (config ?? {}) as { mode?: unknown; guessSeconds?: unknown };
+      if (!LIGHTNING_MODES.includes(mode as PartyLightningMode) || mode === "regular") return { error: "mode must be a lightning hint mode" };
+      if (typeof guessSeconds !== "number" || !Number.isFinite(guessSeconds)) return { error: "guessSeconds must be a number" };
+      return { type, config: { mode: mode as PartyLive["mode"], guessSeconds: Math.round(clamp(guessSeconds, 5, 60)) } };
+    }
+    case "stake": {
+      const { config } = body as { config?: unknown };
+      if (config === null) return { type, config: null };
+      const { multiplier, risk, playerId } = (config ?? {}) as { multiplier?: unknown; risk?: unknown; playerId?: unknown };
+      if (!Number.isInteger(multiplier) || (multiplier as number) < 2 || (multiplier as number) > 4) return { error: "multiplier must be 2, 3 or 4" };
+      if (typeof risk !== "boolean") return { error: "risk must be a boolean" };
+      if (playerId !== null && (!Number.isInteger(playerId) || (playerId as number) <= 0)) return { error: "playerId must be a player id or null" };
+      return { type, config: { multiplier: multiplier as number, risk, playerId: playerId as number | null } };
+    }
+    case "choices": {
+      const { enabled } = body as { enabled?: unknown };
+      return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
+    }
+    case "endless": {
+      const { config } = body as { config?: unknown };
+      if (config === null) return { type, config: null };
+      const { difficulty, downloadedOnly, outsideLibrary } = (config ?? {}) as {
+        difficulty?: unknown;
+        downloadedOnly?: unknown;
+        outsideLibrary?: unknown;
+      };
+      if (!ENDLESS_DIFFICULTIES.includes(difficulty as EndlessDifficulty)) return { error: "difficulty must be easy, medium, hard or random" };
+      if (typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
+      if (outsideLibrary !== undefined && typeof outsideLibrary !== "boolean") return { error: "outsideLibrary must be a boolean" };
+      return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true } };
+    }
+    case "revealFields": {
+      const { fields } = body as { fields?: Record<string, unknown> };
+      const keys = ["anime", "artist", "song", "slot"] as const;
+      if (!fields || !keys.every((key) => typeof fields[key] === "boolean")) return { error: "fields needs anime, artist, song and slot booleans" };
+      return { type, fields: { anime: fields.anime as boolean, artist: fields.artist as boolean, song: fields.song as boolean, slot: fields.slot as boolean } };
+    }
     case "timer": {
       const { seconds, autoReveal } = body as { seconds?: unknown; autoReveal?: unknown };
       if (!Number.isInteger(seconds) || (seconds as number) < 3 || (seconds as number) > 120) {
@@ -459,6 +597,11 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (!Number.isInteger(playerId) || (playerId as number) <= 0) return { error: "playerId must be a player id" };
       if (typeof awarded !== "boolean") return { error: "awarded must be a boolean" };
       return { type, playerId: playerId as number, awarded };
+    }
+    case "songVolume": {
+      const { volume } = body as { volume?: unknown };
+      if (typeof volume !== "number" || !Number.isFinite(volume)) return { error: "volume must be a number" };
+      return { type, volume: clamp(volume, 0, 1) };
     }
     case "music": {
       const { enabled, volume } = body as { enabled?: unknown; volume?: unknown };
@@ -504,6 +647,14 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
         append: append === true,
       };
     }
+    case "autoAdvance": {
+      const { enabled } = body as { enabled?: unknown };
+      return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
+    }
+    case "queueReroll": {
+      const { index } = body as { index?: unknown };
+      return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
+    }
     case "queueRemove": {
       const { index } = body as { index?: unknown };
       return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
@@ -545,6 +696,16 @@ function parseScoreCommand(body: Record<string, unknown>): PartyScoreCommand | {
       return { type: "score", op: "reset" };
     case "show":
       return typeof body.visible === "boolean" ? { type: "score", op: "show", visible: body.visible } : { error: "visible must be a boolean" };
+    case "teamAdd": {
+      const name = parsePlayerName(body.name);
+      return name ? { type: "score", op: "teamAdd", name } : { error: `name must be 1-${PLAYER_NAME_MAX} characters` };
+    }
+    case "teamRemove":
+      return isId(body.id) ? { type: "score", op: "teamRemove", id: body.id } : { error: "id must be a team id" };
+    case "assign":
+      if (!isId(body.id)) return { error: "id must be a player id" };
+      if (body.teamId !== null && !isId(body.teamId)) return { error: "teamId must be a team id or null" };
+      return { type: "score", op: "assign", id: body.id, teamId: body.teamId as number | null };
     default:
       return { error: "Unknown score op" };
   }
@@ -557,7 +718,7 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
     case "add":
       if (players.length >= PLAYER_LIMIT) return state;
       return {
-        ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: false, connected: false }]),
+        ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: false, connected: false, teamId: null }]),
         nextPlayerId: state.nextPlayerId + 1,
       };
     case "rename":
@@ -583,6 +744,23 @@ function applyScore(state: PartyGameState, command: PartyScoreCommand): PartyGam
       return players.some((p) => p.score !== 0)
         ? { ...withPlayers(players.map((p) => ({ ...p, score: 0 }))), roundPoints: {} }
         : state;
+    case "teamAdd": {
+      const { teams } = state.scoreboard;
+      if (teams.length >= TEAM_LIMIT || teams.some((t) => sameName(t.name, command.name))) return state;
+      return { ...state, scoreboard: { ...state.scoreboard, teams: [...teams, { id: state.scoreboard.nextTeamId, name: command.name }], nextTeamId: state.scoreboard.nextTeamId + 1 } };
+    }
+    case "teamRemove": {
+      const { teams } = state.scoreboard;
+      if (!teams.some((t) => t.id === command.id)) return state;
+      const freed = players.map((p) => (p.teamId === command.id ? { ...p, teamId: null } : p));
+      return { ...state, scoreboard: { ...state.scoreboard, teams: teams.filter((t) => t.id !== command.id), players: freed } };
+    }
+    case "assign": {
+      const target = players.find((p) => p.id === command.id);
+      if (!target || target.teamId === command.teamId) return state;
+      if (command.teamId !== null && !state.scoreboard.teams.some((t) => t.id === command.teamId)) return state;
+      return withPlayers(players.map((p) => (p.id === command.id ? { ...p, teamId: command.teamId } : p)));
+    }
     case "show":
       return state.scoreboard.visible === command.visible ? state : { ...state, scoreboard: { ...state.scoreboard, visible: command.visible } };
   }
@@ -629,25 +807,41 @@ export function timerMayReveal(state: PartyGameState): boolean {
   return state.buzz.playerId === null;
 }
 
+/** What a point is worth to this player on the current song. */
+export function pointsFor(state: PartyGameState, playerId: number): number {
+  return stakeApplies(state, playerId) ? state.stake!.multiplier : 1;
+}
+
+function stakeApplies(state: PartyGameState, playerId: number): boolean {
+  return state.stake !== null && (state.stake.playerId === null || state.stake.playerId === playerId);
+}
+
 function judgeBuzz(state: PartyGameState, correct: boolean, now: number): PartyGameState {
   const id = state.buzz.playerId;
   if (id === null || state.phase !== "guessing") return state;
+  const bump = (delta: number) => state.scoreboard.players.map((p) => (p.id === id ? { ...p, score: p.score + delta } : p));
   if (correct) {
-    const players = state.scoreboard.players.map((p) => (p.id === id ? { ...p, score: p.score + 1 } : p));
+    const points = pointsFor(state, id);
     const token = currentPartyItem(state)!.token;
     const awarded = state.awards[token] ?? [];
     return {
       ...state,
-      scoreboard: { ...state.scoreboard, players },
+      scoreboard: { ...state.scoreboard, players: bump(points) },
       awards: { ...state.awards, [token]: awarded.includes(id) ? awarded : [...awarded, id] },
-      roundPoints: addRoundPoints(state.roundPoints, id, 1),
+      awardValue: { ...state.awardValue, [token]: { ...state.awardValue[token], [id]: points } },
+      roundPoints: addRoundPoints(state.roundPoints, id, points),
       buzz: { ...state.buzz, playerId: null, winnerId: id },
       phase: "revealed",
       revealedAtElapsed: state.position?.elapsed ?? 0,
       playing: true,
     };
   }
-  const judged = { ...state, playing: true, buzz: { ...state.buzz, playerId: null, lockedOut: [...state.buzz.lockedOut, id] } };
+  // Hyper Risk: a wrong buzz from the staked player costs the same multiple.
+  const penalty = state.stake?.risk && stakeApplies(state, id) ? state.stake.multiplier : 0;
+  const base = penalty
+    ? { ...state, scoreboard: { ...state.scoreboard, players: bump(-penalty) }, roundPoints: addRoundPoints(state.roundPoints, id, -penalty) }
+    : state;
+  const judged = { ...base, playing: true, buzz: { ...state.buzz, playerId: null, lockedOut: [...state.buzz.lockedOut, id] } };
   // The timer held its reveal for this answer; once it is wrong, it lands.
   const timerExpired = state.timer?.autoReveal === true && now >= state.timer.endsAt;
   return timerExpired ? { ...judged, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0 } : judged;
@@ -660,7 +854,7 @@ function applyAward(state: PartyGameState, playerId: number, awarded: boolean): 
   if (!item || !state.scoreboard.players.some((p) => p.id === playerId)) return state;
   const current = state.awards[item.token] ?? [];
   if (current.includes(playerId) === awarded) return state;
-  const delta = awarded ? 1 : -1;
+  const delta = awarded ? pointsFor(state, playerId) : -(state.awardValue[item.token]?.[playerId] ?? 1);
   const players = state.scoreboard.players.map((p) => (p.id === playerId ? { ...p, score: p.score + delta } : p));
   const list = awarded ? [...current, playerId] : current.filter((id) => id !== playerId);
   const buzz = !awarded && state.buzz.winnerId === playerId ? { ...state.buzz, winnerId: null } : state.buzz;
@@ -668,6 +862,7 @@ function applyAward(state: PartyGameState, playerId: number, awarded: boolean): 
     ...state,
     scoreboard: { ...state.scoreboard, players },
     awards: { ...state.awards, [item.token]: list },
+    awardValue: awarded ? { ...state.awardValue, [item.token]: { ...state.awardValue[item.token], [playerId]: delta } } : state.awardValue,
     roundPoints: addRoundPoints(state.roundPoints, playerId, delta),
     buzz,
   };
@@ -690,13 +885,20 @@ function applyInternal(state: PartyGameState, command: PartyInternalCommand): Pa
     }
     if (players.length >= PLAYER_LIMIT) return state;
     return {
-      ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: true, connected: false }]),
+      ...withPlayers([...players, { id: state.nextPlayerId, name: command.name, score: 0, phone: true, connected: false, teamId: null }]),
       nextPlayerId: state.nextPlayerId + 1,
     };
   }
   if (command.type === "buzz") {
     return canBuzz(state, command.playerId)
       ? { ...state, playing: false, buzz: { ...state.buzz, playerId: command.playerId } }
+      : state;
+  }
+  if (command.type === "choicePick") {
+    const open = state.choices !== null && state.phase === "guessing" && state.choicePicks[command.playerId] === undefined;
+    const valid = Number.isInteger(command.index) && command.index >= 0 && command.index < (state.choices?.length ?? 0);
+    return open && valid && players.some((p) => p.id === command.playerId)
+      ? { ...state, choicePicks: { ...state.choicePicks, [command.playerId]: command.index } }
       : state;
   }
   const target = players.find((p) => p.id === command.id);
@@ -727,6 +929,10 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     startFraction: state.randomStart || state.lightning ? random() : 0,
     effects: state.nextEffects ?? state.effects,
     nextEffects: null,
+    live: null,
+    choices: null,
+    choicePicks: {},
+    stake: null,
     revealedAtElapsed: null,
     timer: null,
     buzz: NO_BUZZ,
@@ -742,9 +948,9 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
 export function applyPartyCommand(
   state: PartyGameState,
   command: PartyCommand | PartyInternalCommand,
-  options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number } = {},
+  options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number; choices?: string[] } = {},
 ): PartyGameState {
-  if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz") {
+  if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz" || command.type === "choicePick") {
     const next = applyInternal(state, command);
     return next === state ? state : { ...next, version: state.version + 1 };
   }
@@ -798,6 +1004,38 @@ export function applyPartyCommand(
     case "lightning":
       next = { ...state, lightning: command.config };
       break;
+    case "live":
+      if (hasItem && state.phase === "guessing") {
+        next = { ...state, live: command.config ? { ...command.config, offset: state.position?.elapsed ?? 0 } : null };
+      }
+      break;
+    case "stake":
+      if (hasItem) next = { ...state, stake: command.config };
+      break;
+    case "choices":
+      if (hasItem && state.phase === "guessing") next = { ...state, choices: command.enabled ? (options.choices ?? null) : null, choicePicks: {} };
+      break;
+    case "endless":
+      next = { ...state, endless: command.config };
+      break;
+    case "revealFields":
+      next = { ...state, revealFields: command.fields };
+      break;
+    case "autoAdvance":
+      if (state.autoAdvance !== command.enabled) next = { ...state, autoAdvance: command.enabled };
+      break;
+    case "queueReroll": {
+      // The store picks the replacement; without one the song stays.
+      const replacement = options.loaded?.[0];
+      if (hasItem && replacement && command.index > state.index && command.index < state.queue.length) {
+        const replaced = state.queue[command.index]!;
+        const { [replaced.token]: _dropped, ...awards } = state.awards;
+        const queue = [...state.queue];
+        queue[command.index] = replacement;
+        next = { ...state, queue, awards };
+      }
+      break;
+    }
     case "timer":
       if (hasItem) next = { ...state, timer: { seconds: command.seconds, endsAt: now() + command.seconds * 1000, autoReveal: command.autoReveal } };
       break;
@@ -847,6 +1085,9 @@ export function applyPartyCommand(
         next = { ...state, queue };
       }
       break;
+    case "songVolume":
+      if (state.songVolume !== command.volume) next = { ...state, songVolume: command.volume };
+      break;
     case "music":
       if (state.music.enabled !== command.enabled || state.music.volume !== command.volume) {
         next = { ...state, music: { enabled: command.enabled, volume: command.volume } };
@@ -868,15 +1109,31 @@ export function applyPartyCommand(
           scoreboard: state.scoreboard,
           nextPlayerId: state.nextPlayerId,
           music: state.music,
+          songVolume: state.songVolume,
           joinInfoVisible: state.joinInfoVisible,
           buzzerEnabled: state.buzzerEnabled,
+          // End game ends an endless queue too; otherwise it would refill at once.
+          endless: null,
+          revealFields: state.revealFields,
+          autoAdvance: state.autoAdvance,
           skipSeq: state.skipSeq,
         });
       }
       break;
   }
 
-  return next === state ? state : { ...next, version: state.version + 1 };
+  return next === state ? state : { ...settleChoices(state, next), version: state.version + 1 };
+}
+
+/** When a song with multiple choice gets revealed, everyone who picked the right title scores. */
+function settleChoices(before: PartyGameState, after: PartyGameState): PartyGameState {
+  const item = currentPartyItem(after);
+  if (before.phase === "revealed" || after.phase !== "revealed" || !after.choices || !item) return after;
+  let settled = after;
+  for (const [id, index] of Object.entries(after.choicePicks)) {
+    if (after.choices[index] === item.answer.animeTitleEnglish) settled = applyAward(settled, Number(id), true);
+  }
+  return settled;
 }
 
 export function currentPartyItem(state: PartyGameState): PartyQueueItem | null {
@@ -889,6 +1146,47 @@ function hintElapsed(state: PartyGameState): number {
   if (state.phase === "revealed") return Number.POSITIVE_INFINITY;
   const item = currentPartyItem(state);
   return item && state.position?.token === item.token ? state.position.elapsed : 0;
+}
+
+function displayLightning(state: PartyGameState, item: PartyQueueItem | null): PartyDisplayState["lightning"] {
+  const round = state.lightning ?? state.live;
+  if (!round) return null;
+  const offset = state.lightning ? 0 : state.live!.offset;
+  return {
+    mode: round.mode,
+    guessSeconds: round.guessSeconds,
+    offset,
+    hints: item ? lightningHints(item, round.mode, hintElapsed(state) - offset, round.guessSeconds) : null,
+  };
+}
+
+/** Hidden parts are blanked here, so they never reach the display at all. */
+export function maskAnswer(answer: PartyAnswer, fields: PartyRevealFields): PartyAnswer {
+  return {
+    animeTitleEnglish: fields.anime ? answer.animeTitleEnglish : "",
+    animeTitleRomaji: fields.anime ? answer.animeTitleRomaji : "",
+    animeTitleNative: fields.anime ? answer.animeTitleNative : "",
+    songTitle: fields.song ? answer.songTitle : "",
+    artistName: fields.artist ? answer.artistName : "",
+    themeSlot: fields.slot ? answer.themeSlot : "",
+    coverImageUrl: fields.anime ? answer.coverImageUrl : null,
+  };
+}
+
+function maskPhoneAnswer(answer: PartyAnswer, fields: PartyRevealFields): { anime: string; song: string; artist: string } {
+  return {
+    anime: fields.anime ? answer.animeTitleEnglish : "",
+    song: fields.song ? answer.songTitle : "",
+    artist: fields.artist ? answer.artistName : "",
+  };
+}
+
+/** True once a guessing song has [AUTO_REVEAL_LEAD_SECONDS] or less left and nothing is holding the reveal. */
+export function shouldRevealEarly(state: PartyGameState): boolean {
+  const position = state.position;
+  if (!state.autoAdvance || state.lightning || state.phase !== "guessing" || state.buzz.playerId !== null) return false;
+  if (!position || !position.playing || position.duration === null || !(position.duration > 0)) return false;
+  return position.duration - position.currentTime <= AUTO_REVEAL_LEAD_SECONDS;
 }
 
 export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null = null): PartyDisplayState {
@@ -907,18 +1205,17 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     skipSeq: state.skipSeq,
     startFraction: state.startFraction,
     effects: state.effects,
-    lightning: state.lightning
-      ? {
-          mode: state.lightning.mode,
-          guessSeconds: state.lightning.guessSeconds,
-          hints: item ? lightningHints(item, state.lightning.mode, hintElapsed(state), state.lightning.guessSeconds) : null,
-        }
-      : null,
+    lightning: displayLightning(state, item),
+    choices: state.phase === "revealed" ? null : state.choices,
     timer: state.timer,
-    scoreboard: state.scoreboard.visible ? [...state.scoreboard.players].sort((a, b) => b.score - a.score) : null,
+    scoreboard: state.scoreboard.visible ? scoreRows(state) : null,
+    stake: state.stake
+      ? { multiplier: state.stake.multiplier, risk: state.stake.risk, player: playerName(state, state.stake.playerId) }
+      : null,
     banner: state.banner,
     music: state.music,
-    answer: item && state.phase === "revealed" ? item.answer : null,
+    songVolume: state.songVolume,
+    answer: item && state.phase === "revealed" ? maskAnswer(item.answer, state.revealFields) : null,
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
@@ -933,8 +1230,20 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
  * current song counts only once revealed, so the screen never shows an answer
  * early.
  */
+/** Teams (summed over their members) and unteamed players, best first. */
+export function scoreRows(state: PartyGameState): PartyScoreRow[] {
+  const { players, teams } = state.scoreboard;
+  const rows: PartyScoreRow[] = teams.map((team) => {
+    const members = players.filter((p) => p.teamId === team.id);
+    return { id: -team.id, name: team.name, score: members.reduce((sum, p) => sum + p.score, 0), members: members.map((p) => p.name) };
+  });
+  const known = new Set(teams.map((t) => t.id));
+  for (const p of players) if (p.teamId === null || !known.has(p.teamId)) rows.push({ id: p.id, name: p.name, score: p.score });
+  return rows.sort((a, b) => b.score - a.score);
+}
+
 export function buildSummary(state: PartyGameState): PartySummary {
-  const sorted = [...state.scoreboard.players].sort((a, b) => b.score - a.score);
+  const sorted = scoreRows(state);
   const standings = sorted.map((p) => ({
     rank: sorted.findIndex((other) => other.score === p.score) + 1,
     name: p.name,
@@ -980,9 +1289,16 @@ export function toPlayerState(state: PartyGameState, playerId: number): PartyPla
       lockedOut: state.buzz.lockedOut.includes(playerId),
       winner: playerName(state, state.buzz.winnerId),
     },
+    choices: state.choices
+      ? {
+          options: state.choices,
+          picked: state.choicePicks[playerId] ?? null,
+          correct: item && state.phase === "revealed" ? state.choices.indexOf(item.answer.animeTitleEnglish) : null,
+        }
+      : null,
     answer:
       item && state.phase === "revealed"
-        ? { anime: item.answer.animeTitleEnglish, song: item.answer.songTitle, artist: item.answer.artistName }
+        ? maskPhoneAnswer(item.answer, state.revealFields)
         : null,
   };
 }
@@ -1000,12 +1316,20 @@ export function toHostState(state: PartyGameState): PartyHostState {
     effects: state.effects,
     nextEffects: state.nextEffects,
     lightning: state.lightning,
+    live: state.live,
+    choices: state.choices,
+    choicePicks: state.choicePicks,
+    stake: state.stake,
     timer: state.timer,
     scoreboard: state.scoreboard,
     banner: state.banner,
     music: state.music,
+    songVolume: state.songVolume,
     joinInfoVisible: state.joinInfoVisible,
     buzzerEnabled: state.buzzerEnabled,
+    endless: state.endless,
+    revealFields: state.revealFields,
+    autoAdvance: state.autoAdvance,
     buzz: state.buzz,
     currentAwards: (item && state.awards[item.token]) ?? [],
     summaryVisible: state.summaryVisible,

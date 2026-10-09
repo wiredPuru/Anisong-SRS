@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const props = defineProps<{ skipSeq: number | null }>();
+const props = defineProps<{ skipSeq: number | null; arranging?: boolean }>();
+
+const { isHidden } = usePartyLayout();
 
 const SHOW_MS = 1500;
 const shownAt = ref<number | null>(null);
@@ -19,18 +21,16 @@ onBeforeUnmount(() => clearTimeout(timer));
 </script>
 
 <template>
-  <div v-if="shownAt !== null" :key="shownAt" class="skip-layer" role="status">
-    <p class="kai-banner kai-banner-neutral skip-text">Skipping...</p>
-  </div>
+  <div v-if="shownAt !== null && !isHidden('skip')" :key="shownAt" class="skip-layer" aria-hidden="true" />
+  <PartyLayoutFrame v-if="shownAt !== null || arranging" piece="skip">
+    <p class="kai-banner kai-banner-neutral skip-text" :role="shownAt !== null ? 'status' : undefined">Skipping...</p>
+  </PartyLayoutFrame>
 </template>
 
 <style scoped>
 .skip-layer {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: var(--scrim);
   pointer-events: none;
   animation: skip-in 200ms ease-out;

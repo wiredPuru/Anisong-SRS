@@ -26,6 +26,8 @@ const answering = computed(() => nameOf(props.state.buzz.playerId));
 const winner = computed(() => nameOf(props.state.buzz.winnerId));
 const lockedOut = computed(() => props.state.buzz.lockedOut.map(nameOf).filter((name) => name !== null));
 const awarded = computed(() => new Set(props.state.currentAwards));
+const awardPoints = (id: number) =>
+  props.state.stake && (props.state.stake.playerId === null || props.state.stake.playerId === id) ? props.state.stake.multiplier : 1;
 
 function formatTime(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return "--:--";
@@ -52,6 +54,18 @@ function skipToEnd() {
 function clearGame() {
   confirmingClear.value = false;
   emit("command", { type: "clear" });
+}
+
+// Dragging the slider sends at most one change per 120ms, and always the last.
+let volumeTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingVolume = 0;
+function setSongVolume(volume: number) {
+  pendingVolume = volume;
+  if (volumeTimer) return;
+  volumeTimer = setTimeout(() => {
+    volumeTimer = null;
+    emit("command", { type: "songVolume", volume: pendingVolume });
+  }, 120);
 }
 </script>
 
@@ -125,7 +139,7 @@ function clearGame() {
           :aria-pressed="awarded.has(player.id)"
           @click="emit('command', { type: 'award', playerId: player.id, awarded: !awarded.has(player.id) })"
         >
-          {{ player.name }}<span v-if="awarded.has(player.id)" class="award-mark"> +1</span>
+          {{ player.name }}<span v-if="awarded.has(player.id)" class="award-mark"> +{{ awardPoints(player.id) }}</span>
         </button>
       </div>
     </div>
@@ -153,6 +167,20 @@ function clearGame() {
       <button type="button" class="tbtn" :disabled="skipSeconds === null" @click="skipToEnd">Skip to end</button>
     </div>
 
+    <label class="np-volume">
+      <span>Song volume</span>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        aria-label="Song volume on the display"
+        :value="state.songVolume"
+        @input="setSongVolume(Number(($event.target as HTMLInputElement).value))"
+      />
+      <span class="np-volume-value">{{ Math.round(state.songVolume * 100) }}%</span>
+    </label>
+
     <div class="np-options">
       <label class="np-toggle">
         <input
@@ -161,6 +189,14 @@ function clearGame() {
           @change="emit('command', { type: 'settings', randomStart: ($event.target as HTMLInputElement).checked })"
         />
         Random start (from the next song)
+      </label>
+      <label class="np-toggle">
+        <input
+          type="checkbox"
+          :checked="state.autoAdvance"
+          @change="emit('command', { type: 'autoAdvance', enabled: ($event.target as HTMLInputElement).checked })"
+        />
+        Go to the next song when one ends
       </label>
       <label class="np-toggle">
         <input
@@ -449,6 +485,26 @@ function clearGame() {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.np-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.np-volume input {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+
+.np-volume-value {
+  min-width: 3.5ch;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .np-options {
