@@ -66,7 +66,7 @@ function isActive(to: string): boolean {
   gap: 6px;
   padding: 18px 0;
   background: var(--surface-sunken);
-  border-right: 2px solid var(--outline);
+  border-right: 1px solid var(--outline);
 }
 
 /* Kai's head as the rail's logo (84e), after the head on the sheet's

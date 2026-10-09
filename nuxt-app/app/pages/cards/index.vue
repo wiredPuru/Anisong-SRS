@@ -947,7 +947,7 @@ h1 {
   justify-self: end;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);
@@ -1054,7 +1054,7 @@ h1 {
   flex: none;
   padding: 8px 15px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);

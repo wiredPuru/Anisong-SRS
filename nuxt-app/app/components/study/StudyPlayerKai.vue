@@ -76,7 +76,7 @@ const pose = computed(() => POSES[props.mood]);
   margin: 0 0 calc(var(--kai-sink, 28px) + clamp(4px, 1.4cqw, 20px));
   padding: clamp(6px, 1.1cqw, 16px) clamp(14px, 2.4cqw, 34px);
   border-radius: var(--radius);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-display);
@@ -94,8 +94,8 @@ const pose = computed(() => POSES[props.mood]);
   width: 14px;
   height: 14px;
   background: var(--surface);
-  border-left: 2px solid var(--outline);
-  border-bottom: 2px solid var(--outline);
+  border-left: 1px solid var(--outline);
+  border-bottom: 1px solid var(--outline);
   transform: rotate(45deg);
 }
 
@@ -198,7 +198,7 @@ const pose = computed(() => POSES[props.mood]);
   width: 100%;
   height: clamp(12px, 1.8cqw, 24px);
   border-radius: var(--radius-pill);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   overflow: hidden;
 }

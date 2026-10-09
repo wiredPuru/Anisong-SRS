@@ -36,6 +36,9 @@ interface HomeDashboard {
 }
 
 const { data, pending, error } = useFetch<HomeDashboard>("/api/home");
+// Client-only: it lives in localStorage, so rendering it on the server would
+// mismatch on hydration.
+const { lastPlayed } = useLastPlayed();
 
 const heroHeadline = computed(() => {
   const due = data.value?.due;
@@ -116,6 +119,19 @@ function formatRelativeTime(iso: string): string {
             <NuxtLink to="/study" class="hero-cta-primary">Start session</NuxtLink>
             <NuxtLink to="/decks" class="hero-cta-outline">Pick a deck</NuxtLink>
           </div>
+          <ClientOnly>
+            <NuxtLink
+              v-if="lastPlayed"
+              :to="{ path: '/cards', query: { q: lastPlayed.songTitle } }"
+              class="last-played"
+            >
+              <img :src="lastPlayed.image" alt="" class="last-played-thumb" />
+              <span class="last-played-text">
+                <span class="last-played-label">Last played</span>
+                <span class="last-played-song">{{ lastPlayed.songTitle }}</span>
+              </span>
+            </NuxtLink>
+          </ClientOnly>
         </div>
         <StatsActivityHeatmap :heatmap="data.heatmap" class="home-heatmap" />
         <div class="activity-panel">
@@ -291,7 +307,7 @@ h1 {
   padding: 26px 30px;
   border-radius: calc(var(--radius) + 8px);
   background: var(--surface);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   box-shadow: var(--shadow-soft);
 }
 
@@ -324,7 +340,7 @@ h1 {
 .hero-eyebrow {
   padding: 4px 14px;
   border-radius: var(--radius-pill);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   font-size: 12px;
   font-weight: 700;
@@ -372,6 +388,49 @@ h1 {
   font-weight: 700;
   font-size: 15px;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.last-played {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(100%, 360px);
+  padding: 5px 14px 5px 5px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface-panel);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.last-played-thumb {
+  flex: none;
+  width: 52px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  object-fit: cover;
+}
+
+.last-played-text {
+  display: grid;
+  min-width: 0;
+}
+
+.last-played-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.last-played-song {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

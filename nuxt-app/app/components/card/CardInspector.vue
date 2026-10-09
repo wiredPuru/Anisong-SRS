@@ -472,7 +472,7 @@ async function toggleSuspended(target: CardWithDetails) {
   gap: 8px;
   padding: 10px 22px;
   border-radius: var(--radius-pill);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font-sans);

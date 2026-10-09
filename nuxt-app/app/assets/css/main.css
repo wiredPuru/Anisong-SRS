@@ -13,11 +13,12 @@
   color-scheme: light;
 
   /* surfaces */
-  --bg: #fdeef2;
-  --surface: #fffaf7;
-  --surface-raised: #fff3f0;
-  --surface-sunken: #fbe9ee;
-  --border: #f0c6d2;
+  --bg: #fbeef4;
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-raised: rgba(255, 255, 255, 0.72);
+  --surface-sunken: rgba(255, 236, 244, 0.45);
+  --surface-float: rgba(255, 250, 252, 0.92);
+  --border: rgba(160, 70, 110, 0.18);
 
   /* text */
   --text: #4e3237;
@@ -46,10 +47,11 @@
   /* the sheet's decoration: stars, music notes, and the soft outline on its
      banners and pills. Never text colors. */
   --star: #ffc83d;
+  --star-ink: #3b2a10;
   --note: #e8507c;
-  --outline: #f2a7bd;
+  --outline: rgba(255, 255, 255, 0.9);
 
-  --shadow-soft: 0 8px 24px rgba(194, 52, 98, 0.12);
+  --shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 30px rgba(170, 90, 120, 0.16);
   --scrim: rgba(78, 40, 50, 0.45);
 
   /* a light halo, since overlay text is --text (dark) on light glass here */
@@ -62,31 +64,44 @@
   --veil-error: rgba(236, 238, 255, 0.82);
   --veil-status: rgba(255, 248, 244, 0.86);
 
-  --glass-surface: rgba(255, 246, 240, 0.35);
-  --glass-surface-panel: rgba(255, 248, 244, 0.86);
-  --glass-border: rgba(194, 52, 98, 0.2);
+  --glass-surface: rgba(255, 255, 255, 0.4);
+  --glass-surface-panel: rgba(255, 250, 252, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.85);
 
-  /* ambient mode: the page-wide wash and the halo right behind the player.
-     Lighter and brighter here so a cream page tints rather than turning to
-     a saturated pink sheet. */
-  --ambient-wash-opacity: 0.5;
-  --ambient-wash-filter: blur(90px) saturate(1.3) brightness(1.08);
+  /* ambient mode ("Spill"): the page-wide wash is a lightly blurred copy of
+     the clip, so the scene seems to carry on past the player's feathered
+     edges. A touch brighter here so a cream page tints rather than darkens. */
+  --ambient-wash-opacity: 0.85;
+  --ambient-wash-filter: blur(26px) saturate(1.25) brightness(1.05);
   /* the rail, header and side column: thin enough that the glow reads
      through them as one continuous wash */
   --ambient-chrome-surface: rgba(255, 246, 240, 0.16);
-  --ambient-halo-opacity: 0.8;
-  --ambient-halo-filter: blur(36px) saturate(1.35);
-  --ambient-frame-shadow: 0 18px 50px rgba(140, 90, 108, 0.22);
+  /* the last played clip behind every other page: blurred further, since
+     panels sit on it rather than a single video */
+  --ambient-backdrop-filter: blur(60px) saturate(1.5) brightness(1.08);
+  --ambient-backdrop-opacity: 0.7;
+
+  /* the daytime sky: sparkles instead of stars, sakura and periwinkle glows */
+  --page-bg:
+    radial-gradient(1.5px 1.5px at 30px 40px, rgba(214, 58, 114, 0.22), transparent),
+    radial-gradient(1.5px 1.5px at 140px 120px, rgba(110, 140, 240, 0.22), transparent),
+    radial-gradient(1.2px 1.2px at 80px 190px, rgba(214, 58, 114, 0.18), transparent),
+    radial-gradient(1.2px 1.2px at 190px 60px, rgba(110, 140, 240, 0.18), transparent),
+    radial-gradient(1px 1px at 110px 210px, rgba(214, 58, 114, 0.15), transparent),
+    radial-gradient(40% 45% at 85% 8%, rgba(255, 170, 205, 0.75), transparent 70%),
+    radial-gradient(45% 50% at 5% 92%, rgba(190, 205, 255, 0.75), transparent 70%),
+    radial-gradient(35% 40% at 55% 55%, rgba(255, 226, 205, 0.6), transparent 70%),
+    var(--bg);
 
   /* type - Mochiy Pop One, a chunky rounded display face like the sheet's
-     lettering, and Zen Maru Gothic, a rounded body face. Both cover Latin and
+     lettering, and M PLUS Rounded 1c, a heavy rounded body face. Both cover Latin and
      Japanese, including furigana. */
   --font-display: "Mochiy Pop One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
-  --font-sans: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --font-sans: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
 
   /* scale */
-  --radius: 14px;
-  --radius-sm: 10px;
+  --radius: 20px;
+  --radius-sm: 12px;
   /* small cover thumbnails, where --radius-sm would round a 34px image into a blob */
   --radius-xs: 6px;
   --radius-pill: 999px;
@@ -136,7 +151,7 @@
   --record-shadow: 0 0 30px rgba(20, 16, 12, 0.6);
 
 
-  --glass-blur: blur(20px) saturate(1.6);
+  --glass-blur: blur(28px) saturate(1.8);
 }
 
 /* Feature 62's gruvbox ground and cream text, warmed toward Kai's pinks. */
@@ -144,55 +159,70 @@
 .theme-dark-scope {
   color-scheme: dark;
 
-  --bg: #2b2527;
-  --surface: #352e30;
-  --surface-raised: #40373a;
-  --surface-sunken: #262022;
-  --border: #56474b;
+  /* Crystal night: clear glass on a starry sky. Surfaces are translucent
+     white so the page's glows read through them; text tokens are checked
+     against the darkest and lightest the glass gets over that sky. */
+  --bg: #120d1b;
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-raised: rgba(255, 255, 255, 0.11);
+  --surface-sunken: rgba(8, 5, 14, 0.3);
+  --surface-float: rgba(30, 22, 42, 0.86);
+  --border: rgba(255, 255, 255, 0.16);
 
-  --text: #f2e2d4;
-  --muted: #cdb6ac;
-  --faint: #b9a29a;
+  --text: #f8eef5;
+  --muted: #d4c2d4;
+  --faint: #b8a6bd;
 
-  --accent: #f294b4;
-  --accent-strong: #f7b0c8;
-  --accent-ink: #2b2527;
-  --accent-glow: rgba(242, 148, 180, 0.22);
+  --accent: #ff9cc8;
+  --accent-strong: #ffc3dd;
+  --accent-ink: #2a1626;
+  --accent-glow: rgba(255, 140, 200, 0.32);
 
-  --accent-secondary: #a3c9e2;
-  --accent-secondary-ink: #2b2527;
-  --accent-secondary-glow: rgba(163, 201, 226, 0.3);
+  --accent-secondary: #9fc8ff;
+  --accent-secondary-ink: #14203a;
+  --accent-secondary-glow: rgba(140, 180, 255, 0.3);
 
-  --pass: #b3c98a;
-  --pass-ink: #2b2527;
+  --pass: #bfe59a;
+  --pass-ink: #1f3510;
   --fail: #a8b4f2;
-  --fail-ink: #2b2527;
-  --warning: #f0c56e;
-  --warning-ink: #2b2527;
+  --fail-ink: #1b2045;
+  --warning: #ffd27a;
+  --warning-ink: #3b2a10;
 
-  --star: #f5c542;
-  --note: #f294b4;
-  --outline: #8c5a6c;
+  --star: #ffe27a;
+  --star-ink: #3b2a10;
+  --note: #ff9cc8;
+  --outline: rgba(255, 255, 255, 0.2);
 
-  --shadow-soft: 0 8px 24px rgba(20, 14, 16, 0.35);
-  --scrim: rgba(20, 14, 16, 0.7);
+  --shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 36px rgba(0, 0, 0, 0.35);
+  --scrim: rgba(10, 6, 16, 0.62);
 
-  --text-shadow-overlay: 0 2px 8px rgba(20, 14, 16, 0.85), 0 1px 2px rgba(20, 14, 16, 0.9);
+  --text-shadow-overlay: 0 2px 8px rgba(10, 6, 16, 0.85), 0 1px 2px rgba(10, 6, 16, 0.9);
 
-  --veil-paused: rgba(20, 14, 16, 0.45);
-  --veil-error: rgba(34, 38, 74, 0.6);
-  --veil-status: rgba(20, 14, 16, 0.72);
+  --veil-paused: rgba(10, 6, 16, 0.42);
+  --veil-error: rgba(24, 22, 60, 0.6);
+  --veil-status: rgba(18, 13, 27, 0.7);
 
-  --glass-surface: rgba(53, 46, 48, 0.2);
-  --glass-surface-panel: rgba(53, 46, 48, 0.82);
-  --glass-border: rgba(242, 226, 212, 0.16);
+  --glass-surface: rgba(255, 255, 255, 0.06);
+  --glass-surface-panel: rgba(28, 20, 40, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.18);
 
-  --ambient-wash-opacity: 0.55;
-  --ambient-wash-filter: blur(90px) saturate(1.5) brightness(0.8);
-  --ambient-chrome-surface: rgba(53, 46, 48, 0.14);
-  --ambient-halo-opacity: 0.95;
-  --ambient-halo-filter: blur(36px) saturate(1.6) brightness(1.1);
-  --ambient-frame-shadow: 0 18px 50px rgba(20, 14, 16, 0.5);
+  --ambient-wash-opacity: 1;
+  --ambient-wash-filter: blur(26px) saturate(1.3) brightness(0.8);
+  --ambient-chrome-surface: rgba(255, 255, 255, 0.04);
+  --ambient-backdrop-filter: blur(70px) saturate(1.8) brightness(0.75);
+  --ambient-backdrop-opacity: 1;
+
+  --page-bg:
+    radial-gradient(1.2px 1.2px at 20px 30px, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1px 1px at 120px 80px, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 60px 150px, rgba(255, 214, 232, 0.8), transparent),
+    radial-gradient(1px 1px at 170px 190px, rgba(207, 227, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 90px 220px, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(45% 45% at 85% 5%, rgba(255, 110, 180, 0.42), transparent 70%),
+    radial-gradient(45% 50% at 5% 95%, rgba(100, 130, 255, 0.38), transparent 70%),
+    radial-gradient(35% 35% at 50% 60%, rgba(170, 110, 255, 0.2), transparent 70%),
+    var(--bg);
 }
 
 * {
@@ -268,18 +298,17 @@
    container (.display-toggles / .nav-search) because those bare class
    names are also used, unrelated to ambient mode, on /decks, /stats,
    and /cards. */
-[data-ambient-glass="true"] .app-nav,
-[data-ambient-glass="true"] .nav-link,
-[data-ambient-glass="true"] .nav-search .search-input,
-[data-ambient-glass="true"] .search-dropdown,
-[data-ambient-glass="true"] .display-toggles .toggle-btn,
-[data-ambient-glass="true"] .display-toggles .seg,
-[data-ambient-glass="true"] .answer-btn,
-[data-ambient-glass="true"] .expand-btn,
-[data-ambient-glass="true"] .close-btn,
-[data-ambient-glass="true"] .ambient-btn,
-[data-ambient-glass="true"] .scrub,
-[data-ambient-glass="true"] .lang-toggles {
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .app-nav,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .nav-link,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .nav-search .search-input,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .search-dropdown,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .display-toggles .toggle-btn,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .display-toggles .seg,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .expand-btn,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .close-btn,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .ambient-btn,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .scrub,
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .lang-toggles {
   background: var(--glass-surface) !important;
   backdrop-filter: var(--glass-blur) !important;
 }
@@ -290,16 +319,53 @@
    ambient background, so it gets a denser variant here instead. Source
    order (after the shared block, same selector specificity) is what wins
    the tie. */
-[data-ambient-glass="true"] .search-dropdown {
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .search-dropdown {
   background: var(--glass-surface-panel) !important;
 }
 
 /* The rail is part of the page's chrome rather than a control, so it goes
    nearly clear like /study's header and side column and the glow runs
    through it edge to edge. */
-[data-ambient-glass="true"] .app-nav {
+:is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .app-nav {
   background: var(--ambient-chrome-surface) !important;
   border-right-color: var(--glass-border) !important;
+}
+
+/* Ambient accents follow the clip: /study and /listen set data-ambient-tint
+   on <html> from the playing video, and the layout sets .ambient-tinted
+   from the last played clip on every other page. --amb-* come from
+   tintPalette() (app/utils/ambientTint.ts), which keeps each ink at 4.5:1
+   on its fill. */
+:root[data-ambient-tint],
+.ambient-tinted {
+  --accent: rgb(var(--amb-deep));
+  --accent-strong: rgb(var(--amb-deep));
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(var(--amb-rgb), 0.3);
+  --note: rgb(var(--amb-deep));
+}
+
+:root[data-theme="dark"][data-ambient-tint],
+:root[data-theme="dark"] .ambient-tinted {
+  --accent: rgb(var(--amb-light));
+  --accent-strong: rgb(var(--amb-light));
+  --accent-ink: rgb(var(--amb-ink));
+  --accent-glow: rgba(var(--amb-rgb), 0.4);
+  --note: rgb(var(--amb-light));
+}
+
+/* Over a bright backdrop the usual near-clear glass leaves panel text on
+   whatever colour happens to be behind it, so panels get a denser frost. */
+[data-ambient-backdrop="true"] {
+  --surface: rgba(255, 250, 252, 0.62);
+  --surface-raised: rgba(255, 250, 252, 0.74);
+  --surface-sunken: rgba(255, 244, 248, 0.5);
+}
+
+:root[data-theme="dark"][data-ambient-backdrop="true"] {
+  --surface: rgba(18, 12, 28, 0.55);
+  --surface-raised: rgba(24, 16, 36, 0.64);
+  --surface-sunken: rgba(12, 8, 20, 0.45);
 }
 
 /* Artist and anime names that link to that deck's detail page (/cards'
@@ -412,16 +478,15 @@ body {
      browser blue */
   accent-color: var(--accent);
   min-height: 100vh;
-  /* two soft corner glows, sakura top right and sky bottom left, so the
-     ground has some depth behind the panels; fixed so they stay put while a
-     page scrolls */
-  background:
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 42%),
-    radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--accent-secondary) 7%, transparent), transparent 46%),
-    var(--bg);
+  /* five star layers tiled at 220px, then the glows at full size; fixed so
+     they stay put while a page scrolls */
+  background: var(--page-bg);
+  background-size: 220px 220px, 220px 220px, 220px 220px, 220px 220px, 220px 220px, auto, auto, auto, auto;
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
+  /* M PLUS Rounded's 400 reads thin against Mochiy Pop One's titles. */
+  font-weight: 500;
   /* The app shell (rail + content) is always sized to exactly fill the
      viewport width - no page here is meant to scroll sideways. This is a
      defensive guard against stray sub-pixel horizontal overflow (observed
@@ -438,4 +503,85 @@ body {
   :root {
     --rail-width: 56px;
   }
+}
+
+/* Round glass icon buttons for the Study and Listen headers. The label lives
+   in aria-label plus a tooltip, since the header shows icons only. */
+.icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--muted);
+  font: 700 15px var(--font-sans);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:hover:not(:disabled),
+.icon-btn.active,
+.icon-btn[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn .icon-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.icon-btn .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.icon-btn:hover .tooltip,
+.icon-btn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
 }

@@ -108,7 +108,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   padding: 28px;
   border-radius: calc(var(--radius) + 8px);
   background: var(--bg);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
   box-shadow: var(--shadow-soft);
 }
 

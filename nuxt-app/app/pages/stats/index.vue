@@ -1316,7 +1316,7 @@ function setType(type: StatsType) {
   flex: none;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);
@@ -1347,7 +1347,7 @@ function setType(type: StatsType) {
 .clear-btn {
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid var(--outline);
+  border: 1px solid var(--outline);
   background: var(--surface);
   color: var(--muted);
   font-family: var(--font-sans);

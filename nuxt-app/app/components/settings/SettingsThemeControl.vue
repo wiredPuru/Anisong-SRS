@@ -94,7 +94,7 @@ const { preference, setPreference } = useTheme();
   padding: 8px;
   border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 2px solid var(--outline);
+  border: 1px solid var(--outline);
 }
 
 .swatch-dot {

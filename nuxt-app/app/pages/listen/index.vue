@@ -176,7 +176,6 @@ const scopeChipLabel = computed(() => (scope.value?.type === "all" ? "All decks"
 function switchScope(pick: ScopePick) {
   return navigateTo({ path: route.path, query: scopeToQuery(pick) });
 }
-const progress = computed(() => (total.value ? Math.round(((finished.value ? total.value : index.value) / total.value) * 100) : 0));
 const canGoBack = computed(() => finished.value || index.value > 0);
 
 function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
@@ -197,6 +196,23 @@ function onPlaybackPaused() {
   playLimit.onPlaybackPaused();
 }
 
+const DETAILS_STORAGE_KEY = "gaqSrs:listenDetails";
+const showDetails = ref(false);
+onMounted(() => {
+  try {
+    showDetails.value = localStorage.getItem(DETAILS_STORAGE_KEY) === "1";
+  } catch {
+    showDetails.value = false;
+  }
+});
+watch(showDetails, (open) => {
+  try {
+    localStorage.setItem(DETAILS_STORAGE_KEY, open ? "1" : "0");
+  } catch {
+    // Not remembered without storage; the drawer still opens and closes.
+  }
+});
+
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
@@ -209,6 +225,7 @@ function onKeydown(event: KeyboardEvent) {
   else if (key === "c") hideCover.value = !hideCover.value;
   else if (key === "a") ambientMode.value = !ambientMode.value;
   else if (key === "r") reveal();
+  else if (key === "d") showDetails.value = !showDetails.value;
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -250,84 +267,92 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <header class="listen-header">
         <div class="header-left">
           <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
-          <span class="counts">{{ positionLabel(index, total) }}</span>
-          <div
-            class="progress"
-            role="progressbar"
-            aria-label="Playlist progress"
-            :aria-valuenow="progress"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <span class="progress-fill" :style="{ width: `${progress}%` }" />
-          </div>
         </div>
         <div class="header-right">
-          <button type="button" class="header-btn" :class="{ active: activeFilterCount > 0 }" @click="showFilters = true">
-            Filters<span v-if="activeFilterCount" class="filters-badge">{{ activeFilterCount }}</span>
+          <StudyDisplayMenu label="Display">
+            <StudyDisplayToggles
+              listen
+              :hide-video="hideVideo"
+              :hide-info="hideInfo"
+              :hide-cover="hideCover"
+              :media-kind="currentMediaKind"
+              :random-start="randomStart"
+              :ambient-mode="ambientMode"
+              :audio-only="effectiveAudioOnly"
+              :autoplay="autoplayNext"
+              :typed-answers="false"
+              :typed-answers-locked="false"
+              :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
+              v-model:auto-reveal-mode="autoReveal.mode.value"
+              :auto-reveal-seconds="autoReveal.seconds.value"
+              @toggle-hide-video="hideVideo = !hideVideo"
+              @toggle-hide-info="hideInfo = !hideInfo"
+              @toggle-hide-cover="hideCover = !hideCover"
+              @toggle-random-start="randomStart = !randomStart"
+              @toggle-ambient-mode="ambientMode = !ambientMode"
+              @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
+              @toggle-autoplay="toggleAutoplay"
+              @update:auto-reveal-seconds="autoReveal.setSeconds"
+            />
+            <button
+              type="button"
+              class="menu-toggle"
+              :class="{ on: shuffle }"
+              :aria-pressed="shuffle"
+              @click="shuffle = !shuffle"
+            >
+              Shuffle
+            </button>
+              <select
+                v-model.number="playLimit.seconds.value"
+                class="menu-select"
+                aria-label="How much of each song to play"
+                :disabled="!autoplayNext"
+                :title="autoplayNext ? 'How much of each song to hear before moving on' : 'Needs Autoplay on'"
+              >
+                <option v-for="length in PLAY_LENGTH_OPTIONS" :key="length" :value="length">
+                  {{ length === 0 ? "Play: Full song" : `Play: ${formatPlayLength(length)}` }}
+                </option>
+              </select>
+          </StudyDisplayMenu>
+          <button
+            type="button"
+            class="icon-btn"
+            :class="{ active: activeFilterCount > 0 }"
+            aria-label="Filters"
+            @click="showFilters = true"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" /></svg>
+            <span v-if="activeFilterCount" class="icon-badge">{{ activeFilterCount }}</span>
+            <span class="tooltip">Filters</span>
           </button>
           <button
             type="button"
-            class="header-btn"
-            :class="{ active: shuffle }"
-            :aria-pressed="shuffle"
-            @click="shuffle = !shuffle"
+            class="icon-btn"
+            :class="{ active: showDetails }"
+            aria-label="Details"
+            :aria-pressed="showDetails"
+            @click="showDetails = !showDetails"
           >
-            Shuffle
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
+            <span class="tooltip">Details &middot; D</span>
           </button>
-          <select
-            v-model.number="playLimit.seconds.value"
-            class="header-btn play-length"
-            aria-label="How much of each song to play"
-            :disabled="!autoplayNext"
-            :title="autoplayNext ? 'How much of each song to hear before moving on' : 'Needs Autoplay on'"
-          >
-            <option v-for="length in PLAY_LENGTH_OPTIONS" :key="length" :value="length">
-              {{ length === 0 ? "Play: Full song" : `Play: ${formatPlayLength(length)}` }}
-            </option>
-          </select>
-          <button type="button" class="header-btn" :disabled="!anythingVeiled" @click="reveal">Reveal</button>
-          <button type="button" class="header-btn" :disabled="!canGoBack" @click="previous">&larr; Previous</button>
-          <button type="button" class="header-btn" @click="next">Next &rarr;</button>
         </div>
-        <StudyDisplayToggles
-          class="header-toggles"
-          listen
-          :hide-video="hideVideo"
-          :hide-info="hideInfo"
-          :hide-cover="hideCover"
-          :media-kind="currentMediaKind"
-          :random-start="randomStart"
-          :ambient-mode="ambientMode"
-          :audio-only="effectiveAudioOnly"
-          :autoplay="autoplayNext"
-          :typed-answers="false"
-          :typed-answers-locked="false"
-          :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
-          v-model:auto-reveal-mode="autoReveal.mode.value"
-          :auto-reveal-seconds="autoReveal.seconds.value"
-          @toggle-hide-video="hideVideo = !hideVideo"
-          @toggle-hide-info="hideInfo = !hideInfo"
-          @toggle-hide-cover="hideCover = !hideCover"
-          @toggle-random-start="randomStart = !randomStart"
-          @toggle-ambient-mode="ambientMode = !ambientMode"
-          @toggle-audio-only="sessionAudioOnlyOverride = !effectiveAudioOnly"
-          @toggle-autoplay="toggleAutoplay"
-          @update:auto-reveal-seconds="autoReveal.setSeconds"
-        />
         <p v-if="skippedCount || capped" class="header-note">
           <template v-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song was" : "songs were" }} left out: no playable clip with your Clip source setting.</template>
           <template v-if="capped"> Showing the first {{ total + skippedCount }} songs.</template>
         </p>
       </header>
-      <div class="listen-grid">
+      <div class="listen-grid" :class="{ 'details-open': showDetails }">
         <div class="player-pane">
           <StudyMediaPlayer
             :key="presentationKey"
             :card="currentCard"
             :hide-video="videoHidden"
             :hide-cover="coverHidden"
-            :hide-theme-badge="infoHidden"
+            hide-theme-badge
+            tint-chrome
+            :last-played="{ songTitle: currentCard.songTitle, animeTitle: currentCard.animeTitleEnglish }"
             :random-start="randomStart"
             :ambient="ambientMode"
             :has-default-download-folder="hasDefaultDownloadFolder"
@@ -344,18 +369,55 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @update:media-kind="currentMediaKind = $event"
           >
             <template #error-actions>
-              <button type="button" class="header-btn" @click="next">Next song &rarr;</button>
+              <button type="button" class="transport-btn" @click="next">Next song &rarr;</button>
             </template>
-          </StudyMediaPlayer>
-        </div>
-        <div class="side">
-          <div class="side-scroll">
-            <div class="info-panel-wrap">
+            <template #overlay>
               <StudyAutoRevealCountdown
                 v-if="autoReveal.countdownActive.value"
                 :seconds="autoReveal.displaySeconds.value"
                 :ambient="ambientMode"
               />
+              <div class="stage-bottom">
+                <StudyLowerThird
+                  :theme-slot="currentCard.themeSlot"
+                  :anime-title-english="currentCard.animeTitleEnglish"
+                  :anime-title-native="currentCard.animeTitleNative"
+                  :song-title="currentCard.songTitle"
+                  :artist-name="currentCard.artistName"
+                  :hidden="infoHidden"
+                  revealable
+                  @reveal="reveal"
+                />
+                <div class="transport" role="group" aria-label="Playlist">
+                  <button
+                    v-if="anythingVeiled && !infoHidden"
+                    type="button"
+                    class="transport-btn"
+                    @click="reveal"
+                  >
+                    Reveal <kbd>R</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    class="transport-btn round"
+                    aria-label="Previous song"
+                    :disabled="!canGoBack"
+                    @click="previous"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
+                  </button>
+                  <span class="position">{{ positionLabel(index, total) }}</span>
+                  <button type="button" class="transport-btn next" @click="next">
+                    Next <kbd>&rarr;</kbd>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </StudyMediaPlayer>
+        </div>
+        <aside v-show="showDetails" class="side" aria-label="Song details">
+          <div class="side-scroll">
+            <div class="info-panel-wrap">
               <StudyInfoPanel
                 :blurred="infoHidden"
                 :inert="infoHidden"
@@ -381,7 +443,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
             </div>
           </div>
-        </div>
+        </aside>
       </div>
     </template>
     <StudyFiltersModal
@@ -403,18 +465,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex-direction: column;
 }
 
-/* Ambient mode lets the glow run under the header and side column too, so it
-   fades out evenly instead of stopping at their opaque edges. */
-.listen.ambient .listen-header,
+/* In ambient mode the drawer turns to glass so the glow runs under it. */
 .listen.ambient .side {
   background: var(--ambient-chrome-surface);
   border-color: var(--glass-border);
-}
-
-.listen.ambient .header-btn,
-.listen.ambient :deep(.scope-picker > .chip) {
-  background: var(--glass-surface);
-  backdrop-filter: var(--glass-blur);
 }
 
 .state {
@@ -457,7 +511,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .primary-btn,
 .ghost-btn,
-.header-btn {
+.menu-toggle,
+.menu-select {
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
@@ -476,48 +531,37 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   color: var(--accent-ink);
 }
 
-.filters-badge {
-  min-width: 18px;
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-secondary);
-  color: var(--accent-secondary-ink);
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-}
-
-.header-btn.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent);
-}
-
-.header-btn:hover:not(:disabled),
 .ghost-btn:hover {
   color: var(--text);
 }
 
-.play-length {
-  appearance: auto;
+.menu-toggle,
+.menu-select {
+  padding: 8px 14px;
+  background: var(--surface);
+  text-align: left;
 }
 
-.header-btn:disabled {
+.menu-toggle.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu-select:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
+/* No strip: the header floats over the page as a few chips and icon
+   buttons, so the stage below reads as the whole screen. */
 .listen-header {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 16px;
-  padding: 12px 20px;
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--border);
+  gap: 10px 16px;
+  padding: 14px 24px 0;
 }
 
 .header-left,
@@ -533,10 +577,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .header-right {
-  gap: 6px;
-  flex: 0 1 auto;
-  min-width: 0;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .header-note {
@@ -546,34 +587,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 12px;
 }
 
-.counts {
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.progress {
-  flex: 0 1 230px;
-  min-width: 60px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  overflow: hidden;
-}
-
-.progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
-}
-
 .listen-grid {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 480px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
+}
+
+.listen-grid.details-open {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 420px);
 }
 
 .player-pane {
@@ -583,11 +606,97 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 24px;
+  padding: 14px 24px 24px;
 }
 
 .player-pane :deep(.player-card) {
   min-height: 0;
+}
+
+/* Caption bottom-left, playlist controls bottom-right, both above the
+   playback bar. */
+.stage-bottom {
+  position: absolute;
+  inset: 16px 16px 80px;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.stage-bottom > * {
+  pointer-events: auto;
+}
+
+.stage-bottom :deep(.lower-third) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.transport {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transport-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface-panel);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--text);
+  font: 800 14px var(--font-sans);
+  cursor: pointer;
+}
+
+.transport-btn.round {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+}
+
+.transport-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.transport-btn.next {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.transport-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.transport-btn kbd {
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.position {
+  padding: 0 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: var(--text-shadow-overlay);
+  white-space: nowrap;
 }
 
 .side {
@@ -598,20 +707,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   gap: 22px;
   padding: 26px;
   overflow: hidden;
-  background: var(--surface-sunken);
+  background: var(--surface);
   border-left: 1px solid var(--border);
-}
-
-.header-toggles {
-  flex: 0 0 100%;
 }
 
 .info-panel-wrap {
   position: relative;
-}
-
-.info-panel-wrap :deep(.auto-reveal-countdown) {
-  pointer-events: none;
 }
 
 .info-reveal-target {
@@ -637,7 +738,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     flex-wrap: wrap;
   }
 
-  .listen-grid {
+  .listen-grid,
+  .listen-grid.details-open {
     grid-template-columns: 1fr;
   }
 
@@ -649,6 +751,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
   .side > .side-scroll {
     overflow: visible;
+  }
+
+  .stage-bottom {
+    flex-wrap: wrap;
   }
 }
 </style>
