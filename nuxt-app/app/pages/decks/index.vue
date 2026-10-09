@@ -1301,6 +1301,7 @@ function backToDecks() {
   grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
   gap: 20px;
+  min-height: var(--header-height);
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
@@ -1339,6 +1340,7 @@ function backToDecks() {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--surface);
 }
 
 .tab-seg-btn {
@@ -1361,8 +1363,8 @@ function backToDecks() {
    had: main.css's ambient-glass block replaces backgrounds with !important,
    so a solid fill would be stripped under ambient mode. */
 .tab-seg-btn.active {
-  background: var(--surface-raised);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 
 .decks-header .search-input {
@@ -1616,15 +1618,35 @@ h2 {
 
 .deck-tile-clickable:hover .deck-tile-cover {
   border-color: var(--accent);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-3px);
+}
+
+.deck-tile-clickable:hover .deck-tile-label {
+  color: var(--accent);
 }
 
 .deck-tile-cover {
   position: relative;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--surface-raised);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-tile-cover {
+    transition: none;
+  }
+
+  .deck-tile-clickable:hover .deck-tile-cover {
+    transform: none;
+  }
 }
 
 .deck-tile-cover img {
@@ -1641,15 +1663,20 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--tint) 20%, var(--surface-raised));
+  /* a soft diagonal wash plus a faint dot pattern, so a deck without a
+     cover still reads as a poster rather than a flat swatch */
+  background:
+    radial-gradient(color-mix(in srgb, var(--tint) 22%, transparent) 1.2px, transparent 1.6px) 0 0 / 14px 14px,
+    linear-gradient(160deg, color-mix(in srgb, var(--tint) 28%, var(--surface-raised)), color-mix(in srgb, var(--tint) 10%, var(--surface-raised)));
 }
 
 .deck-tile-monogram-letter {
   font-family: var(--font-display);
-  font-size: 42px;
+  font-size: 46px;
   font-weight: 400;
   line-height: 1;
   color: var(--tint);
+  text-shadow: 0 3px 0 color-mix(in srgb, var(--tint) 22%, transparent);
 }
 
 .deck-tile-monogram-badge {
@@ -1664,12 +1691,14 @@ h2 {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--surface);
   background: var(--accent);
   color: var(--accent-ink);
   font-size: 11px;
   font-weight: 900;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .deck-tile-meta {
@@ -1711,8 +1740,8 @@ h2 {
 
 .deck-tile-new {
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
-  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  border: 2px dashed var(--outline);
   background: none;
   color: var(--faint);
   font-family: var(--font-sans);

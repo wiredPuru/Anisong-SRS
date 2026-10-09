@@ -2461,15 +2461,30 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 8px 14px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.4px;
   color: var(--faint);
 }
 
+.hotkey-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+/* small keycaps, so each key reads apart from its label */
 .hotkey-legend kbd {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  background: var(--surface);
   font-family: inherit;
+  text-align: center;
   color: var(--muted);
 }
 </style>

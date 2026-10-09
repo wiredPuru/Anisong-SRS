@@ -233,7 +233,7 @@ const showTypedAnswerCategories = ref(false);
   padding: 7px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: none;
+  background: var(--surface);
   color: var(--muted);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -241,10 +241,18 @@ const showTypedAnswerCategories = ref(false);
   cursor: pointer;
 }
 
-/* Border and glow rather than a fill, matching the convention feature 24 set
-   for active states so the control stays glass under ambient mode. */
+.toggle-btn:hover:not(:disabled),
+.seg-btn:hover:not(.on),
+.categories-btn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* Border and glow carry the state, so it survives ambient mode's glass
+   (main.css replaces the background with !important there); the tint is a
+   plain-page extra that makes an "on" toggle read at a glance. */
 .toggle-btn.on {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   color: var(--accent);
   box-shadow: 0 0 14px var(--accent-glow);
 }
@@ -264,7 +272,7 @@ const showTypedAnswerCategories = ref(false);
   padding: 0;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: none;
+  background: var(--surface);
   color: var(--muted);
   font-size: 14px;
   cursor: pointer;

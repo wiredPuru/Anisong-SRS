@@ -216,6 +216,7 @@ function formatRelativeTime(iso: string): string {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  min-height: var(--header-height);
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
@@ -251,6 +252,15 @@ h1 {
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.add-card-btn:hover,
+.hero-cta-primary:hover {
+  background: var(--accent-strong);
+}
+
+.hero-cta-outline:hover {
+  background: color-mix(in srgb, var(--accent-secondary) 10%, transparent);
 }
 
 .home-body {
@@ -348,13 +358,14 @@ h1 {
   font-size: 15px;
   text-decoration: none;
   white-space: nowrap;
+  box-shadow: 0 6px 18px var(--accent-glow);
 }
 
 .hero-cta-outline {
   display: inline-block;
-  padding: 12px 22px;
+  padding: 11px 22px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-secondary);
+  border: 2px solid var(--accent-secondary);
   background: transparent;
   color: var(--accent-secondary);
   font-family: var(--font-sans);
@@ -404,11 +415,20 @@ h1 {
   height: 150px;
 }
 
+/* surface-raised bars all but vanished into the panel in both themes */
 .chart-bar {
   flex: 1;
   min-height: 2px;
-  background: var(--surface-raised);
-  border-radius: 2px 2px 0 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--accent) 35%, var(--surface)),
+    color-mix(in srgb, var(--accent) 70%, var(--surface))
+  );
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-bar:hover {
+  background: var(--accent);
 }
 
 .maturity-row {

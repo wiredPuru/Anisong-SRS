@@ -500,6 +500,7 @@ async function importDeck() {
   align-items: baseline;
   justify-content: space-between;
   gap: 20px;
+  min-height: var(--header-height);
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);

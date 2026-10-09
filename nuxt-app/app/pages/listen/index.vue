@@ -490,6 +490,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .header-btn.active {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   color: var(--accent);
 }
 

@@ -202,10 +202,15 @@ const headerCheckState = computed(() =>
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .card-row:hover {
-  border-color: var(--border);
+  border-color: var(--outline);
+  box-shadow: var(--shadow-soft);
 }
 
 .card-row.checked {
@@ -222,6 +227,7 @@ const headerCheckState = computed(() =>
   height: 48px;
   border-radius: var(--radius-xs);
   object-fit: cover;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .cover-thumb-empty {
@@ -248,7 +254,16 @@ const headerCheckState = computed(() =>
 }
 
 .cell-anime .slot {
-  color: var(--faint);
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .cell-song > span,

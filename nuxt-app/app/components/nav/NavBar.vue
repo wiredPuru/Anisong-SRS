@@ -117,6 +117,11 @@ function isActive(to: string): boolean {
 .nav-icon {
   font-size: 17px;
   line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.nav-link:hover .nav-icon {
+  transform: translateY(-1px) scale(1.12);
 }
 
 .nav-label {
@@ -178,8 +183,13 @@ function isActive(to: string): boolean {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-logo {
+  .nav-logo,
+  .nav-icon {
     transition: none;
+  }
+
+  .nav-link:hover .nav-icon {
+    transform: none;
   }
 }
 </style>

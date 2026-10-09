@@ -96,6 +96,10 @@
      hard-coding 82px. */
   --rail-width: 82px;
 
+  /* every page's top bar (Home, Cards, Decks, Stats, Settings) shares one
+     height, so moving between them does not make the content jump */
+  --header-height: 72px;
+
   /* Comfortably above the common 1920/2560 desktop range the full-bleed
      split-pane layout already targets, so below this nothing changes. Used
      by layouts/default.vue's own ultrawide breakpoint - see its comment for
@@ -369,13 +373,53 @@ a.deck-link:focus-visible {
   box-shadow: inset 0 0 0 1px var(--accent-secondary);
 }
 
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text);
+}
+
+/* Colour changes ease rather than snap. Low specificity on purpose: any
+   component that sets its own transition keeps it. */
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition: none;
+  }
+}
+
 body {
   margin: 0;
   /* inherited by every native checkbox and range, so none fall back to
      browser blue */
   accent-color: var(--accent);
   min-height: 100vh;
-  background: var(--bg);
+  /* two soft corner glows, sakura top right and sky bottom left, so the
+     ground has some depth behind the panels; fixed so they stay put while a
+     page scrolls */
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 42%),
+    radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--accent-secondary) 7%, transparent), transparent 46%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
   /* The app shell (rail + content) is always sized to exactly fill the

@@ -313,8 +313,8 @@ onBeforeUnmount(() => {
 }
 
 .tab-seg-btn.active {
-  background: var(--surface-raised);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 
 .search-input {

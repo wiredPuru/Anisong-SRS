@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMonthHeatmap, currentMonthKey } from "./monthHeatmap.ts";
+import { buildMonthHeatmap, currentMonthKey, summarizeMonth } from "./monthHeatmap.ts";
 import type { ReviewHeatmapDay } from "./monthHeatmap.ts";
 
 describe("currentMonthKey", () => {
@@ -71,5 +71,27 @@ describe("buildMonthHeatmap", () => {
   it("labels the month with its full name and year", () => {
     expect(buildMonthHeatmap([], "2026-09").label).toBe("September 2026");
     expect(buildMonthHeatmap([], "2026-01").label).toBe("January 2026");
+  });
+});
+
+describe("summarizeMonth", () => {
+  it("counts active and elapsed days, the best day, and the active-day average", () => {
+    const month = buildMonthHeatmap(
+      [day("2026-09-01", 4), day("2026-09-02", 0), day("2026-09-03", 9), day("2026-09-04", 0, true)],
+      "2026-09",
+    );
+    const summary = summarizeMonth(month, "2026-09-10");
+    expect(summary.activeDays).toBe(2);
+    // The 4th is flagged future, and nothing after the 10th has elapsed yet.
+    expect(summary.elapsedDays).toBe(9);
+    expect(summary.bestDay).toEqual({ day: 3, count: 9 });
+    expect(summary.averagePerActiveDay).toBe(6.5);
+  });
+
+  it("returns no best day and a zero average for an empty month", () => {
+    const summary = summarizeMonth(buildMonthHeatmap([], "2026-09"), "2026-09-30");
+    expect(summary.activeDays).toBe(0);
+    expect(summary.bestDay).toBeNull();
+    expect(summary.averagePerActiveDay).toBe(0);
   });
 });

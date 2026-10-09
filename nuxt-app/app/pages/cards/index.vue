@@ -860,6 +860,7 @@ watch(
   grid-template-columns: 1fr minmax(0, 900px) 1fr;
   align-items: center;
   gap: 20px;
+  min-height: var(--header-height);
   padding: 16px 28px;
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border);
@@ -946,8 +947,8 @@ h1 {
   justify-self: end;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--muted);
-  background: transparent;
+  border: 1.5px solid var(--outline);
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -1048,34 +1049,13 @@ h1 {
   box-shadow: var(--shadow-accent);
 }
 
-.browse-btn {
-  flex: none;
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow: 0 0 14px var(--accent-glow);
-}
-
-.browse-btn:hover,
-.browse-btn:focus-visible {
-  background: var(--accent-glow);
-}
-
-/* Border and glow rather than a fill for the active state, matching the
-   convention feature 24 set so the control stays glass under ambient mode. */
+.browse-btn,
 .filter-toggle {
   flex: none;
-  padding: 8px 14px;
+  padding: 8px 15px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--muted);
-  background: transparent;
+  border: 1.5px solid var(--outline);
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -1084,10 +1064,23 @@ h1 {
   cursor: pointer;
 }
 
-.filter-toggle.active {
+.browse-btn:hover,
+.browse-btn:focus-visible,
+.filter-toggle:hover {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+/* A toggle that is on gets a tint as well as the accent edge, so it reads
+   apart from Browse by filters, which is an action rather than a state. */
+.filter-toggle.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+
+.filter-toggle.active::before {
+  content: "✓ ";
 }
 
 .library-chip {
