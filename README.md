@@ -19,7 +19,7 @@ Everything runs on your own computer. No account, no cloud, just you and your
 playlist.
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="1000" alt="Home dashboard showing cards due today and a month of study activity">
+  <img src="docs/screenshots/home.png" width="1000" alt="Home dashboard with Kai, the cards due today, and a month of study activity">
 </p>
 
 ## How it works
@@ -42,10 +42,29 @@ you want to go by ear alone, or type your answers if you want it to feel like
 the real game.
 
 <p align="center">
-  <img src="docs/screenshots/study.png" width="1000" alt="Study screen playing an anime ending, with the revealed answer beside it">
+  <img src="docs/screenshots/study.png" width="1000" alt="Study screen playing an anime clip, with a Now playing bar and Missed and Got it buttons">
 </p>
 
-### 3. Focus on what you want
+Press `D`, or click the empty space beside the video, to flip the picture over
+and see the answer, the cover art, notes, and links out to AniList and
+AnimeThemes.
+
+<p align="center">
+  <img src="docs/screenshots/study-details.png" width="1000" alt="The flipped Study card showing the cover art, titles, song, artist, and theme">
+</p>
+
+### 3. Just listen
+
+Not in the mood to grade yourself? **Listen** plays a deck, or your whole
+library, in order or shuffled, with the same player and Hide Video and Hide Info
+toggles but no scoring. It's handy for warming up or hosting a guessing round
+without the party server.
+
+<p align="center">
+  <img src="docs/screenshots/listen.png" width="1000" alt="Listen mode playing a song with its title, artist, and a song counter">
+</p>
+
+### 4. Focus on what you want
 
 Your songs sort themselves into decks by anime and by artist, and you can make
 your own too. Want to drill one show before a themed lobby? Just study that
@@ -55,7 +74,7 @@ deck.
   <img src="docs/screenshots/decks.png" width="1000" alt="Deck browser showing a grid of anime cover art">
 </p>
 
-### 4. Watch yourself improve
+### 5. Watch yourself improve
 
 Keep an eye on your pass rate, your streak, and what's coming up next, so you
 can see it actually sticking.
