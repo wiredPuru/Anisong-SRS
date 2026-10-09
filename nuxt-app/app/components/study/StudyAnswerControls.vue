@@ -56,31 +56,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   gap: 12px;
 }
 
-/* Candy pills over the video: a solid fill so they read on any frame, with
-   a soft glow of their own colour. */
 .grade-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  height: 52px;
-  padding: 0 30px;
+  height: 48px;
+  padding: 0 24px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  font: 800 16px var(--font-sans);
+  font: 700 15px var(--font-sans);
+  white-space: nowrap;
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 0 18px var(--glow);
-  transition: transform 0.15s ease;
-}
-
-.grade-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.grade-btn:active:not(:disabled) {
-  transform: translateY(1px);
 }
 
 .grade-btn:disabled {
@@ -89,29 +75,32 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .grade-btn kbd {
-  padding: 2px 6px;
+  padding: 1px 6px;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  font: 800 11px var(--font-sans);
-  opacity: 0.8;
+  border: 1px solid currentColor;
+  font: 700 11px var(--font-sans);
+  opacity: 0.6;
 }
 
 .fail {
-  --glow: color-mix(in srgb, var(--fail) 40%, transparent);
-  background: var(--fail);
-  color: var(--fail-ink);
+  border: 1px solid rgba(255, 138, 138, 0.3);
+  background: rgba(255, 138, 138, 0.08);
+  color: var(--fail);
 }
 
-.pass {
-  --glow: color-mix(in srgb, var(--pass) 40%, transparent);
-  background: var(--pass);
-  color: var(--pass-ink);
+.fail:hover:not(:disabled) {
+  background: rgba(255, 138, 138, 0.16);
 }
 
+.pass,
 .reveal {
-  --glow: var(--accent-glow);
-  background: var(--accent);
-  color: var(--accent-ink);
+  border: 0;
+  background: #ffffff;
+  color: #0b0b0d;
+}
+
+.pass:hover:not(:disabled),
+.reveal:hover:not(:disabled) {
+  background: #e9e9ee;
 }
 </style>

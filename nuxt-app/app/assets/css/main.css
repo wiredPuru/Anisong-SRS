@@ -1,103 +1,76 @@
-/* Kai themes (feature 84b). The light theme is the default and is read off
-   blueprint/reference/mascot-v2/kai-sheet-transparent.png: pink-and-cream
-   ground, sakura pink, warm brown lettering, periwinkle for a wrong answer,
-   candy-yellow stars. The dark theme below retunes feature 62's gruvbox
-   palette toward the same pinks. <html data-theme> is set before first paint
-   by THEME_BOOT_SCRIPT (app/utils/theme.ts). Every text token clears 4.5:1 on
-   every surface in both themes, and each -ink token 4.5:1 on its fill. The
-   -scope classes let a small preview (Settings > Appearance) render in a
-   theme other than the page's. */
+/* Midnight (the redesign after feature 84): one dark theme. Panels are
+   neutral near-black and buttons are white, so the clip on screen is the only
+   colour; Study and Listen add it back as a glow. Every text token clears
+   4.5:1 on every surface, and each -ink token 4.5:1 on its fill. */
 
-:root,
-.theme-light-scope {
-  color-scheme: light;
+:root {
+  color-scheme: dark;
 
   /* surfaces */
-  --bg: #fbeef4;
-  --surface: rgba(255, 255, 255, 0.55);
-  --surface-raised: rgba(255, 255, 255, 0.72);
-  --surface-sunken: rgba(255, 236, 244, 0.45);
-  --surface-float: rgba(255, 250, 252, 0.92);
-  --border: rgba(160, 70, 110, 0.18);
+  --bg: #0b0b0d;
+  --surface: #141417;
+  --surface-raised: #1b1b1f;
+  --surface-sunken: #101013;
+  --surface-float: rgba(20, 20, 24, 0.94);
+  --border: rgba(255, 255, 255, 0.1);
 
   /* text */
-  --text: #4e3237;
-  --muted: #6f4f55;
-  --faint: #7f5c63;
+  --text: #f5f5f7;
+  --muted: #b4b4bd;
+  --faint: #8e8e98;
 
-  /* accent - primary (sakura) */
-  --accent: #c23462;
-  --accent-strong: #a92852;
-  --accent-ink: #ffffff;
-  --accent-glow: rgba(232, 90, 134, 0.22);
+  /* accent: white, so a primary button reads as the brightest thing on the
+     page without adding a hue of its own */
+  --accent: #ffffff;
+  --accent-strong: #ffffff;
+  --accent-ink: #0b0b0d;
+  --accent-glow: rgba(255, 255, 255, 0.14);
 
-  /* accent - secondary (for JP text / box indicators) */
-  --accent-secondary: #2f63a3;
-  --accent-secondary-ink: #ffffff;
-  --accent-secondary-glow: rgba(80, 130, 210, 0.22);
+  --accent-secondary: #cfd3dc;
+  --accent-secondary-ink: #0b0b0d;
+  --accent-secondary-glow: rgba(255, 255, 255, 0.12);
 
-  /* review states; a wrong answer is the sheet's periwinkle, not red */
-  --pass: #237a4f;
-  --pass-ink: #ffffff;
-  --fail: #4458c0;
-  --fail-ink: #ffffff;
-  --warning: #94600c;
-  --warning-ink: #ffffff;
+  --pass: #7ee0a1;
+  --pass-ink: #0b0b0d;
+  --fail: #ff8a8a;
+  --fail-ink: #0b0b0d;
+  --warning: #f0c56e;
+  --warning-ink: #0b0b0d;
 
-  /* the sheet's decoration: stars, music notes, and the soft outline on its
-     banners and pills. Never text colors. */
-  --star: #ffc83d;
+  /* decoration only, never text */
+  --star: #f5c542;
   --star-ink: #3b2a10;
-  --note: #e8507c;
-  --outline: rgba(255, 255, 255, 0.9);
+  --note: #d6d6de;
+  --outline: rgba(255, 255, 255, 0.16);
 
-  --shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 10px 30px rgba(170, 90, 120, 0.16);
-  --scrim: rgba(78, 40, 50, 0.45);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --scrim: rgba(0, 0, 0, 0.62);
+  --text-shadow-overlay: 0 2px 8px rgba(0, 0, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9);
 
-  /* a light halo, since overlay text is --text (dark) on light glass here */
-  --text-shadow-overlay: 0 1px 6px rgba(255, 248, 244, 0.9), 0 0 2px rgba(255, 248, 244, 0.9);
+  --veil-paused: rgba(0, 0, 0, 0.42);
+  --veil-error: rgba(10, 10, 14, 0.72);
+  --veil-status: rgba(10, 10, 12, 0.72);
 
-  /* StudyMediaPlayer's veils over video. Each theme tints them toward its own
-     ground so the theme's --text and --fail stay readable on them; the error
-     veil leans periwinkle, the wrong-answer hue. */
-  --veil-paused: rgba(255, 244, 240, 0.5);
-  --veil-error: rgba(236, 238, 255, 0.82);
-  --veil-status: rgba(255, 248, 244, 0.86);
+  /* panels over a picture: no blur, which made text hard to read over busy
+     frames, and no tint, which turned dark clips' panels blue */
+  --glass-blur: none;
+  --glass-surface: rgba(14, 14, 17, 0.78);
+  --glass-surface-panel: rgba(14, 14, 17, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.12);
 
-  --glass-surface: rgba(255, 255, 255, 0.4);
-  --glass-surface-panel: rgba(255, 250, 252, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.85);
+  --ambient-wash-opacity: 1;
+  --ambient-wash-filter: blur(26px) saturate(1.3) brightness(0.6);
+  --ambient-chrome-surface: rgba(10, 10, 12, 0.35);
+  --ambient-backdrop-filter: blur(80px) saturate(1.6) brightness(0.72);
+  --ambient-backdrop-opacity: 1;
 
-  /* ambient mode ("Spill"): the page-wide wash is a lightly blurred copy of
-     the clip, so the scene seems to carry on past the player's feathered
-     edges. A touch brighter here so a cream page tints rather than darkens. */
-  --ambient-wash-opacity: 0.85;
-  --ambient-wash-filter: blur(26px) saturate(1.25) brightness(1.05);
-  /* the rail, header and side column: thin enough that the glow reads
-     through them as one continuous wash */
-  --ambient-chrome-surface: rgba(255, 246, 240, 0.16);
-  /* the last played clip behind every other page: blurred further, since
-     panels sit on it rather than a single video */
-  --ambient-backdrop-filter: blur(60px) saturate(1.5) brightness(1.08);
-  --ambient-backdrop-opacity: 0.7;
+  --page-bg: radial-gradient(60% 45% at 50% 0%, rgba(255, 255, 255, 0.04), transparent 70%), var(--bg);
 
-  /* the daytime sky: sparkles instead of stars, sakura and periwinkle glows */
-  --page-bg:
-    radial-gradient(1.5px 1.5px at 30px 40px, rgba(214, 58, 114, 0.22), transparent),
-    radial-gradient(1.5px 1.5px at 140px 120px, rgba(110, 140, 240, 0.22), transparent),
-    radial-gradient(1.2px 1.2px at 80px 190px, rgba(214, 58, 114, 0.18), transparent),
-    radial-gradient(1.2px 1.2px at 190px 60px, rgba(110, 140, 240, 0.18), transparent),
-    radial-gradient(1px 1px at 110px 210px, rgba(214, 58, 114, 0.15), transparent),
-    radial-gradient(40% 45% at 85% 8%, rgba(255, 170, 205, 0.75), transparent 70%),
-    radial-gradient(45% 50% at 5% 92%, rgba(190, 205, 255, 0.75), transparent 70%),
-    radial-gradient(35% 40% at 55% 55%, rgba(255, 226, 205, 0.6), transparent 70%),
-    var(--bg);
-
-  /* type - Mochiy Pop One, a chunky rounded display face like the sheet's
-     lettering, and M PLUS Rounded 1c, a heavy rounded body face. Both cover Latin and
-     Japanese, including furigana. */
-  --font-display: "Mochiy Pop One", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
-  --font-sans: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  /* Outfit for Latin, M PLUS Rounded 1c behind it for Japanese and furigana.
+     Sora is loaded at 700 only, so a heading set at weight 400 still renders
+     heavy. */
+  --font-display: "Sora", "M PLUS Rounded 1c", system-ui, sans-serif;
+  --font-sans: "Outfit", "M PLUS Rounded 1c", system-ui, sans-serif;
 
   /* scale */
   --radius: 20px;
@@ -126,103 +99,20 @@
      overlays: it is chrome, and a modal backdrop is meant to cover it. */
   --z-chrome: 30;
   /* Study's score bursts, which fly over the header chrome they are aimed at
-     but must stay under any modal: the session log or a Preview opened on top
-     of them covers them, rather than points drifting across an open dialog. */
+     but must stay under any modal. */
   --z-score-burst: 40;
   --z-modal: 50;
   --z-immersive: 60;
-  /* Above --z-immersive, for the one case a plain modal isn't enough for:
-     a modal opened from *within* immersive mode (Study's "Previous card"),
-     which must outrank the immersive layer it was triggered from. Not the
-     default for modals - CardPreviewModal itself still uses --z-modal. */
+  /* a modal opened from within immersive mode must outrank it */
   --z-above-immersive: 70;
   --shadow-accent: 0 0 28px var(--accent-glow);
 
+  --focus-ring: #ffffff;
 
-  /* keyboard focus; sky rather than rose so it never blends into an accent
-     button or a rose-bordered focused input */
-  --focus-ring: var(--accent-secondary);
-
-  /* the spinning record is a black disk in both themes */
-
-  /* the spinning record: cream grooves and spindle ring on the dark disk */
-  --record-groove: rgba(235, 219, 178, 0.06);
-  --record-hole-ring: rgba(235, 219, 178, 0.15);
-  --record-shadow: 0 0 30px rgba(20, 16, 12, 0.6);
-
-
-  --glass-blur: blur(28px) saturate(1.8);
-}
-
-/* Feature 62's gruvbox ground and cream text, warmed toward Kai's pinks. */
-:root[data-theme="dark"],
-.theme-dark-scope {
-  color-scheme: dark;
-
-  /* Crystal night: clear glass on a starry sky. Surfaces are translucent
-     white so the page's glows read through them; text tokens are checked
-     against the darkest and lightest the glass gets over that sky. */
-  --bg: #120d1b;
-  --surface: rgba(255, 255, 255, 0.07);
-  --surface-raised: rgba(255, 255, 255, 0.11);
-  --surface-sunken: rgba(8, 5, 14, 0.3);
-  --surface-float: rgba(30, 22, 42, 0.86);
-  --border: rgba(255, 255, 255, 0.16);
-
-  --text: #f8eef5;
-  --muted: #d4c2d4;
-  --faint: #b8a6bd;
-
-  --accent: #ff9cc8;
-  --accent-strong: #ffc3dd;
-  --accent-ink: #2a1626;
-  --accent-glow: rgba(255, 140, 200, 0.32);
-
-  --accent-secondary: #9fc8ff;
-  --accent-secondary-ink: #14203a;
-  --accent-secondary-glow: rgba(140, 180, 255, 0.3);
-
-  --pass: #bfe59a;
-  --pass-ink: #1f3510;
-  --fail: #a8b4f2;
-  --fail-ink: #1b2045;
-  --warning: #ffd27a;
-  --warning-ink: #3b2a10;
-
-  --star: #ffe27a;
-  --star-ink: #3b2a10;
-  --note: #ff9cc8;
-  --outline: rgba(255, 255, 255, 0.2);
-
-  --shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 36px rgba(0, 0, 0, 0.35);
-  --scrim: rgba(10, 6, 16, 0.62);
-
-  --text-shadow-overlay: 0 2px 8px rgba(10, 6, 16, 0.85), 0 1px 2px rgba(10, 6, 16, 0.9);
-
-  --veil-paused: rgba(10, 6, 16, 0.42);
-  --veil-error: rgba(24, 22, 60, 0.6);
-  --veil-status: rgba(18, 13, 27, 0.7);
-
-  --glass-surface: rgba(255, 255, 255, 0.06);
-  --glass-surface-panel: rgba(28, 20, 40, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.18);
-
-  --ambient-wash-opacity: 1;
-  --ambient-wash-filter: blur(26px) saturate(1.3) brightness(0.8);
-  --ambient-chrome-surface: rgba(255, 255, 255, 0.04);
-  --ambient-backdrop-filter: blur(70px) saturate(1.8) brightness(1);
-  --ambient-backdrop-opacity: 1;
-
-  --page-bg:
-    radial-gradient(1.2px 1.2px at 20px 30px, rgba(255, 255, 255, 0.65), transparent),
-    radial-gradient(1px 1px at 120px 80px, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1.5px 1.5px at 60px 150px, rgba(255, 214, 232, 0.8), transparent),
-    radial-gradient(1px 1px at 170px 190px, rgba(207, 227, 255, 0.7), transparent),
-    radial-gradient(1px 1px at 90px 220px, rgba(255, 255, 255, 0.45), transparent),
-    radial-gradient(45% 45% at 85% 5%, rgba(255, 110, 180, 0.42), transparent 70%),
-    radial-gradient(45% 50% at 5% 95%, rgba(100, 130, 255, 0.38), transparent 70%),
-    radial-gradient(35% 35% at 50% 60%, rgba(170, 110, 255, 0.2), transparent 70%),
-    var(--bg);
+  /* the spinning record: pale grooves and spindle ring on the dark disk */
+  --record-groove: rgba(255, 255, 255, 0.06);
+  --record-hole-ring: rgba(255, 255, 255, 0.15);
+  --record-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -330,41 +220,12 @@
   border-right-color: var(--glass-border) !important;
 }
 
-/* Ambient accents follow the clip: /study and /listen set data-ambient-tint
-   on <html> from the playing video, and the layout sets .ambient-tinted
-   from the last played clip on every other page. --amb-* come from
-   tintPalette() (app/utils/ambientTint.ts), which keeps each ink at 4.5:1
-   on its fill. */
-:root[data-ambient-tint],
-.ambient-tinted {
-  --accent: rgb(var(--amb-deep));
-  --accent-strong: rgb(var(--amb-deep));
-  --accent-ink: #ffffff;
-  --accent-glow: rgba(var(--amb-rgb), 0.3);
-  --note: rgb(var(--amb-deep));
-}
-
-:root[data-theme="dark"][data-ambient-tint],
-:root[data-theme="dark"] .ambient-tinted {
-  --accent: rgb(var(--amb-light));
-  --accent-strong: rgb(var(--amb-light));
-  --accent-ink: rgb(var(--amb-ink));
-  --accent-glow: rgba(var(--amb-rgb), 0.4);
-  --note: rgb(var(--amb-light));
-}
-
-/* Over a bright backdrop the usual near-clear glass leaves panel text on
-   whatever colour happens to be behind it, so panels get a denser frost. */
+/* Over a bright backdrop the usual near-clear panels leave text on whatever
+   colour happens to be behind it, so panels get denser. */
 [data-ambient-backdrop="true"] {
-  --surface: rgba(255, 250, 252, 0.62);
-  --surface-raised: rgba(255, 250, 252, 0.74);
-  --surface-sunken: rgba(255, 244, 248, 0.5);
-}
-
-:root[data-theme="dark"][data-ambient-backdrop="true"] {
-  --surface: rgba(18, 12, 28, 0.55);
-  --surface-raised: rgba(24, 16, 36, 0.64);
-  --surface-sunken: rgba(12, 8, 20, 0.45);
+  --surface: rgba(14, 14, 17, 0.7);
+  --surface-raised: rgba(20, 20, 24, 0.78);
+  --surface-sunken: rgba(10, 10, 12, 0.55);
 }
 
 /* Artist and anime names that link to that deck's detail page (/cards'
@@ -393,38 +254,36 @@ a.deck-link:focus-visible {
   text-decoration: underline;
 }
 
-/* Kai's lettered banners (84d), after the CORRECT! / WRONG... / GUESS? plates
-   on her sheet: chunky display lettering in an outlined rounded plate. Global
-   so Study's result panel, its grade sticker, and any later surface share one
-   look. The text is real DOM text, uppercased only visually. */
+/* Lettered banners for results and party headlines: real DOM text in a dark
+   pill, the colour only in the lettering. Global so Study's result panel,
+   its grade sticker and the party display share one look. */
 .kai-banner {
   display: inline-block;
   margin: 0;
-  padding: 0.28em 0.9em 0.32em;
-  border: 3px solid var(--kai-banner-edge, var(--outline));
-  border-radius: 0.55em;
-  background: var(--kai-banner-fill, var(--surface));
+  padding: 0.3em 0.9em 0.34em;
+  border: 1px solid var(--kai-banner-edge, var(--border));
+  border-radius: var(--radius-pill);
+  background: var(--kai-banner-fill, rgba(14, 14, 17, 0.86));
   color: var(--kai-banner-ink, var(--text));
   font-family: var(--font-display);
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  box-shadow: 0 4px 0 var(--kai-banner-edge, var(--outline)), var(--shadow-soft);
+  letter-spacing: -0.01em;
+  box-shadow: var(--shadow-soft);
 }
 
 .kai-banner-pass {
-  --kai-banner-edge: var(--accent);
-  --kai-banner-ink: var(--accent);
+  --kai-banner-edge: rgba(126, 224, 161, 0.35);
+  --kai-banner-ink: var(--pass);
 }
 
 .kai-banner-fail {
-  --kai-banner-edge: var(--fail);
-  --kai-banner-fill: color-mix(in srgb, var(--fail) 16%, var(--surface));
+  --kai-banner-edge: rgba(255, 138, 138, 0.35);
   --kai-banner-ink: var(--fail);
 }
 
 .kai-banner-neutral {
-  --kai-banner-edge: var(--outline);
+  --kai-banner-edge: var(--border);
   --kai-banner-ink: var(--text);
 }
 
@@ -477,15 +336,12 @@ body {
      browser blue */
   accent-color: var(--accent);
   min-height: 100vh;
-  /* five star layers tiled at 220px, then the glows at full size; fixed so
-     they stay put while a page scrolls */
+  /* fixed so the top glow stays put while a page scrolls */
   background: var(--page-bg);
-  background-size: 220px 220px, 220px 220px, 220px 220px, 220px 220px, 220px 220px, auto, auto, auto, auto;
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
-  /* M PLUS Rounded's 400 reads thin against Mochiy Pop One's titles. */
-  font-weight: 500;
+  font-weight: 400;
   /* The app shell (rail + content) is always sized to exactly fill the
      viewport width - no page here is meant to scroll sideways. This is a
      defensive guard against stray sub-pixel horizontal overflow (observed
@@ -532,11 +388,15 @@ body {
   stroke-linejoin: round;
 }
 
-.icon-btn:hover:not(:disabled),
+.icon-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 .icon-btn.active,
 .icon-btn[aria-expanded="true"] {
-  color: var(--accent);
+  background: var(--accent);
   border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .icon-btn:disabled {
@@ -583,36 +443,11 @@ body {
   visibility: visible;
 }
 
-/* Panels over the picture are semi-transparent and take their colour from
-   the clip (--amb-rgb, set by the tint code) instead of frosting it: blur
-   made text hard to read over busy frames. Declared again on .ambient-tinted
-   because a custom property's var() resolves where it is defined, and the
-   non-player pages set --amb-rgb on the shell, not on <html>. */
-:root,
-.ambient-tinted {
-  --glass-blur: none;
-  --glass-surface: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 24%, rgba(255, 252, 253, 0.8));
-  --glass-surface-panel: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 26%, rgba(255, 252, 253, 0.9));
-  --glass-border: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 45%, rgba(255, 255, 255, 0.7));
-}
-
-:root[data-theme="dark"],
-:root[data-theme="dark"] .ambient-tinted {
-  --glass-surface: rgba(12, 12, 16, 0.78);
-  --glass-surface-panel: rgba(12, 12, 16, 0.86);
-  --glass-border: rgba(255, 255, 255, 0.2);
-}
-
-/* Anything sitting on the picture (Study and Listen's header and stage) uses
-   the same tinted dark panel in both themes, with white text, so it reads on
-   a bright frame and a dark one alike. Surfaces are redefined here rather
-   than per component; modals sit outside these containers and keep the page
-   theme. */
 .on-picture {
   --glass-blur: none;
-  --glass-surface: rgba(10, 10, 14, 0.8);
-  --glass-surface-panel: rgba(10, 10, 14, 0.84);
-  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-surface: rgba(14, 14, 17, 0.82);
+  --glass-surface-panel: rgba(14, 14, 17, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.14);
   --surface: var(--glass-surface-panel);
   --surface-raised: var(--glass-surface-panel);
   --surface-sunken: var(--glass-surface-panel);
@@ -620,15 +455,12 @@ body {
   --text: #ffffff;
   --muted: rgba(255, 255, 255, 0.8);
   --faint: rgba(255, 255, 255, 0.66);
-  --accent: rgb(var(--amb-light, 255, 170, 205));
-  --accent-ink: rgb(var(--amb-ink, 58, 20, 42));
-  --accent-glow: rgba(var(--amb-rgb, 255, 140, 190), 0.4);
   color: var(--text);
 }
 
 /* Panels are neutral near-black so a dark or greyscale frame never turns
-   them a colour; the clip's hue only shows in accents. Scrollbars sit
-   quietly on the panel instead of using the page's tinted track. */
+   them a colour. Scrollbars sit quietly on the panel instead of using the
+   page's track. */
 .on-picture * {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.35) transparent;

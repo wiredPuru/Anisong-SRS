@@ -196,6 +196,9 @@ function onPlaybackPaused() {
   playLimit.onPlaybackPaused();
 }
 
+const playerPaneRef = ref<HTMLElement | null>(null);
+const stageStyle = usePlayerFrameBox(playerPaneRef, presentationKey);
+
 const DETAILS_STORAGE_KEY = "gaqSrs:listenDetails";
 const showDetails = ref(false);
 onMounted(() => {
@@ -343,8 +346,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <template v-if="capped"> Showing the first {{ total + skippedCount }} songs.</template>
         </p>
       </header>
-      <div class="listen-grid" :class="{ 'details-open': showDetails }">
-        <div class="player-pane on-picture">
+      <div class="stage" :style="stageStyle">
+        <div ref="playerPaneRef" class="player-pane on-picture">
           <StudyMediaPlayer
             :key="presentationKey"
             :card="currentCard"
@@ -377,46 +380,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :seconds="autoReveal.displaySeconds.value"
                 :ambient="ambientMode"
               />
-              <div class="stage-bottom">
-                <StudyLowerThird
-                  :theme-slot="currentCard.themeSlot"
-                  :anime-title-english="currentCard.animeTitleEnglish"
-                  :anime-title-native="currentCard.animeTitleNative"
-                  :song-title="currentCard.songTitle"
-                  :artist-name="currentCard.artistName"
-                  :hidden="infoHidden"
-                  revealable
-                  @reveal="reveal"
-                />
-                <div class="transport" role="group" aria-label="Playlist">
-                  <button
-                    v-if="anythingVeiled && !infoHidden"
-                    type="button"
-                    class="transport-btn"
-                    @click="reveal"
-                  >
-                    Reveal <kbd>R</kbd>
-                  </button>
-                  <button
-                    type="button"
-                    class="transport-btn round"
-                    aria-label="Previous song"
-                    :disabled="!canGoBack"
-                    @click="previous"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
-                  </button>
-                  <span class="position">{{ positionLabel(index, total) }}</span>
-                  <button type="button" class="transport-btn next" @click="next">
-                    Next <kbd>&rarr;</kbd>
-                  </button>
-                </div>
-              </div>
             </template>
           </StudyMediaPlayer>
-        </div>
-        <aside v-show="showDetails" class="side on-picture" aria-label="Song details">
-          <div class="side-scroll">
+          <StudyDetailsCard
+            :open="showDetails"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="infoHidden"
+          >
             <div class="info-panel-wrap">
               <StudyInfoPanel
                 :blurred="infoHidden"
@@ -442,8 +412,47 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 @click="reveal"
               />
             </div>
-          </div>
-        </aside>
+          </StudyDetailsCard>
+        </div>
+        <div class="np-wrap">
+          <StudyNowPlaying
+            class="on-picture"
+            :theme-slot="currentCard.themeSlot"
+            :anime-title-english="currentCard.animeTitleEnglish"
+            :anime-title-native="currentCard.animeTitleNative"
+            :song-title="currentCard.songTitle"
+            :artist-name="currentCard.artistName"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="infoHidden"
+            hidden-line="Click to reveal"
+            revealable
+            @reveal="reveal"
+          >
+            <div class="transport" role="group" aria-label="Playlist">
+              <button
+                v-if="anythingVeiled && !infoHidden"
+                type="button"
+                class="transport-btn"
+                @click="reveal"
+              >
+                Reveal <kbd>R</kbd>
+              </button>
+              <button
+                type="button"
+                class="transport-btn round"
+                aria-label="Previous song"
+                :disabled="!canGoBack"
+                @click="previous"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
+              </button>
+              <span class="position">{{ positionLabel(index, total) }}</span>
+              <button type="button" class="transport-btn next" @click="next">
+                Next <kbd>&rarr;</kbd>
+              </button>
+            </div>
+          </StudyNowPlaying>
+        </div>
       </div>
     </template>
     <StudyFiltersModal
@@ -556,9 +565,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex-wrap: wrap;
   gap: 10px 16px;
   padding: 14px 24px 18px;
-  /* A tinted wash that fades out downward, so the counts and icons stay
-     readable over any frame without a hard bar. */
-  background: linear-gradient(to bottom, var(--glass-surface-panel) 55%, transparent);
+  /* No wash behind the header: every control carries its own dark pill, and
+     on an ultrawide screen a wash would end in a hard edge where the content
+     column is capped. */
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
 }
 
 .header-left,
@@ -584,52 +594,48 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 12px;
 }
 
-.listen-grid {
+/* The video takes the stage; the Now playing bar sits under it, as wide as
+   the picture. */
+.stage {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-}
-
-.listen-grid.details-open {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 28px 26px;
 }
 
 .player-pane {
   position: relative;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 14px 24px 24px;
 }
 
 .player-pane :deep(.player-card) {
   min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-/* Caption bottom-left, playlist controls bottom-right, both above the
-   playback bar. */
-.stage-bottom {
-  position: absolute;
-  inset: 16px 16px 80px;
-  z-index: 5;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  pointer-events: none;
+.player-pane :deep(.player-frame) {
+  border: 0;
+  border-radius: 22px;
+  box-shadow:
+    0 0 110px 20px rgba(var(--amb-rgb, 150, 150, 165), 0.28),
+    0 22px 48px rgba(0, 0, 0, 0.5);
 }
 
-.stage-bottom > * {
-  pointer-events: auto;
-}
-
-.stage-bottom :deep(.lower-third) {
-  flex: 0 1 auto;
-  min-width: 0;
+.np-wrap {
+  flex: none;
+  align-self: center;
+  width: max(min(100%, 820px), var(--frame-w, 100%));
+  max-width: 100%;
 }
 
 .transport {
@@ -643,21 +649,19 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 18px;
+  height: 48px;
+  padding: 0 20px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-surface-panel);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  font: 800 14px var(--font-sans);
+  font: 700 15px var(--font-sans);
   cursor: pointer;
 }
 
 .transport-btn.round {
   justify-content: center;
-  width: 44px;
+  width: 48px;
   padding: 0;
 }
 
@@ -672,8 +676,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .transport-btn.next {
   border-color: transparent;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: #ffffff;
+  color: #0b0b0d;
 }
 
 .transport-btn:disabled {
@@ -689,35 +693,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .position {
   padding: 0 6px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-  text-shadow: var(--text-shadow-overlay);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.side {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 26px;
-  overflow: hidden;
-  /* A floating panel in the same tinted colour as the rest of the stage,
-     level with the video, rather than a full-height column. */
-  margin: 14px 24px 24px 0;
-  border-radius: calc(var(--radius) + 6px);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-surface-panel);
-  box-shadow: var(--shadow-soft);
-}
-
-.side :deep(.info-card) {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
 }
 
 .info-panel-wrap {
@@ -734,36 +714,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: pointer;
 }
 
-.side > .side-scroll {
-  flex: 0 1 auto;
-  min-height: 0;
-  margin: -6px;
-  padding: 6px;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
 @media (max-width: 820px) {
   .header-left {
     flex-wrap: wrap;
   }
 
-  .listen-grid,
-  .listen-grid.details-open {
-    grid-template-columns: 1fr;
-  }
-
-  .side {
-    overflow: visible;
-    margin: 0 16px 16px;
-  }
-
-  .side > .side-scroll {
-    overflow: visible;
-  }
-
-  .stage-bottom {
-    flex-wrap: wrap;
+  .stage {
+    padding: 4px 14px 16px;
   }
 }
 </style>

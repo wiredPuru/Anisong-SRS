@@ -24,8 +24,6 @@ const props = defineProps<{
   hideListeningLabel?: boolean;
   // A typed-answer round is open: Kai thinks instead of just listening.
   guessing?: boolean;
-  // How far the answer boxes reach up from the frame's bottom, in px.
-  guessingInset?: number | null;
   autoDownload?: boolean;
   // For a player the user opened with a Play press of its own, so that one
   // press starts the clip instead of leaving a second "Ready?" click.
@@ -51,11 +49,6 @@ const emit = defineEmits<{
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
 }>();
-
-const raisedClass = computed(() => ({ raised: props.guessing, measured: props.guessing && props.guessingInset != null }));
-const raisedStyle = computed(() =>
-  props.guessing && props.guessingInset != null ? { "--guess-inset": `${props.guessingInset}px` } : undefined,
-);
 
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
@@ -1162,7 +1155,7 @@ onUnmounted(() => stopDrag?.());
         :style="{ transform: `translate(${visualizerParallaxX}px, ${visualizerParallaxY}px)` }"
       />
 
-      <div v-if="errorMessage" class="veil error-veil" :class="raisedClass" :style="raisedStyle">
+      <div v-if="errorMessage" class="veil error-veil">
         <StudyPlayerKai v-if="!guessing" mood="error" />
         <p>{{ errorMessage }}</p>
         <div class="failure-actions">
@@ -1221,8 +1214,7 @@ onUnmounted(() => stopDrag?.());
       <div
         v-else-if="showVeil"
         class="veil"
-        :class="[quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil', raisedClass]"
-        :style="raisedStyle"
+        :class="quizType === 'audio' ? ['audio-veil', { 'has-cover': showCoverArt }] : 'paused-veil'"
         @click="togglePlay"
       >
         <StudyPlayerKai v-if="savingForAutoplay" mood="loading">
@@ -1315,45 +1307,13 @@ onUnmounted(() => stopDrag?.());
   }
 }
 
-/* Kai's sticker look (84c): a soft outline like the sheet's banners, with a
-   star and a music note stuck on two corners. */
 .player-card {
   position: relative;
   padding: 24px;
   background: var(--surface);
-  border: 1px solid var(--outline);
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 8px);
   box-shadow: var(--shadow-soft);
-}
-
-.player-card::before,
-.player-card::after {
-  position: absolute;
-  z-index: 1;
-  font-size: 30px;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.player-card::before {
-  content: "★";
-  top: -14px;
-  right: 22px;
-  color: var(--star);
-  transform: rotate(12deg);
-}
-
-.player-card::after {
-  content: "♪";
-  bottom: -12px;
-  left: 18px;
-  color: var(--note);
-  transform: rotate(-10deg);
-}
-
-.player-card.expanded::before,
-.player-card.expanded::after {
-  display: none;
 }
 
 /* No slab or border in ambient mode: the video feathers into the glow. */
@@ -1633,32 +1593,6 @@ onUnmounted(() => stopDrag?.());
   --bar-top: calc(clamp(8px, 0.83cqw, 19px) + 2 * clamp(4px, 0.41cqw, 10px) + clamp(31px, 3.31cqw, 77px) + 4px);
 }
 
-/* A typed-answer round covers the bottom of the frame with its answer boxes.
-   Once their height is known the veil centres in the space above them; until
-   then it falls back to the top so it can never sit underneath. */
-.veil.raised {
-  justify-content: flex-start;
-  padding-top: clamp(10px, 2.5cqw, 36px);
-}
-
-.veil.raised.measured {
-  --veil-gap: clamp(8px, 1.5cqw, 24px);
-  justify-content: center;
-  padding-top: var(--veil-gap);
-  padding-bottom: calc(var(--guess-inset) + var(--veil-gap));
-  /* Kai stands on the answer boxes instead, sinking behind their top edge.
-     The frame is a 16:9 inline-size container, so its height is 56.25cqw;
-     with several answer rows on a small frame the space left can be shorter
-     than Kai, so StudyPlayerKai caps her to it. */
-  --kai-bottom: calc(var(--guess-inset) - var(--kai-sink));
-  --kai-max-height: max(40px, calc(56.25cqw - var(--guess-inset) - var(--veil-gap)));
-}
-
-/* Until the answer boxes are measured there is nothing to stand on. */
-.veil.raised:not(.measured) :deep(.player-kai:not(.mood-loading)) {
-  visibility: hidden;
-}
-
 .paused-veil {
   backdrop-filter: blur(18px);
   background: var(--veil-paused);
@@ -1771,9 +1705,8 @@ onUnmounted(() => stopDrag?.());
   gap: 14px;
   padding: 6px 16px 6px 6px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--outline);
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  background: rgba(14, 14, 17, 0.82);
   box-shadow: var(--shadow-soft);
 }
 
@@ -1807,7 +1740,6 @@ onUnmounted(() => stopDrag?.());
   border: none;
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 0 3px var(--accent-glow);
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -1876,10 +1808,9 @@ onUnmounted(() => stopDrag?.());
 
 .scrub {
   flex: 1;
-  height: 8px;
+  height: 6px;
   border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  border: 1px solid var(--outline);
+  background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
   cursor: pointer;
   transition: height 0.15s ease;
@@ -1887,7 +1818,7 @@ onUnmounted(() => stopDrag?.());
 
 .scrub:hover,
 .scrub.dragging {
-  height: 12px;
+  height: 10px;
 }
 
 .player-card.expanded .scrub {
@@ -1903,7 +1834,7 @@ onUnmounted(() => stopDrag?.());
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--note), var(--accent));
+  background: #ffffff;
 }
 
 .time {

@@ -237,38 +237,14 @@ const burstLayerRef = ref<{
 const answerStackRef = ref<HTMLElement | null>(null);
 const playerPaneRef = ref<HTMLElement | null>(null);
 
-// How far the answer boxes reach up from the bottom of the player frame, so
-// the player can centre Kai in the space left above them. The stack is
-// absolutely positioned inside the frame, which makes the frame its
-// offsetParent; it grows with every extra answer category.
-const guessingInset = ref<number | null>(null);
-let answerStackObserver: ResizeObserver | null = null;
+const stageStyle = usePlayerFrameBox(playerPaneRef, presentationKey);
 
-// Below this much open space there is nothing to centre in (on a very short
-// frame the stack can even overflow its top), so the player keeps its older
-// top-aligned veil instead of pushing Kai off the frame.
-const MIN_OPEN_SPACE_PX = 48;
-
-function measureGuessingInset() {
-  const stack = answerStackRef.value;
-  const frame = stack?.offsetParent;
-  guessingInset.value = stack && frame instanceof HTMLElement && stack.offsetTop >= MIN_OPEN_SPACE_PX
-    ? frame.clientHeight - stack.offsetTop
-    : null;
-}
-
-watch(answerStackRef, (stack) => {
-  answerStackObserver?.disconnect();
-  answerStackObserver = null;
-  guessingInset.value = null;
-  if (!stack || typeof ResizeObserver === "undefined") return;
-  answerStackObserver = new ResizeObserver(measureGuessingInset);
-  answerStackObserver.observe(stack);
-  if (stack.offsetParent) answerStackObserver.observe(stack.offsetParent);
-  measureGuessingInset();
-});
-
-onUnmounted(() => answerStackObserver?.disconnect());
+// What is still a secret this round: the typed answer before it is graded, or
+// Hide Info before it is revealed. The bar and the details card both blank
+// themselves until then.
+const detailsHidden = computed(() =>
+  (typedAnswers.value && !quizResult.value) || (hideInfo.value && !autoRevealedThisCard.value && !quizResult.value),
+);
 
 const scoreChipRef = ref<{ chipEl: HTMLElement | null; countUp: (points?: number) => void; settle: () => void; shake: () => void } | null>(null);
 
@@ -311,8 +287,8 @@ onUnmounted(() => {
 
 const cardEditing = ref(false);
 const cardEditPanelRef = ref<{ toggle: () => void } | null>(null);
-// The side column is a drawer now: the video takes the width, and card
-// details, notes and the editor open on demand.
+// D flips the picture over to the card's details, notes and editor; the clip
+// keeps playing underneath.
 const DETAILS_STORAGE_KEY = "gaqSrs:studyDetails";
 const showDetails = ref(false);
 onMounted(() => {
@@ -1411,7 +1387,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
         </div>
       </header>
-      <div class="study-grid" :class="{ 'details-open': showDetails }">
+      <div class="stage" :class="{ flipped: showDetails }" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
@@ -1430,7 +1406,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :clip-source="clipSource"
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
             :guessing="typedAnswers && !quizResult"
-            :guessing-inset="guessingInset"
             :hide-listening-label="gradeFlash !== null || Boolean(typedAnswers && quizResult)"
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"
@@ -1457,114 +1432,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 <p v-if="sourceActionError">{{ sourceActionError }}</p>
                 <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
               </div>
-              <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
-                <p v-if="criterionCopy" class="criterion-prompt">Graded on: {{ criterionCopy.chip }}</p>
-                <StudyTypedAnswer
-                  v-if="mainAnswer === 'anime'"
-                  ref="typedAnswerRef"
-                  :key="JSON.stringify(scope)"
-                  overlay
-                  :presentation-key="presentationKey"
-                  :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${showFilters}:${cardEditing}`"
-                  :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
-                  :disabled="answerControlsDisabled"
-                  @answer="submitTypedAnswer"
-                  @give-up="saveTypedAnswer('fail', null)"
-                  @typing-started="mediaPlayerRef?.playIfPaused()"
-                />
-                <StudySongAnswer
-                  v-if="mainAnswer === 'song'"
-                  :key="`song-main-${presentationKey}`"
-                  primary
-                  :hide-artist="requiredAnswers.artist"
-                  :disabled="answerControlsDisabled"
-                  @update:answer="songAnswerText = $event"
-                  @answer="submitMainAnswer"
-                  @give-up="giveUpMainAnswer"
-                  @typing-started="mediaPlayerRef?.playIfPaused()"
-                />
-                <StudyArtistAnswer
-                  v-if="mainAnswer === 'artist'"
-                  :key="`artist-main-${presentationKey}`"
-                  primary
-                  :disabled="answerControlsDisabled"
-                  @update:answer="artistAnswerText = $event"
-                  @answer="submitMainAnswer"
-                  @give-up="giveUpMainAnswer"
-                  @typing-started="mediaPlayerRef?.playIfPaused()"
-                />
-                <div v-if="(showSongAnswer && mainAnswer !== 'song') || showThemeSlotAnswer || showArtistAnswer" class="bonus-answers">
-                  <StudySongAnswer
-                    v-if="showSongAnswer && mainAnswer !== 'song'"
-                    :key="`song-${presentationKey}`"
-                    :required="requiredAnswers.songName"
-                    :hide-artist="requiredAnswers.artist"
-                    :disabled="answerControlsDisabled"
-                    @update:answer="songAnswerText = $event"
-                  />
-                  <StudyArtistAnswer
-                    v-if="showArtistAnswer"
-                    :key="`artist-${presentationKey}`"
-                    :disabled="answerControlsDisabled"
-                    @update:answer="artistAnswerText = $event"
-                  />
-                  <StudyThemeSlotAnswer
-                    v-if="showThemeSlotAnswer"
-                    :key="`slot-${presentationKey}`"
-                    :required="requiredAnswers.themeSlot"
-                    :disabled="answerControlsDisabled"
-                    @update:selection="themeSlotSelection = $event"
-                  />
-                </div>
-              </div>
-              <div v-else class="stage-bottom">
-                <StudyLowerThird
-                  :theme-slot="currentCard.themeSlot"
-                  :anime-title-english="currentCard.animeTitleEnglish"
-                  :anime-title-native="currentCard.animeTitleNative"
-                  :song-title="currentCard.songTitle"
-                  :artist-name="currentCard.artistName"
-                  :hidden="hideInfo && !autoRevealedThisCard && !quizResult"
-                  :revealable="!typedAnswers && !answerControlsDisabled"
-                  @reveal="revealCurrentCard"
-                />
-                <div v-if="typedAnswers && quizResult" class="result-card">
-                  <StudyQuizResult
-                    overlay
-                    :result="quizResult.result"
-                    :selected-title="quizResult.selectedTitle"
-                    :correct-title="quizResult.correctTitle"
-                    :points-awarded="quizResult.pointsAwarded"
-                    :bonus-results="quizResult.bonusResults"
-                    :score="quizScore.score"
-                    :combo="quizScore.combo"
-                    :busy="submissionBusy || loading"
-                    :retry="Boolean(error && awaitingNextCard)"
-                    :can-undo="canUndo"
-                    @continue="continueTypedAnswer"
-                    @undo="undoLastReview"
-                  />
-                </div>
-                <div v-else-if="!typedAnswers" class="stage-grade">
-                  <p v-if="criterionCopy" class="criterion-prompt">{{ criterionCopy.prompt }}</p>
-                  <StudyAnswerControls
-                    :disabled="answerControlsDisabled"
-                    :awaiting-reveal="hideInfo && !autoRevealedThisCard"
-                    @pass="submitReview('pass')"
-                    @fail="submitReview('fail')"
-                    @reveal="revealCurrentCard"
-                  />
-                </div>
-              </div>
             </template>
           </StudyMediaPlayer>
-        <template v-if="gradeFlash">
-          <div class="grade-flash" :class="gradeFlash" aria-hidden="true" />
-          <StudyGradeSticker :result="gradeFlash" />
-        </template>
-        </div>
-        <aside v-show="showDetails" class="side on-picture" aria-label="Card details">
-          <div class="side-scroll">
+          <template v-if="gradeFlash">
+            <div class="grade-flash" :class="gradeFlash" aria-hidden="true" />
+            <StudyGradeSticker :result="gradeFlash" />
+          </template>
+          <StudyDetailsCard
+            :open="showDetails"
+            :cover-image-url="detailsHidden ? null : currentCard.animeCoverImageUrl"
+            :hidden="detailsHidden"
+          >
             <div class="info-panel-wrap">
               <StudyInfoPanel
                 :blurred="(typedAnswers && !quizResult) || (hideInfo && !autoRevealedThisCard && !quizResult)"
@@ -1618,30 +1496,136 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
             />
-          </div>
-          <p class="hotkey-legend">
-            <template v-if="typedAnswers">
-              <template v-if="quizResult">
-                <span><kbd>Enter</kbd> continue</span>
-                <span><kbd>U</kbd> undo</span>
-                <span><kbd>S</kbd> play/pause</span>
-              </template>
-              <template v-else>
-                <span><kbd>&uarr;&darr;</kbd> choose</span>
-                <span><kbd>Enter</kbd> select / submit</span>
-                <span><kbd>Esc</kbd> close suggestions</span>
-              </template>
+            <template #footer>
+              <p class="hotkey-legend">
+                <template v-if="typedAnswers">
+                  <template v-if="quizResult">
+                    <span><kbd>Enter</kbd> continue</span>
+                    <span><kbd>U</kbd> undo</span>
+                    <span><kbd>S</kbd> play/pause</span>
+                  </template>
+                  <template v-else>
+                    <span><kbd>&uarr;&darr;</kbd> choose</span>
+                    <span><kbd>Enter</kbd> select / submit</span>
+                    <span><kbd>Esc</kbd> close suggestions</span>
+                  </template>
+                </template>
+                <template v-else>
+                  <span><kbd>S</kbd> play/pause</span>
+                  <span><kbd>I</kbd> hide info</span>
+                  <span><kbd>U</kbd> undo</span>
+                  <span><kbd>L</kbd> session log</span>
+                  <span><kbd>E</kbd> edit card</span>
+                  <span><kbd>D</kbd> flip card</span>
+                </template>
+              </p>
             </template>
-            <template v-else>
-              <span><kbd>S</kbd> play/pause</span>
-              <span><kbd>I</kbd> hide info</span>
-              <span><kbd>U</kbd> undo</span>
-              <span><kbd>L</kbd> session log</span>
-              <span><kbd>E</kbd> edit card</span>
-              <span><kbd>D</kbd> details</span>
-            </template>
-          </p>
-        </aside>
+          </StudyDetailsCard>
+        </div>
+        <div class="np-wrap">
+          <StudyNowPlaying
+            class="on-picture"
+            :theme-slot="currentCard.themeSlot"
+            :anime-title-english="currentCard.animeTitleEnglish"
+            :anime-title-native="currentCard.animeTitleNative"
+            :song-title="currentCard.songTitle"
+            :artist-name="currentCard.artistName"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="detailsHidden"
+            :hidden-line="typedAnswers ? `Guess the ${mainAnswer}` : 'Click to reveal'"
+            :revealable="!typedAnswers && !answerControlsDisabled"
+            @reveal="revealCurrentCard"
+          >
+            <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
+              <p v-if="criterionCopy" class="criterion-prompt">Graded on: {{ criterionCopy.chip }}</p>
+              <StudyTypedAnswer
+                v-if="mainAnswer === 'anime'"
+                ref="typedAnswerRef"
+                :key="JSON.stringify(scope)"
+                overlay
+                :presentation-key="presentationKey"
+                :context-key="`${viewedHistoryEntry?.card.id ?? ''}:${showSessionLog}:${showFilters}:${cardEditing}`"
+                :available="evaluateAnimeAnswer(currentCard.animeAniListId, currentCard.animeAniListId) !== 'unavailable'"
+                :disabled="answerControlsDisabled"
+                @answer="submitTypedAnswer"
+                @give-up="saveTypedAnswer('fail', null)"
+                @typing-started="mediaPlayerRef?.playIfPaused()"
+              />
+              <StudySongAnswer
+                v-if="mainAnswer === 'song'"
+                :key="`song-main-${presentationKey}`"
+                primary
+                :hide-artist="requiredAnswers.artist"
+                :disabled="answerControlsDisabled"
+                @update:answer="songAnswerText = $event"
+                @answer="submitMainAnswer"
+                @give-up="giveUpMainAnswer"
+                @typing-started="mediaPlayerRef?.playIfPaused()"
+              />
+              <StudyArtistAnswer
+                v-if="mainAnswer === 'artist'"
+                :key="`artist-main-${presentationKey}`"
+                primary
+                :disabled="answerControlsDisabled"
+                @update:answer="artistAnswerText = $event"
+                @answer="submitMainAnswer"
+                @give-up="giveUpMainAnswer"
+                @typing-started="mediaPlayerRef?.playIfPaused()"
+              />
+              <div v-if="(showSongAnswer && mainAnswer !== 'song') || showThemeSlotAnswer || showArtistAnswer" class="bonus-answers">
+                <StudySongAnswer
+                  v-if="showSongAnswer && mainAnswer !== 'song'"
+                  :key="`song-${presentationKey}`"
+                  :required="requiredAnswers.songName"
+                  :hide-artist="requiredAnswers.artist"
+                  :disabled="answerControlsDisabled"
+                  @update:answer="songAnswerText = $event"
+                />
+                <StudyArtistAnswer
+                  v-if="showArtistAnswer"
+                  :key="`artist-${presentationKey}`"
+                  :disabled="answerControlsDisabled"
+                  @update:answer="artistAnswerText = $event"
+                />
+                <StudyThemeSlotAnswer
+                  v-if="showThemeSlotAnswer"
+                  :key="`slot-${presentationKey}`"
+                  :required="requiredAnswers.themeSlot"
+                  :disabled="answerControlsDisabled"
+                  @update:selection="themeSlotSelection = $event"
+                />
+              </div>
+            </div>
+            <div v-else-if="typedAnswers && quizResult" class="result-slot">
+              <StudyQuizResult
+                bar
+                :main-label="mainAnswer === 'anime' ? 'Anime' : mainAnswer === 'song' ? 'Song' : 'Artist'"
+                :result="quizResult.result"
+                :selected-title="quizResult.selectedTitle"
+                :correct-title="quizResult.correctTitle"
+                :points-awarded="quizResult.pointsAwarded"
+                :bonus-results="quizResult.bonusResults"
+                :score="quizScore.score"
+                :combo="quizScore.combo"
+                :busy="submissionBusy || loading"
+                :retry="Boolean(error && awaitingNextCard)"
+                :can-undo="canUndo"
+                @continue="continueTypedAnswer"
+                @undo="undoLastReview"
+              />
+            </div>
+            <div v-else class="grade-slot">
+              <p v-if="criterionCopy" class="criterion-prompt">{{ criterionCopy.prompt }}</p>
+              <StudyAnswerControls
+                :disabled="answerControlsDisabled"
+                :awaiting-reveal="hideInfo && !autoRevealedThisCard"
+                @pass="submitReview('pass')"
+                @fail="submitReview('fail')"
+                @reveal="revealCurrentCard"
+              />
+            </div>
+          </StudyNowPlaying>
+        </div>
       </div>
     </template>
     <StudyScoreBurst v-if="typedAnswers" ref="burstLayerRef" @landed="scoreChipRef?.countUp($event)" />
@@ -1790,9 +1774,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   flex-wrap: wrap;
   gap: 10px 16px;
   padding: 14px 24px 18px;
-  /* A tinted wash that fades out downward, so the counts and icons stay
-     readable over any frame without a hard bar. */
-  background: linear-gradient(to bottom, var(--glass-surface-panel) 55%, transparent);
+  /* No wash behind the header: every control carries its own dark pill, and
+     on an ultrawide screen a wash would end in a hard edge where the content
+     column is capped. */
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
 }
 
 .header-left,
@@ -2049,33 +2034,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   cursor: not-allowed;
 }
 
-/* The stage takes the full width; the details drawer adds a column only
-   while it is open. */
-.study-grid {
+/* The video takes the stage; the Now playing bar sits under it, as wide as
+   the picture (--frame-w is measured, since the frame's width follows the
+   height left over). */
+.stage {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-}
-
-.study-grid.details-open {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 420px);
-}
-
-@media (max-width: 820px) {
-  .header-left {
-    flex-wrap: wrap;
-  }
-
-  .study-grid,
-  .study-grid.details-open {
-    grid-template-columns: 1fr;
-  }
-
-  .side {
-    margin: 0 16px 16px;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 28px 26px;
 }
 
 /* A column, not a row: the player was a grid child before 50b and stretched
@@ -2084,65 +2052,76 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    player fills the pane, and justify-content centres it vertically. */
 .player-pane {
   position: relative;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 14px 24px 24px;
 }
 
-/* Every answer control for the round sits together over the video, centred
-   above the playback bar, rather than the bonus categories living out in the
-   header and side column where they read as unrelated settings. The anime
-   title keeps the full-width row because it is the only answer that grades
-   the card; the bonus row underneath is deliberately smaller and quieter. */
-.answer-stack {
-  position: absolute;
-  left: 50%;
-  bottom: 88px;
-  z-index: 5;
-  display: grid;
-  gap: 8px;
-  width: min(calc(100% - 48px), 720px);
-  transform: translateX(-50%);
+/* No slab around the picture: the clip glows instead, in its own colour
+   while ambient mode samples it. */
+.player-pane :deep(.player-card) {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-/* The caption sits bottom-left above the playback bar, with the grade
-   buttons or the typed result beside it on the right. Spans the frame's
-   height so a tall result card scrolls inside it rather than covering the
-   bar. */
-.stage-bottom {
-  position: absolute;
-  inset: 16px 16px 80px;
-  z-index: 5;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  pointer-events: none;
+.player-pane :deep(.player-frame) {
+  border: 0;
+  border-radius: 22px;
+  box-shadow:
+    0 0 110px 20px rgba(var(--amb-rgb, 150, 150, 165), 0.28),
+    0 22px 48px rgba(0, 0, 0, 0.5);
 }
 
-.stage-bottom > * {
-  pointer-events: auto;
-}
-
-.stage-bottom :deep(.lower-third) {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.result-card {
-  flex: 0 1 520px;
-  min-width: 0;
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.stage-grade {
+.np-wrap {
   flex: none;
+  align-self: center;
+  width: max(min(100%, 820px), var(--frame-w, 100%));
+  max-width: 100%;
+}
+
+.answer-stack {
   display: grid;
   gap: 8px;
+  width: 100%;
+}
+
+.result-slot {
+  width: 100%;
+}
+
+.grade-slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.grade-slot .criterion-prompt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.answer-stack .criterion-prompt {
+  justify-self: start;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  .header-left {
+    flex-wrap: wrap;
+  }
+
+  .stage {
+    padding: 4px 14px 16px;
+  }
 }
 
 .stage-alerts {
@@ -2184,26 +2163,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 .bonus-answers > .artist-answer {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-/* Below this width the 16:9 frame is barely taller than the controls it
-   holds, so a bottom-anchored stack gets cut off from the top down - losing
-   the anime input, the one control that actually grades the card. Anchoring
-   to the top instead keeps it first in view and lets the bonus row be what
-   runs out of room. The frame genuinely cannot fit all three here; this is
-   damage control for a width the app does not target, not a fix. */
-@media (max-width: 600px) {
-  .answer-stack {
-    top: 6px;
-    bottom: auto;
-    gap: 6px;
-    width: calc(100% - 12px);
-  }
-
-  .bonus-answers {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
 }
 
 /* A glow, not a fill - matches feature 24's border/glow convention for
@@ -2257,106 +2216,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   }
 }
 
-/* Lets the card shrink to the pane instead of stopping at its content's
-   height, which is what gives .player-frame's max-height a definite height
-   to resolve against. Scoped here rather than set on .player-card itself:
-   CardPreviewModal's panel is also a flex column, and there the card must
-   keep its content height and let the panel scroll. */
-.player-pane :deep(.player-card) {
-  min-height: 0;
-}
-
-/* Only .side-scroll scrolls. Everything else in the column (the quiz result,
-   Previous, the criterion prompt, the answer controls and the legend) keeps
-   its natural height, so on a short window the card info gives up room and
-   the controls that grade the card never leave the viewport. */
-.side {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 26px;
-  overflow: hidden;
-  /* A floating panel in the same tinted colour as the rest of the stage,
-     level with the video, rather than a full-height column. */
-  margin: 14px 24px 24px 0;
-  border-radius: calc(var(--radius) + 6px);
-  border: 1px solid var(--glass-border);
-  background: var(--glass-surface-panel);
-  box-shadow: var(--shadow-soft);
-}
-
-.side :deep(.info-card) {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-.side > * {
-  flex: none;
-}
-
-/* Negative margin plus matching padding so focus rings and the info card's
-   shadow are not clipped by the scroll edge. */
-.side > .side-scroll {
-  flex: 0 1 auto;
-  min-height: 0;
-  margin: -6px;
-  padding: 6px;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-/* A short window (1080p at 125% is about 730px tall) cannot give the card
-   info its full spacing and still show the answer controls, so the column
-   and the info card tighten. Scoped to .side: StudyInfoPanel also renders in
-   CardPreviewModal, which keeps its own spacing. */
-@media (min-width: 821px) and (max-height: 860px) {
-  .side {
-    gap: 14px;
-    padding: 18px;
-  }
-
-  .side :deep(.info-card) {
-    gap: 14px;
-    padding: 18px;
-  }
-
-  .side :deep(.title-block) {
-    gap: 6px;
-  }
-
-  .side :deep(.title-block .en) {
-    font-size: 26px;
-  }
-
-  .side :deep(.jp) {
-    font-size: 19px;
-  }
-
-  .side :deep(.detail-rows) {
-    gap: 10px;
-  }
-
-  .side :deep(.detail-row .value) {
-    font-size: 17px;
-  }
-}
-
-@media (max-width: 820px) {
-  .side {
-    overflow: visible;
-  }
-
-  .side > .side-scroll {
-    overflow: visible;
-  }
-}
-
 /* Positioned ancestor for StudyAutoRevealCountdown's absolute centering -
-   scoped to just the info panel, not the whole .side column, so the
+   scoped to just the info panel, not the whole details card, so the
    countdown overlays the card itself rather than centering between it and
    the pass/fail buttons below. */
 .info-panel-wrap {
