@@ -216,7 +216,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <main class="listen">
+  <main class="listen" :class="{ ambient: ambientMode }">
     <h1 class="sr-only">Listen</h1>
 
     <div v-if="!scopeResult.valid" class="state state-error">
@@ -401,6 +401,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Ambient mode lets the glow run under the header and side column too, so it
+   fades out evenly instead of stopping at their opaque edges. */
+.listen.ambient .listen-header,
+.listen.ambient .side {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
 }
 
 .state {

@@ -1211,7 +1211,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <main class="study">
+  <main class="study" :class="{ ambient: ambientMode }">
     <h1 class="sr-only">Study</h1>
 
     <div v-if="!scopeResult.valid" class="state state-error">
@@ -1669,6 +1669,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Ambient mode lets the glow run under the header and side column too, so it
+   fades out evenly instead of stopping at their opaque edges. */
+.study.ambient .study-header,
+.study.ambient .side {
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
 }
 
 /* Invalid scope, loading, error and session-complete are each the whole
