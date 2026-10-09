@@ -415,7 +415,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </template>
           </StudyMediaPlayer>
         </div>
-        <aside v-show="showDetails" class="side" aria-label="Song details">
+        <aside v-show="showDetails" class="side on-picture" aria-label="Song details">
           <div class="side-scroll">
             <div class="info-panel-wrap">
               <StudyInfoPanel
@@ -463,12 +463,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* In ambient mode the drawer turns to glass so the glow runs under it. */
-.listen.ambient .side {
-  background: var(--ambient-chrome-surface);
-  border-color: var(--glass-border);
 }
 
 .state {
@@ -710,8 +704,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   gap: 22px;
   padding: 26px;
   overflow: hidden;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
+  /* A floating panel in the same tinted colour as the rest of the stage,
+     level with the video, rather than a full-height column. */
+  margin: 14px 24px 24px 0;
+  border-radius: calc(var(--radius) + 6px);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.side :deep(.info-card) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 .info-panel-wrap {
@@ -748,8 +754,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
   .side {
     overflow: visible;
-    border-left: none;
-    border-top: 1px solid var(--border);
+    margin: 0 16px 16px;
   }
 
   .side > .side-scroll {
