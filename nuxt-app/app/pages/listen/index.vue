@@ -293,8 +293,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :audio-only="effectiveAudioOnly"
               :autoplay="autoplayNext"
               :typed-answers="false"
-              :typed-answers-locked="false"
-              :typed-answer-categories="DEFAULT_TYPED_ANSWER_CATEGORIES"
               v-model:auto-reveal-mode="autoReveal.mode.value"
               :auto-reveal-seconds="autoReveal.seconds.value"
               @toggle-hide-video="hideVideo = !hideVideo"
@@ -383,13 +381,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template #error-actions>
               <button type="button" class="transport-btn" @click="next">Next song &rarr;</button>
             </template>
-            <template #overlay>
-              <StudyAutoRevealCountdown
-                v-if="autoReveal.countdownActive.value"
-                :seconds="autoReveal.displaySeconds.value"
-                :ambient="ambientMode"
-              />
-            </template>
           </StudyMediaPlayer>
           <StudyDetailsCard
             :open="showDetails"
@@ -435,6 +426,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hidden="infoHidden"
             hidden-line="Click to reveal"
             revealable
+            :countdown-seconds="autoReveal.countdownActive.value ? autoReveal.displaySeconds.value : null"
             @reveal="reveal"
           >
             <div class="transport" role="group" aria-label="Playlist">

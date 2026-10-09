@@ -86,11 +86,14 @@ export function useStudySession(
   // The log row of the review submit() last saved, for Study's undo (feature 88).
   const lastReviewLogId = ref<number | null>(null);
 
+  const nextRequests = createLatestRequest();
+
   // preferCardId asks the server to serve that card first when it is still due,
   // which is how an undone card comes straight back. The type guard matters
   // because this is also handed around as a plain refresh callback.
   async function fetchNext(preferCardId?: number): Promise<boolean> {
     if (!scope.value) return false;
+    const isCurrent = nextRequests.start();
     loading.value = true;
     error.value = null;
     try {
@@ -113,6 +116,8 @@ export function useStudySession(
           ...(typeof preferCardId === "number" ? { prefer: preferCardId } : {}),
         },
       });
+      // A deck or filter switched while this was in flight: its card is stale.
+      if (!isCurrent()) return false;
       currentCard.value = result.card;
       criterion.value = result.criterion;
       practice.value = result.practice === true;
@@ -131,10 +136,11 @@ export function useStudySession(
       }
       return true;
     } catch (err) {
+      if (!isCurrent()) return false;
       error.value = extractErrorMessage(err, "Failed to load the next card.");
       return false;
     } finally {
-      loading.value = false;
+      if (isCurrent()) loading.value = false;
     }
   }
 

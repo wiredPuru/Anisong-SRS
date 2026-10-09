@@ -159,7 +159,13 @@ input, button { font: inherit; padding: 10px; color: var(--text); background: va
 input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ul { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 li { padding: 8px; cursor: pointer; overflow-wrap: anywhere; }
-li.active, li:hover { background: var(--surface-raised); color: var(--accent); }
+li:hover { background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised)); }
+li.active {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface-raised));
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text);
+  font-weight: 700;
+}
 small { display: block; color: var(--muted); }
 p { margin: 0; font-size: 12px; color: var(--muted); }
 button:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -202,9 +208,12 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   border-radius: 10px;
 }
 
-.overlay li.active,
 .overlay li:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--accent) 16%, #141418);
+}
+
+.overlay li.active {
+  background: color-mix(in srgb, var(--accent) 30%, #141418);
   color: var(--text);
 }
 

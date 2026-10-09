@@ -1600,10 +1600,12 @@ onUnmounted(() => stopDrag?.());
 }
 
 .audio-veil {
+  /* Solid, not a theme surface token: those are translucent now, and Hide
+     Video must fully block the clip underneath. */
   background:
     radial-gradient(120% 120% at 30% 20%, var(--accent-glow), transparent 55%),
     radial-gradient(120% 120% at 80% 80%, var(--accent-secondary-glow), transparent 55%),
-    var(--surface-sunken);
+    #0b0b0e;
   cursor: pointer;
 }
 

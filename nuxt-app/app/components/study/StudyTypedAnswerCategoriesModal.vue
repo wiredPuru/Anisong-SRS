@@ -72,6 +72,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               {{ categories.themeSlot ? "On" : "Off" }}
             </button>
           </div>
+          <div class="category-row">
+            <span class="category-label">Artist</span>
+            <button
+              type="button"
+              class="category-toggle"
+              :class="{ on: categories.artist }"
+              :aria-pressed="categories.artist"
+              @click="emit('update:categories', { ...categories, artist: !categories.artist })"
+            >
+              {{ categories.artist ? "On" : "Off" }}
+            </button>
+          </div>
         </template>
         <template v-else>
           <p class="hint">This deck decides what each round asks.</p>

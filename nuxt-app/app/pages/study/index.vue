@@ -159,7 +159,7 @@ const mainAnswer = computed<"anime" | "song" | "artist">(() =>
   requiredAnswers.value.anime ? "anime" : requiredAnswers.value.songName ? "song" : "artist",
 );
 // Artist is never an optional bonus; it only shows when the deck grades it.
-const showArtistAnswer = computed(() => requiredAnswers.value.artist && mainAnswer.value !== "artist");
+const showArtistAnswer = computed(() => visibleAnswers.value.artist && mainAnswer.value !== "artist");
 // Absent for the title criterion so those scopes render exactly as before.
 const criterionCopy = computed(() => (criterion.value === "title" ? null : describeCriterion(criterion.value)));
 const currentSourceLinks = computed(() => (currentCard.value ? buildSourceLinks(currentCard.value) : []));
@@ -469,14 +469,26 @@ function gradeBonusCategories(reviewedCard: CardWithDetails): BonusCategoryResul
       correctLabel: expectedThemeSlotLabel(reviewedCard),
     });
   }
-  if (showArtistAnswer.value) {
+  const artistPick = artistAnswerText.value?.trim();
+  if (showArtistAnswer.value && requiredAnswers.value.artist) {
     results.push({
       category: "artist",
       correct: artistAnswerCorrect(reviewedCard) === true,
       pointsAwarded: 0,
-      selectedLabel: artistAnswerText.value?.trim() || "(blank)",
+      selectedLabel: artistPick || "(blank)",
       correctLabel: reviewedCard.artistName,
       required: true,
+    });
+  } else if (showArtistAnswer.value && artistPick) {
+    const correct = evaluateArtistAnswer(reviewedCard, artistPick);
+    const transition = applyBonusCategory(quizScore.value, correct);
+    quizScore.value = transition.score;
+    results.push({
+      category: "artist",
+      correct,
+      pointsAwarded: transition.pointsAwarded,
+      selectedLabel: artistPick,
+      correctLabel: reviewedCard.artistName,
     });
   }
   return results;
@@ -1311,6 +1323,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           />
         </div>
         <div class="header-right">
+          <StudyTypedAnswerControls
+            :typed-answers="typedAnswers"
+            :locked="Boolean(quizResult) || submissionBusy"
+            :categories="typedAnswerCategories"
+            :required-categories="requiredAnswers"
+            @toggle="typedAnswers = !typedAnswers"
+            @update:categories="typedAnswerCategories = $event"
+          />
           <StudyDisplayMenu label="Display">
             <StudyDisplayToggles
               :hide-video="hideVideo"
@@ -1322,11 +1342,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :audio-only="effectiveAudioOnly"
               :autoplay="autoplayNext"
               :typed-answers="typedAnswers"
-              :typed-answers-locked="Boolean(quizResult)"
-              :typed-answer-categories="typedAnswerCategories"
-              :required-categories="requiredAnswers"
-              @toggle-typed-answers="!submissionBusy && !quizResult && (typedAnswers = !typedAnswers)"
-              @update:typed-answer-categories="typedAnswerCategories = $event"
               v-model:auto-reveal-mode="autoRevealMode"
               :auto-reveal-seconds="autoRevealSeconds"
               @toggle-hide-video="hideVideo = !hideVideo"
@@ -1431,11 +1446,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
             </template>
             <template #overlay>
-              <StudyAutoRevealCountdown
-                v-if="autoRevealCountdownActive"
-                :seconds="autoRevealDisplaySeconds"
-                :ambient="ambientMode"
-              />
               <div v-if="error || sourceActionError" class="stage-alerts" role="alert">
                 <p v-if="error">{{ error }}</p>
                 <p v-if="sourceActionError">{{ sourceActionError }}</p>
@@ -1543,6 +1553,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hidden="detailsHidden"
             :hidden-line="typedAnswers ? `Guess the ${mainAnswer}` : 'Click to reveal'"
             :revealable="!typedAnswers && !answerControlsDisabled"
+            :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
             @reveal="revealCurrentCard"
           >
             <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
@@ -1564,7 +1575,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 v-if="mainAnswer === 'song'"
                 :key="`song-main-${presentationKey}`"
                 primary
-                :hide-artist="requiredAnswers.artist"
+                :hide-artist="visibleAnswers.artist"
                 :disabled="answerControlsDisabled"
                 @update:answer="songAnswerText = $event"
                 @answer="submitMainAnswer"
@@ -1586,7 +1597,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   v-if="showSongAnswer && mainAnswer !== 'song'"
                   :key="`song-${presentationKey}`"
                   :required="requiredAnswers.songName"
-                  :hide-artist="requiredAnswers.artist"
+                  :hide-artist="visibleAnswers.artist"
                   :disabled="answerControlsDisabled"
                   @update:answer="songAnswerText = $event"
                 />

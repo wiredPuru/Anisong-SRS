@@ -11,6 +11,8 @@ const props = defineProps<{
   hidden: boolean;
   hiddenLine?: string;
   revealable?: boolean;
+  // Seconds until Auto Reveal shows the answer; null when no countdown runs.
+  countdownSeconds?: number | null;
 }>();
 
 const emit = defineEmits<{ reveal: [] }>();
@@ -33,7 +35,10 @@ const native = computed(() =>
     <div class="np-text">
       <template v-if="hidden">
         <p class="np-title">Now playing</p>
-        <p class="np-sub">{{ hiddenLine ?? "Answer hidden" }}</p>
+        <p v-if="countdownSeconds != null" class="np-sub np-countdown">
+          Revealing in <strong>{{ countdownSeconds }}</strong>
+        </p>
+        <p v-else class="np-sub">{{ hiddenLine ?? "Answer hidden" }}</p>
         <button
           v-if="revealable"
           type="button"
@@ -131,6 +136,15 @@ const native = computed(() =>
   margin-top: 4px;
   color: var(--muted);
   font-size: 14px;
+}
+
+.np-countdown {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.np-countdown strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .np-reveal {

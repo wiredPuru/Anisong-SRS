@@ -49,13 +49,13 @@ export function requiredCategories(criterion: GradingCriterion): RequiredCategor
 
 /**
  * Which answer boxes a typed round shows beside the main answer. Only the
- * anime-title track offers feature 66's optional bonuses; a deck graded on
+ * anime-title track offers the optional Song name, OP/ED and Artist bonuses; a deck graded on
  * anything else asks exactly what it grades, whatever the stored preference.
  */
 export function visibleAnswerCategories(criterion: GradingCriterion, stored: TypedAnswerCategories): TypedAnswerCategories {
   if (criterion === "title") return { ...stored };
   const required = requiredCategories(criterion);
-  return { themeSlot: required.themeSlot, songName: required.songName };
+  return { themeSlot: required.themeSlot, songName: required.songName, artist: required.artist };
 }
 
 /**

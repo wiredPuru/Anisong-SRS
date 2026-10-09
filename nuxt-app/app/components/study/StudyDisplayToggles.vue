@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RequiredCategories } from "~/utils/criterionGrading";
-import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 
 type AutoRevealMode = "off" | "video" | "info" | "both";
 
@@ -13,9 +11,6 @@ defineProps<{
   ambientMode: boolean;
   audioOnly: boolean;
   typedAnswers: boolean;
-  typedAnswersLocked: boolean;
-  typedAnswerCategories: TypedAnswerCategories;
-  requiredCategories?: RequiredCategories;
   autoRevealMode: AutoRevealMode;
   autoRevealSeconds: number;
   autoplay: boolean;
@@ -30,41 +25,15 @@ const emit = defineEmits<{
   "toggle-ambient-mode": [];
   "toggle-audio-only": [];
   "toggle-autoplay": [];
-  "toggle-typed-answers": [];
-  "update:typed-answer-categories": [TypedAnswerCategories];
   "update:auto-reveal-mode": [AutoRevealMode];
   "update:auto-reveal-seconds": [number];
 }>();
 
 const showAutoRevealSettings = ref(false);
-const showTypedAnswerCategories = ref(false);
 </script>
 
 <template>
   <div class="display-toggles">
-    <button
-      v-if="!listen"
-      type="button"
-      class="toggle-btn"
-      :class="{ on: typedAnswers }"
-      :aria-pressed="typedAnswers"
-      :disabled="typedAnswersLocked"
-      @click="emit('toggle-typed-answers')"
-    >
-      Typed Answers
-      <span class="tooltip">{{ typedAnswersLocked ? "Continue before changing answer mode" : "Remember your preference for typed anime answers" }}</span>
-    </button>
-    <button
-      v-if="typedAnswers && !listen"
-      type="button"
-      class="categories-btn"
-      aria-label="Answer categories"
-      :disabled="typedAnswersLocked"
-      @click="showTypedAnswerCategories = true"
-    >
-      <span aria-hidden="true">⚙</span>
-      <span class="tooltip">Choose what you guess each round</span>
-    </button>
     <!-- Labels read positive ("Video" lit = video showing) while the state
          stays negative: the props are still hideVideo/hideCover/hideInfo, so
          feature 46's Auto Reveal keeps forcing and reverting exactly the
@@ -167,13 +136,6 @@ const showTypedAnswerCategories = ref(false);
       @update:mode="emit('update:auto-reveal-mode', $event)"
       @update:seconds="emit('update:auto-reveal-seconds', $event)"
       @close="showAutoRevealSettings = false"
-    />
-    <StudyTypedAnswerCategoriesModal
-      v-if="showTypedAnswerCategories"
-      :categories="typedAnswerCategories"
-      :required="requiredCategories"
-      @update:categories="emit('update:typed-answer-categories', $event)"
-      @close="showTypedAnswerCategories = false"
     />
   </div>
 </template>

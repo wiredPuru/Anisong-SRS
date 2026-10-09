@@ -184,15 +184,35 @@ ul {
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: #141418;
   box-shadow: var(--shadow-soft);
 }
 
 li { padding: 7px 8px; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
-li.active, li:hover { background: var(--surface-raised); color: var(--accent); }
+li:hover { background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised)); }
+li.active {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface-raised));
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text);
+  font-weight: 700;
+}
 small { display: block; font-size: 11px; color: var(--muted); }
 
-.answer-status { flex: none; margin: 0; font-size: 11px; color: var(--muted); }
+/* Out of the flow: a status line that appears while typing must not resize the
+   answer bar, and with it the video above. It sits inside the input's right edge. */
+.answer-status {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
 
 /* The round's only answer box, so it takes the anime box's size and wraps its
    hint and buttons under the input rather than squeezing beside it. */
@@ -205,7 +225,7 @@ small { display: block; font-size: 11px; color: var(--muted); }
 }
 
 .song-answer.primary input { flex-basis: 60%; padding: 10px; font-size: 15px; }
-.song-answer.primary .answer-status { flex-basis: 100%; order: 3; font-size: 12px; }
+.song-answer.primary .answer-status { right: calc(40% + 22px); font-size: 12px; }
 
 .primary-actions { display: flex; gap: 8px; }
 
