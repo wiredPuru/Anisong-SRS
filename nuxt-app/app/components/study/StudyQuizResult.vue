@@ -254,9 +254,7 @@ kbd { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--result-ink) 4
   padding: 14px 18px;
   background:
     radial-gradient(circle at 6% 20%, color-mix(in srgb, var(--result-color) 18%, transparent), transparent 40%),
-    color-mix(in srgb, var(--surface) 72%, transparent);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+    var(--glass-surface-panel);
 }
 
 .overlay .result-copy {

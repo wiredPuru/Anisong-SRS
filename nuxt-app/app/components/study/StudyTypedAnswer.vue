@@ -172,9 +172,16 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   grid-template-columns: minmax(0, 1fr) auto;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
-  background: var(--glass-surface);
-  backdrop-filter: var(--glass-blur);
+  background: var(--glass-surface-panel);
   box-shadow: var(--shadow-soft);
+}
+
+/* The list sits on the picture, so it takes the dense panel colour rather
+   than the page surface, which is see-through in ambient mode. */
+.overlay ul,
+.overlay input {
+  background: var(--glass-surface-panel);
+  border-color: var(--glass-border);
 }
 
 .overlay label {

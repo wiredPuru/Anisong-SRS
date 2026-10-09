@@ -309,8 +309,7 @@
 :is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .ambient-btn,
 :is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .scrub,
 :is([data-ambient-glass="true"], [data-ambient-backdrop="true"]) .lang-toggles {
-  background: var(--glass-surface) !important;
-  backdrop-filter: var(--glass-blur) !important;
+  background: var(--glass-surface-panel) !important;
 }
 
 /* The dropdown holds a scrollable list of text rows, not a small chrome
@@ -516,10 +515,8 @@ body {
   padding: 0;
   border-radius: 50%;
   border: 1px solid var(--glass-border);
-  background: var(--glass-surface);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  color: var(--muted);
+  background: var(--glass-surface-panel);
+  color: var(--text);
   font: 700 15px var(--font-sans);
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease;
@@ -584,4 +581,47 @@ body {
 .icon-btn:focus-visible .tooltip {
   opacity: 1;
   visibility: visible;
+}
+
+/* Panels over the picture are semi-transparent and take their colour from
+   the clip (--amb-rgb, set by the tint code) instead of frosting it: blur
+   made text hard to read over busy frames. Declared again on .ambient-tinted
+   because a custom property's var() resolves where it is defined, and the
+   non-player pages set --amb-rgb on the shell, not on <html>. */
+:root,
+.ambient-tinted {
+  --glass-blur: none;
+  --glass-surface: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 24%, rgba(255, 252, 253, 0.8));
+  --glass-surface-panel: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 26%, rgba(255, 252, 253, 0.9));
+  --glass-border: color-mix(in srgb, rgb(var(--amb-rgb, 255, 255, 255)) 45%, rgba(255, 255, 255, 0.7));
+}
+
+:root[data-theme="dark"],
+:root[data-theme="dark"] .ambient-tinted {
+  --glass-surface: color-mix(in srgb, rgb(var(--amb-rgb, 70, 50, 110)) 28%, rgba(14, 10, 22, 0.78));
+  --glass-surface-panel: color-mix(in srgb, rgb(var(--amb-rgb, 70, 50, 110)) 30%, rgba(14, 10, 22, 0.88));
+  --glass-border: color-mix(in srgb, rgb(var(--amb-rgb, 120, 100, 160)) 50%, rgba(255, 255, 255, 0.2));
+}
+
+/* Anything sitting on the picture (Study and Listen's header and stage) uses
+   the same tinted dark panel in both themes, with white text, so it reads on
+   a bright frame and a dark one alike. Surfaces are redefined here rather
+   than per component; modals sit outside these containers and keep the page
+   theme. */
+.on-picture {
+  --glass-blur: none;
+  --glass-surface: color-mix(in srgb, rgb(var(--amb-rgb, 90, 110, 170)) 34%, rgba(8, 12, 26, 0.8));
+  --glass-surface-panel: color-mix(in srgb, rgb(var(--amb-rgb, 90, 110, 170)) 34%, rgba(8, 12, 26, 0.82));
+  --glass-border: rgba(var(--amb-rgb, 150, 170, 230), 0.75);
+  --surface: var(--glass-surface-panel);
+  --surface-raised: var(--glass-surface-panel);
+  --surface-sunken: var(--glass-surface-panel);
+  --border: var(--glass-border);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.8);
+  --faint: rgba(255, 255, 255, 0.66);
+  --accent: rgb(var(--amb-light, 255, 170, 205));
+  --accent-ink: rgb(var(--amb-ink, 58, 20, 42));
+  --accent-glow: rgba(var(--amb-rgb, 255, 140, 190), 0.4);
+  color: var(--text);
 }

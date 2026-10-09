@@ -264,7 +264,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </div>
     </div>
     <template v-else-if="currentCard">
-      <header class="listen-header">
+      <header class="listen-header on-picture">
         <div class="header-left">
           <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
         </div>
@@ -344,7 +344,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </p>
       </header>
       <div class="listen-grid" :class="{ 'details-open': showDetails }">
-        <div class="player-pane">
+        <div class="player-pane on-picture">
           <StudyMediaPlayer
             :key="presentationKey"
             :card="currentCard"
@@ -561,7 +561,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px 16px;
-  padding: 14px 24px 0;
+  padding: 14px 24px 18px;
+  /* A tinted wash that fades out downward, so the counts and icons stay
+     readable over any frame without a hard bar. */
+  background: linear-gradient(to bottom, var(--glass-surface-panel) 55%, transparent);
 }
 
 .header-left,

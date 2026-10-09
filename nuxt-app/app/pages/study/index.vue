@@ -1289,7 +1289,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <p v-if="error" role="alert">{{ error }}</p>
     </div>
     <template v-else-if="currentCard">
-      <header class="study-header">
+      <header class="study-header on-picture">
         <div class="header-left">
           <StudyScopePicker
             :scope="scope"
@@ -1412,7 +1412,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </header>
       <div class="study-grid" :class="{ 'details-open': showDetails }">
-        <div ref="playerPaneRef" class="player-pane" :class="{ 'combo-shake': comboShake }">
+        <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
             :key="presentationKey"
@@ -1795,7 +1795,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px 16px;
-  padding: 14px 24px 0;
+  padding: 14px 24px 18px;
+  /* A tinted wash that fades out downward, so the counts and icons stay
+     readable over any frame without a hard bar. */
+  background: linear-gradient(to bottom, var(--glass-surface-panel) 55%, transparent);
 }
 
 .header-left,

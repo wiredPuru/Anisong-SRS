@@ -142,8 +142,7 @@ onMounted(focusIfPrimary);
   padding: 6px 10px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--glass-surface);
-  backdrop-filter: var(--glass-blur);
+  background: var(--glass-surface-panel);
 }
 
 label { flex: none; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
