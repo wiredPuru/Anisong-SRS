@@ -1675,8 +1675,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    fades out evenly instead of stopping at their opaque edges. */
 .study.ambient .study-header,
 .study.ambient .side {
-  background: var(--glass-surface);
+  background: var(--ambient-chrome-surface);
   border-color: var(--glass-border);
+}
+
+/* The header's own pills go glass too, so no opaque chip interrupts it.
+   Their active states are borders, not fills, so nothing is lost. */
+.study.ambient .filters-btn,
+.study.ambient .controls-toggle-btn,
+.study.ambient :deep(.theme-chip),
+.study.ambient :deep(.scope-picker > .chip) {
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
 }
 
 /* Invalid scope, loading, error and session-complete are each the whole

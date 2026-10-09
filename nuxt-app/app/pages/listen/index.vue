@@ -407,8 +407,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
    fades out evenly instead of stopping at their opaque edges. */
 .listen.ambient .listen-header,
 .listen.ambient .side {
-  background: var(--glass-surface);
+  background: var(--ambient-chrome-surface);
   border-color: var(--glass-border);
+}
+
+.listen.ambient .header-btn,
+.listen.ambient :deep(.scope-picker > .chip) {
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
 }
 
 .state {
