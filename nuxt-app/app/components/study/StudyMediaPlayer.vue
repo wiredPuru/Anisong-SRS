@@ -695,6 +695,7 @@ onUnmounted(() => {
 // rest of the app's ambient backdrop. Refreshed while playing so it ends up
 // on wherever the user stopped rather than the clip's first second.
 const LAST_PLAYED_EVERY_MS = 5000;
+const MIN_BACKDROP_LUMA = 24;
 const { setLastPlayed } = useLastPlayed();
 let lastPlayedTimer: ReturnType<typeof setInterval> | null = null;
 let snapshotCanvas: HTMLCanvasElement | null = null;
@@ -715,7 +716,10 @@ function recordLastPlayed() {
   if (!ctx) return;
   try {
     ctx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
-    const tint = dominantTint(ctx.getImageData(0, 0, snapshotCanvas.width, snapshotCanvas.height).data);
+    const pixels = ctx.getImageData(0, 0, snapshotCanvas.width, snapshotCanvas.height).data;
+    // A fade-in or fade-out frame would blank the backdrop on every page.
+    if (meanLuma(pixels) < MIN_BACKDROP_LUMA) return;
+    const tint = dominantTint(pixels);
     setLastPlayed({ ...base, image: snapshotCanvas.toDataURL("image/jpeg", 0.72), tint });
   } catch {
     // A tainted frame can't be read back; keep the previous backdrop.

@@ -65,3 +65,14 @@ export function tintPalette(color: Rgb): { light: Rgb; ink: Rgb; deep: Rgb } {
 export function rgbVar(color: Rgb): string {
   return color.join(", ");
 }
+
+/** Mean brightness (0-255) of RGBA pixel data, to spot a black frame. */
+export function meanLuma(data: ArrayLike<number>): number {
+  let total = 0;
+  let n = 0;
+  for (let i = 0; i + 3 < data.length; i += 4) {
+    total += 0.2126 * data[i]! + 0.7152 * data[i + 1]! + 0.0722 * data[i + 2]!;
+    n++;
+  }
+  return n === 0 ? 0 : total / n;
+}

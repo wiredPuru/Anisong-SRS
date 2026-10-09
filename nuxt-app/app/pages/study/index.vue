@@ -2305,6 +2305,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   min-height: 0;
   margin: -6px;
   padding: 6px;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 

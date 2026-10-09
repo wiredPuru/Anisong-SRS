@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dominantTint, rgbVar, tintPalette, type Rgb } from "./ambientTint";
+import { dominantTint, meanLuma, rgbVar, tintPalette, type Rgb } from "./ambientTint";
 
 function pixels(...colors: Rgb[]): number[] {
   return colors.flatMap(([r, g, b]) => [r, g, b, 255]);
@@ -59,5 +59,13 @@ describe("tintPalette", () => {
 describe("rgbVar", () => {
   it("formats a colour for rgb(var(--x))", () => {
     expect(rgbVar([1, 2, 3])).toBe("1, 2, 3");
+  });
+});
+
+describe("meanLuma", () => {
+  it("is 0 for an empty or black frame and high for a bright one", () => {
+    expect(meanLuma([])).toBe(0);
+    expect(meanLuma(pixels([0, 0, 0], [4, 4, 4]))).toBeLessThan(5);
+    expect(meanLuma(pixels([255, 255, 255]))).toBeCloseTo(255, 0);
   });
 });
