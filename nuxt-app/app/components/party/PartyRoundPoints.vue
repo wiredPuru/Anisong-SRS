@@ -30,7 +30,7 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
 
 <style scoped>
 .round {
-  width: min(300px, 32vw);
+  width: min(27.8vh, 32vw);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -49,7 +49,7 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
   align-items: baseline;
   gap: 0.35em;
   max-width: 100%;
-  font-size: clamp(26px, 3.4vw, 60px);
+  font-size: clamp(26px, 3.4vw, 5.56vh);
   text-transform: none;
   animation: round-pop-float 2600ms ease-out both;
 }
@@ -67,7 +67,7 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: clamp(10px, 1.2vw, 18px);
+  padding: clamp(10px, 1.2vw, 1.67vh);
   border: 2px solid var(--outline);
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
@@ -77,7 +77,7 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
 .round-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(13px, 1.1vw, 18px);
+  font-size: clamp(13px, 1.1vw, 1.67vh);
   color: var(--muted);
 }
 
@@ -95,7 +95,7 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 8px;
-  font-size: clamp(15px, 1.4vw, 24px);
+  font-size: clamp(15px, 1.4vw, 2.22vh);
 }
 
 .round-name {

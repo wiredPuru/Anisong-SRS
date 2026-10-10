@@ -13,6 +13,8 @@ const lobbyMusic = ref<{ unlock: () => void } | null>(null);
 const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted: false, picture: "video" as const };
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
+// The same Ambient preference Study uses, kept by this screen's own browser.
+const { enabled: ambient, refresh: readAmbient, setEnabled: setAmbient } = useAmbientPreference();
 const { scores, pops } = usePartySettledScores(state);
 const { editing: arranging, settings, category, selected } = usePartyLayout();
 const showSummary = computed(() => started.value && Boolean(state.value?.summary || (arranging.value && category.value === 'results')));
@@ -82,6 +84,9 @@ function onKeydown(event: KeyboardEvent) {
   if (key === "f") {
     event.preventDefault();
     void toggle();
+  } else if (key === "a") {
+    event.preventDefault();
+    setAmbient(!ambient.value);
   } else if (key === "l") {
     event.preventDefault();
     arranging.value = !arranging.value;
@@ -123,7 +128,10 @@ watch(() => state.value?.buzz.answering ?? null, (name, previous) => {
 
 const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  readAmbient();
+  window.addEventListener("keydown", onKeydown);
+});
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
   clearTimeout(idleTimer);
@@ -161,6 +169,7 @@ onBeforeUnmount(() => {
       :revealed="state?.phase === 'revealed'"
       :volume="state?.songVolume ?? 1"
       :lightning="state?.lightning ?? null"
+      :ambient="ambient"
       @position="reportPosition"
     />
 
@@ -255,6 +264,20 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="display-button"
+        :class="{ on: ambient }"
+        :aria-label="ambient ? 'Ambient glow on (A)' : 'Ambient glow off (A)'"
+        :title="ambient ? 'Ambient glow on (A)' : 'Ambient glow off (A)'"
+        :aria-pressed="ambient"
+        @click="setAmbient(!ambient)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+          <circle cx="12" cy="12" r="3.2" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="display-button"
         :aria-label="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
         :title="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
         @click="toggle"
@@ -302,8 +325,8 @@ onBeforeUnmount(() => {
 
 .display-buttons {
   position: absolute;
-  right: clamp(12px, 2vw, 24px);
-  bottom: clamp(12px, 2vh, 24px);
+  right: clamp(12px, 2vw, 2.22vh);
+  bottom: clamp(12px, 2vh, 2.22vh);
   z-index: var(--z-chrome);
   display: flex;
   gap: 12px;
@@ -321,6 +344,12 @@ onBeforeUnmount(() => {
   color: var(--text);
   cursor: pointer;
   transition: opacity 0.3s ease;
+}
+
+.display-button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .display-button svg {
@@ -367,7 +396,7 @@ onBeforeUnmount(() => {
 
 .display-start-banner,
 .display-waiting h1 {
-  font-size: clamp(24px, 4vw, 56px);
+  font-size: clamp(24px, 4vw, 5.19vh);
 }
 
 .display-join {
@@ -375,7 +404,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: clamp(14px, 2vw, 28px) clamp(20px, 3vw, 44px);
+  padding: clamp(14px, 2vw, 2.59vh) clamp(20px, 3vw, 4.07vh);
   border: 3px solid var(--outline);
   border-radius: var(--radius);
   background: var(--surface);
@@ -387,19 +416,19 @@ onBeforeUnmount(() => {
 
 .display-join-label {
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 24px);
+  font-size: clamp(14px, 1.6vw, 2.22vh);
   font-weight: 700;
 }
 
 .display-join-url {
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 48px);
+  font-size: clamp(22px, 3vw, 4.44vh);
 }
 
 .display-hint {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 22px);
+  font-size: clamp(14px, 1.6vw, 2.04vh);
 }
 
 .display-count {
@@ -409,6 +438,6 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   background: var(--glass-surface-panel);
   font-family: var(--font-display);
-  font-size: clamp(14px, 1.4vw, 22px);
+  font-size: clamp(14px, 1.4vw, 2.04vh);
 }
 </style>

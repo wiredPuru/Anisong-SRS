@@ -37,7 +37,7 @@ onBeforeUnmount(() => clearTimeout(timer));
 }
 
 .skip-text {
-  font-size: clamp(32px, 6vw, 96px);
+  font-size: clamp(32px, 6vw, 8.89vh);
 }
 
 @keyframes skip-in {

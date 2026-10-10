@@ -99,7 +99,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   border: 2px solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--glass-surface-panel);
-  font-size: clamp(13px, 1.2vw, 20px);
+  font-size: clamp(13px, 1.2vw, 1.85vh);
 }
 
 .join-chip strong {
@@ -114,7 +114,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
   font-family: var(--font-display);
-  font-size: clamp(32px, 5vw, 88px);
+  font-size: clamp(32px, 5vw, 8.15vh);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -134,11 +134,11 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 }
 
 .scoreboard {
-  width: min(360px, 40vw);
+  width: min(33.3vh, 40vw);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: clamp(12px, 1.6vw, 24px);
+  padding: clamp(12px, 1.6vw, 2.22vh);
   border: 2px solid var(--outline);
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
@@ -147,7 +147,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
 .scoreboard-title {
   align-self: flex-start;
-  font-size: clamp(16px, 1.6vw, 26px);
+  font-size: clamp(16px, 1.6vw, 2.41vh);
 }
 
 .scoreboard-list {
@@ -164,7 +164,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   grid-template-columns: 1.6em 1fr auto;
   align-items: center;
   gap: 8px;
-  font-size: clamp(16px, 1.6vw, 28px);
+  font-size: clamp(16px, 1.6vw, 2.59vh);
 }
 
 .scoreboard-row.leader .scoreboard-name,
@@ -230,15 +230,15 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
 .buzz-name {
   max-width: 90vw;
-  font-size: clamp(40px, 8vw, 140px);
+  font-size: clamp(40px, 8vw, 12.96vh);
   text-align: center;
   overflow-wrap: anywhere;
 }
 
 .buzz-label {
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 52px);
-  color: var(--bg);
+  font-size: clamp(22px, 3vw, 4.81vh);
+  color: var(--text);
   text-shadow: var(--text-shadow-overlay);
 }
 
@@ -251,7 +251,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
 .banner-text {
   max-width: 90vw;
-  font-size: clamp(36px, 7vw, 120px);
+  font-size: clamp(36px, 7vw, 11.11vh);
   text-align: center;
 }
 

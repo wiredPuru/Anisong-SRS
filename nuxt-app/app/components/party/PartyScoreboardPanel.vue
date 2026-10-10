@@ -182,13 +182,25 @@ function resetScores() {
 }
 
 .player {
-  display: grid;
-  grid-template-columns: 1fr auto 44px 44px 32px;
+  /* Flex, not a fixed grid: a row holds up to seven controls (team, kick,
+     its confirm) and a grid with fewer columns wrapped the extras. */
+  display: flex;
   align-items: center;
   gap: 6px;
 }
 
+.player .step {
+  width: 44px;
+  flex: none;
+}
+
+.player .rename {
+  flex: 1;
+}
+
 .name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

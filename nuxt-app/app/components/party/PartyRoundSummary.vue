@@ -81,22 +81,22 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
 
 .summary-title {
   margin: 0;
-  font-size: clamp(28px, 4vw, 64px);
+  font-size: clamp(28px, 4vw, 5.93vh);
 }
 
 .summary-count {
   margin: 0 0 0 auto;
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 24px);
+  font-size: clamp(14px, 1.6vw, 2.22vh);
 }
 
 
 .standings {
-  width: min(560px, 38vw);
+  width: min(51.9vh, 38vw);
 }
 
 .songs {
-  width: min(900px, 56vw);
+  width: min(83.3vh, 56vw);
 }
 
 .panel {
@@ -105,7 +105,7 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: clamp(12px, 1.6vw, 24px);
+  padding: clamp(12px, 1.6vw, 2.22vh);
   border: 3px solid var(--outline);
   border-radius: var(--radius);
   background: var(--surface);
@@ -115,7 +115,7 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
 .panel-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(18px, 2vw, 32px);
+  font-size: clamp(18px, 2vw, 2.96vh);
 }
 
 .standings-list,
@@ -136,7 +136,7 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
   gap: 10px;
   padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-size: clamp(16px, 2vw, 32px);
+  font-size: clamp(16px, 2vw, 2.96vh);
 }
 
 .standing.first {
@@ -169,7 +169,7 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
   grid-template-columns: 2.2em minmax(0, 1fr) minmax(0, auto);
   align-items: center;
   gap: 10px;
-  font-size: clamp(13px, 1.3vw, 20px);
+  font-size: clamp(13px, 1.3vw, 1.85vh);
 }
 
 .song-number {
