@@ -8,11 +8,12 @@ import {
   type PartyPieceId,
   type PartyPlacement,
   resizePlacement,
+  snapPlacement,
 } from "~/utils/partyLayout";
 
 const props = defineProps<{ piece: PartyPieceId }>();
 
-const { layout, editing, category, selected, place, save, isHidden } = usePartyLayout();
+const { layout, editing, snap, category, selected, place, save, isHidden } = usePartyLayout();
 const hidden = computed(() => isHidden(props.piece));
 // While arranging, only the chosen category is live; the rest stay put, dimmed.
 const inactive = computed(() =>
@@ -51,7 +52,8 @@ function onMove(event: PointerEvent) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const { box, start } = drag;
   if (drag.mode === "move") {
-    place(props.piece, movePlacement(start, (event.clientX - drag.startX) / box.width, (event.clientY - drag.startY) / box.height));
+    const moved = movePlacement(start, (event.clientX - drag.startX) / box.width, (event.clientY - drag.startY) / box.height);
+    place(props.piece, snap.value && !event.altKey ? snapPlacement(moved) : moved);
     return;
   }
   const anchorPx = { x: box.left + start.x * box.width, y: box.top + start.y * box.height };

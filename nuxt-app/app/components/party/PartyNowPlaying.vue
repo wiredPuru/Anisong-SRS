@@ -16,6 +16,27 @@ const progress = computed(() => {
 const blocked = computed(() => props.state.playing && position.value?.blocked);
 // Asked to play, but the display has not said it is: the clip is loading.
 const loading = computed(() => props.state.playing && Boolean(current.value) && !position.value?.playing && !blocked.value);
+const clipFailed = computed(() => Boolean(position.value?.failed));
+// Loading or failed: the host gets a way out that does not need the display.
+const stuck = computed(() => clipFailed.value || (loading.value && Boolean(position.value)));
+const canChangeSource = computed(() => (current.value?.cardId ?? 0) > 0);
+const sourceNote = ref<string | null>(null);
+const changing = ref(false);
+watch(() => current.value?.cardId, () => (sourceNote.value = null));
+
+async function changeSource() {
+  if (changing.value) return;
+  changing.value = true;
+  sourceNote.value = null;
+  try {
+    const result = await $fetch<{ changed?: boolean }>("/api/party/host/command", { method: "POST", body: { type: "changeSource" } });
+    sourceNote.value = result.changed ? "Switched to the next source for this song." : "This song has no other source to try.";
+  } catch {
+    sourceNote.value = "That didn't go through.";
+  } finally {
+    changing.value = false;
+  }
+}
 const atStart = computed(() => props.state.index <= 0);
 const atEnd = computed(() => props.state.index >= props.state.queue.length - 1);
 const confirmingClear = ref(false);
@@ -96,6 +117,23 @@ function setSongVolume(volume: number) {
       </div>
     </div>
 
+    <div v-if="stuck" class="np-stuck" role="status">
+      <p class="np-stuck-text">
+        <template v-if="clipFailed">This clip won't play.</template>
+        <ActivityStatus v-else label="Loading clip" :request-key="current?.cardId ?? 0" />
+        <span class="np-stuck-source">
+          {{ current?.kind === "audio" ? "Audio" : "Video" }}, {{ current?.origin === "local" ? "from a local file" : "streamed" }}
+        </span>
+      </p>
+      <div class="np-stuck-actions">
+        <button v-if="!clipFailed" type="button" class="tbtn" @click="emit('command', { type: 'pause' })">Cancel</button>
+        <button v-if="!atEnd" type="button" class="tbtn" @click="emit('command', { type: 'next' })">Skip to next</button>
+        <button type="button" class="tbtn" :disabled="!canChangeSource || changing" :title="canChangeSource ? '' : 'Songs added from outside your library have one source'" @click="changeSource">
+          Change source
+        </button>
+      </div>
+      <p v-if="sourceNote" class="np-stuck-note">{{ sourceNote }}</p>
+    </div>
     <p v-if="!position" class="np-notice">
       The display hasn't reported yet. Open the display screen and click Start.
     </p>
@@ -325,6 +363,34 @@ function setSongVolume(volume: number) {
 .np-artist {
   font-weight: 400;
   color: var(--text);
+}
+
+.np-stuck {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid var(--accent-secondary);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.np-stuck-text,
+.np-stuck-note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.np-stuck-source,
+.np-stuck-note {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.np-stuck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .np-notice {

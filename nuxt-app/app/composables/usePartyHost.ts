@@ -49,7 +49,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
+  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -93,6 +93,7 @@ export type PartyHostCommand =
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
   | { type: "score"; op: "add"; name: string }

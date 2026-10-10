@@ -19,6 +19,8 @@ import {
   lightningStep,
   PARTY_LOAD_MAX,
   PARTY_LOOKAHEAD,
+  listPartyClips,
+  nextPartyClip,
   pickPartyClip,
   shouldRevealEarly,
   timerMayReveal,
@@ -273,13 +275,14 @@ function choicesFor(item: PartyQueueItem): string[] {
   return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
 }
 
-export function runPartyCommand(command: PartyCommand): { loaded?: number; skipped?: number } {
+export function runPartyCommand(command: PartyCommand): { loaded?: number; skipped?: number; changed?: boolean } {
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);
+  if (command.type === "changeSource") return { changed: changeCurrentSource() };
   if (command.type !== "load") {
     commit(applyPartyCommand(state, command));
     return {};
@@ -294,6 +297,21 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
   const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
   commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
+}
+
+// Moves the song on screen to its next playable clip (local file, stream, video,
+// audio), for a clip that is slow or will not play. A song straight from the
+// catalog has only the one clip it was added with.
+function changeCurrentSource(): boolean {
+  const item = currentPartyItem(state);
+  if (!item || item.cardId <= 0) return false;
+  const card = getCardsByIds([item.cardId])[0];
+  if (!card) return false;
+  const clips = listPartyClips(card, { clipSource: getClipSource(), playbackMode: getPlaybackMode() }, localFileUsable);
+  const clip = nextPartyClip(clips, item.clip);
+  if (!clip) return false;
+  commit(applyPartyCommand(state, { type: "changeSource" }, { loaded: [{ ...item, clip, token: randomBytes(12).toString("hex") }] }));
+  return true;
 }
 
 // Swaps an upcoming song for another pick, following the endless settings when

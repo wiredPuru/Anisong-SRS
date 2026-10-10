@@ -23,6 +23,8 @@ export function usePartyLayout() {
   const loaded = useState("partyLayoutLoaded", () => false);
   const settings = useState<PartyLayoutSettings>("partyLayoutSettings", () => ({ ...DEFAULT_SETTINGS, hidden: [] }));
   const editing = useState("partyLayoutEditing", () => false);
+  // Session-only: whether dragging snaps to the grid (hold Alt to override once).
+  const snap = useState("partyLayoutSnap", () => true);
   const category = useState<PartyCategoryId>("partyLayoutCategory", () => "main");
   // The one piece being edited; while set, every other piece waits dimmed.
   const selected = useState<PartyPieceId | null>("partyLayoutSelected", () => null);
@@ -73,5 +75,5 @@ export function usePartyLayout() {
     save();
   }
 
-  return { layout, settings, editing, category, selected, place, save, reset, isHidden, setHidden, setChoiceStyle };
+  return { layout, settings, editing, snap, category, selected, place, save, reset, isHidden, setHidden, setChoiceStyle };
 }

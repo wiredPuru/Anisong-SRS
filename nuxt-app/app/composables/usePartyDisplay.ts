@@ -104,6 +104,7 @@ export interface PartyPositionReport {
   blocked: boolean;
   elapsed: number;
   ended?: boolean;
+  failed?: boolean;
 }
 
 const RETRY_MIN_MS = 1000;

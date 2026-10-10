@@ -51,7 +51,22 @@ function onPointerDown(event: PointerEvent) {
   selected.value = null;
 }
 
+// A tap in the middle of the screen pauses or resumes. It waits out the
+// double-click window so a full-screen double-click does not also pause.
+const TAP_WAIT_MS = 260;
+let tapTimer: ReturnType<typeof setTimeout> | undefined;
+function onClick(event: MouseEvent) {
+  if (!started.value || arranging.value || Date.now() - startedAt < 600) return;
+  if (event.target instanceof Element && event.target.closest("button, a, input, .display-buttons, .layout-toolbar")) return;
+  const { innerWidth, innerHeight } = window;
+  const inMiddle = event.clientX > innerWidth * 0.2 && event.clientX < innerWidth * 0.8 && event.clientY > innerHeight * 0.2 && event.clientY < innerHeight * 0.8;
+  if (!inMiddle) return;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => void $fetch("/api/party/display/toggle-play", { method: "POST" }).catch(() => {}), TAP_WAIT_MS);
+}
+
 function onDoubleClick(event: MouseEvent) {
+  clearTimeout(tapTimer);
   // A double-click on "Click to start" would otherwise leave full screen the
   // moment its first click entered it.
   if (!started.value || arranging.value || Date.now() - startedAt < 600) return;
@@ -112,6 +127,7 @@ onMounted(() => window.addEventListener("keydown", onKeydown));
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
   clearTimeout(idleTimer);
+  clearTimeout(tapTimer);
 });
 </script>
 
@@ -121,6 +137,7 @@ onBeforeUnmount(() => {
     :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
     @mousemove="onPointerMove"
     @pointerdown="onPointerDown"
+    @click="onClick"
     @dblclick="onDoubleClick"
   >
     <button v-if="!started" type="button" class="display-start" @click="start">
@@ -218,6 +235,8 @@ onBeforeUnmount(() => {
       :song-playing="Boolean(state?.item && state.playing)"
     />
 
+    <div v-if="started && arranging" class="display-grid" aria-hidden="true" />
+
     <PartyLayoutToolbar v-if="started && arranging" @done="arranging = false" />
 
     <div v-if="started" class="display-buttons">
@@ -254,6 +273,23 @@ onBeforeUnmount(() => {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
+}
+
+.display-grid {
+  position: absolute;
+  inset: 0;
+  /* Under the pieces and toolbar, never catching the pointer. */
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--accent) 0 1px, transparent 1px),
+    linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--text) 0 2px, transparent 2px),
+    linear-gradient(to bottom, var(--text) 0 2px, transparent 2px);
+  background-size: 2.5% 2.5%, 2.5% 2.5%, 50% 50%, 50% 50%;
+  background-position: 0 0, 0 0, calc(50% - 1px) 0, 0 calc(50% - 1px);
+  background-repeat: repeat, repeat, no-repeat, no-repeat;
+  opacity: 0.35;
 }
 
 .display.is-started {

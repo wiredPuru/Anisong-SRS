@@ -143,6 +143,8 @@ export interface PartyPosition {
   elapsed: number;
   /** The clip played to its end; the store may then move the game on. */
   ended?: boolean;
+  /** The clip could not be loaded or decoded. */
+  failed?: boolean;
 }
 export interface PartyGameState {
   version: number;
@@ -225,6 +227,7 @@ export type PartyCommand =
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
   | PartyScoreCommand
@@ -303,7 +306,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; answer: PartyAnswer }[];
+  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
   position: PartyPosition | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -446,11 +449,11 @@ type ClipCard = Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "ani
 // audio unless Playback mode is Audio only. A local path whose file is gone
 // (or outside the library) is passed over, so a stale path falls back to the
 // stream instead of a clip that 404s mid-game.
-export function pickPartyClip(
+export function listPartyClips(
   card: ClipCard,
   settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean },
   localFileUsable: (path: string) => boolean = () => true,
-): PartyClip | null {
+): PartyClip[] {
   const remote = (url: string | null) =>
     url && !settings.downloadedOnly && isClipUrlAllowed(url, settings.clipSource) ? url : null;
   const local = (path: string | null) => (path && localFileUsable(path) ? path : null);
@@ -460,11 +463,31 @@ export function pickPartyClip(
     ["audio", local(card.localAudioPath) ? { type: "local", path: card.localAudioPath! } : null],
     ["audio", remote(card.animethemesAudioUrl) ? { type: "remote", url: card.animethemesAudioUrl! } : null],
   ];
+  const clips: PartyClip[] = [];
   for (const [kind, source] of candidates) {
     if (!source || (kind === "video" && settings.playbackMode === "audioOnly")) continue;
-    return { kind, source };
+    clips.push({ kind, source });
   }
-  return null;
+  return clips;
+}
+
+export function pickPartyClip(
+  card: ClipCard,
+  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean },
+  localFileUsable: (path: string) => boolean = () => true,
+): PartyClip | null {
+  return listPartyClips(card, settings, localFileUsable)[0] ?? null;
+}
+
+const sameClip = (a: PartyClip, b: PartyClip) =>
+  a.kind === b.kind && a.source.type === b.source.type
+  && (a.source.type === "local" ? a.source.path === (b.source as { path: string }).path : a.source.url === (b.source as { url: string }).url);
+
+/** The clip after the current one in the card's preference order, wrapping round; null when there is no other. */
+export function nextPartyClip(clips: PartyClip[], current: PartyClip): PartyClip | null {
+  if (clips.length < 2) return null;
+  const at = clips.findIndex((clip) => sameClip(clip, current));
+  return clips[(at + 1) % clips.length] ?? null;
 }
 
 export function toQueueItem(
@@ -651,6 +674,8 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const { enabled } = body as { enabled?: unknown };
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
     }
+    case "changeSource":
+      return { type };
     case "queueReroll": {
       const { index } = body as { index?: unknown };
       return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
@@ -1024,6 +1049,24 @@ export function applyPartyCommand(
     case "autoAdvance":
       if (state.autoAdvance !== command.enabled) next = { ...state, autoAdvance: command.enabled };
       break;
+    case "changeSource": {
+      // The store picks the other clip; the new token makes the display reload.
+      const replacement = options.loaded?.[0];
+      if (hasItem && replacement) {
+        const replaced = state.queue[state.index]!;
+        const { [replaced.token]: held, ...awards } = state.awards;
+        const queue = [...state.queue];
+        queue[state.index] = replacement;
+        next = {
+          ...state,
+          queue,
+          awards: held ? { ...awards, [replacement.token]: held } : awards,
+          position: null,
+          seekTo: null,
+        };
+      }
+      break;
+    }
     case "queueReroll": {
       // The store picks the replacement; without one the song stays.
       const replacement = options.loaded?.[0];
@@ -1310,7 +1353,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     phase: state.phase,
     index: state.index,
     playing: state.playing,
-    queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, answer: item.answer })),
+    queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, origin: item.clip.source.type === "local" ? "local" : "stream", answer: item.answer })),
     position: state.position,
     randomStart: state.randomStart,
     effects: state.effects,

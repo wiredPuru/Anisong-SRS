@@ -186,6 +186,15 @@ export function movePlacement(placement: PartyPlacement, dx: number, dy: number)
   return { ...placement, x: clamp(placement.x + dx, 0, 1), y: clamp(placement.y + dy, 0, 1) };
 }
 
+/** Spacing of the alignment grid, as a fraction of the display (2.5%, so 40 cells across). */
+export const GRID_STEP = 0.025;
+
+/** Rounds the anchor to the nearest grid line, so pieces line up with each other. */
+export function snapPlacement(placement: PartyPlacement, step: number = GRID_STEP): PartyPlacement {
+  const snap = (n: number) => clamp(Math.round(Math.round(n / step) * step * 1e6) / 1e6, 0, 1);
+  return { ...placement, x: snap(placement.x), y: snap(placement.y) };
+}
+
 type Point = { x: number; y: number };
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 

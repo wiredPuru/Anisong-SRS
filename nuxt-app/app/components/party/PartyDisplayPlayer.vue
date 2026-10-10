@@ -134,6 +134,7 @@ function report() {
     blocked: blocked.value,
     elapsed: Math.max(0, element.currentTime - startPosition.value),
     ended: element.ended,
+    ...(failed.value ? { failed: true } : {}),
   });
 }
 
@@ -264,6 +265,9 @@ watch(
   { flush: "pre" },
 );
 watch(() => props.playing, followPlaying);
+watch(failed, (value) => {
+  if (value) report();
+});
 watch(
   () => props.volume,
   (volume) => {
@@ -334,8 +338,11 @@ onBeforeUnmount(() => {
       <button type="button" class="resume-hit-area" aria-label="Tap to resume" @click="retryPlayback" />
     </div>
     <PartyLightningHints v-else-if="hints && showVeil" :hints="hints" />
+    <div v-else-if="loading && !showVeil && elapsed <= 0.3" class="party-veil">
+      <StudyPlayerKai mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
+    </div>
     <div v-else-if="showVeil" class="party-veil">
-      <StudyPlayerKai v-if="loading" mood="loading">Loading...</StudyPlayerKai>
+      <StudyPlayerKai v-if="loading" mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
       <StudyPlayerKai v-else :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
     </div>
     <div v-if="countdown !== null" class="countdown" aria-hidden="true">

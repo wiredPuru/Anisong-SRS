@@ -10,6 +10,7 @@ import {
   PARTY_PIECES,
   parseLayout,
   resizePlacement,
+  snapPlacement,
   serializeLayout,
 } from "./partyLayout";
 
@@ -52,6 +53,13 @@ describe("movePlacement", () => {
   it("moves by fractions and keeps the anchor on screen", () => {
     expect(movePlacement({ x: 0.5, y: 0.5, scale: 1 }, 0.2, -0.1)).toEqual({ x: 0.7, y: 0.4, scale: 1 });
     expect(movePlacement({ x: 0.9, y: 0.1, scale: 2 }, 0.5, -0.5)).toEqual({ x: 1, y: 0, scale: 2 });
+  });
+});
+
+describe("snapPlacement", () => {
+  it("rounds the anchor to the nearest grid line and keeps the scale", () => {
+    expect(snapPlacement({ x: 0.52, y: 0.481, scale: 2 })).toEqual({ x: 0.525, y: 0.475, scale: 2 });
+    expect(snapPlacement({ x: 0.995, y: 0.01, scale: 1 })).toEqual({ x: 1, y: 0, scale: 1 });
   });
 });
 

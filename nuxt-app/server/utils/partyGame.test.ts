@@ -6,6 +6,8 @@ import {
   applyPartyCommand,
   initialPartyState,
   lightningStep,
+  listPartyClips,
+  nextPartyClip,
   parsePartyCommand,
   parsePartyEffects,
   parsePartyLightning,
@@ -59,6 +61,23 @@ function card(overrides: Partial<CardWithDetails> = {}): CardWithDetails {
 }
 
 const AUTO = { clipSource: "both" as const, playbackMode: "auto" as const };
+
+describe("nextPartyClip", () => {
+  const settings = { clipSource: "both" as const, playbackMode: "auto" as const };
+  const both = card({ localVideoPath: null, localAudioPath: null, animethemesVideoUrl: AMQ, animethemesAudioUrl: AMQ_AUDIO });
+
+  it("moves to the next clip in preference order and wraps round", () => {
+    const clips = listPartyClips(both, settings);
+    expect(clips.map((clip) => clip.kind)).toEqual(["video", "audio"]);
+    expect(nextPartyClip(clips, clips[0]!)).toEqual(clips[1]);
+    expect(nextPartyClip(clips, clips[1]!)).toEqual(clips[0]);
+  });
+
+  it("has nothing to change to when only one clip plays", () => {
+    const clips = listPartyClips(card({ animethemesVideoUrl: AMQ, animethemesAudioUrl: null }), settings);
+    expect(nextPartyClip(clips, clips[0]!)).toBeNull();
+  });
+});
 
 describe("pickPartyClip", () => {
   it("prefers local video, then remote video, then local audio, then remote audio", () => {

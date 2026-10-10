@@ -84,7 +84,31 @@ async function search() {
   }
 }
 
+// One open group at a time; its songs load on first open.
+const openKey = ref<string | null>(null);
+const openSongs = ref<SongResult[]>([]);
+const openLoading = ref(false);
+async function toggleGroup(type: DeckScopeType, row: { id: number }) {
+  const key = `${type}:${row.id}`;
+  if (openKey.value === key) {
+    openKey.value = null;
+    return;
+  }
+  openKey.value = key;
+  openSongs.value = [];
+  openLoading.value = true;
+  try {
+    const res = await $fetch<{ results: SongResult[] }>("/api/party/host/deck-songs", { query: { type, id: row.id } });
+    if (openKey.value === key) openSongs.value = res.results;
+  } catch {
+    if (openKey.value === key) note.value = "Couldn't load that list's songs.";
+  } finally {
+    if (openKey.value === key) openLoading.value = false;
+  }
+}
+
 function onInput() {
+  openKey.value = null;
   note.value = null;
   if (debounce) clearTimeout(debounce);
   debounce = setTimeout(search, 250);
@@ -177,15 +201,31 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       <section v-for="group in groups" :key="group.type" class="search-group">
         <h3 class="group-heading">{{ group.heading }}</h3>
         <ul class="group-list">
-          <li v-for="row in group.rows" :key="row.id" class="search-row">
-            <span class="search-text">
-              <span class="search-anime">{{ row.label }}</span>
-              <span class="search-song">{{ row.cardCount }} song{{ row.cardCount === 1 ? "" : "s" }}</span>
-            </span>
-            <span class="search-actions">
-              <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, true)">Play next</button>
-              <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, false)">Add all</button>
-            </span>
+          <li v-for="row in group.rows" :key="row.id" class="search-item">
+            <div class="search-row">
+              <button type="button" class="search-text search-open" :aria-expanded="openKey === `${group.type}:${row.id}`" @click="toggleGroup(group.type, row)">
+                <span class="search-anime">{{ openKey === `${group.type}:${row.id}` ? "▾" : "▸" }} {{ row.label }}</span>
+                <span class="search-song">{{ row.cardCount }} song{{ row.cardCount === 1 ? "" : "s" }} &middot; click to pick songs</span>
+              </button>
+              <span class="search-actions">
+                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, true)">Play next</button>
+                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, false)">Add all</button>
+              </span>
+            </div>
+            <ul v-if="openKey === `${group.type}:${row.id}`" class="group-list nested">
+              <li v-if="openLoading" class="search-row"><span class="search-song">Loading songs...</span></li>
+              <li v-for="result in openSongs" :key="result.cardId" class="search-row">
+                <span class="search-text">
+                  <span class="search-anime">{{ result.songTitle }}</span>
+                  <span class="search-song">{{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}</span>
+                </span>
+                <span v-if="queuedIds.has(result.cardId)" class="search-queued">In queue</span>
+                <span v-else class="search-actions">
+                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], true, result.songTitle)">Play next</button>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], false, result.songTitle)">Add</button>
+                </span>
+              </li>
+            </ul>
           </li>
         </ul>
       </section>
@@ -274,6 +314,21 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.search-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nested {
+  padding-left: 18px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .search-btn:disabled {
