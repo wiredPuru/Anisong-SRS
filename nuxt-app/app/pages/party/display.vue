@@ -325,8 +325,8 @@ onBeforeUnmount(() => {
 
 .display-buttons {
   position: absolute;
-  right: clamp(12px, 2vw, 24px);
-  bottom: clamp(12px, 2vh, 24px);
+  right: clamp(12px, 2vw, 2.22vh);
+  bottom: clamp(12px, 2vh, 2.22vh);
   z-index: var(--z-chrome);
   display: flex;
   gap: 12px;
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
 
 .display-start-banner,
 .display-waiting h1 {
-  font-size: clamp(24px, 4vw, 56px);
+  font-size: clamp(24px, 4vw, 5.19vh);
 }
 
 .display-join {
@@ -404,7 +404,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: clamp(14px, 2vw, 28px) clamp(20px, 3vw, 44px);
+  padding: clamp(14px, 2vw, 2.59vh) clamp(20px, 3vw, 4.07vh);
   border: 3px solid var(--outline);
   border-radius: var(--radius);
   background: var(--surface);
@@ -416,19 +416,19 @@ onBeforeUnmount(() => {
 
 .display-join-label {
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 24px);
+  font-size: clamp(14px, 1.6vw, 2.22vh);
   font-weight: 700;
 }
 
 .display-join-url {
   font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 48px);
+  font-size: clamp(22px, 3vw, 4.44vh);
 }
 
 .display-hint {
   margin: 0;
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 22px);
+  font-size: clamp(14px, 1.6vw, 2.04vh);
 }
 
 .display-count {
@@ -438,6 +438,6 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   background: var(--glass-surface-panel);
   font-family: var(--font-display);
-  font-size: clamp(14px, 1.4vw, 22px);
+  font-size: clamp(14px, 1.4vw, 2.04vh);
 }
 </style>
