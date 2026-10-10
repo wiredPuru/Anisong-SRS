@@ -176,7 +176,7 @@ async function add() {
       run.value.ids,
       (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", {
         method: "POST",
-        body: deckId === null ? { aniListId } : { aniListId, deckId },
+        body: { aniListId, themeTypes: draft.value.themeTypes, ...(deckId === null ? {} : { deckId }) },
       }),
       { shouldStop: () => stopRun.value, onProgress: (value) => (progress.value = value) },
     );

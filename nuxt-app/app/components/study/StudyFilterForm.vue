@@ -208,8 +208,8 @@ const listCheckedOn = computed(() => {
       <NuxtLink to="/settings">Fetch them in Settings</NuxtLink>.
     </p>
 
-    <section v-if="!catalog" class="group">
-      <h3 class="group-title">Theme</h3>
+    <section class="group">
+      <h3 class="group-title">Theme <span v-if="catalog" class="group-hint">only these become cards</span></h3>
       <div class="pill-row">
         <button
           v-for="type in THEME_TYPES"

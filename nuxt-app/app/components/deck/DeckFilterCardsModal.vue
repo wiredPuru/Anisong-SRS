@@ -253,7 +253,7 @@ async function add() {
     if (aniListIds.length) {
       imports = await importAnimeBatch(
         aniListIds,
-        (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", { method: "POST", body: { aniListId, deckId } }),
+        (aniListId) => $fetch<ImportOneResult>("/api/lookup/import-cards", { method: "POST", body: { aniListId, deckId, themeTypes: draft.value.themeTypes } }),
         { shouldStop: () => stopRun.value, onProgress: (value) => (importProgress.value = value) },
       );
     }
