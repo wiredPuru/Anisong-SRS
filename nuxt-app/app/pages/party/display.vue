@@ -1,8 +1,20 @@
 <script setup lang="ts">
+import type { PartyPositionReport, PartySongClock } from "~/composables/usePartyDisplay";
 definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party" });
 
 const { state, connected, connect, reportPosition } = usePartyDisplay();
+
+// The song's own time left, so the timer piece has something to count down
+// whenever the host has not started a timer of their own.
+const songClock = ref<PartySongClock | null>(null);
+function onPosition(report: PartyPositionReport) {
+  reportPosition(report);
+  songClock.value = report.duration
+    ? { token: report.token, left: Math.max(0, report.duration - report.currentTime), at: Date.now(), playing: report.playing }
+    : null;
+}
+const currentSongClock = computed(() => (songClock.value && songClock.value.token === state.value?.item?.token ? songClock.value : null));
 
 // Browsers block audio until the page is clicked once, so the screen waits
 // for that click before following the host at all.
@@ -172,7 +184,7 @@ onBeforeUnmount(() => {
       :ambient="ambient"
       :censor="state?.censor ?? null"
       :censor-track="state?.censorTrack ?? null"
-      @position="reportPosition"
+      @position="onPosition"
     />
 
     <template v-if="started && state?.item">
@@ -212,6 +224,7 @@ onBeforeUnmount(() => {
       </PartyLayoutFrame>
       <PartyDisplayOverlays
         :timer="state.timer"
+        :song-clock="state.item ? currentSongClock : null"
         :guessing="state.phase === 'guessing'"
         :scoreboard="scores?.scoreboard ?? null"
         :banner="state.banner"

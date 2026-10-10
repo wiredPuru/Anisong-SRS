@@ -101,7 +101,8 @@ function resetScores() {
         </select>
         <span class="score">{{ player.score }}</span>
         <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
-        <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+</button>
+        <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+1</button>
+        <button type="button" class="step plus" :aria-label="`Give ${player.name} two points`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 2 })">+2</button>
         <span v-if="kickingId === player.id" class="kick-confirm">
           <button type="button" class="mini" @click="kick(player.id)">Kick {{ player.name }}?</button>
           <button type="button" class="mini" @click="kickingId = null">Cancel</button>

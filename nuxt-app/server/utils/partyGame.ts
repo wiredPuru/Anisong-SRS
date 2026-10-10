@@ -132,6 +132,8 @@ export interface PartyQueueItem {
   answer: PartyAnswer;
   // Only ever shown as lightning hints, and only as far as play time allows.
   details: PartyAnimeDetails;
+  // Added by the host into a running game, so an endless queue still lists it.
+  manual?: boolean;
 }
 export interface PartyPosition {
   token: string;
@@ -196,7 +198,10 @@ export interface PartyGameState {
   // Every censor change on the current song, by clip time, so it can be
   // saved and played back the next time the song comes up.
   censorTrack: PartyCensorKey[];
+  // A saved track exists (or was just recorded) and replays next time.
   censorRemember: boolean;
+  // The host is recording: every censor change is timed and kept for later.
+  censorRecording: boolean;
   // Once the host changes the censor on a song, the saved track stops
   // playing back and the live censor alone applies.
   censorTouched: boolean;
@@ -233,7 +238,8 @@ export type PartyCommand =
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null; at?: number }
   | { type: "censorStyle"; style: PartyCensorStyle }
-  | { type: "censorRemember"; remember: boolean }
+  | { type: "censorRecord"; recording: boolean }
+  | { type: "censorForget" }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
@@ -472,6 +478,7 @@ export function initialPartyState(
     censor: null,
     censorTrack: [],
     censorRemember: false,
+    censorRecording: false,
     censorTouched: false,
     ...kept,
   };
@@ -680,10 +687,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (at === undefined) return { type, censor: parsed };
       return typeof at === "number" && Number.isFinite(at) && at >= 0 ? { type, censor: parsed, at } : { error: "at must be a number of 0 or more" };
     }
-    case "censorRemember": {
-      const { remember } = body as { remember?: unknown };
-      return typeof remember === "boolean" ? { type, remember } : { error: "remember must be a boolean" };
+    case "censorRecord": {
+      const { recording } = body as { recording?: unknown };
+      return typeof recording === "boolean" ? { type, recording } : { error: "recording must be a boolean" };
     }
+    case "censorForget":
+      return { type };
     case "censorStyle": {
       const { style } = body as { style?: unknown };
       return style === "blur" || style === "black" ? { type, style } : { error: "style must be 'blur' or 'black'" };
@@ -1002,7 +1011,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     position: null,
     // A lightning round always plays a random slice of each song.
     startFraction: state.randomStart || state.lightning ? random() : 0,
-    effects: state.nextEffects ?? state.effects,
+    effects: state.nextEffects ?? NO_EFFECTS,
     nextEffects: null,
     live: null,
     choices: null,
@@ -1016,6 +1025,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     censor: null,
     censorTrack: [],
     censorRemember: false,
+    censorRecording: false,
     censorTouched: false,
   };
 }
@@ -1206,11 +1216,25 @@ export function applyPartyCommand(
         // The host's preview runs ahead of the display, so it says when in
         // the clip the change belongs; a hotkey falls back to the display.
         const at = command.at ?? state.position?.currentTime ?? 0;
-        next = { ...state, censor, censorTouched: true, censorTrack: recordCensorKey(state.censorTrack, at, censor) };
+        // Only a recording keeps timings; otherwise the censor is one-off.
+        const censorTrack = state.censorRecording ? recordCensorKey(state.censorTrack, at, censor) : state.censorTrack;
+        next = { ...state, censor, censorTouched: true, censorTrack };
       }
       break;
-    case "censorRemember":
-      if (hasItem && state.censorRemember !== command.remember) next = { ...state, censorRemember: command.remember };
+    case "censorRecord":
+      if (!hasItem || state.censorRecording === command.recording) break;
+      if (command.recording) {
+        // A fresh take: the old track is replaced, starting from what is on screen.
+        const at = state.position?.currentTime ?? 0;
+        next = { ...state, censorRecording: true, censorTouched: true, censorRemember: false, censorTrack: state.censor ? recordCensorKey([], at, state.censor) : [] };
+      } else {
+        next = { ...state, censorRecording: false, censorRemember: state.censorTrack.length > 0 };
+      }
+      break;
+    case "censorForget":
+      if (hasItem && (state.censorRemember || state.censorRecording || state.censorTrack.length)) {
+        next = { ...state, censorRecording: false, censorRemember: false, censorTrack: [], censorTouched: true };
+      }
       break;
     case "censorStyle":
       next = { ...state, censorStyle: command.style, censor: state.censor && { ...state.censor, style: command.style } };
@@ -1442,7 +1466,13 @@ export function toHostState(state: PartyGameState): PartyHostState {
     phase: state.phase,
     index: state.index,
     playing: state.playing,
-    queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, origin: item.clip.source.type === "local" ? "local" : "stream", answer: item.answer })),
+    queue: state.queue.map((item) => ({
+      cardId: item.cardId,
+      kind: item.clip.kind,
+      origin: item.clip.source.type === "local" ? "local" : "stream",
+      manual: item.manual === true,
+      answer: item.answer,
+    })),
     position: state.position,
     randomStart: state.randomStart,
     effects: state.effects,
@@ -1470,6 +1500,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     censorStyle: state.censorStyle,
     censorTrack: state.censorTrack,
     censorRemember: state.censorRemember,
+    censorRecording: state.censorRecording,
     censorTouched: state.censorTouched,
   };
 }

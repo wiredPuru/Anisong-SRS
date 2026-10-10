@@ -51,7 +51,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
+  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -79,6 +79,7 @@ export interface PartyHostState {
   censorStyle: PartyCensor["style"];
   censorTrack: PartyCensorKey[];
   censorRemember: boolean;
+  censorRecording: boolean;
   censorTouched: boolean;
 }
 
@@ -94,7 +95,8 @@ export type PartyHostCommand =
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null; at?: number }
-  | { type: "censorRemember"; remember: boolean }
+  | { type: "censorRecord"; recording: boolean }
+  | { type: "censorForget" }
   | { type: "censorStyle"; style: PartyCensor["style"] }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }

@@ -100,9 +100,7 @@ usePartyHotkeys(state, send, () => {
         <div class="tab-body">
           <template v-if="tab === 'round' && state">
             <section class="panel"><PartyLightningPanel :state="state" @command="send" /></section>
-            <section class="panel"><PartyStakePanel :state="state" @command="send" /></section>
             <section class="panel"><PartyLivePanel :state="state" @command="send" /></section>
-            <section class="panel"><PartyEndlessPanel :state="state" @command="send" /></section>
           </template>
           <template v-else-if="tab === 'screen' && state">
             <section class="panel"><PartyEffectsPanel :state="state" @command="send" /></section>
@@ -128,6 +126,7 @@ usePartyHotkeys(state, send, () => {
           <section v-show="tab === 'game'" class="panel">
             <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
           </section>
+          <section v-if="tab === 'game' && state" class="panel"><PartyEndlessPanel :state="state" @command="send" /></section>
         </div>
       </div>
     </div>

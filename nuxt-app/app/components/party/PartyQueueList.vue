@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PartyEffects } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
 
 const props = defineProps<{ state: PartyHostState }>();
@@ -9,22 +10,52 @@ const isUpcoming = (index: number) => index > props.state.index;
 
 // The board only ever shows five songs: the one before, the current one, the
 // next, and two more. Older songs sit in the played log, the rest wait unseen.
+// An endless queue shows only the one before, the current one and the next,
+// plus any song the host added by hand.
 const WINDOW_SIZE = 5;
+const endless = computed(() => props.state.endless !== null);
 const windowStart = computed(() => Math.max(0, props.state.index - 1));
-const windowEnd = computed(() => Math.min(props.state.queue.length, windowStart.value + WINDOW_SIZE));
-const rows = computed(() =>
-  props.state.queue.slice(windowStart.value, windowEnd.value).map((item, offset) => ({ item, index: windowStart.value + offset })),
+const windowEnd = computed(() =>
+  Math.min(props.state.queue.length, endless.value ? props.state.index + 2 : windowStart.value + WINDOW_SIZE),
 );
+const rows = computed(() => {
+  const shown = props.state.queue.slice(windowStart.value, windowEnd.value).map((item, offset) => ({ item, index: windowStart.value + offset }));
+  if (!endless.value) return shown;
+  const added = props.state.queue
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => index >= windowEnd.value && item.manual);
+  return [...shown, ...added];
+});
 const played = computed(() =>
   props.state.queue.slice(0, windowStart.value).map((item, index) => ({ item, index })).reverse(),
 );
-const waiting = computed(() => props.state.queue.length - windowEnd.value);
+const waiting = computed(() => (endless.value ? 0 : props.state.queue.length - windowEnd.value));
 
 const upNext = computed(() => {
   const index = props.state.index + 1;
   const item = props.state.queue[index];
   return item ? { index, item } : null;
 });
+
+// One-tap presets for the next song, armed the same way as Effects > Next song.
+const NO_EFFECTS: PartyEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" };
+const FULL_BLUR = 40;
+const armed = computed(() => props.state.nextEffects);
+const QUICK = [
+  { id: "blur", label: "Full blur", on: (e: PartyEffects) => e.blur >= FULL_BLUR, toggle: (e: PartyEffects, on: boolean) => ({ ...e, blur: on ? 0 : FULL_BLUR }) },
+  { id: "pixelate", label: "Pixelate", on: (e: PartyEffects) => e.pixelate > 0, toggle: (e: PartyEffects, on: boolean) => ({ ...e, pixelate: on ? 0 : 32 }) },
+  { id: "muted", label: "Mute", on: (e: PartyEffects) => e.muted, toggle: (e: PartyEffects, on: boolean) => ({ ...e, muted: !on }) },
+  { id: "blackout", label: "Blackout", on: (e: PartyEffects) => e.picture === "blackout", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "blackout" }) },
+  { id: "cover", label: "Cover art", on: (e: PartyEffects) => e.picture === "cover", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "cover" }) },
+  { id: "bubbles", label: "Bubbles", on: (e: PartyEffects) => e.picture === "bubbles", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "bubbles" }) },
+] as const satisfies readonly { id: string; label: string; on: (e: PartyEffects) => boolean; toggle: (e: PartyEffects, on: boolean) => PartyEffects }[];
+
+function toggleQuick(option: (typeof QUICK)[number]) {
+  const base = armed.value ?? NO_EFFECTS;
+  const effects = option.toggle(base, option.on(base));
+  const plain = JSON.stringify(effects) === JSON.stringify(NO_EFFECTS);
+  emit("command", { type: "effects", target: "next", effects: plain ? null : effects });
+}
 
 // Drag a song still to come onto another upcoming row to put it there.
 const dragFrom = ref<number | null>(null);
@@ -70,6 +101,20 @@ function endDrag() {
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
         &#8635; Pick another
       </button>
+      <div class="up-next-fx" role="group" aria-label="Effects for the next song">
+        <button
+          v-for="option in QUICK"
+          :key="option.id"
+          type="button"
+          class="fx-chip"
+          :class="{ on: armed && option.on(armed) }"
+          :aria-pressed="Boolean(armed && option.on(armed))"
+          @click="toggleQuick(option)"
+        >
+          {{ option.label }}
+        </button>
+        <button v-if="armed" type="button" class="fx-chip fx-clear" @click="emit('command', { type: 'effects', target: 'next', effects: null })">Clear</button>
+      </div>
     </div>
     <details v-if="played.length" class="played-log">
       <summary>Played ({{ played.length }})</summary>
@@ -228,12 +273,42 @@ function endDrag() {
 
 .up-next {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.up-next-fx {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fx-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fx-chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.fx-clear {
+  border-style: dashed;
 }
 
 .up-next-text {

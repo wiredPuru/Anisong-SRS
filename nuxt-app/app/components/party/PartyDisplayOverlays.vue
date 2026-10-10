@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { PartyBanner, PartyJoinInfo, PartyScoreRow, PartyTimer } from "~/composables/usePartyDisplay";
+import type { PartyBanner, PartyJoinInfo, PartyScoreRow, PartySongClock, PartyTimer } from "~/composables/usePartyDisplay";
 
 const props = defineProps<{
   timer: PartyTimer | null;
+  // Time left in the song, shown when no host timer is running.
+  songClock?: PartySongClock | null;
   guessing: boolean;
   scoreboard: PartyScoreRow[] | null;
   banner: PartyBanner | null;
@@ -30,9 +32,18 @@ onBeforeUnmount(() => {
   if (ticker) clearInterval(ticker);
 });
 
-const secondsLeft = computed(() => (props.timer ? Math.max(0, Math.ceil((props.timer.endsAt - now.value) / 1000)) : null));
-const showTimer = computed(() => props.guessing && secondsLeft.value !== null);
+const hostSecondsLeft = computed(() => (props.timer ? Math.max(0, Math.ceil((props.timer.endsAt - now.value) / 1000)) : null));
+const songSecondsLeft = computed(() => {
+  const clock = props.songClock;
+  if (!clock) return null;
+  const left = clock.playing ? clock.left - (now.value - clock.at) / 1000 : clock.left;
+  return Math.max(0, Math.ceil(left));
+});
+const usingHostTimer = computed(() => props.guessing && hostSecondsLeft.value !== null);
+const secondsLeft = computed(() => (usingHostTimer.value ? hostSecondsLeft.value : songSecondsLeft.value));
+const showTimer = computed(() => secondsLeft.value !== null && (usingHostTimer.value || secondsLeft.value > 0));
 const { isHidden } = usePartyLayout();
+const formatClock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 const buzzName = computed(() => props.answering ?? (props.arranging ? SAMPLE_BUZZER : null));
 const bannerText = computed(() => (showBanner.value && props.banner ? props.banner.text : props.arranging ? SAMPLE_BANNER : null));
 const showBanner = computed(() => Boolean(props.banner && now.value - props.banner.shownAt < BANNER_MS));
@@ -41,8 +52,9 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 <template>
   <div class="overlays">
     <PartyLayoutFrame v-if="showTimer || arranging" piece="timer">
-      <div class="timer" :class="{ done: showTimer && secondsLeft === 0, urgent: showTimer && secondsLeft !== null && secondsLeft <= 3 }">
+      <div class="timer" :class="{ done: showTimer && secondsLeft === 0, urgent: usingHostTimer && secondsLeft !== null && secondsLeft <= 3, song: showTimer && !usingHostTimer }">
         <span v-if="!showTimer">{{ SAMPLE_TIMER_SECONDS }}</span>
+        <span v-else-if="secondsLeft && !usingHostTimer">{{ formatClock(secondsLeft) }}</span>
         <span v-else-if="secondsLeft">{{ secondsLeft }}</span>
         <span v-else class="timer-done">Time's up!</span>
       </div>
@@ -117,6 +129,12 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   font-size: clamp(32px, 5vw, 8.15vh);
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* The song's own time left reads quieter than a host countdown. */
+.timer.song {
+  font-size: clamp(24px, 3.5vw, 5.7vh);
+  opacity: 0.85;
 }
 
 .timer.urgent {

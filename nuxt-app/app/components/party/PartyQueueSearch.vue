@@ -36,10 +36,26 @@ const GROUPS: { type: DeckScopeType; heading: string }[] = [
 ];
 const GROUP_LIMIT = 5;
 
+interface ShowResult {
+  aniListId: number;
+  titleEnglish: string;
+  titleRomaji: string;
+}
+interface ShowTheme {
+  songId: number;
+  themeSlot: string;
+  songTitle: string;
+  artistName: string;
+  videoUrl: string | null;
+  audioUrl: string | null;
+  playable: boolean;
+}
+
 const props = defineProps<{ state: PartyHostState }>();
 
 const query = ref("");
 const groups = ref<Group[]>([]);
+const shows = ref<ShowResult[]>([]);
 const songs = ref<SongResult[]>([]);
 const catalogSongs = ref<CatalogResult[]>([]);
 const searching = ref(false);
@@ -53,6 +69,7 @@ async function search() {
   const isCurrent = requests.start();
   if (text.length < 2) {
     groups.value = [];
+    shows.value = [];
     songs.value = [];
     catalogSongs.value = [];
     searching.value = false;
@@ -60,7 +77,7 @@ async function search() {
   }
   searching.value = true;
   try {
-    const [found, songRes, catalogRes] = await Promise.all([
+    const [found, songRes, catalogRes, showRes] = await Promise.all([
       Promise.all(
         GROUPS.map(async ({ type, heading }): Promise<Group> => {
           const res = await $fetch<{ decks: GroupResult[] }>("/api/party/host/decks", { query: { type, q: text } }).catch(() => ({ decks: [] }));
@@ -73,9 +90,11 @@ async function search() {
       ),
       $fetch<{ results: SongResult[] }>("/api/party/host/card-search", { query: { q: text } }).catch(() => ({ results: [] })),
       $fetch<{ results: CatalogResult[] }>("/api/party/host/catalog-search", { query: { q: text } }).catch(() => ({ results: [] })),
+      $fetch<{ results: ShowResult[] }>("/api/party/host/anime-search", { query: { q: text } }).catch(() => ({ results: [] })),
     ]);
     if (!isCurrent()) return;
     groups.value = found.filter((group) => group.rows.length);
+    shows.value = showRes.results.slice(0, GROUP_LIMIT);
     songs.value = songRes.results;
     const libraryKeys = new Set(songRes.results.map((r) => `${r.songTitle}|${r.themeSlot}`.toLowerCase()));
     catalogSongs.value = catalogRes.results.filter((r) => !libraryKeys.has(`${r.songTitle}|${r.themeSlot}`.toLowerCase()));
@@ -107,15 +126,55 @@ async function toggleGroup(type: DeckScopeType, row: { id: number }) {
   }
 }
 
+// A show from AniList opens into every theme it has, like the /cards search.
+const openShow = ref<number | null>(null);
+const showThemes = ref<ShowTheme[]>([]);
+const showLoading = ref(false);
+async function toggleShow(show: ShowResult) {
+  if (openShow.value === show.aniListId) {
+    openShow.value = null;
+    return;
+  }
+  openShow.value = show.aniListId;
+  showThemes.value = [];
+  showLoading.value = true;
+  try {
+    const res = await $fetch<{ themes: ShowTheme[] }>("/api/party/host/anime-themes", { method: "POST", body: { aniListId: show.aniListId } });
+    if (openShow.value === show.aniListId) showThemes.value = res.themes;
+  } catch {
+    if (openShow.value === show.aniListId) note.value = "Couldn't look that show up.";
+  } finally {
+    if (openShow.value === show.aniListId) showLoading.value = false;
+  }
+}
+
+async function addShowThemes(themes: ShowTheme[], playNext: boolean, label: string) {
+  const playable = themes.filter((theme) => theme.playable);
+  if (!playable.length) {
+    note.value = "None of those have a clip the Clip source setting allows.";
+    return;
+  }
+  try {
+    const res = await $fetch<{ cardIds: number[] }>("/api/party/host/anime-cards", {
+      method: "POST",
+      body: { themes: playable.map(({ songId, videoUrl, audioUrl }) => ({ songId, videoUrl, audioUrl })) },
+    });
+    await addCards(res.cardIds, playNext, label);
+  } catch {
+    note.value = "Couldn't add that.";
+  }
+}
+
 function onInput() {
   openKey.value = null;
+  openShow.value = null;
   note.value = null;
   if (debounce) clearTimeout(debounce);
   debounce = setTimeout(search, 250);
 }
 
 const queuedIds = computed(() => new Set(props.state.queue.map((item) => item.cardId)));
-const hasResults = computed(() => groups.value.length > 0 || songs.value.length > 0 || catalogSongs.value.length > 0);
+const hasResults = computed(() => shows.value.length > 0 || groups.value.length > 0 || songs.value.length > 0 || catalogSongs.value.length > 0);
 
 function sendCommand(body: object) {
   return $fetch<{ loaded?: number }>("/api/party/host/command", { method: "POST", body });
@@ -198,6 +257,41 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
     <p v-else-if="query.trim().length >= 2 && !searching && !hasResults" class="search-note">Nothing matches that.</p>
 
     <div v-if="hasResults" class="search-results">
+      <section v-if="shows.length" class="search-group">
+        <h3 class="group-heading">Shows</h3>
+        <ul class="group-list">
+          <li v-for="show in shows" :key="show.aniListId" class="search-item">
+            <div class="search-row">
+              <button type="button" class="search-text search-open" :aria-expanded="openShow === show.aniListId" @click="toggleShow(show)">
+                <span class="search-anime">{{ openShow === show.aniListId ? "▾" : "▸" }} {{ show.titleEnglish }}</span>
+                <span class="search-song">{{ show.titleRomaji }} &middot; click for its songs</span>
+              </button>
+            </div>
+            <ul v-if="openShow === show.aniListId" class="group-list nested">
+              <li v-if="showLoading" class="search-row"><span class="search-song">Looking up songs...</span></li>
+              <li v-else-if="!showThemes.length" class="search-row"><span class="search-song">No songs found for this show.</span></li>
+              <li v-if="showThemes.length > 1" class="search-row">
+                <span class="search-text"><span class="search-song">All {{ showThemes.length }} songs</span></span>
+                <span class="search-actions">
+                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, true, show.titleEnglish)">Play next</button>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, false, show.titleEnglish)">Add all</button>
+                </span>
+              </li>
+              <li v-for="theme in showThemes" :key="theme.songId" class="search-row">
+                <span class="search-text">
+                  <span class="search-anime">{{ theme.songTitle }}</span>
+                  <span class="search-song">{{ theme.artistName }} &middot; {{ formatThemeSlotLabel(theme.themeSlot) }}{{ theme.playable ? "" : " (no allowed clip)" }}</span>
+                </span>
+                <span class="search-actions">
+                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], true, theme.songTitle)">Play next</button>
+                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], false, theme.songTitle)">Add</button>
+                </span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+
       <section v-for="group in groups" :key="group.type" class="search-group">
         <h3 class="group-heading">{{ group.heading }}</h3>
         <ul class="group-list">

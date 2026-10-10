@@ -16,7 +16,7 @@ const SEND_THROTTLE_MS = 150;
 
 const target = ref<"current" | "next">("current");
 const current = ref<PartyEffects>({ ...props.state.effects });
-const next = ref<PartyEffects>({ ...(props.state.nextEffects ?? props.state.effects) });
+const next = ref<PartyEffects>({ ...(props.state.nextEffects ?? NO_EFFECTS) });
 const draft = computed(() => (target.value === "current" ? current.value : next.value));
 const armed = computed(() => props.state.nextEffects !== null);
 
@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
       A lightning round is running, so its mode sets the screen. Only Mute applies until you stop the round.
     </p>
     <p class="effects-hint">
-      {{ target === "current" ? "Changes show on the display right away. They stay on for later songs until you change them. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
+      {{ target === "current" ? "Changes show on the display right away. They last for this song only; the next song starts clear unless you armed Next song. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
     </p>
 
     <label class="fx-row">

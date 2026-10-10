@@ -67,9 +67,13 @@ const replaying = computed(() => !props.state.censorTouched && props.state.censo
 const replayCensor = computed(() => (replaying.value ? censorAt(props.state.censorTrack, previewTime.value) : null));
 const shownBoxes = computed(() => (replaying.value ? replayCensor.value?.boxes ?? [] : boxes.value));
 
+// The box last clicked; D deletes it, or every box when none is picked.
+const selected = ref<number | null>(null);
+
 watch(token, () => {
   boxes.value = [];
   muted.value = false;
+  selected.value = null;
 });
 
 type Drag =
@@ -122,8 +126,13 @@ function lift() {
   emit("command", { type: "censor", censor: null, at: previewAt() });
 }
 
-function setRemember(remember: boolean) {
-  emit("command", { type: "censorRemember", remember });
+function setRecording(recording: boolean) {
+  takeOverReplay();
+  emit("command", { type: "censorRecord", recording });
+}
+
+function forget() {
+  emit("command", { type: "censorForget" });
 }
 
 function setStyle(next: PartyCensor["style"]) {
@@ -139,7 +148,33 @@ function toggleMuted() {
 function removeBox(index: number) {
   takeOverReplay();
   boxes.value = boxes.value.filter((_, i) => i !== index);
+  selected.value = null;
   sendLive();
+}
+
+function deleteSelectedOrAll() {
+  takeOverReplay();
+  const index = selected.value;
+  if (index !== null && index < boxes.value.length) {
+    removeBox(index);
+    return;
+  }
+  if (!boxes.value.length) return;
+  boxes.value = [];
+  selected.value = null;
+  sendLive();
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+  return target instanceof HTMLInputElement && !["checkbox", "radio", "range", "button"].includes(target.type);
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key.toLowerCase() !== "d" || event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+  event.preventDefault();
+  deleteSelectedOrAll();
 }
 
 function pointer(event: PointerEvent): Point {
@@ -151,9 +186,11 @@ function startDrag(event: PointerEvent, mode: "draw" | "move" | "resize", index 
   takeOverReplay();
   const start = pointer(event);
   if (mode === "draw") {
+    selected.value = null;
     if (boxes.value.length >= CENSOR_MAX_BOXES) return;
     drag.value = { mode, start, current: start };
   } else {
+    selected.value = index;
     drag.value = { mode, index, start, original: { ...boxes.value[index]! } };
   }
   stage.value.setPointerCapture(event.pointerId);
@@ -182,6 +219,7 @@ function endDrag() {
   const box = boxFromDrag(current.start, current.current);
   if (!box) return;
   boxes.value = [...boxes.value, box];
+  selected.value = boxes.value.length - 1;
   sendLive();
 }
 
@@ -194,6 +232,8 @@ const boxStyle = (box: PartyCensorBox) => ({
 });
 
 let syncTimer: ReturnType<typeof setInterval> | null = null;
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 onMounted(() => {
   try {
     lead.value = parsePreviewLead(localStorage.getItem(LEAD_KEY));
@@ -249,7 +289,7 @@ onBeforeUnmount(() => {
           v-for="(box, i) in shownBoxes"
           :key="i"
           class="box"
-          :class="`box-${replaying ? replayCensor?.style ?? style : style}`"
+          :class="[`box-${replaying ? replayCensor?.style ?? style : style}`, { selected: !replaying && selected === i }]"
           :style="boxStyle(box)"
           @pointerdown.stop="startDrag($event, 'move', i)"
         >
@@ -268,14 +308,16 @@ onBeforeUnmount(() => {
         <button type="button" :class="{ on: style === 'blur' }" @click="setStyle('blur')">Blur</button>
       </div>
       <button type="button" class="pill" :class="{ on: replaying ? replayCensor?.muted : muted }" :aria-pressed="replaying ? Boolean(replayCensor?.muted) : muted" @click="toggleMuted">Mute</button>
-      <label class="remember">
-        <input type="checkbox" :checked="state.censorRemember" @change="setRemember(($event.target as HTMLInputElement).checked)" />
-        Remember for this song
-      </label>
+      <button v-if="!state.censorRecording" type="button" class="censor-btn" @click="setRecording(true)">
+        {{ state.censorRemember ? "Re-record for next time" : "Record for next time" }}
+      </button>
+      <button v-else type="button" class="censor-btn lift" @click="setRecording(false)">Stop recording</button>
+      <button v-if="state.censorRemember || state.censorTrack.length" type="button" class="censor-btn" @click="forget">Forget saved censor</button>
+      <span v-if="state.censorRecording" class="live-chip">Recording</span>
     </div>
     <p class="censor-hint">
-      Drag on the preview to censor that spot on the screen. C censors the whole screen.
-      <template v-if="state.censorRemember"> Your censors replay the next time this song comes up.</template>
+      Drag on the preview to censor that spot on the screen. C censors the whole screen. D deletes the box you picked, or all of them.
+      Press Record, censor as the song plays, then Stop: the timings replay on their own next time. Forget wipes them to start over.
     </p>
   </div>
 </template>
@@ -397,6 +439,11 @@ onBeforeUnmount(() => {
 
 .stage.live .box {
   outline: 2px solid var(--fail);
+}
+
+.box.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .box-remove {

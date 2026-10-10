@@ -1,7 +1,8 @@
 <script setup lang="ts">
 const props = defineProps<{ source: HTMLVideoElement | null; seed: string }>();
 
-const BUBBLE_COUNT = 14;
+// Few, small and quick, so only scraps of the picture show at any moment.
+const BUBBLE_COUNT = 7;
 const canvas = ref<HTMLCanvasElement | null>(null);
 let frame = 0;
 
@@ -25,8 +26,8 @@ function makeBubbles(seed: string): Bubble[] {
   };
   return Array.from({ length: BUBBLE_COUNT }, () => ({
     x: 0.05 + random() * 0.9,
-    radius: 0.05 + random() * 0.08,
-    speed: 0.05 + random() * 0.07,
+    radius: 0.025 + random() * 0.025,
+    speed: 0.12 + random() * 0.12,
     offset: random(),
     sway: random() * Math.PI * 2,
   }));

@@ -159,6 +159,7 @@ export function addCatalogSongs(annSongIds: number[]): number {
     .map((id) => lastCatalogSearch.get(id))
     .map((song) => (song ? catalogItem(song) : null))
     .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+    .map((item) => (state.index >= 0 ? { ...item, manual: true } : item))
     .slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length));
   if (!items.length) return 0;
   commit(
@@ -220,7 +221,7 @@ function topUpEndless(): void {
       count: ENDLESS_BATCH + 4,
     });
     if (!cardIds.length) return;
-    runPartyCommand({ type: "load", cardIds, append: hasGame, downloadedOnly: config.downloadedOnly });
+    runPartyCommand({ type: "load", cardIds, append: hasGame, downloadedOnly: config.downloadedOnly }, "endless");
   } finally {
     toppingUp = false;
   }
@@ -261,12 +262,15 @@ function followSavedCensor(previous: PartyGameState): void {
   const item = currentPartyItem(state);
   if (currentPartyItem(previous)?.token !== item?.token) {
     flushCensorSave();
+    // Moving on while recording stops the recording and keeps the take.
+    const left = currentPartyItem(previous);
+    if (left && previous.censorRecording && previous.censorTrack.length) storeSavedCensor(left.cardId, true, previous.censorTrack);
     if (!item) return;
     const track = loadSavedCensor(item.cardId);
     if (track.length) commit(applyPartyCommand(state, { type: "censorSaved", token: item.token, track }));
     return;
   }
-  if (!item || (previous.censorTrack === state.censorTrack && previous.censorRemember === state.censorRemember)) return;
+  if (!item || state.censorRecording || (previous.censorTrack === state.censorTrack && previous.censorRemember === state.censorRemember)) return;
   const { cardId } = item;
   const { censorRemember, censorTrack } = state;
   pendingCensorSave = () => storeSavedCensor(cardId, censorRemember, censorTrack);
@@ -335,7 +339,7 @@ function choicesFor(item: PartyQueueItem): string[] {
   return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
 }
 
-export function runPartyCommand(command: PartyCommand): { loaded?: number; skipped?: number; changed?: boolean } {
+export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
@@ -355,7 +359,8 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
     : command.cardIds;
   if (!cardIds.length) return { loaded: 0, skipped: 0 };
   const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
-  commit(applyPartyCommand(state, command, { loaded: items }));
+  const manual = origin === "host" && command.append === true && state.index >= 0;
+  commit(applyPartyCommand(state, command, { loaded: manual ? items.map((item) => ({ ...item, manual })) : items }));
   return { loaded: items.length, skipped };
 }
 

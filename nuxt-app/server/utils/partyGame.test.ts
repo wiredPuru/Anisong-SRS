@@ -427,9 +427,9 @@ describe("effects", () => {
     expect(applyPartyCommand(armed, { type: "effects", target: "next", effects: null }).nextEffects).toBeNull();
   });
 
-  it("carries the current effects to later songs and through clear", () => {
+  it("clears the current effects on the next song, but keeps them through clear", () => {
     const on = applyPartyCommand(loaded(3), { type: "effects", target: "current", effects: blur });
-    expect(applyPartyCommand(on, { type: "next" }).effects).toEqual(blur);
+    expect(applyPartyCommand(on, { type: "next" }).effects).toEqual(NO_EFFECTS);
     expect(applyPartyCommand(on, { type: "clear" }).effects).toEqual(blur);
   });
 
@@ -1070,7 +1070,8 @@ describe("censor", () => {
   });
   it("records each change by clip time, preferring the preview's time", () => {
     const playing = { ...loaded(3), position: { token: "", currentTime: 7, duration: 60, playing: true, blocked: false, elapsed: 7, ended: false } };
-    const on = applyPartyCommand(playing, { type: "censor", censor, at: 12 });
+    const recording = applyPartyCommand(playing, { type: "censorRecord", recording: true });
+    const on = applyPartyCommand(recording, { type: "censor", censor, at: 12 });
     const off = applyPartyCommand(on, { type: "censor", censor: null });
     expect(off.censorTrack).toEqual([{ at: 7, censor: null }, { at: 12, censor }]);
     expect(off.censorTouched).toBe(true);
@@ -1088,10 +1089,29 @@ describe("censor", () => {
     expect(applyPartyCommand(state, { type: "censorSaved", token: "other", track })).toBe(state);
   });
 
-  it("forgets the track and the checkbox on the next song", () => {
-    const remembered = applyPartyCommand(applyPartyCommand(loaded(3), { type: "censor", censor, at: 3 }), { type: "censorRemember", remember: true });
-    expect(remembered.censorRemember).toBe(true);
-    const moved = applyPartyCommand(remembered, { type: "next" });
-    expect(moved).toMatchObject({ censorTrack: [], censorRemember: false, censorTouched: false });
+  it("keeps no timings unless recording", () => {
+    const on = applyPartyCommand(loaded(3), { type: "censor", censor, at: 3 });
+    expect(on.censorTrack).toEqual([]);
+    expect(on.censor).toEqual(censor);
+  });
+
+  it("records a take, saves it on stop, and forgets it on request", () => {
+    const rec = applyPartyCommand(loaded(3), { type: "censorRecord", recording: true });
+    expect(rec).toMatchObject({ censorRecording: true, censorRemember: false });
+    const cut = applyPartyCommand(rec, { type: "censor", censor, at: 3 });
+    const stopped = applyPartyCommand(cut, { type: "censorRecord", recording: false });
+    expect(stopped).toMatchObject({ censorRecording: false, censorRemember: true });
+    expect(stopped.censorTrack).toHaveLength(1);
+    const forgotten = applyPartyCommand(stopped, { type: "censorForget" });
+    expect(forgotten).toMatchObject({ censorRemember: false, censorTrack: [] });
+  });
+
+  it("starts a new take from scratch and resets on the next song", () => {
+    const game = loaded(3);
+    const saved = applyPartyCommand(game, { type: "censorSaved", token: game.queue[0]!.token, track: [{ at: 4, censor }] });
+    const again = applyPartyCommand(saved, { type: "censorRecord", recording: true });
+    expect(again.censorTrack).toEqual([]);
+    const moved = applyPartyCommand(again, { type: "next" });
+    expect(moved).toMatchObject({ censorTrack: [], censorRemember: false, censorRecording: false, censorTouched: false });
   });
 });
