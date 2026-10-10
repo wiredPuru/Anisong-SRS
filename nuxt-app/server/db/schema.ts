@@ -196,3 +196,13 @@ export const apiCache = sqliteTable("api_cache", {
 });
 
 export type ApiCacheRow = typeof apiCache.$inferSelect;
+
+// Party mode's remembered censors, one track per song (a card id, or a
+// catalog song's negated AnisongDB id, as the party queue keys them).
+export const partyCensor = sqliteTable("party_censor", {
+  cardId: integer("card_id").primaryKey(),
+  track: text("track").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

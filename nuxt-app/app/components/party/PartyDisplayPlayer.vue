@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { PartyCensor, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
+import type { PartyCensor, PartyCensorKey, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
 import { assignPartyVideoSlots } from "~/utils/partyVideoSlots";
+import { censorAt } from "~/utils/partyCensorBoxes";
 
 const props = defineProps<{
   token: string;
@@ -17,6 +18,7 @@ const props = defineProps<{
   lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
   ambient: boolean;
   censor: PartyCensor | null;
+  censorTrack: PartyCensorKey[] | null;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
@@ -136,7 +138,10 @@ const AMBIENT_BLEND = 0.22;
 const glowCanvas = ref<HTMLCanvasElement | null>(null);
 // The host's censor boxes sit over the clip's own picture, so they follow it
 // at any screen shape. Unlike the effects, a reveal does not lift them.
-const censorBoxes = computed(() => (props.kind === "video" && !failed.value ? props.censor?.boxes ?? [] : []));
+// A saved track plays back by clip time; the host's live censor replaces it.
+const clipTime = ref(0);
+const activeCensor = computed(() => props.censor ?? censorAt(props.censorTrack, clipTime.value));
+const censorBoxes = computed(() => (props.kind === "video" && !failed.value ? activeCensor.value?.boxes ?? [] : []));
 const currentAspect = computed(() => aspects.value[slots.value.indexOf(props.token)] ?? 16 / 9);
 const ambientOn = computed(
   () => props.ambient && props.kind === "video" && !failed.value && picture.value === "video" && !showVeil.value && !peekClip.value && !pixelSource.value && !bubbleSource.value,
@@ -206,7 +211,7 @@ function retryPlayback() {
 }
 
 function followMuted() {
-  if (media.value) media.value.muted = (active.value && fx.value.muted) || Boolean(props.censor?.muted);
+  if (media.value) media.value.muted = (active.value && fx.value.muted) || Boolean(activeCensor.value?.muted);
 }
 
 function registerElement(slot: number, element: unknown) {
@@ -313,7 +318,7 @@ watch(
     for (const element of elements) if (element) element.volume = volume;
   },
 );
-watch([() => fx.value.muted, active, () => props.censor?.muted], followMuted);
+watch([() => fx.value.muted, active, () => activeCensor.value?.muted], followMuted);
 watch(
   () => props.seekSeq,
   () => {
@@ -332,7 +337,10 @@ let glowTimer: ReturnType<typeof setInterval> | null = null;
 let reportTimer: ReturnType<typeof setInterval> | null = null;
 let frame = 0;
 function tick() {
-  if (media.value) elapsed.value = media.value.currentTime - startPosition.value;
+  if (media.value) {
+    elapsed.value = media.value.currentTime - startPosition.value;
+    clipTime.value = media.value.currentTime;
+  }
   frame = requestAnimationFrame(tick);
 }
 onMounted(() => {
@@ -385,7 +393,7 @@ onBeforeUnmount(() => {
     <div
       v-if="censorBoxes.length && !showVeil && !showCover"
       class="party-censor"
-      :class="`censor-${censor?.style ?? 'black'}`"
+      :class="`censor-${activeCensor?.style ?? 'black'}`"
       :style="{ '--clip-aspect': currentAspect }"
       aria-hidden="true"
     >

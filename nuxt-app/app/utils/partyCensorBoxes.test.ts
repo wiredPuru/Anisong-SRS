@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxFromDrag, moveBox, pointIn, resizeBox } from "./partyCensorBoxes";
+import { boxFromDrag, censorAt, moveBox, pointIn, resizeBox } from "./partyCensorBoxes";
 
 describe("boxFromDrag", () => {
   it("builds a box dragged in any direction", () => {
@@ -34,5 +34,16 @@ describe("resizeBox", () => {
 describe("pointIn", () => {
   it("turns a client point into fractions of the element", () => {
     expect(pointIn({ left: 100, top: 50, width: 200, height: 100 }, 150, 100)).toEqual({ x: 0.25, y: 0.5 });
+  });
+});
+
+describe("censorAt", () => {
+  it("follows a saved track by clip time", () => {
+    const censor = { boxes: [{ x: 0, y: 0, w: 1, h: 1 }], style: "blur" as const, muted: true };
+    const track = [{ at: 5, censor }, { at: 9, censor: null }];
+    expect(censorAt(track, 4)).toBeNull();
+    expect(censorAt(track, 6)).toEqual(censor);
+    expect(censorAt(track, 9)).toBeNull();
+    expect(censorAt(null, 6)).toBeNull();
   });
 });

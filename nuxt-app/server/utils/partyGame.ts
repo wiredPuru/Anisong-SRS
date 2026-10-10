@@ -1,4 +1,4 @@
-import { parsePartyCensor, type PartyCensor, type PartyCensorStyle } from "./partyCensor.ts";
+import { parsePartyCensor, recordCensorKey, type PartyCensor, type PartyCensorKey, type PartyCensorStyle } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
@@ -193,6 +193,13 @@ export interface PartyGameState {
   censor: PartyCensor | null;
   // How a censor hides the picture; the host's choice, kept between songs.
   censorStyle: PartyCensorStyle;
+  // Every censor change on the current song, by clip time, so it can be
+  // saved and played back the next time the song comes up.
+  censorTrack: PartyCensorKey[];
+  censorRemember: boolean;
+  // Once the host changes the censor on a song, the saved track stops
+  // playing back and the live censor alone applies.
+  censorTouched: boolean;
 }
 export interface PartySummary {
   standings: { rank: number; name: string; score: number }[];
@@ -224,8 +231,9 @@ export type PartyCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "censor"; censor: PartyCensor | null }
+  | { type: "censor"; censor: PartyCensor | null; at?: number }
   | { type: "censorStyle"; style: PartyCensorStyle }
+  | { type: "censorRemember"; remember: boolean }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
@@ -254,7 +262,9 @@ export type PartyInternalCommand =
   | { type: "playerJoin"; name: string; claimId: number | null }
   | { type: "playerConnection"; id: number; connected: boolean }
   | { type: "buzz"; playerId: number }
-  | { type: "choicePick"; playerId: number; index: number };
+  | { type: "choicePick"; playerId: number; index: number }
+  // A song's saved censor track, loaded as the song comes up.
+  | { type: "censorSaved"; token: string; track: PartyCensorKey[] };
 export interface PartyJoinInfo {
   urls: string[];
 }
@@ -288,6 +298,8 @@ export interface PartyDisplayState {
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
   censor: PartyCensor | null;
+  /** A saved censor track to play back by clip time, while the host leaves it alone. */
+  censorTrack: PartyCensorKey[] | null;
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
 export interface PartyPlayerState {
@@ -343,6 +355,9 @@ export interface PartyHostState {
   currentToken: string | null;
   censor: PartyCensor | null;
   censorStyle: PartyCensorStyle;
+  censorTrack: PartyCensorKey[];
+  censorRemember: boolean;
+  censorTouched: boolean;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -455,6 +470,9 @@ export function initialPartyState(
     roundPoints: {},
     summaryVisible: false,
     censor: null,
+    censorTrack: [],
+    censorRemember: false,
+    censorTouched: false,
     ...kept,
   };
 }
@@ -656,8 +674,15 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return "error" in parsed ? parsed : { type, target, effects: parsed };
     }
     case "censor": {
-      const parsed = parsePartyCensor((body as { censor?: unknown }).censor ?? null);
-      return parsed && "error" in parsed ? parsed : { type, censor: parsed };
+      const { censor, at } = body as { censor?: unknown; at?: unknown };
+      const parsed = parsePartyCensor(censor ?? null);
+      if (parsed && "error" in parsed) return parsed;
+      if (at === undefined) return { type, censor: parsed };
+      return typeof at === "number" && Number.isFinite(at) && at >= 0 ? { type, censor: parsed, at } : { error: "at must be a number of 0 or more" };
+    }
+    case "censorRemember": {
+      const { remember } = body as { remember?: unknown };
+      return typeof remember === "boolean" ? { type, remember } : { error: "remember must be a boolean" };
     }
     case "censorStyle": {
       const { style } = body as { style?: unknown };
@@ -924,7 +949,7 @@ function addRoundPoints(roundPoints: Record<number, number>, playerId: number, d
   return total === 0 ? rest : { ...rest, [playerId]: total };
 }
 
-function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
+function applyInternal(state: PartyGameState, command: Exclude<PartyInternalCommand, { type: "censorSaved" }>): PartyGameState {
   const { players } = state.scoreboard;
   const withPlayers = (next: PartyPlayer[]) => ({ ...state, scoreboard: { ...state.scoreboard, players: next } });
   if (command.type === "playerJoin") {
@@ -989,6 +1014,9 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     roundPoints: {},
     summaryVisible: false,
     censor: null,
+    censorTrack: [],
+    censorRemember: false,
+    censorTouched: false,
   };
 }
 
@@ -1001,6 +1029,10 @@ export function applyPartyCommand(
   command: PartyCommand | PartyInternalCommand,
   options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number; choices?: string[] } = {},
 ): PartyGameState {
+  if (command.type === "censorSaved") {
+    if (currentPartyItem(state)?.token !== command.token || state.censorTouched || !command.track.length) return state;
+    return { ...state, censorTrack: command.track, censorRemember: true, version: state.version + 1 };
+  }
   if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz" || command.type === "choicePick") {
     const next = applyInternal(state, command);
     return next === state ? state : { ...next, version: state.version + 1 };
@@ -1169,9 +1201,16 @@ export function applyPartyCommand(
       break;
     case "censor":
       // Every censor uses the host's chosen style, whoever sent it.
-      if (hasItem || command.censor === null) {
-        next = { ...state, censor: command.censor && { ...command.censor, style: state.censorStyle } };
+      if (hasItem) {
+        const censor = command.censor && { ...command.censor, style: state.censorStyle };
+        // The host's preview runs ahead of the display, so it says when in
+        // the clip the change belongs; a hotkey falls back to the display.
+        const at = command.at ?? state.position?.currentTime ?? 0;
+        next = { ...state, censor, censorTouched: true, censorTrack: recordCensorKey(state.censorTrack, at, censor) };
       }
+      break;
+    case "censorRemember":
+      if (hasItem && state.censorRemember !== command.remember) next = { ...state, censorRemember: command.remember };
       break;
     case "censorStyle":
       next = { ...state, censorStyle: command.style, censor: state.censor && { ...state.censor, style: command.style } };
@@ -1302,6 +1341,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,
     censor: item ? state.censor : null,
+    censorTrack: item && !state.censorTouched && state.censorTrack.length ? state.censorTrack : null,
   };
 }
 
@@ -1428,6 +1468,9 @@ export function toHostState(state: PartyGameState): PartyHostState {
     currentToken: item?.token ?? null,
     censor: state.censor,
     censorStyle: state.censorStyle,
+    censorTrack: state.censorTrack,
+    censorRemember: state.censorRemember,
+    censorTouched: state.censorTouched,
   };
 }
 

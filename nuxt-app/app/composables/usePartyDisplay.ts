@@ -19,6 +19,10 @@ export interface PartyCensor {
   style: "blur" | "black";
   muted: boolean;
 }
+export interface PartyCensorKey {
+  at: number;
+  censor: PartyCensor | null;
+}
 
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
 export interface PartyEffects {
@@ -108,6 +112,7 @@ export interface PartyDisplayState {
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
   censor: PartyCensor | null;
+  censorTrack: PartyCensorKey[] | null;
 }
 
 export interface PartyPositionReport {

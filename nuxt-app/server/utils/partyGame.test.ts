@@ -1068,4 +1068,30 @@ describe("censor", () => {
     expect(toHostState(on).censorStyle).toBe("blur");
     expect(parsePartyCommand({ type: "censorStyle", style: "pink" })).toHaveProperty("error");
   });
+  it("records each change by clip time, preferring the preview's time", () => {
+    const playing = { ...loaded(3), position: { token: "", currentTime: 7, duration: 60, playing: true, blocked: false, elapsed: 7, ended: false } };
+    const on = applyPartyCommand(playing, { type: "censor", censor, at: 12 });
+    const off = applyPartyCommand(on, { type: "censor", censor: null });
+    expect(off.censorTrack).toEqual([{ at: 7, censor: null }, { at: 12, censor }]);
+    expect(off.censorTouched).toBe(true);
+    expect(parsePartyCommand({ type: "censor", censor: null, at: -2 })).toHaveProperty("error");
+  });
+
+  it("plays a saved track back on the display until the host changes the censor", () => {
+    const state = loaded(3);
+    const track = [{ at: 4, censor }];
+    const saved = applyPartyCommand(state, { type: "censorSaved", token: state.queue[0]!.token, track });
+    expect(saved.censorRemember).toBe(true);
+    expect(toDisplayState(saved).censorTrack).toEqual(track);
+    const touched = applyPartyCommand(saved, { type: "censor", censor: null, at: 2 });
+    expect(toDisplayState(touched).censorTrack).toBeNull();
+    expect(applyPartyCommand(state, { type: "censorSaved", token: "other", track })).toBe(state);
+  });
+
+  it("forgets the track and the checkbox on the next song", () => {
+    const remembered = applyPartyCommand(applyPartyCommand(loaded(3), { type: "censor", censor, at: 3 }), { type: "censorRemember", remember: true });
+    expect(remembered.censorRemember).toBe(true);
+    const moved = applyPartyCommand(remembered, { type: "next" });
+    expect(moved).toMatchObject({ censorTrack: [], censorRemember: false, censorTouched: false });
+  });
 });

@@ -171,6 +171,7 @@ onBeforeUnmount(() => {
       :lightning="state?.lightning ?? null"
       :ambient="ambient"
       :censor="state?.censor ?? null"
+      :censor-track="state?.censorTrack ?? null"
       @position="reportPosition"
     />
 

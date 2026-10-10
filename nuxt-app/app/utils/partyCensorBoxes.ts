@@ -1,4 +1,4 @@
-import type { PartyCensorBox } from "~/composables/usePartyDisplay";
+import type { PartyCensor, PartyCensorBox, PartyCensorKey } from "~/composables/usePartyDisplay";
 
 export const CENSOR_MAX_BOXES = 6;
 export const CENSOR_MIN_SIZE = 0.02;
@@ -45,4 +45,14 @@ export function pointIn(rect: { left: number; top: number; width: number; height
     x: rect.width ? (clientX - rect.left) / rect.width : 0,
     y: rect.height ? (clientY - rect.top) / rect.height : 0,
   };
+}
+
+/** The censor a saved track has in force at a point in the clip (the server's censorAt). */
+export function censorAt(track: readonly PartyCensorKey[] | null, time: number): PartyCensor | null {
+  let current: PartyCensor | null = null;
+  for (const key of track ?? []) {
+    if (key.at > time) break;
+    current = key.censor;
+  }
+  return current;
 }

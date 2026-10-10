@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PartyCensor, PartyCensorBox } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
-import { boxFromDrag, CENSOR_MAX_BOXES, FULL_FRAME, moveBox, pointIn, resizeBox, type Point } from "~/utils/partyCensorBoxes";
+import { boxFromDrag, CENSOR_MAX_BOXES, censorAt, FULL_FRAME, moveBox, pointIn, resizeBox, type Point } from "~/utils/partyCensorBoxes";
 import { parsePreviewLead, PREVIEW_LEADS, previewNeedsSeek, previewTarget } from "~/utils/partyPreview";
 
 const props = defineProps<{ state: PartyHostState }>();
@@ -29,6 +29,7 @@ function setLead(value: number) {
 // so the host sees a moment coming before the room does.
 const video = ref<HTMLVideoElement | null>(null);
 const aspect = ref(16 / 9);
+const previewTime = ref(0);
 let receivedAt = Date.now();
 watch(() => props.state.position, () => {
   receivedAt = Date.now();
@@ -46,6 +47,7 @@ function sync() {
   if (previewNeedsSeek(element.currentTime, target)) element.currentTime = target;
   if (position.playing && element.paused) void element.play().catch(() => {});
   else if (!position.playing && !element.paused) element.pause();
+  previewTime.value = element.currentTime;
 }
 
 function onLoadedMetadata() {
@@ -60,6 +62,10 @@ const boxes = ref<PartyCensorBox[]>([]);
 const style = computed(() => props.state.censorStyle);
 const muted = ref(false);
 const live = computed(() => props.state.censor !== null);
+// A remembered censor plays back on its own until the host changes anything.
+const replaying = computed(() => !props.state.censorTouched && props.state.censorTrack.length > 0);
+const replayCensor = computed(() => (replaying.value ? censorAt(props.state.censorTrack, previewTime.value) : null));
+const shownBoxes = computed(() => (replaying.value ? replayCensor.value?.boxes ?? [] : boxes.value));
 
 watch(token, () => {
   boxes.value = [];
@@ -79,6 +85,18 @@ watch(() => props.state.censor, (censor) => {
   muted.value = censor?.muted ?? false;
 }, { immediate: true });
 
+// Editing a replayed box starts from what is on screen.
+function takeOverReplay() {
+  if (!replaying.value) return;
+  boxes.value = replayCensor.value?.boxes.map((box) => ({ ...box })) ?? [];
+  muted.value = replayCensor.value?.muted ?? false;
+}
+
+function previewAt(): number | undefined {
+  const element = video.value;
+  return element && element.readyState >= HTMLMediaElement.HAVE_METADATA ? element.currentTime : undefined;
+}
+
 function censorBody(): PartyCensor {
   return { boxes: boxes.value.map((box) => ({ ...box })), style: style.value, muted: muted.value };
 }
@@ -89,7 +107,7 @@ function sendLive() {
   if (liveTimer) return;
   liveTimer = setTimeout(() => {
     liveTimer = null;
-    emit("command", { type: "censor", censor: censorBody() });
+    emit("command", { type: "censor", censor: censorBody(), at: previewAt() });
   }, LIVE_SEND_MS);
 }
 
@@ -101,7 +119,11 @@ function censorWholeScreen() {
 function lift() {
   boxes.value = [];
   muted.value = false;
-  emit("command", { type: "censor", censor: null });
+  emit("command", { type: "censor", censor: null, at: previewAt() });
+}
+
+function setRemember(remember: boolean) {
+  emit("command", { type: "censorRemember", remember });
 }
 
 function setStyle(next: PartyCensor["style"]) {
@@ -109,11 +131,13 @@ function setStyle(next: PartyCensor["style"]) {
 }
 
 function toggleMuted() {
+  takeOverReplay();
   muted.value = !muted.value;
   sendLive();
 }
 
 function removeBox(index: number) {
+  takeOverReplay();
   boxes.value = boxes.value.filter((_, i) => i !== index);
   sendLive();
 }
@@ -124,6 +148,7 @@ function pointer(event: PointerEvent): Point {
 
 function startDrag(event: PointerEvent, mode: "draw" | "move" | "resize", index = -1) {
   if (event.button !== 0 || !stage.value) return;
+  takeOverReplay();
   const start = pointer(event);
   if (mode === "draw") {
     if (boxes.value.length >= CENSOR_MAX_BOXES) return;
@@ -188,6 +213,7 @@ onBeforeUnmount(() => {
     <div class="censor-head">
       <h2 class="panel-title">Preview</h2>
       <span v-if="live" class="live-chip">Censoring</span>
+      <span v-else-if="replaying" class="live-chip saved-chip">Saved censor</span>
       <span class="head-spacer" />
       <label class="lead">
         <span>Ahead by</span>
@@ -220,10 +246,10 @@ onBeforeUnmount(() => {
         />
         <p v-else class="stage-note">Audio only. Mute still works.</p>
         <div
-          v-for="(box, i) in boxes"
+          v-for="(box, i) in shownBoxes"
           :key="i"
           class="box"
-          :class="`box-${style}`"
+          :class="`box-${replaying ? replayCensor?.style ?? style : style}`"
           :style="boxStyle(box)"
           @pointerdown.stop="startDrag($event, 'move', i)"
         >
@@ -236,14 +262,21 @@ onBeforeUnmount(() => {
 
     <div class="censor-controls">
       <button type="button" class="censor-btn" @click="censorWholeScreen">Censor whole screen</button>
-      <button v-if="live" type="button" class="censor-btn lift" @click="lift">Lift censor</button>
+      <button v-if="live || replaying" type="button" class="censor-btn lift" @click="lift">Lift censor</button>
       <div class="seg" role="group" aria-label="Censor style">
         <button type="button" :class="{ on: style === 'black' }" @click="setStyle('black')">Black</button>
         <button type="button" :class="{ on: style === 'blur' }" @click="setStyle('blur')">Blur</button>
       </div>
-      <button type="button" class="pill" :class="{ on: muted }" :aria-pressed="muted" @click="toggleMuted">Mute</button>
+      <button type="button" class="pill" :class="{ on: replaying ? replayCensor?.muted : muted }" :aria-pressed="replaying ? Boolean(replayCensor?.muted) : muted" @click="toggleMuted">Mute</button>
+      <label class="remember">
+        <input type="checkbox" :checked="state.censorRemember" @change="setRemember(($event.target as HTMLInputElement).checked)" />
+        Remember for this song
+      </label>
     </div>
-    <p class="censor-hint">Drag on the preview to censor that spot on the screen. C censors the whole screen.</p>
+    <p class="censor-hint">
+      Drag on the preview to censor that spot on the screen. C censors the whole screen.
+      <template v-if="state.censorRemember"> Your censors replay the next time this song comes up.</template>
+    </p>
   </div>
 </template>
 
@@ -449,6 +482,20 @@ onBeforeUnmount(() => {
 .pill.on {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.saved-chip {
+  background: var(--accent-secondary);
+}
+
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .censor-hint {
