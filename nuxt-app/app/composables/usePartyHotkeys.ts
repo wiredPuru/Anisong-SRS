@@ -1,4 +1,5 @@
 import type { PartyHostCommand, PartyHostState } from "./usePartyHost";
+import { FULL_FRAME } from "~/utils/partyCensorBoxes";
 
 export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "Space", action: "Play / pause" },
@@ -7,6 +8,7 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "P or ←", action: "Previous song" },
   { keys: "E", action: "Skip to the last 3 seconds" },
   { keys: "M", action: "Mute / unmute" },
+  { keys: "C", action: "Censor the whole screen / lift the censor" },
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
   { keys: "?", action: "This list" },
@@ -50,7 +52,9 @@ export function usePartyHotkeys(
       const seconds = skipTarget(current.position?.duration);
       if (seconds !== null) command = { type: "seek", seconds, skip: true };
     } else if (key === "m") command = { type: "effects", target: "current", effects: { ...current.effects, muted: !current.effects.muted } };
-    else if (key === "t" && hasGame) command = { type: "timer", seconds: TIMER_HOTKEY_SECONDS, autoReveal: true };
+    else if (key === "c" && hasGame) {
+      command = { type: "censor", censor: current.censor ? null : { boxes: [FULL_FRAME], style: "black", muted: false } };
+    } else if (key === "t" && hasGame) command = { type: "timer", seconds: TIMER_HOTKEY_SECONDS, autoReveal: true };
     else if (key === "s") command = { type: "score", op: "show", visible: !current.scoreboard.visible };
     if (!command) return;
 

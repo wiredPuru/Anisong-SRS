@@ -1,3 +1,4 @@
+import { parsePartyCensor, type PartyCensor } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
@@ -188,6 +189,8 @@ export interface PartyGameState {
   // Net points per player id on the current song only (feature 91a).
   roundPoints: Record<number, number>;
   summaryVisible: boolean;
+  // Hides parts of the current song's picture, or its sound, from the room.
+  censor: PartyCensor | null;
 }
 export interface PartySummary {
   standings: { rank: number; name: string; score: number }[];
@@ -219,6 +222,7 @@ export type PartyCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "censor"; censor: PartyCensor | null }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
@@ -280,6 +284,7 @@ export interface PartyDisplayState {
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
+  censor: PartyCensor | null;
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
 export interface PartyPlayerState {
@@ -331,6 +336,9 @@ export interface PartyHostState {
   buzz: PartyBuzz;
   currentAwards: number[];
   summaryVisible: boolean;
+  // The host may watch the clip ahead of the room, so it gets the clip token.
+  currentToken: string | null;
+  censor: PartyCensor | null;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -441,6 +449,7 @@ export function initialPartyState(
     awardValue: {},
     roundPoints: {},
     summaryVisible: false,
+    censor: null,
     ...kept,
   };
 }
@@ -640,6 +649,10 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (effects === null) return { type, target, effects: null };
       const parsed = parsePartyEffects(effects);
       return "error" in parsed ? parsed : { type, target, effects: parsed };
+    }
+    case "censor": {
+      const parsed = parsePartyCensor((body as { censor?: unknown }).censor ?? null);
+      return parsed && "error" in parsed ? parsed : { type, censor: parsed };
     }
     case "seek": {
       const { seconds } = body as { seconds?: unknown };
@@ -966,6 +979,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     buzz: NO_BUZZ,
     roundPoints: {},
     summaryVisible: false,
+    censor: null,
   };
 }
 
@@ -1144,6 +1158,9 @@ export function applyPartyCommand(
         ? { ...state, effects: command.effects ?? NO_EFFECTS }
         : { ...state, nextEffects: command.effects };
       break;
+    case "censor":
+      if (hasItem || command.censor === null) next = { ...state, censor: command.censor };
+      break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") {
         next = { ...state, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0, buzz: { ...state.buzz, playerId: null } };
@@ -1268,6 +1285,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     buzz: { answering: playerName(state, state.buzz.playerId) },
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,
+    censor: item ? state.censor : null,
   };
 }
 
@@ -1391,6 +1409,8 @@ export function toHostState(state: PartyGameState): PartyHostState {
     buzz: state.buzz,
     currentAwards: (item && state.awards[item.token]) ?? [],
     summaryVisible: state.summaryVisible,
+    currentToken: item?.token ?? null,
+    censor: state.censor,
   };
 }
 

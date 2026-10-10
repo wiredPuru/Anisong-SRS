@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
+import type { PartyCensor, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
 import { assignPartyVideoSlots } from "~/utils/partyVideoSlots";
 
 const props = defineProps<{
@@ -16,6 +16,7 @@ const props = defineProps<{
   volume: number;
   lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
   ambient: boolean;
+  censor: PartyCensor | null;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
@@ -133,6 +134,10 @@ const hints = computed(() => (props.lightning?.hints && !failed.value ? props.li
 const AMBIENT_SAMPLE_MS = 100;
 const AMBIENT_BLEND = 0.22;
 const glowCanvas = ref<HTMLCanvasElement | null>(null);
+// The host's censor boxes sit over the clip's own picture, so they follow it
+// at any screen shape. Unlike the effects, a reveal does not lift them.
+const censorBoxes = computed(() => (props.kind === "video" && !failed.value ? props.censor?.boxes ?? [] : []));
+const currentAspect = computed(() => aspects.value[slots.value.indexOf(props.token)] ?? 16 / 9);
 const ambientOn = computed(
   () => props.ambient && props.kind === "video" && !failed.value && picture.value === "video" && !showVeil.value && !peekClip.value && !pixelSource.value && !bubbleSource.value,
 );
@@ -147,6 +152,11 @@ function drawGlow() {
   ctx.globalAlpha = glowPrimed && !reduceMotion ? AMBIENT_BLEND : 1;
   ctx.drawImage(element, 0, 0, canvas.width, canvas.height);
   ctx.globalAlpha = 1;
+  // Censored regions must not bleed into the glow either.
+  ctx.fillStyle = "#000";
+  for (const box of censorBoxes.value) {
+    ctx.fillRect(box.x * canvas.width, box.y * canvas.height, box.w * canvas.width, box.h * canvas.height);
+  }
   glowPrimed = true;
 }
 
@@ -196,7 +206,7 @@ function retryPlayback() {
 }
 
 function followMuted() {
-  if (media.value) media.value.muted = active.value && fx.value.muted;
+  if (media.value) media.value.muted = (active.value && fx.value.muted) || Boolean(props.censor?.muted);
 }
 
 function registerElement(slot: number, element: unknown) {
@@ -303,7 +313,7 @@ watch(
     for (const element of elements) if (element) element.volume = volume;
   },
 );
-watch([() => fx.value.muted, active], followMuted);
+watch([() => fx.value.muted, active, () => props.censor?.muted], followMuted);
 watch(
   () => props.seekSeq,
   () => {
@@ -372,6 +382,20 @@ onBeforeUnmount(() => {
     />
     <PartyBubbleCanvas v-if="bubbleSource" :source="bubbleSource" :seed="token" :style="visualStyle" />
     <PartyPixelCanvas v-if="pixelSource" :source="pixelSource" :block-size="pixelBlock" :style="visualStyle" />
+    <div
+      v-if="censorBoxes.length && !showVeil && !showCover"
+      class="party-censor"
+      :class="`censor-${censor?.style ?? 'black'}`"
+      :style="{ '--clip-aspect': currentAspect }"
+      aria-hidden="true"
+    >
+      <span
+        v-for="(box, i) in censorBoxes"
+        :key="i"
+        class="censor-box"
+        :style="{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }"
+      />
+    </div>
     <div v-if="failed" class="party-veil">
       <StudyPlayerKai mood="error" text="This clip won't play" />
     </div>
@@ -434,6 +458,29 @@ onBeforeUnmount(() => {
     linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent),
     linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent);
   mask-composite: intersect;
+}
+
+.party-censor {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100cqw, calc(100cqh * var(--clip-aspect, 1.7778)));
+  aspect-ratio: var(--clip-aspect, 1.7778);
+  pointer-events: none;
+}
+
+.censor-box {
+  position: absolute;
+  border-radius: 1vmin;
+}
+
+.censor-black .censor-box {
+  background: var(--censor-fill);
+}
+
+.censor-blur .censor-box {
+  background: var(--censor-tint);
+  backdrop-filter: blur(6vmin) saturate(0.6);
 }
 
 .party-cover {

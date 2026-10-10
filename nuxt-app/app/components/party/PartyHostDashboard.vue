@@ -72,6 +72,10 @@ usePartyHotkeys(state, send, () => {
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
 
+        <section v-if="hasGame && state" class="panel" aria-label="Preview and censor">
+          <PartyCensorPanel :state="state" @command="send" />
+        </section>
+
         <section v-if="state" class="panel grow">
           <PartyScoreboardPanel :state="state" @command="send" />
         </section>
@@ -330,6 +334,8 @@ usePartyHotkeys(state, send, () => {
   .dashboard {
     zoom: 1.6;
     height: calc(100vh / 1.6);
+    /* vh is not zoomed, so the preview's height cap is scaled back down. */
+    --preview-height: 16.25vh;
   }
 }
 

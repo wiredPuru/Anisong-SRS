@@ -7,6 +7,19 @@ export type PartyHints =
   | { kind: "title"; masked: string }
   | null;
 
+// Hand-kept copy of the server's PartyCensor (server/utils/partyCensor.ts).
+export interface PartyCensorBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface PartyCensor {
+  boxes: PartyCensorBox[];
+  style: "blur" | "black";
+  muted: boolean;
+}
+
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
 export interface PartyEffects {
   blur: number;
@@ -94,6 +107,7 @@ export interface PartyDisplayState {
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
+  censor: PartyCensor | null;
 }
 
 export interface PartyPositionReport {

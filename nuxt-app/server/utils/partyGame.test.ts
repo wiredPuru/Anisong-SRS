@@ -1034,3 +1034,27 @@ describe("round points (feature 91a)", () => {
     expect(round(applyPartyCommand(scored, { type: "score", op: "remove", id: 1 }))).toEqual([{ id: 2, name: "Bea", points: 1 }]);
   });
 });
+
+describe("censor", () => {
+  const censor = { boxes: [{ x: 0.1, y: 0.1, w: 0.3, h: 0.3 }], style: "black" as const, muted: false };
+
+  it("parses the censor command", () => {
+    expect(parsePartyCommand({ type: "censor", censor })).toEqual({ type: "censor", censor });
+    expect(parsePartyCommand({ type: "censor", censor: null })).toEqual({ type: "censor", censor: null });
+    expect(parsePartyCommand({ type: "censor", censor: { ...censor, style: "red" } })).toHaveProperty("error");
+  });
+
+  it("shows on the display and the host, and only while a song is up", () => {
+    const on = applyPartyCommand(loaded(), { type: "censor", censor });
+    expect(toDisplayState(on).censor).toEqual(censor);
+    expect(toHostState(on)).toMatchObject({ censor, currentToken: on.queue[0]!.token });
+    expect(applyPartyCommand(initialPartyState(), { type: "censor", censor })).toEqual(initialPartyState());
+  });
+
+  it("lasts through the reveal and clears on the next song", () => {
+    const on = applyPartyCommand(loaded(3), { type: "censor", censor });
+    expect(applyPartyCommand(on, { type: "reveal" }).censor).toEqual(censor);
+    expect(applyPartyCommand(on, { type: "next" }).censor).toBeNull();
+    expect(applyPartyCommand(on, { type: "clear" }).censor).toBeNull();
+  });
+});

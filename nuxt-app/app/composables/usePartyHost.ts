@@ -1,6 +1,7 @@
 import type {
   PartyAnswer,
   PartyBanner,
+  PartyCensor,
   PartyEffects,
   PartyLightningMode,
   PartyMusic,
@@ -72,6 +73,8 @@ export interface PartyHostState {
   buzz: { playerId: number | null; lockedOut: number[]; winnerId: number | null };
   currentAwards: number[];
   summaryVisible: boolean;
+  currentToken: string | null;
+  censor: PartyCensor | null;
 }
 
 export type PartyHostCommand =
@@ -85,6 +88,7 @@ export type PartyHostCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "censor"; censor: PartyCensor | null }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
