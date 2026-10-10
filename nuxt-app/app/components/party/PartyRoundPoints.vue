@@ -1,22 +1,14 @@
 <script setup lang="ts">
 import type { PartyRoundPoint } from "~/composables/usePartyDisplay";
-import type { PartyScorePop } from "~/composables/usePartySettledScores";
 
-defineProps<{ rows: PartyRoundPoint[]; pops: PartyScorePop[] }>();
+defineProps<{ rows: PartyRoundPoint[] }>();
 
 const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
 </script>
 
 <template>
-  <div v-if="rows.length || pops.length" class="round">
-    <div class="round-pops" aria-live="polite">
-      <p v-for="pop in pops" :key="pop.key" class="kai-banner kai-banner-pass round-pop">
-        <span class="round-pop-points">+{{ pop.points }}</span>
-        <span class="round-pop-name">{{ pop.name }}</span>
-      </p>
-    </div>
-
-    <aside v-if="rows.length" class="round-panel" aria-label="Points this round">
+  <div v-if="rows.length" class="round">
+    <aside class="round-panel" aria-label="Points this round">
       <p class="round-title">This round</p>
       <ol class="round-list">
         <li v-for="row in rows" :key="row.id" class="round-row">
@@ -35,32 +27,6 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
   flex-direction: column;
   gap: 12px;
   pointer-events: none;
-}
-
-.round-pops {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.round-pop {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35em;
-  max-width: 100%;
-  font-size: clamp(26px, 3.4vw, 5.56vh);
-  text-transform: none;
-  animation: round-pop-float 2600ms ease-out both;
-}
-
-.round-pop-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.6em;
-  color: var(--text);
 }
 
 .round-panel {
@@ -113,33 +79,5 @@ const signed = (points: number) => (points > 0 ? `+${points}` : `${points}`);
 
 .round-points.negative {
   color: var(--fail);
-}
-
-@keyframes round-pop-float {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  12% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-  22% {
-    transform: scale(1);
-  }
-  80% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-24px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .round-pop {
-    animation: none;
-  }
 }
 </style>

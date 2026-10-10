@@ -157,9 +157,11 @@ function drawGlow() {
   ctx.globalAlpha = glowPrimed && !reduceMotion ? AMBIENT_BLEND : 1;
   ctx.drawImage(element, 0, 0, canvas.width, canvas.height);
   ctx.globalAlpha = 1;
-  // Censored regions must not bleed into the glow either.
+  // A black censor must not bleed into the glow. A blur censor leaves the
+  // glow alone: it is already soft, so the sides keep their lighting.
   ctx.fillStyle = "#000";
-  for (const box of censorBoxes.value) {
+  const hideInGlow = activeCensor.value?.style === "black" ? censorBoxes.value : [];
+  for (const box of hideInGlow) {
     ctx.fillRect(box.x * canvas.width, box.y * canvas.height, box.w * canvas.width, box.h * canvas.height);
   }
   glowPrimed = true;

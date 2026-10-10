@@ -32,7 +32,7 @@ const { editing: arranging, settings, category, selected } = usePartyLayout();
 const showSummary = computed(() => started.value && Boolean(state.value?.summary || (arranging.value && category.value === 'results')));
 const roundRows = computed(() => {
   const rows = scores.value?.token ? scores.value.roundPoints : [];
-  return arranging.value && !rows.length && !pops.value.length ? SAMPLE_ROUND : rows;
+  return arranging.value && !rows.length ? SAMPLE_ROUND : rows;
 });
 // The player shows the real hints card while a lightning hint round is guessing.
 const hintsOnScreen = computed(() => Boolean(state.value?.item && state.value.lightning?.hints && state.value.phase === "guessing"));
@@ -218,9 +218,11 @@ onBeforeUnmount(() => {
 
     <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" :arranging="arranging" />
 
+    <PartyScorePops v-if="started" :pops="pops" />
+
     <template v-if="started && state">
       <PartyLayoutFrame piece="round">
-        <PartyRoundPoints :rows="roundRows" :pops="pops" />
+        <PartyRoundPoints :rows="roundRows" />
       </PartyLayoutFrame>
       <PartyDisplayOverlays
         :timer="state.timer"
