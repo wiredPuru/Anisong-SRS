@@ -10,6 +10,18 @@ const newName = ref("");
 const editingId = ref<number | null>(null);
 const editName = ref("");
 const confirmingReset = ref(false);
+const kickingId = ref<number | null>(null);
+const kickError = ref<string | null>(null);
+
+async function kick(id: number) {
+  kickError.value = null;
+  try {
+    await $fetch("/api/party/host/kick", { method: "POST", body: { id } });
+  } catch {
+    kickError.value = "Couldn't kick that player.";
+  }
+  kickingId.value = null;
+}
 
 const players = computed(() => props.state.scoreboard.players);
 const teams = computed(() => props.state.scoreboard.teams);
@@ -90,10 +102,16 @@ function resetScores() {
         <span class="score">{{ player.score }}</span>
         <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
         <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+</button>
+        <span v-if="kickingId === player.id" class="kick-confirm">
+          <button type="button" class="mini" @click="kick(player.id)">Kick {{ player.name }}?</button>
+          <button type="button" class="mini" @click="kickingId = null">Cancel</button>
+        </span>
+        <button v-else-if="player.phone" type="button" class="mini" @click="kickingId = player.id">Kick</button>
         <button type="button" class="remove" :aria-label="`Remove ${player.name}`" @click="emit('command', { type: 'score', op: 'remove', id: player.id })">✕</button>
       </li>
       <li v-if="!players.length" class="empty">No players yet.</li>
     </ul>
+    <p v-if="kickError" class="empty" role="alert">{{ kickError }}</p>
 
     <form class="add" @submit.prevent="addPlayer">
       <input v-model="newName" class="text" type="text" maxlength="24" :placeholder="full ? 'Scoreboard is full' : 'Player or team name'" :disabled="full" />
@@ -207,6 +225,11 @@ function resetScores() {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.kick-confirm {
+  display: inline-flex;
+  gap: 4px;
 }
 
 .remove {

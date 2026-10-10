@@ -21,6 +21,35 @@ function setup() {
   };
 }
 
+describe("createPlayerRegistry kick", () => {
+  it("revokes the session, drops the player and remembers why", () => {
+    const game = setup();
+    const joined = game.registry.join({ name: "Aki" });
+    if (!joined.ok) throw new Error("join failed");
+    expect(game.registry.kick(joined.player.id)).toBe(true);
+    expect(game.registry.playerFor(joined.token)).toBeNull();
+    expect(game.state.scoreboard.players).toHaveLength(0);
+    expect(game.registry.wasKicked(joined.player.id)).toBe(true);
+  });
+
+  it("is a no-op for an unknown or already kicked player", () => {
+    const game = setup();
+    const joined = game.registry.join({ name: "Aki" });
+    if (!joined.ok) throw new Error("join failed");
+    expect(game.registry.kick(99)).toBe(false);
+    expect(game.registry.kick(joined.player.id)).toBe(true);
+    expect(game.registry.kick(joined.player.id)).toBe(false);
+  });
+
+  it("does not mark a plain removal as a kick", () => {
+    const game = setup();
+    const joined = game.registry.join({ name: "Aki" });
+    if (!joined.ok) throw new Error("join failed");
+    game.host({ type: "score", op: "remove", id: joined.player.id });
+    expect(game.registry.wasKicked(joined.player.id)).toBe(false);
+  });
+});
+
 describe("createPlayerRegistry", () => {
   it("joins with a name and signs the phone in", () => {
     const game = setup();

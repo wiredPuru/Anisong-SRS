@@ -2,7 +2,7 @@
 definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party - Join" });
 
-const { view, state, connected, notice, savedName, join, rename, buzz, buzzing, pickChoice, picking } = usePartyPlayer();
+const { view, state, connected, notice, savedName, join, joinAgain, rename, buzz, buzzing, pickChoice, picking } = usePartyPlayer();
 
 const name = ref("");
 const joinError = ref<string | null>(null);
@@ -52,6 +52,17 @@ const stage = computed<Stage>(() => {
   <main class="play">
     <section v-if="view === 'checking'" class="play-card">
       <p class="play-note">Connecting...</p>
+    </section>
+
+    <section v-else-if="view === 'kicked'" class="play-card">
+      <header class="play-header">
+        <MascotKai pose="slump" size="companion" />
+        <div>
+          <h1 class="play-title">You were removed</h1>
+          <p class="play-note">The host removed you from the game.</p>
+        </div>
+      </header>
+      <button type="button" class="play-btn play-btn-secondary" @click="joinAgain">Join again</button>
     </section>
 
     <section v-else-if="view === 'join'" class="play-card">

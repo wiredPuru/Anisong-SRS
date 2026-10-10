@@ -331,6 +331,11 @@ Feature 101 (Listen mode) was added to `build-plan.md` on 2026-10-07 and is buil
 Study's player and display toggles but no grading, scheduling or score. It
 amended `project-plan.md` §3 with one Listen mode bullet, since it is a new
 route rather than a control on an existing one.
+Feature 102 (party kick and IP ban, in two sub-features 102a-102b) was added to
+`build-plan.md` on 2026-10-10. The host can kick a joined player, signing their
+phone out, and ban their IP from rejoining; bans live in memory and clear when
+`gaq-party` restarts. No `project-plan.md` change: it is a control on feature
+90's existing player management, like feature 93.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2497,6 +2502,16 @@ route rather than a control on an existing one.
     page rather than a mode inside `/study`, since `study/index.vue` is
     SRS-and-typed-answer heavy; shuffle default on; the playlist stops at its
     end with a Play again action rather than looping.
+102. **Party kick and IP ban** - added to `build-plan.md` 2026-10-10, in two
+    sub-features, not yet built. A kick revokes a player's session and shows their
+    phone a "removed by the host" screen; a ban also refuses that IP at join and
+    stream on the player door until unbanned. IPs come from the door-stamped
+    `x-gaq-party-client-ip` header, are recorded at join, and live in memory only.
+    Phones behind one shared IP (a hotspot) are banned together, which the host UI
+    says before confirming. An IP ban is a deterrent, not a guarantee: a banned
+    person can switch networks.
+    - **102a. Kick** - revoke the session, notify the phone, drop the player.
+    - **102b. IP ban** - record IPs, ban list, join and stream refusal, host UI.
 
 ## Data model
 

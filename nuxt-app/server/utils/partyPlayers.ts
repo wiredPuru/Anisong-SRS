@@ -26,6 +26,8 @@ const JOIN_ERRORS = {
 export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
   const sessions = new Map<string, number>();
   const openStreams = new Map<number, number>();
+  // Ids are never reused, so a kicked id stays a reliable "why" for its phone.
+  const kicked = new Set<number>();
 
   const find = (id: number) => getPlayers().find((p) => p.id === id) ?? null;
   const playerFor = (token: string | undefined | null): PartyPlayer | null => {
@@ -44,6 +46,17 @@ export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
 
   return {
     playerFor,
+
+    wasKicked: (playerId: number): boolean => kicked.has(playerId),
+
+    /** Signs the phone out and drops the player; false when no such player. */
+    kick(playerId: number): boolean {
+      if (!find(playerId)) return false;
+      revokeFor(playerId);
+      kicked.add(playerId);
+      apply({ type: "score", op: "remove", id: playerId });
+      return true;
+    },
 
     join({ name, token }: { name: unknown; token?: string | null }): PlayerJoinResult {
       const existing = playerFor(token);

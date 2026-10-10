@@ -18,7 +18,7 @@ export interface PartyPlayerState {
   log: { number: number; anime: string; song: string; artist: string; scored: boolean }[];
 }
 
-export type PartyPlayerView = "checking" | "join" | "joined";
+export type PartyPlayerView = "checking" | "join" | "joined" | "kicked";
 
 const NAME_KEY = "gaqParty:playerName";
 const RETRY_MIN_MS = 1000;
@@ -78,7 +78,7 @@ export function usePartyPlayer() {
       retryMs = RETRY_MIN_MS;
     };
     source.onmessage = (message) => {
-      let next: PartyPlayerState;
+      let next: PartyPlayerState & { kicked?: boolean };
       try {
         next = JSON.parse(message.data) as PartyPlayerState;
       } catch {
@@ -87,6 +87,12 @@ export function usePartyPlayer() {
       if (!freshConnection && state.value && next.version < state.value.version) return;
       freshConnection = false;
       if (!next.me) {
+        if (next.kicked) {
+          closeStream();
+          state.value = null;
+          view.value = "kicked";
+          return;
+        }
         backToJoin("The host removed you from the game.");
         return;
       }
@@ -185,5 +191,10 @@ export function usePartyPlayer() {
   });
   onBeforeUnmount(closeStream);
 
-  return { view, state, connected, notice, savedName, join, rename, buzz, buzzing, pickChoice, picking };
+  function joinAgain() {
+    notice.value = null;
+    view.value = "join";
+  }
+
+  return { view, state, connected, notice, savedName, join, joinAgain, rename, buzz, buzzing, pickChoice, picking };
 }
