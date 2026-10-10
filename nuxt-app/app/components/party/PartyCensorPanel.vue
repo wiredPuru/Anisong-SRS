@@ -61,7 +61,7 @@ function onLoadedMetadata() {
 const boxes = ref<PartyCensorBox[]>([]);
 const style = computed(() => props.state.censorStyle);
 const muted = ref(false);
-const live = computed(() => props.state.censor !== null);
+const live = computed(() => props.state.censor !== null && !props.state.censorLifting);
 // A remembered censor plays back on its own until the host changes anything.
 const replaying = computed(() => !props.state.censorTouched && props.state.censorTrack.length > 0);
 const replayCensor = computed(() => (replaying.value ? censorAt(props.state.censorTrack, previewTime.value) : null));
@@ -84,7 +84,7 @@ const stage = ref<HTMLElement | null>(null);
 
 // The server's copy wins unless the host is mid-drag, which would fight it.
 watch(() => props.state.censor, (censor) => {
-  if (drag.value) return;
+  if (drag.value || props.state.censorLifting) return;
   boxes.value = censor?.boxes.map((box) => ({ ...box })) ?? [];
   muted.value = censor?.muted ?? false;
 }, { immediate: true });

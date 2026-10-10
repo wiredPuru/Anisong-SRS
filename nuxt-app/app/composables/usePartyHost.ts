@@ -80,6 +80,7 @@ export interface PartyHostState {
   censorTrack: PartyCensorKey[];
   censorRemember: boolean;
   censorRecording: boolean;
+  censorLifting: boolean;
   censorTouched: boolean;
 }
 

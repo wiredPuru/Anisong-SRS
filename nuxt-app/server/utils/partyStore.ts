@@ -346,6 +346,7 @@ let pendingLift: ReturnType<typeof setTimeout> | null = null;
 function cancelPendingLift(): void {
   if (pendingLift) clearTimeout(pendingLift);
   pendingLift = null;
+  if (state.censorLifting) commit({ ...state, censorLifting: false });
 }
 
 export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
@@ -359,9 +360,11 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     const { delay, ...plain } = command;
     if (plain.censor === null && delay && state.censor) {
       const token = currentPartyItem(state)?.token;
+      commit({ ...state, censorLifting: true });
       pendingLift = setTimeout(() => {
         pendingLift = null;
-        if (currentPartyItem(state)?.token === token) commit(applyPartyCommand(state, plain));
+        if (currentPartyItem(state)?.token === token) commit({ ...applyPartyCommand(state, plain), censorLifting: false });
+        else if (state.censorLifting) commit({ ...state, censorLifting: false });
       }, delay * 1000);
       return {};
     }

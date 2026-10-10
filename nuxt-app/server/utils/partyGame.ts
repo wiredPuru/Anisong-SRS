@@ -204,6 +204,8 @@ export interface PartyGameState {
   censorRemember: boolean;
   // The host is recording: every censor change is timed and kept for later.
   censorRecording: boolean;
+  // The host has lifted the censor; the display lifts it a moment later.
+  censorLifting: boolean;
   // Once the host changes the censor on a song, the saved track stops
   // playing back and the live censor alone applies.
   censorTouched: boolean;
@@ -482,6 +484,7 @@ export function initialPartyState(
     censorTrack: [],
     censorRemember: false,
     censorRecording: false,
+    censorLifting: false,
     censorTouched: false,
     ...kept,
   };
@@ -1031,6 +1034,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     censorTrack: [],
     censorRemember: false,
     censorRecording: false,
+    censorLifting: false,
     censorTouched: false,
   };
 }
@@ -1516,6 +1520,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     censorTrack: state.censorTrack,
     censorRemember: state.censorRemember,
     censorRecording: state.censorRecording,
+    censorLifting: state.censorLifting,
     censorTouched: state.censorTouched,
   };
 }
