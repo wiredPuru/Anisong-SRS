@@ -1,4 +1,5 @@
 import type { BrowseFilters } from "../utils/anilistBrowseBody.ts";
+import { DAY_MS } from "../utils/apiCache.ts";
 import { ANIME_SEASONS, requestAniList, type AnimeSeason } from "./anilist.ts";
 import { isRecord, ProviderUnavailableError } from "./graphql.ts";
 
@@ -112,7 +113,7 @@ function fetchBrowsePage(filters: BrowseFilters, page: number, season: AnimeSeas
       throw new ProviderUnavailableError("AniList");
     }
     return { items: result.media.map(toBrowseItem), hasNextPage: result.pageInfo.hasNextPage === true };
-  });
+  }, false, DAY_MS);
 }
 
 /**

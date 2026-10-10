@@ -1,3 +1,4 @@
+import { apiResponseCache, DAY_MS } from "../utils/apiCache.ts";
 import { isRecord, ProviderRequestError, ProviderUnavailableError, retryAfterMs } from "./graphql.ts";
 import { USER_AGENT } from "../utils/mediaDownload.ts";
 import { titleKey } from "../utils/textMatch.ts";
@@ -24,7 +25,13 @@ export interface AnisongTheme {
   audioUrl: string | null;
 }
 
-async function postJson(path: string, payload: unknown): Promise<unknown[]> {
+// Random songs must differ on every call, so that route is never cached.
+async function postJson(path: string, payload: unknown, cacheTtlMs: number | null = 3 * DAY_MS): Promise<unknown[]> {
+  if (cacheTtlMs === null) return fetchJson(path, payload);
+  return apiResponseCache.through("anisongdb", { path, payload }, cacheTtlMs, () => fetchJson(path, payload));
+}
+
+async function fetchJson(path: string, payload: unknown): Promise<unknown[]> {
   let response: Response;
   try {
     response = await fetch(`${ANISONGDB_BASE_URL}/${path}`, {
@@ -352,7 +359,7 @@ export interface AnisongRandomSong {
 
 /** Random songs from AnisongDB's whole catalog, whether or not the library has them. */
 export async function fetchRandomSongs(count: number): Promise<AnisongRandomSong[]> {
-  const entries = await postJson("get_n_random_songs", { n: count });
+  const entries = await postJson("get_n_random_songs", { n: count }, null);
   const songs: AnisongRandomSong[] = [];
   for (const entry of entries) {
     if (!isRecord(entry)) continue;

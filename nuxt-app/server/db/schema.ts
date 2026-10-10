@@ -186,3 +186,13 @@ export const partyHost = sqliteTable("party_host", {
 });
 
 export type PartyHost = typeof partyHost.$inferSelect;
+
+export const apiCache = sqliteTable("api_cache", {
+  key: text("key").primaryKey(),
+  provider: text("provider").notNull(),
+  body: text("body").notNull(),
+  fetchedAt: integer("fetched_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
+
+export type ApiCacheRow = typeof apiCache.$inferSelect;

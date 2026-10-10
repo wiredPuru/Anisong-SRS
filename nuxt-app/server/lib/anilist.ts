@@ -1,4 +1,5 @@
 import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
+import { apiResponseCache, DAY_MS } from "../utils/apiCache.ts";
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
@@ -33,12 +34,14 @@ export interface AniListAnime {
 let unavailableUntil = 0;
 let recoveryInFlight = false;
 
-export async function requestAniList<T>(
+export const ANILIST_CACHE_TTL_MS = 14 * DAY_MS;
+
+async function rawRequestAniList(
   query: string,
   variables: Record<string, unknown>,
-  parse: (data: Record<string, unknown> | null) => T,
-  allowNotFound = false,
-): Promise<T> {
+  allowNotFound: boolean,
+  validate: (data: Record<string, unknown> | null) => unknown,
+): Promise<Record<string, unknown> | null> {
   if (Date.now() < unavailableUntil || recoveryInFlight) {
     throw new ProviderUnavailableError("AniList", Math.max(0, unavailableUntil - Date.now()));
   }
@@ -46,7 +49,8 @@ export async function requestAniList<T>(
   const recovering = unavailableUntil > 0;
   if (recovering) recoveryInFlight = true;
   try {
-    const result = parse(await postGraphQL(ANILIST_ENDPOINT, "AniList", query, variables, allowNotFound));
+    const result = await postGraphQL(ANILIST_ENDPOINT, "AniList", query, variables, allowNotFound);
+    validate(result);
     if (unavailableUntil === availabilityAtStart) unavailableUntil = 0;
     return result;
   } catch (error) {
@@ -57,6 +61,22 @@ export async function requestAniList<T>(
   } finally {
     if (recovering) recoveryInFlight = false;
   }
+}
+
+// The raw answer is what gets cached, but only after it parses, so a malformed
+// reply is never stored. An expired entry still answers while AniList is
+// rate-limiting or down.
+export async function requestAniList<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  parse: (data: Record<string, unknown> | null) => T,
+  allowNotFound = false,
+  cacheTtlMs = ANILIST_CACHE_TTL_MS,
+): Promise<T> {
+  const raw = await apiResponseCache.through("anilist", { query, variables, allowNotFound }, cacheTtlMs, () =>
+    rawRequestAniList(query, variables, allowNotFound, parse),
+  );
+  return parse(raw);
 }
 
 const SEARCH_QUERY = `
@@ -149,7 +169,7 @@ export async function searchAnimeOnAniList(query: string): Promise<AniListAnime[
   return requestAniList(SEARCH_QUERY, { search: query, perPage: 10 }, (data) => {
     if (!isRecord(data?.Page) || !Array.isArray(data.Page.media)) throw new ProviderUnavailableError("AniList");
     return data.Page.media.map(toAniListAnime);
-  });
+  }, false, DAY_MS);
 }
 
 function parseAnime(data: Record<string, unknown> | null): AniListAnime | null {
@@ -192,7 +212,7 @@ export async function fetchAniListCompletedList(userName: string): Promise<AniLi
       if (!isRecord(list) || !Array.isArray(list.entries)) throw new ProviderUnavailableError("AniList");
       return list.entries.map((entry: unknown) => toAniListAnime(isRecord(entry) ? entry.media : undefined));
     });
-  }, true);
+  }, true, 30 * 60_000);
 }
 
 const BY_MAL_ID_QUERY = `

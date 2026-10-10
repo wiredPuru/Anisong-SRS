@@ -1,5 +1,6 @@
 import { animethemesVideoSlug } from "../utils/animethemesLinks.ts";
 import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
+import { apiResponseCache, DAY_MS } from "../utils/apiCache.ts";
 
 const ANIMETHEMES_ENDPOINT = "https://graphql.animethemes.moe";
 
@@ -63,7 +64,9 @@ interface RawAnime {
 }
 
 async function requestAnimeThemes<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-  return await postGraphQL(ANIMETHEMES_ENDPOINT, "AnimeThemes", query, variables) as T;
+  return await apiResponseCache.through("animethemes", { query, variables }, 3 * DAY_MS, () =>
+    postGraphQL(ANIMETHEMES_ENDPOINT, "AnimeThemes", query, variables),
+  ) as T;
 }
 
 const FIND_BY_ANILIST_QUERY = `

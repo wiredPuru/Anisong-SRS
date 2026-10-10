@@ -398,6 +398,13 @@ async function importDeck() {
                 :path="data.streamCachePath"
                 @saved="refresh"
               />
+              <p class="section-hint">
+                Answers from AniList, AnimeThemes.moe and AnisongDB are saved here, so a repeated search or import
+                doesn't ask them again, and a saved answer still works when one of them is rate-limiting or down.
+                Anime details are kept for about two weeks and searches for a day or three. Clear them to fetch
+                everything fresh.
+              </p>
+              <SettingsApiCacheControl />
             </template>
 
             <template v-else-if="activeSection === 'import'">
