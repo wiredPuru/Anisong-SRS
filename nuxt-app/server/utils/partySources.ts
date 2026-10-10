@@ -5,6 +5,7 @@ import { scopeFilter, type StudyScope } from "./cards.ts";
 import type { EndlessCandidate } from "./partyEndless.ts";
 import { PARTY_LOAD_MAX } from "./partyGame.ts";
 import { parseStudyFilters, studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
+import { orderByMix, typeOfSlot } from "./themeMix.ts";
 
 export interface PartySource {
   scope: StudyScope;
@@ -53,23 +54,48 @@ export function parsePartySource(body: unknown): PartySource | { error: string }
  * file has since gone missing.
  */
 export function listPartyCardIds(scope: StudyScope, filters: StudyFilters | null, downloadedOnly = false): number[] {
+  return listPartyCards(scope, filters, downloadedOnly).map((row) => row.id);
+}
+
+export function listPartyCards(
+  scope: StudyScope,
+  filters: StudyFilters | null,
+  downloadedOnly = false,
+): { id: number; themeSlot: string }[] {
   const downloaded = downloadedOnly ? or(isNotNull(card.localVideoPath), isNotNull(card.localAudioPath)) : undefined;
   return db
-    .select({ id: card.id })
+    .select({ id: card.id, themeSlot: song.themeSlot })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
     .where(and(scopeFilter(scope), studyFilterCondition(filters), downloaded))
     .orderBy(asc(anime.titleRomaji), asc(song.themeSlot))
-    .all()
-    .map((row) => row.id);
+    .all();
+}
+
+/** Card ids in play order; with a theme mix the order follows its ratio, shuffled within each type. */
+export function listPartyQueueIds(
+  scope: StudyScope,
+  filters: StudyFilters | null,
+  downloadedOnly: boolean,
+  shuffle: boolean,
+  random: () => number = Math.random,
+): { cardIds: number[]; total: number } {
+  const cards = listPartyCards(scope, filters, downloadedOnly);
+  const mix = filters?.themeMix ?? null;
+  if (!mix) return pickPartyQueue(cards.map((row) => row.id), shuffle, random);
+  const shuffled = pickPartyQueue(cards.map((row) => row.id), shuffle, random, Infinity).cardIds;
+  const slots = new Map(cards.map((row) => [row.id, row.themeSlot]));
+  const ordered = orderByMix(shuffled, (id) => typeOfSlot(slots.get(id) ?? ""), mix, random);
+  return { cardIds: ordered.slice(0, PARTY_LOAD_MAX), total: ordered.length };
 }
 
 export function pickPartyQueue(
   ids: number[],
   shuffle: boolean,
   random: () => number = Math.random,
+  limit: number = PARTY_LOAD_MAX,
 ): { cardIds: number[]; total: number } {
   const ordered = [...ids];
   if (shuffle) {
@@ -78,7 +104,7 @@ export function pickPartyQueue(
       [ordered[i], ordered[j]] = [ordered[j]!, ordered[i]!];
     }
   }
-  return { cardIds: ordered.slice(0, PARTY_LOAD_MAX), total: ids.length };
+  return { cardIds: ordered.slice(0, limit), total: ids.length };
 }
 
 /** Every card with the anime's AniList score and whether it has a local file, for endless queues. */
