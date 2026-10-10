@@ -361,6 +361,11 @@ async function importDeck() {
               </p>
               <SettingsAutoDownloadControl :enabled="data.autoDownload" @saved="refresh" />
               <p class="section-hint">
+                Ambient mode: a soft glow from the playing clip on Study, Listen and Preview, and the last played
+                clip as a blurred backdrop on every other page. Saved on this device.
+              </p>
+              <SettingsAmbientControl />
+              <p class="section-hint">
                 Which sites clip files may stream and download from. Song and anime details are still looked up from
                 both.
               </p>

@@ -2,23 +2,13 @@
 // Ambient mode outside the player: every page but Study and Listen (which
 // paint their own glow from the live clip) shows the last played clip as a
 // blurred backdrop, with the accents tinted to match. Follows the same
-// Ambient toggle Study and Listen use; with nothing played yet, the page's
+// Ambient preference Study, Listen and Settings use; with nothing played yet, the page's
 // own starry sky stays.
-const AMBIENT_STORAGE_KEY = "gaqSrs:studyAmbientMode";
 const PLAYER_ROUTES = ["/study", "/listen"];
 
 const route = useRoute();
 const { lastPlayed } = useLastPlayed();
-const ambientOn = ref(false);
-
-function readAmbientPreference() {
-  try {
-    const stored = localStorage.getItem(AMBIENT_STORAGE_KEY);
-    ambientOn.value = stored !== null ? stored === "1" : window.innerWidth > 820;
-  } catch {
-    ambientOn.value = false;
-  }
-}
+const { enabled: ambientOn, refresh: readAmbientPreference } = useAmbientPreference();
 
 const onPlayerPage = computed(() => PLAYER_ROUTES.some((path) => route.path === path || route.path.startsWith(`${path}/`)));
 const active = computed(() => ambientOn.value && !onPlayerPage.value && lastPlayed.value !== null);
@@ -28,7 +18,7 @@ const emit = defineEmits<{ "update:tint": [Record<string, string> | null] }>();
 watch(
   () => route.path,
   () => {
-    if (import.meta.client) readAmbientPreference();
+    readAmbientPreference();
   },
 );
 

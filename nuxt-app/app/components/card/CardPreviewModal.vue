@@ -86,16 +86,8 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
-const AMBIENT_STORAGE_KEY = "gaqSrs:previewAmbient";
-const ambientMode = ref(false);
-
-onMounted(() => {
-  try {
-    ambientMode.value = localStorage.getItem(AMBIENT_STORAGE_KEY) === "1";
-  } catch {
-    ambientMode.value = false;
-  }
-});
+const { enabled: ambientMode, refresh: refreshAmbient, setEnabled: setAmbientMode } = useAmbientPreference();
+onMounted(refreshAmbient);
 
 const { setAmbientGlass } = useAmbientGlass();
 watch(
@@ -105,13 +97,7 @@ watch(
 );
 
 function toggleAmbient() {
-  ambientMode.value = !ambientMode.value;
-  try {
-    localStorage.setItem(AMBIENT_STORAGE_KEY, ambientMode.value ? "1" : "0");
-  } catch {
-    // localStorage unavailable (private browsing, locked-down environment) -
-    // the toggle still works for this session, it just won't persist.
-  }
+  setAmbientMode(!ambientMode.value);
 }
 
 const editing = ref(false);
