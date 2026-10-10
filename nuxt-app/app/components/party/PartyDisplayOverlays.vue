@@ -238,7 +238,7 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 .buzz-label {
   font-family: var(--font-display);
   font-size: clamp(22px, 3vw, 52px);
-  color: var(--bg);
+  color: var(--text-on-scrim);
   text-shadow: var(--text-shadow-overlay);
 }
 
