@@ -93,7 +93,7 @@ const stage = computed<Stage>(() => {
         <p v-if="state?.song" class="song">Song {{ state.song.number }} of {{ state.song.total }}</p>
         <p v-if="stage === 'waiting'" class="play-note">Waiting for the host to start the game.</p>
         <p v-else-if="stage === 'listen'" class="play-note">
-          {{ state?.buzzer.enabled ? "Listen and guess!" : "Listen and guess! Buzzers are off for now." }}
+          {{ state?.buzzer.enabled && !state?.choices ? "Listen and guess!" : "Listen and guess! Buzzers are off for now." }}
         </p>
         <p v-else-if="stage === 'other'" class="play-note"><strong>{{ state?.buzzer.answering }}</strong> is answering...</p>
         <p v-else-if="stage === 'locked'" class="play-note">Not this one. Wait for the next song.</p>
@@ -158,6 +158,20 @@ const stage = computed<Stage>(() => {
           <strong>{{ player.score }}</strong>
         </li>
       </ol>
+
+      <section v-if="state?.log.length" class="song-log" aria-label="Song log">
+        <h2 class="log-title">Song log</h2>
+        <ol>
+          <li v-for="entry in state.log" :key="entry.number" :class="{ scored: entry.scored }">
+            <span class="log-num">{{ entry.number }}</span>
+            <span class="log-info">
+              <strong>{{ entry.anime || "Hidden" }}</strong>
+              <small>{{ [entry.song, entry.artist].filter(Boolean).join(" - ") }}</small>
+            </span>
+            <span v-if="entry.scored" class="log-point">+</span>
+          </li>
+        </ol>
+      </section>
     </section>
   </main>
 </template>
@@ -463,6 +477,54 @@ const stage = computed<Stage>(() => {
 
 .standings li.mine {
   background: var(--surface-sunken);
+  font-weight: 700;
+}
+
+.song-log ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.song-log li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.song-log li.scored {
+  outline: 2px solid var(--pass);
+}
+
+.log-num {
+  color: var(--muted);
+  min-width: 1.5em;
+}
+
+.log-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.log-info small {
+  color: var(--muted);
+}
+
+.log-point {
+  color: var(--pass);
   font-weight: 700;
 }
 </style>

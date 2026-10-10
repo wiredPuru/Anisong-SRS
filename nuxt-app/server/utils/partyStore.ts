@@ -5,7 +5,8 @@ import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
 import { fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
-import { getClipSource, getIncludeInsertSongs, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
@@ -51,6 +52,27 @@ export function onPartyChange(listener: (state: PartyGameState) => void): () => 
 function prefetchAround(current: PartyGameState): void {
   for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PARTY_LOOKAHEAD)) {
     if (item.clip.source.type === "remote") void resolveCachedPath(item.clip.source.url).catch(() => {});
+  }
+}
+
+const downloadAttempted = new Set<string>();
+let downloading = false;
+
+// Catalog songs have no card, so Study's Auto Download never reaches them.
+// Runs one at a time, and a finished file only replaces a song that has not started.
+async function downloadUpcoming(): Promise<void> {
+  if (downloading || !getPartyAutoDownload()) return;
+  const folder = getDefaultDownloadFolder();
+  if (!folder) return;
+  downloading = true;
+  try {
+    for (let next = selectDownloadTargets(state, downloadAttempted)[0]; next; next = selectDownloadTargets(state, downloadAttempted)[0]) {
+      downloadAttempted.add(next.token);
+      const clip = await downloadCatalogClip(next, folder);
+      if (clip) commit(withLocalClip(state, next.token, clip));
+    }
+  } finally {
+    downloading = false;
   }
 }
 
@@ -208,7 +230,10 @@ function commit(next: PartyGameState): void {
   const moved = next.index !== state.index || next.queue !== state.queue;
   const timerChanged = next.timer !== state.timer;
   state = next;
-  if (moved) prefetchAround(state);
+  if (moved) {
+    prefetchAround(state);
+    void downloadUpcoming();
+  }
   if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
   topUpEndless();

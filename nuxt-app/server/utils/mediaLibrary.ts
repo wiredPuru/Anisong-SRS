@@ -163,6 +163,28 @@ export function setAutoDownload(enabled: boolean): { error: string } | { autoDow
   return { autoDownload: enabled };
 }
 
+export function getPartyAutoDownload(): boolean {
+  const row = db
+    .select()
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.partyAutoDownload ?? false;
+}
+
+export function setPartyAutoDownload(enabled: boolean): { error: string } | { partyAutoDownload: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "Party auto download must be a boolean." };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, partyAutoDownload: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { partyAutoDownload: enabled } })
+    .run();
+
+  return { partyAutoDownload: enabled };
+}
+
 export function getThemesOnly(): boolean {
   const row = db
     .select()

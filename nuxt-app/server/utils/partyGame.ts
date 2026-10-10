@@ -300,6 +300,8 @@ export interface PartyPlayerState {
   };
   // Only once revealed, when the display already shows it.
   answer: { anime: string; song: string; artist: string } | null;
+  /** Songs already behind the game, newest first. */
+  log: { number: number; anime: string; song: string; artist: string; scored: boolean }[];
 }
 export interface PartyHostState {
   version: number;
@@ -819,6 +821,7 @@ export function planRename(players: readonly PartyPlayer[], id: number, rawName:
 export function canBuzz(state: PartyGameState, playerId: number): boolean {
   return (
     state.buzzerEnabled &&
+    state.choices === null &&
     state.phase === "guessing" &&
     currentPartyItem(state) !== null &&
     state.buzz.playerId === null &&
@@ -1343,7 +1346,19 @@ export function toPlayerState(state: PartyGameState, playerId: number): PartyPla
       item && state.phase === "revealed"
         ? maskPhoneAnswer(item.answer, state.revealFields)
         : null,
+    log: buildPhoneLog(state, playerId),
   };
+}
+
+function buildPhoneLog(state: PartyGameState, playerId: number): PartyPlayerState["log"] {
+  const playedCount = state.index < 0 ? 0 : state.index + (state.phase === "revealed" ? 1 : 0);
+  return state.queue
+    .slice(0, playedCount)
+    .map((item, i) => {
+      const masked = maskPhoneAnswer(item.answer, state.revealFields);
+      return { number: i + 1, anime: masked.anime, song: masked.song, artist: masked.artist, scored: (state.awards[item.token] ?? []).includes(playerId) };
+    })
+    .reverse();
 }
 
 export function toHostState(state: PartyGameState): PartyHostState {

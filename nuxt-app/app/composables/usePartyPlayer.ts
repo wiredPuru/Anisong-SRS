@@ -15,6 +15,7 @@ export interface PartyPlayerState {
     winner: string | null;
   };
   answer: { anime: string; song: string; artist: string } | null;
+  log: { number: number; anime: string; song: string; artist: string; scored: boolean }[];
 }
 
 export type PartyPlayerView = "checking" | "join" | "joined";

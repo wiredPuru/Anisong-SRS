@@ -17,6 +17,27 @@ const outsideLibrary = ref(props.state.endless?.outsideLibrary ?? false);
 const running = computed(() => props.state.endless !== null);
 const hint = computed(() => LEVELS.find((level) => level.value === difficulty.value)?.hint ?? "");
 
+const download = ref<{ partyAutoDownload: boolean; hasDownloadFolder: boolean } | null>(null);
+const downloadError = ref<string | null>(null);
+
+onMounted(async () => {
+  try {
+    download.value = await $fetch("/api/party/host/download-setting");
+  } catch {
+    download.value = null;
+  }
+});
+
+async function setDownloadSongs(enabled: boolean) {
+  downloadError.value = null;
+  try {
+    const result = await $fetch<{ partyAutoDownload: boolean }>("/api/party/host/download-setting", { method: "POST", body: { enabled } });
+    if (download.value) download.value = { ...download.value, partyAutoDownload: result.partyAutoDownload };
+  } catch {
+    downloadError.value = "Couldn't save that setting.";
+  }
+}
+
 function send(config: { difficulty: PartyEndlessDifficulty; downloadedOnly: boolean; outsideLibrary: boolean } | null) {
   emit("command", { type: "endless", config });
 }
@@ -53,8 +74,25 @@ function setOutside(value: boolean) {
       Songs outside my cards and decks
     </label>
     <p class="endless-hint">
-      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty and downloads don't apply; clips stream." : "Only songs you have cards for." }}
+      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty and the downloaded-only filter don't apply." : "Only songs you have cards for." }}
     </p>
+
+    <template v-if="outsideLibrary && download">
+      <label class="endless-check">
+        <input type="checkbox" :checked="download.partyAutoDownload" @change="setDownloadSongs(($event.target as HTMLInputElement).checked)" />
+        Download these songs to my library
+      </label>
+      <p class="endless-hint">
+        {{
+          !download.partyAutoDownload
+            ? "Songs only stream and may be dropped from the cache."
+            : download.hasDownloadFolder
+              ? "Each queued song is saved to your default download folder."
+              : "Set a default download folder in Settings first, or songs will keep streaming."
+        }}
+      </p>
+      <p v-if="downloadError" class="endless-hint" role="alert">{{ downloadError }}</p>
+    </template>
 
     <div v-if="!outsideLibrary" class="levels" role="radiogroup" aria-label="Difficulty">
       <button

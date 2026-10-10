@@ -147,6 +147,7 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   themesOnly: integer("themes_only", { mode: "boolean" }).notNull().default(false),
   includeInsertSongs: integer("include_insert_songs", { mode: "boolean" }).notNull().default(false),
   clipSource: text("clip_source").$type<ClipSource>().notNull().default("anisongdb"),
+  partyAutoDownload: integer("party_auto_download", { mode: "boolean" }).notNull().default(false),
 });
 
 export type Anime = typeof anime.$inferSelect;

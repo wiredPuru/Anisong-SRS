@@ -730,6 +730,12 @@ describe("buzzer rounds (feature 90b)", () => {
     return applyPartyCommand(state, { type: "play" });
   }
 
+  it("refuses buzzes while multiple choice is on", () => {
+    const state = applyPartyCommand(ready(), { type: "choices", enabled: true }, { choices: ["A", "B"] });
+    expect(toPlayerState(state, 1).buzzer.canBuzz).toBe(false);
+    expect(applyPartyCommand(state, { type: "buzz", playerId: 1 })).toBe(state);
+  });
+
   it("accepts the first buzz, pauses, and refuses a second while answering", () => {
     const buzzed = applyPartyCommand(ready(), { type: "buzz", playerId: 1 });
     expect(buzzed).toMatchObject({ playing: false, buzz: { playerId: 1, lockedOut: [], winnerId: null } });
