@@ -1,4 +1,4 @@
-import { parsePartyCensor, type PartyCensor } from "./partyCensor.ts";
+import { parsePartyCensor, type PartyCensor, type PartyCensorStyle } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
@@ -191,6 +191,8 @@ export interface PartyGameState {
   summaryVisible: boolean;
   // Hides parts of the current song's picture, or its sound, from the room.
   censor: PartyCensor | null;
+  // How a censor hides the picture; the host's choice, kept between songs.
+  censorStyle: PartyCensorStyle;
 }
 export interface PartySummary {
   standings: { rank: number; name: string; score: number }[];
@@ -223,6 +225,7 @@ export type PartyCommand =
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null }
+  | { type: "censorStyle"; style: PartyCensorStyle }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
@@ -339,6 +342,7 @@ export interface PartyHostState {
   // The host may watch the clip ahead of the room, so it gets the clip token.
   currentToken: string | null;
   censor: PartyCensor | null;
+  censorStyle: PartyCensorStyle;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -408,7 +412,7 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle"> = {
     scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
@@ -419,6 +423,7 @@ export function initialPartyState(
     revealFields: ALL_REVEAL_FIELDS,
     autoAdvance: true,
     skipSeq: 0,
+    censorStyle: "black",
   },
 ): PartyGameState {
   return {
@@ -653,6 +658,10 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     case "censor": {
       const parsed = parsePartyCensor((body as { censor?: unknown }).censor ?? null);
       return parsed && "error" in parsed ? parsed : { type, censor: parsed };
+    }
+    case "censorStyle": {
+      const { style } = body as { style?: unknown };
+      return style === "blur" || style === "black" ? { type, style } : { error: "style must be 'blur' or 'black'" };
     }
     case "seek": {
       const { seconds } = body as { seconds?: unknown };
@@ -1159,7 +1168,13 @@ export function applyPartyCommand(
         : { ...state, nextEffects: command.effects };
       break;
     case "censor":
-      if (hasItem || command.censor === null) next = { ...state, censor: command.censor };
+      // Every censor uses the host's chosen style, whoever sent it.
+      if (hasItem || command.censor === null) {
+        next = { ...state, censor: command.censor && { ...command.censor, style: state.censorStyle } };
+      }
+      break;
+    case "censorStyle":
+      next = { ...state, censorStyle: command.style, censor: state.censor && { ...state.censor, style: command.style } };
       break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") {
@@ -1180,6 +1195,7 @@ export function applyPartyCommand(
           revealFields: state.revealFields,
           autoAdvance: state.autoAdvance,
           skipSeq: state.skipSeq,
+          censorStyle: state.censorStyle,
         });
       }
       break;
@@ -1411,6 +1427,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     summaryVisible: state.summaryVisible,
     currentToken: item?.token ?? null,
     censor: state.censor,
+    censorStyle: state.censorStyle,
   };
 }
 

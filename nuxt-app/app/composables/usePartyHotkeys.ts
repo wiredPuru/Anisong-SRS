@@ -53,7 +53,7 @@ export function usePartyHotkeys(
       if (seconds !== null) command = { type: "seek", seconds, skip: true };
     } else if (key === "m") command = { type: "effects", target: "current", effects: { ...current.effects, muted: !current.effects.muted } };
     else if (key === "c" && hasGame) {
-      command = { type: "censor", censor: current.censor ? null : { boxes: [FULL_FRAME], style: "black", muted: false } };
+      command = { type: "censor", censor: current.censor ? null : { boxes: [FULL_FRAME], style: current.censorStyle, muted: false } };
     } else if (key === "t" && hasGame) command = { type: "timer", seconds: TIMER_HOTKEY_SECONDS, autoReveal: true };
     else if (key === "s") command = { type: "score", op: "show", visible: !current.scoreboard.visible };
     if (!command) return;

@@ -54,9 +54,10 @@ function onLoadedMetadata() {
   sync();
 }
 
-// Local copy of the boxes, so a drag stays smooth; live edits are sent on.
+// Local copy of the boxes, so a drag stays smooth. Every change goes straight
+// to the display: there is no draft step.
 const boxes = ref<PartyCensorBox[]>([]);
-const style = ref<PartyCensor["style"]>("black");
+const style = computed(() => props.state.censorStyle);
 const muted = ref(false);
 const live = computed(() => props.state.censor !== null);
 
@@ -73,37 +74,38 @@ const stage = ref<HTMLElement | null>(null);
 
 // The server's copy wins unless the host is mid-drag, which would fight it.
 watch(() => props.state.censor, (censor) => {
-  if (!censor || drag.value) return;
-  boxes.value = censor.boxes.map((box) => ({ ...box }));
-  style.value = censor.style;
-  muted.value = censor.muted;
+  if (drag.value) return;
+  boxes.value = censor?.boxes.map((box) => ({ ...box })) ?? [];
+  muted.value = censor?.muted ?? false;
 }, { immediate: true });
 
 function censorBody(): PartyCensor {
   return { boxes: boxes.value.map((box) => ({ ...box })), style: style.value, muted: muted.value };
 }
 
+// No boxes and no mute is sent as it is; the server reads that as no censor.
 let liveTimer: ReturnType<typeof setTimeout> | null = null;
 function sendLive() {
-  if (!live.value || liveTimer) return;
+  if (liveTimer) return;
   liveTimer = setTimeout(() => {
     liveTimer = null;
-    if (live.value) emit("command", { type: "censor", censor: censorBody() });
+    emit("command", { type: "censor", censor: censorBody() });
   }, LIVE_SEND_MS);
 }
 
-function censorNow() {
-  if (!boxes.value.length && !muted.value) boxes.value = [{ ...FULL_FRAME }];
-  emit("command", { type: "censor", censor: censorBody() });
+function censorWholeScreen() {
+  boxes.value = [{ ...FULL_FRAME }];
+  sendLive();
 }
 
 function lift() {
+  boxes.value = [];
+  muted.value = false;
   emit("command", { type: "censor", censor: null });
 }
 
 function setStyle(next: PartyCensor["style"]) {
-  style.value = next;
-  sendLive();
+  emit("command", { type: "censorStyle", style: next });
 }
 
 function toggleMuted() {
@@ -113,11 +115,6 @@ function toggleMuted() {
 
 function removeBox(index: number) {
   boxes.value = boxes.value.filter((_, i) => i !== index);
-  sendLive();
-}
-
-function clearBoxes() {
-  boxes.value = [];
   sendLive();
 }
 
@@ -226,7 +223,7 @@ onBeforeUnmount(() => {
           v-for="(box, i) in boxes"
           :key="i"
           class="box"
-          :class="[`box-${style}`, { draft: !live }]"
+          :class="`box-${style}`"
           :style="boxStyle(box)"
           @pointerdown.stop="startDrag($event, 'move', i)"
         >
@@ -238,18 +235,15 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="censor-controls">
-      <button v-if="!live" type="button" class="censor-btn" @click="censorNow">
-        {{ boxes.length ? "Censor" : "Censor whole screen" }}
-      </button>
-      <button v-else type="button" class="censor-btn lift" @click="lift">Lift censor</button>
+      <button type="button" class="censor-btn" @click="censorWholeScreen">Censor whole screen</button>
+      <button v-if="live" type="button" class="censor-btn lift" @click="lift">Lift censor</button>
       <div class="seg" role="group" aria-label="Censor style">
         <button type="button" :class="{ on: style === 'black' }" @click="setStyle('black')">Black</button>
         <button type="button" :class="{ on: style === 'blur' }" @click="setStyle('blur')">Blur</button>
       </div>
       <button type="button" class="pill" :class="{ on: muted }" :aria-pressed="muted" @click="toggleMuted">Mute</button>
-      <button v-if="boxes.length" type="button" class="pill" @click="clearBoxes">Clear boxes</button>
     </div>
-    <p class="censor-hint">Drag on the preview to draw a box. C censors the whole screen.</p>
+    <p class="censor-hint">Drag on the preview to censor that spot on the screen. C censors the whole screen.</p>
   </div>
 </template>
 

@@ -1057,4 +1057,15 @@ describe("censor", () => {
     expect(applyPartyCommand(on, { type: "next" }).censor).toBeNull();
     expect(applyPartyCommand(on, { type: "clear" }).censor).toBeNull();
   });
+
+  it("always uses the host's style, which outlives the song and the game", () => {
+    const blurred = applyPartyCommand(loaded(3), { type: "censorStyle", style: "blur" });
+    const on = applyPartyCommand(blurred, { type: "censor", censor });
+    expect(on.censor?.style).toBe("blur");
+    expect(applyPartyCommand(on, { type: "censorStyle", style: "black" }).censor?.style).toBe("black");
+    expect(applyPartyCommand(on, { type: "next" }).censorStyle).toBe("blur");
+    expect(applyPartyCommand(on, { type: "clear" }).censorStyle).toBe("blur");
+    expect(toHostState(on).censorStyle).toBe("blur");
+    expect(parsePartyCommand({ type: "censorStyle", style: "pink" })).toHaveProperty("error");
+  });
 });

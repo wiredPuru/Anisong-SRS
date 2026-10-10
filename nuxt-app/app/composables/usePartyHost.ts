@@ -75,6 +75,7 @@ export interface PartyHostState {
   summaryVisible: boolean;
   currentToken: string | null;
   censor: PartyCensor | null;
+  censorStyle: PartyCensor["style"];
 }
 
 export type PartyHostCommand =
@@ -89,6 +90,7 @@ export type PartyHostCommand =
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null }
+  | { type: "censorStyle"; style: PartyCensor["style"] }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
