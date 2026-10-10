@@ -26,9 +26,17 @@ watch(hasGame, (running, was) => {
 }, { immediate: true });
 
 const helpOpen = ref(false);
-usePartyHotkeys(state, send, () => {
-  helpOpen.value = !helpOpen.value;
-});
+usePartyHotkeys(
+  state,
+  send,
+  () => {
+    helpOpen.value = !helpOpen.value;
+  },
+  (index) => {
+    const target = TABS[index];
+    if (target) tab.value = target.id;
+  },
+);
 </script>
 
 <template>
@@ -93,7 +101,7 @@ usePartyHotkeys(state, send, () => {
             :aria-selected="tab === item.id"
             @click="tab = item.id"
           >
-            {{ item.label }}
+            {{ item.label }} <kbd class="tab-key">{{ TABS.indexOf(item) + 1 }}</kbd>
           </button>
         </div>
 
@@ -136,6 +144,16 @@ usePartyHotkeys(state, send, () => {
 </template>
 
 <style scoped>
+.tab-key {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
 /* One screen, no page scroll: each column scrolls on its own if it must,
    with its scrollbar hidden. Below 1100px it stacks into one long page. */
 .dashboard {

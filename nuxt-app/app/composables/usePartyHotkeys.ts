@@ -15,6 +15,7 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "X", action: "Pixelate on / off" },
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
+  { keys: "1-4", action: "Round, Screen, Players, New game tabs" },
   { keys: "?", action: "This list" },
 ];
 
@@ -42,11 +43,17 @@ export function usePartyHotkeys(
   state: Ref<PartyHostState | null>,
   send: (command: PartyHostCommand) => void,
   toggleHelp: () => void,
+  selectTab: (index: number) => void = () => {},
 ) {
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing || isTyping(event.target)) return;
     if (event.key === "?") {
       toggleHelp();
+      event.preventDefault();
+      return;
+    }
+    if (/^[1-9]$/.test(event.key)) {
+      selectTab(Number(event.key) - 1);
       event.preventDefault();
       return;
     }

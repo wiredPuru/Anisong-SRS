@@ -249,7 +249,7 @@ function endDrag() {
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 220px;
+  max-height: 114px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
