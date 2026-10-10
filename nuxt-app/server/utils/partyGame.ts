@@ -5,7 +5,7 @@ import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts"
 import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
 
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
 export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
 export interface PartyEndless {
@@ -87,6 +87,8 @@ export interface PartyScoreRow {
   name: string;
   score: number;
   members?: string[];
+  // A team's players with their own scores, best first.
+  memberRows?: { id: number; name: string; score: number }[];
 }
 /** Points for the current song are multiplied; with risk, a wrong buzz costs the same multiple. */
 export interface PartyStake {
@@ -236,7 +238,7 @@ export type PartyCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "censor"; censor: PartyCensor | null; at?: number }
+  | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
   | { type: "censorStyle"; style: PartyCensorStyle }
   | { type: "censorRecord"; recording: boolean }
   | { type: "censorForget" }
@@ -248,6 +250,7 @@ export type PartyCommand =
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "queueShuffle" }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
@@ -382,7 +385,7 @@ export const NO_EFFECTS: PartyEffects = {
   muted: false,
   picture: "video",
 };
-const PICTURES: readonly PartyPicture[] = ["video", "blackout", "cover", "bubbles"];
+const PICTURES: readonly PartyPicture[] = ["video", "bubbles", "music"];
 const BLUR_MAX = 40;
 const PIXELATE_MIN = 4;
 const PIXELATE_MAX = 64;
@@ -415,7 +418,7 @@ export function parsePartyEffects(raw: unknown): PartyEffects | { error: string 
     return { error: "blur, pixelate, and decaySeconds must be numbers" };
   }
   if (typeof decay !== "boolean" || typeof muted !== "boolean") return { error: "decay and muted must be booleans" };
-  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'blackout', 'cover', or 'bubbles'" };
+  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'bubbles', or 'music'" };
   return {
     blur: Math.round(clamp(blur, 0, BLUR_MAX)),
     pixelate: pixelate <= 0 ? 0 : Math.round(clamp(pixelate, PIXELATE_MIN, PIXELATE_MAX)),
@@ -681,11 +684,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return "error" in parsed ? parsed : { type, target, effects: parsed };
     }
     case "censor": {
-      const { censor, at } = body as { censor?: unknown; at?: unknown };
+      const { censor, at, delay } = body as { censor?: unknown; at?: unknown; delay?: unknown };
       const parsed = parsePartyCensor(censor ?? null);
       if (parsed && "error" in parsed) return parsed;
-      if (at === undefined) return { type, censor: parsed };
-      return typeof at === "number" && Number.isFinite(at) && at >= 0 ? { type, censor: parsed, at } : { error: "at must be a number of 0 or more" };
+      if (at !== undefined && !(typeof at === "number" && Number.isFinite(at) && at >= 0)) return { error: "at must be a number of 0 or more" };
+      if (delay !== undefined && !(typeof delay === "number" && Number.isFinite(delay) && delay >= 0 && delay <= 10)) return { error: "delay must be 0 to 10 seconds" };
+      return { type, censor: parsed, ...(at === undefined ? {} : { at }), ...(delay === undefined ? {} : { delay }) };
     }
     case "censorRecord": {
       const { recording } = body as { recording?: unknown };
@@ -733,6 +737,7 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
     }
     case "changeSource":
+    case "queueShuffle":
       return { type };
     case "queueReroll": {
       const { index } = body as { index?: unknown };
@@ -1135,6 +1140,15 @@ export function applyPartyCommand(
       }
       break;
     }
+    case "queueShuffle": {
+      // Only the songs still to come move; the one on screen and those played stay.
+      const from = state.index + 1;
+      if (hasItem && state.queue.length - from > 1) {
+        const upcoming = shuffled(state.queue.slice(from), random);
+        next = { ...state, queue: [...state.queue.slice(0, from), ...upcoming] };
+      }
+      break;
+    }
     case "queueReroll": {
       // The store picks the replacement; without one the song stays.
       const replacement = options.loaded?.[0];
@@ -1379,7 +1393,8 @@ export function scoreRows(state: PartyGameState): PartyScoreRow[] {
   const { players, teams } = state.scoreboard;
   const rows: PartyScoreRow[] = teams.map((team) => {
     const members = players.filter((p) => p.teamId === team.id);
-    return { id: -team.id, name: team.name, score: members.reduce((sum, p) => sum + p.score, 0), members: members.map((p) => p.name) };
+    const memberRows = members.map((p) => ({ id: p.id, name: p.name, score: p.score })).sort((a, b) => b.score - a.score);
+    return { id: -team.id, name: team.name, score: members.reduce((sum, p) => sum + p.score, 0), members: members.map((p) => p.name), memberRows };
   });
   const known = new Set(teams.map((t) => t.id));
   for (const p of players) if (p.teamId === null || !known.has(p.teamId)) rows.push({ id: p.id, name: p.name, score: p.score });

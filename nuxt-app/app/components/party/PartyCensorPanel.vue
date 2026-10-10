@@ -111,7 +111,9 @@ function sendLive() {
   if (liveTimer) return;
   liveTimer = setTimeout(() => {
     liveTimer = null;
-    emit("command", { type: "censor", censor: censorBody(), at: previewAt() });
+    // Censoring is immediate; lifting waits so the screen catches up with the preview.
+    const lifting = !boxes.value.length && !muted.value;
+    emit("command", { type: "censor", censor: censorBody(), at: previewAt(), ...(lifting ? { delay: lead.value } : {}) });
   }, LIVE_SEND_MS);
 }
 
@@ -123,7 +125,7 @@ function censorWholeScreen() {
 function lift() {
   boxes.value = [];
   muted.value = false;
-  emit("command", { type: "censor", censor: null, at: previewAt() });
+  emit("command", { type: "censor", censor: null, at: previewAt(), delay: lead.value });
 }
 
 function setRecording(recording: boolean) {

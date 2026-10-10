@@ -1,5 +1,6 @@
 import type { PartyHostCommand, PartyHostState } from "./usePartyHost";
 import { FULL_FRAME } from "~/utils/partyCensorBoxes";
+import { parsePreviewLead } from "~/utils/partyPreview";
 
 export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "Space", action: "Play / pause" },
@@ -10,12 +11,22 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "M", action: "Mute / unmute" },
   { keys: "C", action: "Censor the whole screen / lift the censor" },
   { keys: "D", action: "Delete the picked censor box, or all of them" },
+  { keys: "B", action: "Blur on / off" },
+  { keys: "X", action: "Pixelate on / off" },
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
   { keys: "?", action: "This list" },
 ];
 
 const TIMER_HOTKEY_SECONDS = 15;
+
+function storedPreviewLead(): number {
+  try {
+    return parsePreviewLead(localStorage.getItem("gaqSrs:partyPreviewLead"));
+  } catch {
+    return 0;
+  }
+}
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -53,8 +64,12 @@ export function usePartyHotkeys(
       const seconds = skipTarget(current.position?.duration);
       if (seconds !== null) command = { type: "seek", seconds, skip: true };
     } else if (key === "m") command = { type: "effects", target: "current", effects: { ...current.effects, muted: !current.effects.muted } };
+    else if (key === "b" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, blur: current.effects.blur > 0 ? 0 : 14 } };
+    else if (key === "x" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, pixelate: current.effects.pixelate > 0 ? 0 : 24 } };
     else if (key === "c" && hasGame) {
-      command = { type: "censor", censor: current.censor ? null : { boxes: [FULL_FRAME], style: current.censorStyle, muted: false } };
+      command = current.censor
+        ? { type: "censor", censor: null, delay: storedPreviewLead() }
+        : { type: "censor", censor: { boxes: [FULL_FRAME], style: current.censorStyle, muted: false } };
     } else if (key === "t" && hasGame) command = { type: "timer", seconds: TIMER_HOTKEY_SECONDS, autoReveal: true };
     else if (key === "s") command = { type: "score", op: "show", visible: !current.scoreboard.visible };
     if (!command) return;

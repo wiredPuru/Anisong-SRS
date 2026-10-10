@@ -11,6 +11,7 @@ import {
   parsePartyCommand,
   parsePartyEffects,
   parsePartyLightning,
+  scoreRows,
   pickPartyClip,
   toDisplayState,
   planJoin,
@@ -1113,5 +1114,42 @@ describe("censor", () => {
     expect(again.censorTrack).toEqual([]);
     const moved = applyPartyCommand(again, { type: "next" });
     expect(moved).toMatchObject({ censorTrack: [], censorRemember: false, censorRecording: false, censorTouched: false });
+  });
+});
+
+describe("queue shuffle, censor delay and team rows", () => {
+  it("shuffles only the songs still to come", () => {
+    const game = applyPartyCommand(loaded(6), { type: "next" });
+    const shuffledGame = applyPartyCommand(game, { type: "queueShuffle" }, { random: () => 0 });
+    expect(shuffledGame.queue.slice(0, 2)).toEqual(game.queue.slice(0, 2));
+    expect(shuffledGame.queue.map((item) => item.token).sort()).toEqual(game.queue.map((item) => item.token).sort());
+    expect(shuffledGame.queue.slice(2).map((item) => item.token)).not.toEqual(game.queue.slice(2).map((item) => item.token));
+    expect(applyPartyCommand(loaded(2), { type: "queueShuffle" })).toBeDefined();
+  });
+
+  it("accepts a lift delay of 0 to 10 seconds only", () => {
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: 2 })).toEqual({ type: "censor", censor: null, delay: 2 });
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: 11 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: -1 })).toHaveProperty("error");
+  });
+
+  it("refuses the removed blackout and cover pictures and accepts music", () => {
+    const fx = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false };
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "blackout" } })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "cover" } })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "music" } })).not.toHaveProperty("error");
+  });
+
+  it("lists a team's players with their own scores, best first", () => {
+    let game = loaded(1);
+    for (const name of ["Ann", "Bob"]) game = applyPartyCommand(game, { type: "score", op: "add", name });
+    game = applyPartyCommand(game, { type: "score", op: "teamAdd", name: "Red" });
+    const ids = game.scoreboard.players.map((p) => p.id);
+    const teamId = game.scoreboard.teams[0]!.id;
+    for (const id of ids) game = applyPartyCommand(game, { type: "score", op: "assign", id, teamId });
+    game = applyPartyCommand(game, { type: "score", op: "adjust", id: ids[1]!, delta: 3 });
+    const [row] = scoreRows(game);
+    expect(row).toMatchObject({ name: "Red", score: 3 });
+    expect(row!.memberRows!.map((m) => m.name)).toEqual(["Bob", "Ann"]);
   });
 });

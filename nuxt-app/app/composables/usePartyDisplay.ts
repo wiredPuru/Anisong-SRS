@@ -1,5 +1,5 @@
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export type PartyLightningMode = "regular" | "blind" | "peek" | "cover" | "clues" | "tags" | "title";
 export type PartyHints =
   | { kind: "clues"; items: { label: string; value: string }[] }
@@ -62,6 +62,7 @@ export interface PartyScoreRow {
   name: string;
   score: number;
   members?: string[];
+  memberRows?: { id: number; name: string; score: number }[];
 }
 export interface PartyRoundPoint {
   id: number;

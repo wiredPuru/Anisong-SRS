@@ -94,7 +94,7 @@ export type PartyHostCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "censor"; censor: PartyCensor | null; at?: number }
+  | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
   | { type: "censorRecord"; recording: boolean }
   | { type: "censorForget" }
   | { type: "censorStyle"; style: PartyCensor["style"] }
@@ -106,6 +106,7 @@ export type PartyHostCommand =
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "queueShuffle" }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, or } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull, or } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
 import { scopeFilter, type StudyScope } from "./cards.ts";
@@ -64,6 +64,10 @@ export function listPartyCardIds(scope: StudyScope, filters: StudyFilters | null
     .orderBy(asc(anime.titleRomaji), asc(song.themeSlot))
     .all()
     .map((row) => row.id);
+}
+
+export function countLibraryCards(): number {
+  return db.select({ n: count() }).from(card).get()?.n ?? 0;
 }
 
 export function pickPartyQueue(

@@ -339,10 +339,33 @@ function choicesFor(item: PartyQueueItem): string[] {
   return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
 }
 
+// A lift waits out the host's preview lead, so the screen un-censors when the
+// host's own preview shows the clip has moved past the sensitive part.
+let pendingLift: ReturnType<typeof setTimeout> | null = null;
+
+function cancelPendingLift(): void {
+  if (pendingLift) clearTimeout(pendingLift);
+  pendingLift = null;
+}
+
 export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
+    return {};
+  }
+  if (command.type === "censor") {
+    cancelPendingLift();
+    const { delay, ...plain } = command;
+    if (plain.censor === null && delay && state.censor) {
+      const token = currentPartyItem(state)?.token;
+      pendingLift = setTimeout(() => {
+        pendingLift = null;
+        if (currentPartyItem(state)?.token === token) commit(applyPartyCommand(state, plain));
+      }, delay * 1000);
+      return {};
+    }
+    commit(applyPartyCommand(state, plain));
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);

@@ -85,7 +85,7 @@ const picture = computed(() => (active.value ? fx.value.picture : "video"));
 const showCover = computed(() => picture.value === "cover" && !coverFailed.value);
 const showVeil = computed(() => {
   if (showCover.value) return false;
-  return picture.value === "blackout" || picture.value === "cover" || props.kind === "audio";
+  return picture.value === "blackout" || picture.value === "cover" || picture.value === "music" || props.kind === "audio";
 });
 // A hint mode turned on mid-song counts up from the moment it was turned on.
 const roundElapsed = computed(() => elapsed.value - (props.lightning?.offset ?? 0));
@@ -415,9 +415,12 @@ onBeforeUnmount(() => {
     <div v-else-if="loading && !showVeil && elapsed <= 0.3" class="party-veil">
       <StudyPlayerKai mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
     </div>
+    <div v-else-if="showVeil && loading" class="party-veil">
+      <StudyPlayerKai mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
+    </div>
+    <PartyMusicVisual v-else-if="showVeil && (picture === 'music' || kind === 'audio')" :playing="playing" />
     <div v-else-if="showVeil" class="party-veil">
-      <StudyPlayerKai v-if="loading" mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
-      <StudyPlayerKai v-else :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
+      <StudyPlayerKai :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
     </div>
     <div v-if="countdown !== null" class="countdown" aria-hidden="true">
       <span class="countdown-fill" :style="{ transform: `scaleX(${countdown})` }" />

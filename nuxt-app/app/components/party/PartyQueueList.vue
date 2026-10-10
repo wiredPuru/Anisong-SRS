@@ -45,8 +45,7 @@ const QUICK = [
   { id: "blur", label: "Full blur", on: (e: PartyEffects) => e.blur >= FULL_BLUR, toggle: (e: PartyEffects, on: boolean) => ({ ...e, blur: on ? 0 : FULL_BLUR }) },
   { id: "pixelate", label: "Pixelate", on: (e: PartyEffects) => e.pixelate > 0, toggle: (e: PartyEffects, on: boolean) => ({ ...e, pixelate: on ? 0 : 32 }) },
   { id: "muted", label: "Mute", on: (e: PartyEffects) => e.muted, toggle: (e: PartyEffects, on: boolean) => ({ ...e, muted: !on }) },
-  { id: "blackout", label: "Blackout", on: (e: PartyEffects) => e.picture === "blackout", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "blackout" }) },
-  { id: "cover", label: "Cover art", on: (e: PartyEffects) => e.picture === "cover", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "cover" }) },
+  { id: "music", label: "Music player", on: (e: PartyEffects) => e.picture === "music", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "music" }) },
   { id: "bubbles", label: "Bubbles", on: (e: PartyEffects) => e.picture === "bubbles", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "bubbles" }) },
 ] as const satisfies readonly { id: string; label: string; on: (e: PartyEffects) => boolean; toggle: (e: PartyEffects, on: boolean) => PartyEffects }[];
 
@@ -91,7 +90,12 @@ function endDrag() {
 
 <template>
   <section class="queue" aria-labelledby="queue-title">
-    <h2 id="queue-title" class="queue-title">Queue</h2>
+    <div class="queue-head">
+      <h2 id="queue-title" class="queue-title">Queue</h2>
+      <button v-if="state.queue.length - state.index > 2" type="button" class="reroll-btn" title="Shuffle the songs still to come" @click="emit('command', { type: 'queueShuffle' })">
+        &#8644; Shuffle upcoming
+      </button>
+    </div>
     <div v-if="upNext" class="up-next">
       <span class="up-next-text">
         <span class="up-next-label">Up next</span>
@@ -204,6 +208,13 @@ function endDrag() {
 .queue {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 

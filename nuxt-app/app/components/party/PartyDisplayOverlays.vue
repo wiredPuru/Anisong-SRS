@@ -64,13 +64,18 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       <aside class="scoreboard" aria-label="Scoreboard">
         <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
         <ol class="scoreboard-list">
-          <li v-for="(player, index) in board" :key="player.id" class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0 }">
-            <span class="scoreboard-rank">{{ index + 1 }}</span>
-            <span class="scoreboard-name">
-              {{ player.name }}
-              <span v-if="player.members?.length" class="scoreboard-members">{{ player.members.join(", ") }}</span>
-            </span>
-            <span class="scoreboard-score">{{ player.score }}</span>
+          <li v-for="(player, index) in board" :key="player.id" class="scoreboard-item" :class="{ team: player.memberRows }">
+            <div class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0, 'team-row': player.memberRows }">
+              <span class="scoreboard-rank">{{ index + 1 }}</span>
+              <span class="scoreboard-name">{{ player.name }}</span>
+              <span class="scoreboard-score">{{ player.score }}</span>
+            </div>
+            <ol v-if="player.memberRows?.length" class="team-members">
+              <li v-for="member in player.memberRows" :key="member.id" class="team-member">
+                <span class="scoreboard-name">{{ member.name }}</span>
+                <span class="scoreboard-score">{{ member.score }}</span>
+              </li>
+            </ol>
           </li>
           <li v-if="!board.length" class="scoreboard-empty">No players yet</li>
         </ol>
@@ -185,23 +190,36 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   font-size: clamp(16px, 1.6vw, 2.59vh);
 }
 
-.scoreboard-row.leader .scoreboard-name,
-.scoreboard-row.leader .scoreboard-members {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
-  font-size: 0.7em;
-  font-weight: 400;
+.scoreboard-item.team {
+  padding: 8px 10px;
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.scoreboard-members {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--muted);
-  font-size: 0.7em;
-  font-weight: 400;
+.team-row {
+  font-size: 1.25em;
+}
+
+.team-members {
+  margin: 6px 0 0;
+  padding: 6px 0 0 1.6em;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px dashed var(--border);
+}
+
+.team-member {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  font-size: 0.85em;
+}
+
+.scoreboard-row.leader .scoreboard-name {
+  color: var(--accent);
 }
 
 .scoreboard-score {
