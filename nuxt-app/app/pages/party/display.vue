@@ -13,6 +13,8 @@ const lobbyMusic = ref<{ unlock: () => void } | null>(null);
 const idleEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 0, muted: false, picture: "video" as const };
 
 const { isFullscreen, enter, toggle } = usePartyFullscreen();
+// The same Ambient preference Study uses, kept by this screen's own browser.
+const { enabled: ambient, refresh: readAmbient, setEnabled: setAmbient } = useAmbientPreference();
 const { scores, pops } = usePartySettledScores(state);
 const { editing: arranging, settings, category, selected } = usePartyLayout();
 const showSummary = computed(() => started.value && Boolean(state.value?.summary || (arranging.value && category.value === 'results')));
@@ -82,6 +84,9 @@ function onKeydown(event: KeyboardEvent) {
   if (key === "f") {
     event.preventDefault();
     void toggle();
+  } else if (key === "a") {
+    event.preventDefault();
+    setAmbient(!ambient.value);
   } else if (key === "l") {
     event.preventDefault();
     arranging.value = !arranging.value;
@@ -123,7 +128,10 @@ watch(() => state.value?.buzz.answering ?? null, (name, previous) => {
 
 const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  readAmbient();
+  window.addEventListener("keydown", onKeydown);
+});
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
   clearTimeout(idleTimer);
@@ -161,6 +169,7 @@ onBeforeUnmount(() => {
       :revealed="state?.phase === 'revealed'"
       :volume="state?.songVolume ?? 1"
       :lightning="state?.lightning ?? null"
+      :ambient="ambient"
       @position="reportPosition"
     />
 
@@ -255,6 +264,20 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="display-button"
+        :class="{ on: ambient }"
+        :aria-label="ambient ? 'Ambient glow on (A)' : 'Ambient glow off (A)'"
+        :title="ambient ? 'Ambient glow on (A)' : 'Ambient glow off (A)'"
+        :aria-pressed="ambient"
+        @click="setAmbient(!ambient)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+          <circle cx="12" cy="12" r="3.2" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="display-button"
         :aria-label="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
         :title="isFullscreen ? 'Exit full screen (F)' : 'Full screen (F)'"
         @click="toggle"
@@ -321,6 +344,12 @@ onBeforeUnmount(() => {
   color: var(--text);
   cursor: pointer;
   transition: opacity 0.3s ease;
+}
+
+.display-button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .display-button svg {
