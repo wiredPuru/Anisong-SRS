@@ -11,6 +11,7 @@ import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
+import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
 import { parseStudyFilters, type StudyFilters } from "./studyFilters.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
@@ -40,7 +41,17 @@ import {
 let state: PartyGameState = initialPartyState();
 const listeners = new Set<(state: PartyGameState) => void>();
 
+// The saved rules join the state on first use, once the database is ready.
+let rulesLoaded = false;
+function ensureRulesLoaded(): void {
+  if (rulesLoaded) return;
+  rulesLoaded = true;
+  const saved = loadSavedRules();
+  if (saved) state = applyPartyCommand(state, { type: "rules", text: saved });
+}
+
 export function getPartyState(): PartyGameState {
+  ensureRulesLoaded();
   return state;
 }
 
@@ -357,6 +368,8 @@ function cancelPendingLift(): void {
 }
 
 export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
+  ensureRulesLoaded();
+  if (command.type === "rules") storeSavedRules(command.text);
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));

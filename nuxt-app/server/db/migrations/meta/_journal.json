@@ -232,6 +232,13 @@
       "when": 1791676946969,
       "tag": "0032_anime_popularity",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1791679160474,
+      "tag": "0033_party_rules",
+      "breakpoints": true
     }
   ]
 }
