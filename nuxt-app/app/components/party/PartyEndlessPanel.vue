@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { PartyEndlessDifficulty, PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
+import type { PartyEndless, PartyEndlessDifficulty, PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
+import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 
-const props = defineProps<{ state: PartyHostState }>();
+const props = defineProps<{ state: PartyHostState; source: PartyEndlessSource }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string }[] = [
-  { value: "easy", label: "Easy", hint: "Well-rated, familiar shows (AniList score 75+)." },
-  { value: "medium", label: "Medium", hint: "Shows scored 60 to 74." },
-  { value: "hard", label: "Hard", hint: "Lower-rated or unrated shows: the deep cuts." },
-  { value: "random", label: "Random", hint: "Any show, any score." },
+  { value: "easy", label: "Easy", hint: "Mostly the top 500 most popular anime, with a 10% sprinkle of anything." },
+  { value: "medium", label: "Medium", hint: "Mostly the top 1000 most popular anime, with a 10% sprinkle of anything." },
+  { value: "hard", label: "Hard", hint: "Every anime in the pool, leaning on ones outside the top 500." },
+  { value: "random", label: "Random", hint: "Any anime in the pool, no weighting." },
 ];
 
 const difficulty = ref<PartyEndlessDifficulty>(props.state.endless?.difficulty ?? "easy");
@@ -38,24 +39,41 @@ async function setDownloadSongs(enabled: boolean) {
   }
 }
 
-function send(config: { difficulty: PartyEndlessDifficulty; downloadedOnly: boolean; outsideLibrary: boolean } | null) {
-  emit("command", { type: "endless", config });
+type Settings = Omit<PartyEndless, "scope" | "filtered">;
+const settings = computed<Settings>(() => ({ difficulty: difficulty.value, downloadedOnly: downloadedOnly.value, outsideLibrary: outsideLibrary.value }));
+const needsDeck = computed(() => !outsideLibrary.value && props.source.scope === null);
+
+function send(config: Settings | null) {
+  if (config === null) {
+    emit("command", { type: "endless", config: null });
+    return;
+  }
+  emit("command", {
+    type: "endless",
+    config: { ...config, scope: props.source.scope ?? { type: "all" }, filtered: Boolean(props.source.filters) },
+    ...(props.source.filters ? { filters: props.source.filters } : {}),
+  });
 }
 
 // While running, a change applies to the songs generated from then on.
+function resend() {
+  if (running.value && !needsDeck.value) send(settings.value);
+}
+watch(() => [props.source.scope, props.source.filters], resend, { deep: true });
+
 function pick(value: PartyEndlessDifficulty) {
   difficulty.value = value;
-  if (running.value) send({ difficulty: value, downloadedOnly: downloadedOnly.value, outsideLibrary: outsideLibrary.value });
+  resend();
 }
 
 function setDownloaded(value: boolean) {
   downloadedOnly.value = value;
-  if (running.value) send({ difficulty: difficulty.value, downloadedOnly: value, outsideLibrary: outsideLibrary.value });
+  resend();
 }
 
 function setOutside(value: boolean) {
   outsideLibrary.value = value;
-  if (running.value) send({ difficulty: difficulty.value, downloadedOnly: downloadedOnly.value, outsideLibrary: value });
+  resend();
 }
 </script>
 
@@ -67,6 +85,10 @@ function setOutside(value: boolean) {
     </div>
     <p class="endless-note">
       Keeps adding songs as you play, and holds a show back for a good while once it has played.
+      It draws from the source and filters set above in New game.
+    </p>
+    <p v-if="state.endless?.filtered || source.filters" class="endless-hint">
+      {{ outsideLibrary ? "Filters don't apply to songs outside your library." : "Filters are on: only songs from matching anime are used." }}
     </p>
 
     <label class="endless-check">
@@ -74,7 +96,7 @@ function setOutside(value: boolean) {
       Songs outside my cards and decks
     </label>
     <p class="endless-hint">
-      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty and the downloaded-only filter don't apply." : "Only songs you have cards for." }}
+      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty, filters and the downloaded-only option don't apply." : "Only songs you have cards for." }}
     </p>
 
     <template v-if="outsideLibrary && download">
@@ -119,7 +141,7 @@ function setOutside(value: boolean) {
     </p>
 
     <div class="actions">
-      <button v-if="!running" type="button" class="start-btn" @click="send({ difficulty, downloadedOnly, outsideLibrary })">
+      <button v-if="!running" type="button" class="start-btn" @click="send(settings)" :disabled="needsDeck">
         {{ state.queue.length ? "Start endless" : "Start endless game" }}
       </button>
       <button v-else type="button" class="stop-btn" @click="send(null)">Stop endless</button>
@@ -202,6 +224,11 @@ function setOutside(value: boolean) {
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
+}
+
+.start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .start-btn {

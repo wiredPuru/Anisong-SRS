@@ -5,23 +5,38 @@ export type EndlessDifficulty = (typeof ENDLESS_DIFFICULTIES)[number];
 export const ENDLESS_AHEAD = 4;
 export const ENDLESS_BATCH = 10;
 
-const EASY_MIN_SCORE = 75;
-const MEDIUM_MIN_SCORE = 60;
 const MAX_WINDOW = 60;
+
+/** AniList popularity (users listing a show) at the 500th and 1000th most popular anime. */
+export interface PopularityCutoffs {
+  top500: number;
+  top1000: number;
+}
+
+/** Stand-ins until AniList's real cutoffs load; they only need to be roughly right. */
+export const DEFAULT_CUTOFFS: PopularityCutoffs = { top500: 90_000, top1000: 55_000 };
+
+/** The share of each difficulty's songs drawn from anywhere, for a little spice. */
+const WILD_SHARE: Record<EndlessDifficulty, number> = { easy: 0.1, medium: 0.1, hard: 0.25, random: 0 };
 
 export interface EndlessCandidate {
   cardId: number;
   animeId: number;
-  score: number | null;
+  /** AniList popularity, null until the Settings AniList backfill has run. */
+  popularity: number | null;
   /** Has a local video or audio file. */
   downloaded: boolean;
 }
 
-/** A well-rated show is likely a familiar one; an unrated or low-rated one is a deep cut. */
-export function difficultyOf(score: number | null): Exclude<EndlessDifficulty, "random"> {
-  if (score === null) return "hard";
-  if (score >= EASY_MIN_SCORE) return "easy";
-  return score >= MEDIUM_MIN_SCORE ? "medium" : "hard";
+/**
+ * Easy is the top 500 anime, medium the top 1000, hard everything outside the
+ * top 500 (an unknown popularity counts as outside), random is any.
+ */
+export function inBand(difficulty: EndlessDifficulty, popularity: number | null, cutoffs: PopularityCutoffs): boolean {
+  if (difficulty === "random") return true;
+  if (difficulty === "easy") return popularity !== null && popularity >= cutoffs.top500;
+  if (difficulty === "medium") return popularity !== null && popularity >= cutoffs.top1000;
+  return popularity === null || popularity < cutoffs.top500;
 }
 
 function shuffled<T>(items: T[], random: () => number): T[] {
@@ -47,12 +62,14 @@ export function pickEndlessBatch(options: {
   downloadedOnly?: boolean;
   queue: number[];
   count: number;
+  cutoffs?: PopularityCutoffs;
   random?: () => number;
 }): number[] {
   const { difficulty, queue, count } = options;
   const random = options.random ?? Math.random;
   const candidates = options.downloadedOnly ? options.candidates.filter((candidate) => candidate.downloaded) : options.candidates;
-  const band = difficulty === "random" ? candidates : candidates.filter((candidate) => difficultyOf(candidate.score) === difficulty);
+  const cutoffs = options.cutoffs ?? DEFAULT_CUTOFFS;
+  const band = candidates.filter((candidate) => inBand(difficulty, candidate.popularity, cutoffs));
   const pool = band.length ? band : candidates;
 
   const animeOf = new Map(candidates.map((candidate) => [candidate.cardId, candidate.animeId]));
@@ -65,12 +82,16 @@ export function pickEndlessBatch(options: {
   }
 
   const queued = new Set(queue);
+  const main = shuffled(pool, random);
+  const wild = shuffled(candidates, random);
   const picked: number[] = [];
-  for (const candidate of shuffled(pool, random)) {
-    if (picked.length >= count) break;
-    if (queued.has(candidate.cardId) || recentShows.has(candidate.animeId)) continue;
-    picked.push(candidate.cardId);
-    recentShows.add(candidate.animeId);
+  const usable = (candidate: EndlessCandidate) => !queued.has(candidate.cardId) && !recentShows.has(candidate.animeId) && !picked.includes(candidate.cardId);
+  while (picked.length < count) {
+    const lists = random() < WILD_SHARE[difficulty] ? [wild, main] : [main, wild];
+    const next = lists.map((list) => list.find(usable)).find((candidate) => candidate !== undefined);
+    if (!next) break;
+    picked.push(next.cardId);
+    recentShows.add(next.animeId);
   }
   return picked;
 }

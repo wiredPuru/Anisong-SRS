@@ -8,15 +8,14 @@ const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 const NO_EFFECTS: PartyEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" };
 const PICTURES: { value: PartyPicture; label: string }[] = [
   { value: "video", label: "Video" },
-  { value: "blackout", label: "Blackout" },
-  { value: "cover", label: "Cover art" },
   { value: "bubbles", label: "Bubbles" },
+  { value: "music", label: "Music player" },
 ];
 const SEND_THROTTLE_MS = 150;
 
 const target = ref<"current" | "next">("current");
 const current = ref<PartyEffects>({ ...props.state.effects });
-const next = ref<PartyEffects>({ ...(props.state.nextEffects ?? props.state.effects) });
+const next = ref<PartyEffects>({ ...(props.state.nextEffects ?? NO_EFFECTS) });
 const draft = computed(() => (target.value === "current" ? current.value : next.value));
 const armed = computed(() => props.state.nextEffects !== null);
 
@@ -51,6 +50,42 @@ function update(patch: Partial<PartyEffects>) {
   } else {
     next.value = { ...next.value, ...patch };
   }
+}
+
+// Blur and pixelate move in set steps rather than along a drag bar. Level 0
+// is off; switching back on returns to the strength last used.
+interface Stepped {
+  key: "blur" | "pixelate";
+  label: string;
+  levels: number[];
+  fallback: number;
+}
+const STEPPED: Stepped[] = [
+  { key: "blur", label: "Blur", levels: [0, 4, 8, 14, 20, 30, 40], fallback: 3 },
+  { key: "pixelate", label: "Pixelate", levels: [0, 8, 16, 24, 32, 48, 64], fallback: 3 },
+];
+const lastLevel = reactive<Record<Stepped["key"], number>>({ blur: 3, pixelate: 3 });
+
+function levelIndex(row: Stepped, value: number): number {
+  let best = 0;
+  row.levels.forEach((level, i) => {
+    if (Math.abs(level - value) < Math.abs(row.levels[best]! - value)) best = i;
+  });
+  return best;
+}
+
+function setLevel(row: Stepped, index: number) {
+  const clamped = Math.min(row.levels.length - 1, Math.max(0, index));
+  if (clamped > 0) lastLevel[row.key] = clamped;
+  update({ [row.key]: row.levels[clamped]! });
+}
+
+function toggleStepped(row: Stepped) {
+  setLevel(row, draft.value[row.key] > 0 ? 0 : lastLevel[row.key] || row.fallback);
+}
+
+function stepStepped(row: Stepped, direction: 1 | -1) {
+  setLevel(row, levelIndex(row, draft.value[row.key]) + direction);
 }
 
 function numberFrom(event: Event): number {
@@ -96,17 +131,20 @@ onBeforeUnmount(() => {
       A lightning round is running, so its mode sets the screen. Only Mute applies until you stop the round.
     </p>
     <p class="effects-hint">
-      {{ target === "current" ? "Changes show on the display right away. They stay on for later songs until you change them. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
+      {{ target === "current" ? "Changes show on the display right away. They last for this song only; the next song starts clear unless you armed Next song. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
     </p>
 
-    <label class="fx-row">
-      <span class="fx-label">Blur <span class="fx-value">{{ draft.blur ? `${draft.blur}px` : "off" }}</span></span>
-      <input type="range" min="0" max="40" step="2" :value="draft.blur" @input="update({ blur: numberFrom($event) })" />
-    </label>
-    <label class="fx-row">
-      <span class="fx-label">Pixelate <span class="fx-value">{{ draft.pixelate ? `${draft.pixelate}px blocks` : "off" }}</span></span>
-      <input type="range" min="0" max="64" step="4" :value="draft.pixelate" @input="update({ pixelate: numberFrom($event) })" />
-    </label>
+    <div v-for="row in STEPPED" :key="row.key" class="fx-stepper">
+      <span class="fx-label">{{ row.label }}</span>
+      <button type="button" class="fx-toggle" :class="{ on: draft[row.key] > 0 }" :aria-pressed="draft[row.key] > 0" @click="toggleStepped(row)">
+        {{ draft[row.key] > 0 ? "On" : "Off" }}
+      </button>
+      <button type="button" class="fx-step" :disabled="draft[row.key] <= 0" :aria-label="`Less ${row.label}`" @click="stepStepped(row, -1)">−</button>
+      <span class="fx-pips" aria-hidden="true">
+        <span v-for="n in row.levels.length - 1" :key="n" class="fx-pip" :class="{ lit: levelIndex(row, draft[row.key]) >= n }" />
+      </span>
+      <button type="button" class="fx-step" :disabled="levelIndex(row, draft[row.key]) >= row.levels.length - 1" :aria-label="`More ${row.label}`" @click="stepStepped(row, 1)">+</button>
+    </div>
     <div class="fx-inline">
       <label class="fx-check">
         <input type="checkbox" :checked="draft.decay" @change="update({ decay: ($event.target as HTMLInputElement).checked })" />
@@ -223,6 +261,62 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.fx-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fx-stepper .fx-label {
+  min-width: 5.5em;
+  font-weight: 700;
+}
+
+.fx-toggle,
+.fx-step {
+  padding: 4px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fx-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.fx-step {
+  width: 2.2em;
+  padding: 4px 0;
+}
+
+.fx-step:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fx-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.fx-pip {
+  width: 10px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.fx-pip.lit {
+  background: var(--accent);
 }
 
 .fx-row {

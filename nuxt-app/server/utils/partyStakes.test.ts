@@ -97,7 +97,16 @@ describe("teams", () => {
       { type: "score", op: "adjust", id: 3, delta: 4 },
     );
     expect(scoreRows(state)).toEqual([
-      { id: -1, name: "Reds", score: 5, members: ["Aki", "Bea"] },
+      {
+        id: -1,
+        name: "Reds",
+        score: 5,
+        members: ["Aki", "Bea"],
+        memberRows: [
+          { id: 2, name: "Bea", score: 3 },
+          { id: 1, name: "Aki", score: 2 },
+        ],
+      },
       { id: 3, name: "Cid", score: 4 },
     ]);
   });

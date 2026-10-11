@@ -10,7 +10,7 @@ const TICK_MS = 250;
 const customSeconds = ref(45);
 const autoReveal = ref(true);
 const bannerText = ref("");
-const music = ref<{ folder: string; tracks: string[] } | null>(null);
+const music = ref<{ folder: string; folders: string[]; tracks: string[] } | null>(null);
 
 const now = ref(Date.now());
 let ticker: ReturnType<typeof setInterval> | null = null;
@@ -102,8 +102,9 @@ function setMusic(patch: { enabled?: boolean; volume?: number }) {
         />
       </div>
       <p v-if="music" class="note">
-        {{ music.tracks.length }} track{{ music.tracks.length === 1 ? "" : "s" }} in
-        <code>{{ music.folder }}</code>
+        {{ music.tracks.length }} track{{ music.tracks.length === 1 ? "" : "s" }} from
+        <code v-for="(folder, i) in music.folders" :key="folder">{{ folder }}{{ i < music.folders.length - 1 ? ", " : "" }}</code>.
+        Downloaded song clips and videos in your library folders are skipped.
         <button type="button" class="link" @click="loadMusic">Refresh</button>
       </p>
     </div>

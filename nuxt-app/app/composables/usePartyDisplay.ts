@@ -1,11 +1,28 @@
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export type PartyLightningMode = "regular" | "blind" | "peek" | "cover" | "clues" | "tags" | "title";
 export type PartyHints =
   | { kind: "clues"; items: { label: string; value: string }[] }
   | { kind: "tags"; items: string[] }
   | { kind: "title"; masked: string }
   | null;
+
+// Hand-kept copy of the server's PartyCensor (server/utils/partyCensor.ts).
+export interface PartyCensorBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface PartyCensor {
+  boxes: PartyCensorBox[];
+  style: "blur" | "black";
+  muted: boolean;
+}
+export interface PartyCensorKey {
+  at: number;
+  censor: PartyCensor | null;
+}
 
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
 export interface PartyEffects {
@@ -45,6 +62,7 @@ export interface PartyScoreRow {
   name: string;
   score: number;
   members?: string[];
+  memberRows?: { id: number; name: string; score: number }[];
 }
 export interface PartyRoundPoint {
   id: number;
@@ -91,11 +109,21 @@ export interface PartyDisplayState {
   songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  rules: string | null;
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
+  censor: PartyCensor | null;
+  censorTrack: PartyCensorKey[] | null;
 }
 
+/** Time left in the song on screen, as last reported by the player. */
+export interface PartySongClock {
+  token: string;
+  left: number;
+  at: number;
+  playing: boolean;
+}
 export interface PartyPositionReport {
   token: string;
   currentTime: number;

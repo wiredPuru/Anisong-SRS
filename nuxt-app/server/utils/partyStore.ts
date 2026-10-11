@@ -11,8 +11,12 @@ import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
+import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
+import { popularityCutoffs } from "./popularityCutoffs.ts";
+import { parseStudyFilters, type StudyFilters } from "./studyFilters.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import { createPlayerRegistry } from "./partyPlayers.ts";
+import { loadSavedCensor, storeSavedCensor } from "./partyCensorStore.ts";
 import {
   applyPartyCommand,
   currentPartyItem,
@@ -37,7 +41,17 @@ import {
 let state: PartyGameState = initialPartyState();
 const listeners = new Set<(state: PartyGameState) => void>();
 
+// The saved rules join the state on first use, once the database is ready.
+let rulesLoaded = false;
+function ensureRulesLoaded(): void {
+  if (rulesLoaded) return;
+  rulesLoaded = true;
+  const saved = loadSavedRules();
+  if (saved) state = applyPartyCommand(state, { type: "rules", text: saved });
+}
+
 export function getPartyState(): PartyGameState {
+  ensureRulesLoaded();
   return state;
 }
 
@@ -158,6 +172,7 @@ export function addCatalogSongs(annSongIds: number[]): number {
     .map((id) => lastCatalogSearch.get(id))
     .map((song) => (song ? catalogItem(song) : null))
     .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+    .map((item) => (state.index >= 0 ? { ...item, manual: true } : item))
     .slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length));
   if (!items.length) return 0;
   commit(
@@ -195,6 +210,10 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
   }
 }
 
+// The filters an endless queue draws under. They can carry thousands of list
+// ids, so they live here rather than in the state every client receives.
+let endlessFilters: StudyFilters | null = null;
+
 // An endless queue keeps a few songs ready ahead of the current one. It runs
 // after every change, so a skip, a jump or a removal refills it too.
 function topUpEndless(): void {
@@ -212,14 +231,15 @@ function topUpEndless(): void {
   try {
     // A few spare picks cover songs the clip settings drop.
     const cardIds = pickEndlessBatch({
-      candidates: listEndlessCandidates(),
+      candidates: listEndlessCandidates(config.scope, endlessFilters),
+      cutoffs: popularityCutoffs(),
       difficulty: config.difficulty,
       downloadedOnly: config.downloadedOnly,
       queue: state.queue.map((item) => item.cardId),
       count: ENDLESS_BATCH + 4,
     });
     if (!cardIds.length) return;
-    runPartyCommand({ type: "load", cardIds, append: hasGame, downloadedOnly: config.downloadedOnly });
+    runPartyCommand({ type: "load", cardIds, append: hasGame, downloadedOnly: config.downloadedOnly }, "endless");
   } finally {
     toppingUp = false;
   }
@@ -229,6 +249,7 @@ function commit(next: PartyGameState): void {
   if (next === state) return;
   const moved = next.index !== state.index || next.queue !== state.queue;
   const timerChanged = next.timer !== state.timer;
+  const previous = state;
   state = next;
   if (moved) {
     prefetchAround(state);
@@ -237,6 +258,42 @@ function commit(next: PartyGameState): void {
   if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
   topUpEndless();
+  followSavedCensor(previous);
+}
+
+let pendingCensorSave: (() => void) | null = null;
+let censorSaveTimer: ReturnType<typeof setTimeout> | null = null;
+const CENSOR_SAVE_DELAY_MS = 400;
+
+function flushCensorSave(): void {
+  if (censorSaveTimer) clearTimeout(censorSaveTimer);
+  censorSaveTimer = null;
+  const save = pendingCensorSave;
+  pendingCensorSave = null;
+  save?.();
+}
+
+// A song coming up loads its remembered censor; changes to the current
+// song's censor or its Remember box are written back shortly after, with
+// the values of that moment, so a quick Next cannot save the wrong song.
+function followSavedCensor(previous: PartyGameState): void {
+  const item = currentPartyItem(state);
+  if (currentPartyItem(previous)?.token !== item?.token) {
+    flushCensorSave();
+    // Moving on while recording stops the recording and keeps the take.
+    const left = currentPartyItem(previous);
+    if (left && previous.censorRecording && previous.censorTrack.length) storeSavedCensor(left.cardId, true, previous.censorTrack);
+    if (!item) return;
+    const track = loadSavedCensor(item.cardId);
+    if (track.length) commit(applyPartyCommand(state, { type: "censorSaved", token: item.token, track }));
+    return;
+  }
+  if (!item || state.censorRecording || (previous.censorTrack === state.censorTrack && previous.censorRemember === state.censorRemember)) return;
+  const { cardId } = item;
+  const { censorRemember, censorTrack } = state;
+  pendingCensorSave = () => storeSavedCensor(cardId, censorRemember, censorTrack);
+  if (censorSaveTimer) clearTimeout(censorSaveTimer);
+  censorSaveTimer = setTimeout(flushCensorSave, CENSOR_SAVE_DELAY_MS);
 }
 
 function localFileUsable(path: string): boolean {
@@ -300,10 +357,45 @@ function choicesFor(item: PartyQueueItem): string[] {
   return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
 }
 
-export function runPartyCommand(command: PartyCommand): { loaded?: number; skipped?: number; changed?: boolean } {
+// A lift waits out the host's preview lead, so the screen un-censors when the
+// host's own preview shows the clip has moved past the sensitive part.
+let pendingLift: ReturnType<typeof setTimeout> | null = null;
+
+function cancelPendingLift(): void {
+  if (pendingLift) clearTimeout(pendingLift);
+  pendingLift = null;
+  if (state.censorLifting) commit({ ...state, censorLifting: false });
+}
+
+export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
+  ensureRulesLoaded();
+  if (command.type === "rules") storeSavedRules(command.text);
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
+    return {};
+  }
+  if (command.type === "endless") {
+    const parsed = parseStudyFilters(command.filters);
+    endlessFilters = "error" in parsed ? null : parsed.filters;
+    const { filters: _filters, ...plain } = command;
+    commit(applyPartyCommand(state, plain));
+    return {};
+  }
+  if (command.type === "censor") {
+    cancelPendingLift();
+    const { delay, ...plain } = command;
+    if (plain.censor === null && delay && state.censor) {
+      const token = currentPartyItem(state)?.token;
+      commit({ ...state, censorLifting: true });
+      pendingLift = setTimeout(() => {
+        pendingLift = null;
+        if (currentPartyItem(state)?.token === token) commit({ ...applyPartyCommand(state, plain), censorLifting: false });
+        else if (state.censorLifting) commit({ ...state, censorLifting: false });
+      }, delay * 1000);
+      return {};
+    }
+    commit(applyPartyCommand(state, plain));
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);
@@ -320,7 +412,8 @@ export function runPartyCommand(command: PartyCommand): { loaded?: number; skipp
     : command.cardIds;
   if (!cardIds.length) return { loaded: 0, skipped: 0 };
   const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
-  commit(applyPartyCommand(state, command, { loaded: items }));
+  const manual = origin === "host" && command.append === true && state.index >= 0;
+  commit(applyPartyCommand(state, command, { loaded: manual ? items.map((item) => ({ ...item, manual })) : items }));
   return { loaded: items.length, skipped };
 }
 
@@ -350,7 +443,8 @@ function rerollQueueItem(index: number): { loaded: number } {
   }
   const downloadedOnly = config?.downloadedOnly ?? false;
   const cardIds = pickEndlessBatch({
-    candidates: listEndlessCandidates(),
+    candidates: listEndlessCandidates(config?.scope, config ? endlessFilters : null),
+    cutoffs: popularityCutoffs(),
     difficulty: config?.difficulty ?? "random",
     downloadedOnly,
     queue: state.queue.map((item) => item.cardId),

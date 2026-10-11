@@ -1,6 +1,8 @@
 import type {
   PartyAnswer,
   PartyBanner,
+  PartyCensor,
+  PartyCensorKey,
   PartyEffects,
   PartyLightningMode,
   PartyMusic,
@@ -16,6 +18,8 @@ export interface PartyEndless {
   difficulty: PartyEndlessDifficulty;
   downloadedOnly: boolean;
   outsideLibrary: boolean;
+  scope: { type: "all" } | { type: "created"; id: number };
+  filtered: boolean;
 }
 
 export interface PartyRevealFields {
@@ -49,7 +53,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
+  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -65,6 +69,7 @@ export interface PartyHostState {
   music: PartyMusic;
   songVolume: number;
   joinInfoVisible: boolean;
+  rules: string;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -72,6 +77,14 @@ export interface PartyHostState {
   buzz: { playerId: number | null; lockedOut: number[]; winnerId: number | null };
   currentAwards: number[];
   summaryVisible: boolean;
+  currentToken: string | null;
+  censor: PartyCensor | null;
+  censorStyle: PartyCensor["style"];
+  censorTrack: PartyCensorKey[];
+  censorRemember: boolean;
+  censorRecording: boolean;
+  censorLifting: boolean;
+  censorTouched: boolean;
 }
 
 export type PartyHostCommand =
@@ -85,14 +98,20 @@ export type PartyHostCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
+  | { type: "censorRecord"; recording: boolean }
+  | { type: "censorForget" }
+  | { type: "censorStyle"; style: PartyCensor["style"] }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
   | { type: "stake"; config: PartyStake | null }
-  | { type: "endless"; config: PartyEndless | null }
+  | { type: "rules"; text: string }
+  | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "queueShuffle" }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }

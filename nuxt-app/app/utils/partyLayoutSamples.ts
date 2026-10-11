@@ -46,3 +46,4 @@ export const SAMPLE_HINTS: NonNullable<PartyHints> = {
     { label: "Format", value: "TV" },
   ],
 };
+export const SAMPLE_RULES = "Buzz in before you answer.\nA wrong answer locks you out for the song.\nFirst to 10 points wins.";

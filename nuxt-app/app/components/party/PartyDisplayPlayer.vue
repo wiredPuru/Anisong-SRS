@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
+import type { PartyCensor, PartyCensorKey, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
 import { assignPartyVideoSlots } from "~/utils/partyVideoSlots";
+import { censorAt } from "~/utils/partyCensorBoxes";
 
 const props = defineProps<{
   token: string;
@@ -15,6 +16,9 @@ const props = defineProps<{
   revealed: boolean;
   volume: number;
   lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
+  ambient: boolean;
+  censor: PartyCensor | null;
+  censorTrack: PartyCensorKey[] | null;
 }>();
 
 const emit = defineEmits<{ position: [report: PartyPositionReport] }>();
@@ -33,6 +37,9 @@ const tokens = computed(() => props.token
   ? [props.token, ...props.upcoming.filter((token) => token !== props.token)].slice(0, SLOT_COUNT)
   : []);
 const slots = ref<(string | null)[]>(Array(SLOT_COUNT).fill(null));
+// Each element is sized to its own picture rather than letterboxed inside a
+// full-screen box, so the ambient glow can fill the bars around it.
+const aspects = ref<number[]>(Array(SLOT_COUNT).fill(16 / 9));
 const elements: (HTMLVideoElement | null)[] = Array(SLOT_COUNT).fill(null);
 const media = shallowRef<HTMLVideoElement | null>(null);
 const cover = ref<HTMLImageElement | null>(null);
@@ -78,7 +85,7 @@ const picture = computed(() => (active.value ? fx.value.picture : "video"));
 const showCover = computed(() => picture.value === "cover" && !coverFailed.value);
 const showVeil = computed(() => {
   if (showCover.value) return false;
-  return picture.value === "blackout" || picture.value === "cover" || props.kind === "audio";
+  return picture.value === "blackout" || picture.value === "cover" || picture.value === "music" || props.kind === "audio";
 });
 // A hint mode turned on mid-song counts up from the moment it was turned on.
 const roundElapsed = computed(() => elapsed.value - (props.lightning?.offset ?? 0));
@@ -122,6 +129,43 @@ const countdown = computed(() => {
   return Math.max(0, 1 - Math.max(0, roundElapsed.value) / props.lightning.guessSeconds);
 });
 const hints = computed(() => (props.lightning?.hints && !failed.value ? props.lightning.hints : null));
+
+// Ambient: the bars around the picture fill with a blurred, colour-sampled
+// copy of it, like Study's glow. Only while the plain clip is on screen, so a
+// peek, a blackout or a cover round never leaks through the glow.
+const AMBIENT_SAMPLE_MS = 100;
+const AMBIENT_BLEND = 0.22;
+const glowCanvas = ref<HTMLCanvasElement | null>(null);
+// The host's censor boxes sit over the clip's own picture, so they follow it
+// at any screen shape. Unlike the effects, a reveal does not lift them.
+// A saved track plays back by clip time; the host's live censor replaces it.
+const clipTime = ref(0);
+const activeCensor = computed(() => props.censor ?? censorAt(props.censorTrack, clipTime.value));
+const censorBoxes = computed(() => (props.kind === "video" && !failed.value ? activeCensor.value?.boxes ?? [] : []));
+const currentAspect = computed(() => aspects.value[slots.value.indexOf(props.token)] ?? 16 / 9);
+const ambientOn = computed(
+  () => props.ambient && props.kind === "video" && !failed.value && picture.value === "video" && !showVeil.value && !peekClip.value && !pixelSource.value && !bubbleSource.value,
+);
+let glowPrimed = false;
+
+function drawGlow() {
+  const canvas = glowCanvas.value;
+  const ctx = canvas?.getContext("2d");
+  const element = media.value;
+  if (!canvas || !ctx || !element || element.readyState < 2) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  ctx.globalAlpha = glowPrimed && !reduceMotion ? AMBIENT_BLEND : 1;
+  ctx.drawImage(element, 0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
+  // A black censor must not bleed into the glow. A blur censor leaves the
+  // glow alone: it is already soft, so the sides keep their lighting.
+  ctx.fillStyle = "#000";
+  const hideInGlow = activeCensor.value?.style === "black" ? censorBoxes.value : [];
+  for (const box of hideInGlow) {
+    ctx.fillRect(box.x * canvas.width, box.y * canvas.height, box.w * canvas.width, box.h * canvas.height);
+  }
+  glowPrimed = true;
+}
 
 function report() {
   const element = media.value;
@@ -169,7 +213,7 @@ function retryPlayback() {
 }
 
 function followMuted() {
-  if (media.value) media.value.muted = active.value && fx.value.muted;
+  if (media.value) media.value.muted = (active.value && fx.value.muted) || Boolean(activeCensor.value?.muted);
 }
 
 function registerElement(slot: number, element: unknown) {
@@ -219,6 +263,8 @@ function startCurrent() {
 }
 
 function onLoadedMetadata(slot: number) {
+  const element = elements[slot];
+  if (element?.videoWidth && element.videoHeight) aspects.value[slot] = element.videoWidth / element.videoHeight;
   if (slots.value[slot] !== props.token || !matchesSlotSource(slot)) return;
   media.value = elements[slot];
   startCurrent();
@@ -274,7 +320,7 @@ watch(
     for (const element of elements) if (element) element.volume = volume;
   },
 );
-watch([() => fx.value.muted, active], followMuted);
+watch([() => fx.value.muted, active, () => activeCensor.value?.muted], followMuted);
 watch(
   () => props.seekSeq,
   () => {
@@ -282,31 +328,47 @@ watch(
   },
 );
 
+watch(ambientOn, (on) => {
+  if (!on) glowPrimed = false;
+});
+watch(() => props.token, () => {
+  glowPrimed = false;
+});
+
+let glowTimer: ReturnType<typeof setInterval> | null = null;
 let reportTimer: ReturnType<typeof setInterval> | null = null;
 let frame = 0;
 function tick() {
-  if (media.value) elapsed.value = media.value.currentTime - startPosition.value;
+  if (media.value) {
+    elapsed.value = media.value.currentTime - startPosition.value;
+    clipTime.value = media.value.currentTime;
+  }
   frame = requestAnimationFrame(tick);
 }
 onMounted(() => {
   reportTimer = setInterval(report, REPORT_INTERVAL_MS);
+  glowTimer = setInterval(() => {
+    if (ambientOn.value) drawGlow();
+  }, AMBIENT_SAMPLE_MS);
   frame = requestAnimationFrame(tick);
 });
 onBeforeUnmount(() => {
   if (reportTimer) clearInterval(reportTimer);
+  if (glowTimer) clearInterval(glowTimer);
   cancelAnimationFrame(frame);
 });
 </script>
 
 <template>
-  <div class="party-player">
+  <div class="party-player" :class="{ ambient: ambientOn }">
+    <canvas v-show="ambientOn" ref="glowCanvas" width="32" height="18" class="party-glow" aria-hidden="true" />
     <video
       v-for="slotIndex in SLOT_COUNT"
       :key="slotIndex"
       :ref="(element) => registerElement(slotIndex - 1, element)"
       class="party-media"
       :class="slots[slotIndex - 1] === token && token ? { hidden: showVeil || showCover || pixelSource || bubbleSource } : 'preload'"
-      :style="slots[slotIndex - 1] !== token || !token || showVeil || showCover || pixelSource || bubbleSource ? undefined : visualStyle"
+      :style="[{ '--clip-aspect': aspects[slotIndex - 1] }, slots[slotIndex - 1] !== token || !token || showVeil || showCover || pixelSource || bubbleSource ? {} : visualStyle ?? {}]"
       :src="slots[slotIndex - 1] ? clipSrc(slots[slotIndex - 1]!) : UNLOCK_SRC"
       preload="auto"
       playsinline
@@ -330,6 +392,20 @@ onBeforeUnmount(() => {
     />
     <PartyBubbleCanvas v-if="bubbleSource" :source="bubbleSource" :seed="token" :style="visualStyle" />
     <PartyPixelCanvas v-if="pixelSource" :source="pixelSource" :block-size="pixelBlock" :style="visualStyle" />
+    <div
+      v-if="censorBoxes.length && !showVeil && !showCover"
+      class="party-censor"
+      :class="`censor-${activeCensor?.style ?? 'black'}`"
+      :style="{ '--clip-aspect': currentAspect }"
+      aria-hidden="true"
+    >
+      <span
+        v-for="(box, i) in censorBoxes"
+        :key="i"
+        class="censor-box"
+        :style="{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }"
+      />
+    </div>
     <div v-if="failed" class="party-veil">
       <StudyPlayerKai mood="error" text="This clip won't play" />
     </div>
@@ -341,9 +417,12 @@ onBeforeUnmount(() => {
     <div v-else-if="loading && !showVeil && elapsed <= 0.3" class="party-veil">
       <StudyPlayerKai mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
     </div>
+    <div v-else-if="showVeil && loading" class="party-veil">
+      <StudyPlayerKai mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
+    </div>
+    <PartyMusicVisual v-else-if="showVeil && (picture === 'music' || kind === 'audio')" :playing="playing" />
     <div v-else-if="showVeil" class="party-veil">
-      <StudyPlayerKai v-if="loading" mood="loading"><ActivityStatus label="Loading clip" :request-key="token" /></StudyPlayerKai>
-      <StudyPlayerKai v-else :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
+      <StudyPlayerKai :mood="playing ? 'listening' : 'paused'" :text="playing ? 'Listen closely!' : 'Paused'" />
     </div>
     <div v-if="countdown !== null" class="countdown" aria-hidden="true">
       <span class="countdown-fill" :style="{ transform: `scaleX(${countdown})` }" />
@@ -357,19 +436,72 @@ onBeforeUnmount(() => {
   inset: 0;
   overflow: hidden;
   background: var(--bg);
+  container-type: size;
 }
 
-.party-media,
+/* Overscanned so the blur's soft edge falls outside the screen. */
+.party-glow {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  /* Softer and darker than Study's wash: on a TV the bars sit right beside
+     the picture, so a bright glow would compete with it. */
+  filter: blur(8vmin) saturate(1.3) brightness(0.55);
+  pointer-events: none;
+}
+
+.party-media {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100cqw, calc(100cqh * var(--clip-aspect, 1.7778)));
+  height: auto;
+  aspect-ratio: var(--clip-aspect, 1.7778);
+  object-fit: contain;
+}
+
+/* Spill: the picture's edges fade into the glow, as on Study. */
+.party-player.ambient .party-media {
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent),
+    linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent),
+    linear-gradient(180deg, transparent, #000 5%, #000 95%, transparent);
+  mask-composite: intersect;
+}
+
+.party-censor {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100cqw, calc(100cqh * var(--clip-aspect, 1.7778)));
+  aspect-ratio: var(--clip-aspect, 1.7778);
+  pointer-events: none;
+}
+
+.censor-box {
+  position: absolute;
+  border-radius: 1vmin;
+}
+
+.censor-black .censor-box {
+  background: var(--censor-fill);
+}
+
+.censor-blur .censor-box {
+  background: var(--censor-tint);
+  backdrop-filter: blur(6vmin) saturate(0.6);
+}
+
 .party-cover {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.party-media {
-  background: var(--record-shadow);
 }
 
 .party-media.hidden,

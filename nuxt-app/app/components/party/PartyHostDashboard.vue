@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 defineProps<{ displayUrl: string; controlUrls: string[]; isLoopback: boolean }>();
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
 const { state, connected, sessionLost, commandError, send } = usePartyHost();
+const endlessSource = ref<PartyEndlessSource>({ scope: { type: "all" }, filters: undefined });
 const lastLoad = ref<{ loaded: number; skipped: number; total: number } | null>(null);
 const hasGame = computed(() => Boolean(state.value && state.value.index >= 0 && state.value.queue.length));
 
@@ -10,24 +12,85 @@ watch(sessionLost, (lost) => {
   if (lost) emit("sessionLost");
 });
 
-const helpOpen = ref(false);
-usePartyHotkeys(state, send, () => {
-  helpOpen.value = !helpOpen.value;
+// The settings column keeps one group open at a time, so the whole panel
+// fits one screen instead of a long scroll.
+const TABS = [
+  { id: "round", label: "Round" },
+  { id: "screen", label: "Screen" },
+  { id: "players", label: "Players" },
+  { id: "game", label: "New game" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+const tab = ref<TabId>("game");
+// Once a game is running, the round settings are what the host reaches for.
+watch(hasGame, (running, was) => {
+  if (running && !was && tab.value === "game") tab.value = "round";
+}, { immediate: true });
+
+// Unlike the app-wide Ambient preference, the host's glow starts on.
+const AMBIENT_KEY = "gaqSrs:partyHostAmbient";
+const ambientOn = ref(true);
+onMounted(() => {
+  try {
+    ambientOn.value = localStorage.getItem(AMBIENT_KEY) !== "0";
+  } catch {
+    // Storage can be unavailable; the glow just stays on.
+  }
 });
+function toggleAmbient() {
+  ambientOn.value = !ambientOn.value;
+  try {
+    localStorage.setItem(AMBIENT_KEY, ambientOn.value ? "1" : "0");
+  } catch {
+    // The choice still holds until the page reloads.
+  }
+}
+
+const helpOpen = ref(false);
+usePartyHotkeys(
+  state,
+  send,
+  () => {
+    helpOpen.value = !helpOpen.value;
+  },
+  (index) => {
+    const target = TABS[index];
+    if (target) tab.value = target.id;
+  },
+);
 </script>
 
 <template>
-  <div class="dashboard">
+  <PartyHostAmbient v-if="ambientOn" :state="state" />
+  <div class="dashboard" :class="{ ambient: ambientOn }">
     <header class="dashboard-header">
       <MascotKai pose="clap" size="small" />
       <h1 class="dashboard-title">GAQ Party</h1>
+      <span class="status-chip" :class="{ online: connected }">
+        <span class="status-dot" aria-hidden="true" />{{ connected ? "Connected" : "Connecting..." }}
+      </span>
+      <span v-if="state?.scoreboard.players.length" class="status-chip">
+        {{ state.scoreboard.players.length }} player{{ state.scoreboard.players.length === 1 ? "" : "s" }}
+      </span>
       <span class="dashboard-spacer" />
+      <button type="button" class="link-btn" :aria-pressed="ambientOn" @click="toggleAmbient">Ambient: {{ ambientOn ? "on" : "off" }}</button>
       <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>
 
     <div class="dashboard-grid">
-      <div class="main-column">
+      <div class="column queue-column">
+        <section v-if="state" class="panel">
+          <h2 class="panel-title">Add songs</h2>
+          <PartyQueueSearch :state="state" />
+        </section>
+        <section v-if="hasGame && state" class="panel grow">
+          <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
+        </section>
+        <p v-else-if="state" class="panel panel-note">The queue shows here once a game starts.</p>
+      </div>
+
+      <div class="column main-column">
         <section class="panel" aria-label="Now playing">
           <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
           <template v-else-if="hasGame && state">
@@ -36,73 +99,67 @@ usePartyHotkeys(state, send, () => {
               {{ lastLoad.skipped }} song{{ lastLoad.skipped === 1 ? " was" : "s were" }} skipped with no playable clip.
             </p>
           </template>
-          <p v-else class="panel-note">No game yet. Build one with New game.</p>
+          <p v-else class="panel-note">No game yet. Build one under New game.</p>
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
 
-        <section v-if="state" class="panel">
-          <PartyLightningPanel :state="state" @command="send" />
+        <section v-if="hasGame && state" class="panel" aria-label="Preview and censor">
+          <PartyCensorPanel :state="state" @command="send" />
         </section>
 
-        <section v-if="state" class="panel">
-          <PartyStakePanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyLivePanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyEffectsPanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <h2 class="search-title">Add songs</h2>
-          <PartyQueueSearch :state="state" />
-        </section>
-
-        <section v-if="hasGame && state" class="panel">
-          <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
+        <section v-if="state" class="panel grow">
+          <PartyScoreboardPanel :state="state" @command="send" />
+          <PartyRulesPanel :state="state" @command="send" />
         </section>
       </div>
 
-      <div class="side-column">
-        <section class="panel">
-          <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
-        </section>
+      <div class="column side-column">
+        <div class="tabs" role="tablist" aria-label="Game settings">
+          <button
+            v-for="item in TABS"
+            :key="item.id"
+            type="button"
+            role="tab"
+            class="tab"
+            :class="{ on: tab === item.id }"
+            :aria-selected="tab === item.id"
+            @click="tab = item.id"
+          >
+            {{ item.label }} <kbd class="tab-key">{{ TABS.indexOf(item) + 1 }}</kbd>
+          </button>
+        </div>
 
-        <section v-if="state" class="panel">
-          <PartyEndlessPanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyRevealPanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyShowPanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyJoinPanel :state="state" @command="send" />
-        </section>
-
-        <section v-if="state" class="panel">
-          <PartyScoreboardPanel :state="state" @command="send" />
-        </section>
-
-        <details class="panel connect">
-          <summary>Connect a display or phone</summary>
-          <dl class="links">
-            <dt>Display screen (open it on the computer running GAQ Party)</dt>
-            <dd><code>{{ displayUrl }}</code></dd>
-            <dt>Host panel from a phone or laptop</dt>
-            <dd v-for="url in controlUrls" :key="url"><code>{{ url }}</code></dd>
-          </dl>
-          <p v-if="isLoopback" class="panel-hint">
-            Forgot the password later? Log out, then choose "Set a new password" on this computer.
-          </p>
-        </details>
+        <div class="tab-body">
+          <template v-if="tab === 'round' && state">
+            <section class="panel"><PartyLightningPanel :state="state" @command="send" /></section>
+            <section class="panel"><PartyLivePanel :state="state" @command="send" /></section>
+          </template>
+          <template v-else-if="tab === 'screen' && state">
+            <section class="panel"><PartyEffectsPanel :state="state" @command="send" /></section>
+            <section class="panel"><PartyRevealPanel :state="state" @command="send" /></section>
+            <section class="panel"><PartyShowPanel :state="state" @command="send" /></section>
+          </template>
+          <template v-else-if="tab === 'players' && state">
+            <section class="panel"><PartyJoinPanel :state="state" @command="send" /></section>
+            <section class="panel connect">
+              <h2 class="panel-title">Connect a display or phone</h2>
+              <dl class="links">
+                <dt>Display screen (open it on the computer running GAQ Party)</dt>
+                <dd><code>{{ displayUrl }}</code></dd>
+                <dt>Host panel from a phone or laptop</dt>
+                <dd v-for="url in controlUrls" :key="url"><code>{{ url }}</code></dd>
+              </dl>
+              <p v-if="isLoopback" class="panel-hint">
+                Forgot the password later? Log out, then choose "Set a new password" on this computer.
+              </p>
+            </section>
+          </template>
+          <!-- Kept mounted so a half-built game survives a look at another tab. -->
+          <section v-show="tab === 'game'" class="panel">
+            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
+          </section>
+          <section v-if="tab === 'game' && state" class="panel"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
+        </div>
       </div>
     </div>
 
@@ -111,16 +168,23 @@ usePartyHotkeys(state, send, () => {
 </template>
 
 <style scoped>
-.search-title {
-  margin: 0 0 10px;
-  font-family: var(--font-display);
-  font-size: 18px;
+.tab-key {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
 }
 
+/* One screen, no page scroll: each column scrolls on its own if it must,
+   with its scrollbar hidden. Below 1100px it stacks into one long page. */
 .dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px;
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -135,8 +199,32 @@ usePartyHotkeys(state, send, () => {
 .dashboard-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 22px;
   color: var(--accent);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.status-chip.online .status-dot {
+  background: var(--pass);
 }
 
 .dashboard-spacer {
@@ -144,35 +232,98 @@ usePartyHotkeys(state, send, () => {
 }
 
 .link-btn {
-  border: none;
-  background: none;
-  color: var(--accent-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  background: var(--surface-raised);
+  color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .dashboard-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr) minmax(340px, 440px);
   gap: 16px;
-  align-items: start;
 }
 
-.main-column,
-.side-column {
+.column {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.column::-webkit-scrollbar,
+.tab-body::-webkit-scrollbar {
+  display: none;
+}
+
+.side-column {
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  flex: none;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 6px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tab-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .panel {
+  flex: none;
   padding: 20px;
-  border: 2px solid var(--outline);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
+}
+
+.panel.grow {
+  flex: 1 0 auto;
+}
+
+.panel-title {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 18px;
 }
 
 .panel-note,
@@ -194,13 +345,8 @@ usePartyHotkeys(state, send, () => {
   color: var(--faint);
 }
 
-.connect summary {
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .links {
-  margin: 12px 0 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -225,9 +371,63 @@ usePartyHotkeys(state, send, () => {
   color: var(--accent-secondary);
 }
 
-@media (max-width: 820px) {
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 1fr);
+/* A 4K screen at 100% scaling would otherwise render the panel at a third
+   of the screen's height. */
+@media (min-width: 3000px) and (min-height: 1800px) {
+  .dashboard {
+    zoom: 1.6;
+    height: calc(100vh / 1.6);
+    /* vh is not zoomed, so the preview's height cap is scaled back down. */
+    --preview-height: 16.25vh;
   }
+}
+
+@media (max-width: 1400px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  }
+
+  .queue-column {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .main-column {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .side-column {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboard {
+    height: auto;
+  }
+
+  .dashboard-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .column,
+  .side-column,
+  .tab-body {
+    overflow: visible;
+  }
+
+  .dashboard-header {
+    flex-wrap: wrap;
+  }
+}
+</style>
+
+<style scoped>
+.dashboard.ambient .panel {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(16px);
 }
 </style>

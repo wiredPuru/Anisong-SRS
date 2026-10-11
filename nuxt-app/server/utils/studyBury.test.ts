@@ -19,7 +19,7 @@ let ids: number[] = [];
 function addCard(title: string, aniListId: number) {
   const animeRow = upsertAnime({
     aniListId, animethemesId: null, titleRomaji: title, titleEnglish: null, titleNative: null,
-    details: { year: 2005, season: null, format: "TV", averageScore: 70, genres: [], tags: [] },
+    details: { year: 2005, season: null, format: "TV", averageScore: 70, popularity: 1000, genres: [], tags: [] },
   });
   const songRow = upsertSong({ animeId: animeRow.id, artistId: getOrCreateArtist("Artist").id, title, themeSlot: "OP1", animethemesThemeId: null });
   return db.insert(card).values({ songId: songRow.id, animethemesAudioUrl: "https://a.animethemes.moe/x.ogg", nextReviewAt: new Date(0) }).returning().get().id;

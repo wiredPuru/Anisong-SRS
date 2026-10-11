@@ -1,31 +1,14 @@
 <script setup lang="ts">
-import type { PartyHostCommand, PartyHostState, PartyLive } from "~/composables/usePartyHost";
+import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
 
 const props = defineProps<{ state: PartyHostState }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
-const MODES: { value: PartyLive["mode"]; label: string; hint: string }[] = [
-  { value: "clues", label: "Clues", hint: "Year, format, score, then genres, one by one." },
-  { value: "tags", label: "Tags", hint: "AniList tags appear, most telling first." },
-  { value: "title", label: "Title", hint: "The title's letters fill in." },
-  { value: "peek", label: "Peek", hint: "A small window onto the video grows and drifts." },
-  { value: "cover", label: "Cover", hint: "The cover art sharpens from big blocks." },
-  { value: "blind", label: "Blind", hint: "Audio only; the screen stays covered." },
-];
-
-const guessSeconds = ref(props.state.live?.guessSeconds ?? 15);
 const playing = computed(() => props.state.index >= 0 && props.state.phase === "guessing");
-const active = computed(() => props.state.live?.mode ?? null);
-const hint = computed(() => MODES.find((mode) => mode.value === active.value)?.hint ?? "");
 const choicesOn = computed(() => props.state.choices !== null);
 const phoneCount = computed(() => props.state.scoreboard.players.filter((p) => p.phone).length);
 const answered = computed(() => Object.keys(props.state.choicePicks).length);
 const lightningRunning = computed(() => props.state.lightning !== null);
-
-function pick(mode: PartyLive["mode"]) {
-  if (active.value === mode) emit("command", { type: "live", config: null });
-  else emit("command", { type: "live", config: { mode, guessSeconds: guessSeconds.value } });
-}
 
 function toggleChoices() {
   emit("command", { type: "choices", enabled: !choicesOn.value });
@@ -47,28 +30,6 @@ function toggleChoices() {
       right picks score when you reveal.
     </p>
 
-    <div class="modes" role="group" aria-label="Hint mode">
-      <button
-        v-for="mode in MODES"
-        :key="mode.value"
-        type="button"
-        class="live-pill"
-        :class="{ active: active === mode.value }"
-        :aria-pressed="active === mode.value"
-        :disabled="!playing"
-        @click="pick(mode.value)"
-      >
-        {{ mode.label }}
-      </button>
-    </div>
-    <p v-if="hint" class="live-hint">{{ hint }}</p>
-
-    <label class="live-time">
-      Reaches everything in
-      <input v-model.number="guessSeconds" type="number" min="5" max="60" />
-      <span class="unit">s</span>
-    </label>
-    <p class="live-hint">For the picture-shrinking blur, pixels and bubbles, use Effects below.</p>
   </section>
 </template>
 

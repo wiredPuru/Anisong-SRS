@@ -7,12 +7,6 @@ const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const MODES: { value: PartyLightningMode; label: string; hint: string }[] = [
   { value: "regular", label: "Regular", hint: "A random slice of each clip." },
-  { value: "blind", label: "Blind", hint: "Audio only; the screen stays covered." },
-  { value: "peek", label: "Peek", hint: "A small window onto the video grows and drifts." },
-  { value: "cover", label: "Cover", hint: "The cover art sharpens from big blocks." },
-  { value: "clues", label: "Clues", hint: "Year, format, score, then genres, one by one." },
-  { value: "tags", label: "Tags", hint: "AniList tags appear, most telling first." },
-  { value: "title", label: "Title", hint: "The title's letters fill in." },
 ];
 
 const mode = ref<PartyLightningMode>(props.state.lightning?.mode ?? "regular");

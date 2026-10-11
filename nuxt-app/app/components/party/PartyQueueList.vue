@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { PartyEffects } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
+import { playedLogCsv } from "~/utils/partyLogExport";
 
 const props = defineProps<{ state: PartyHostState }>();
 const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCommand] }>();
@@ -8,23 +10,62 @@ const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCo
 const isUpcoming = (index: number) => index > props.state.index;
 
 // The board only ever shows five songs: the one before, the current one, the
-// next, and two more. Older songs sit in the played log, the rest wait unseen.
+// next, and two more. Finished songs sit in the played log, the rest wait unseen.
+// An endless queue shows only the one before, the current one and the next,
+// plus any song the host added by hand.
 const WINDOW_SIZE = 5;
+const endless = computed(() => props.state.endless !== null);
 const windowStart = computed(() => Math.max(0, props.state.index - 1));
-const windowEnd = computed(() => Math.min(props.state.queue.length, windowStart.value + WINDOW_SIZE));
-const rows = computed(() =>
-  props.state.queue.slice(windowStart.value, windowEnd.value).map((item, offset) => ({ item, index: windowStart.value + offset })),
+const windowEnd = computed(() =>
+  Math.min(props.state.queue.length, endless.value ? props.state.index + 2 : windowStart.value + WINDOW_SIZE),
 );
-const played = computed(() =>
-  props.state.queue.slice(0, windowStart.value).map((item, index) => ({ item, index })).reverse(),
-);
-const waiting = computed(() => props.state.queue.length - windowEnd.value);
+const rows = computed(() => {
+  const shown = props.state.queue.slice(windowStart.value, windowEnd.value).map((item, offset) => ({ item, index: windowStart.value + offset }));
+  if (!endless.value) return shown;
+  const added = props.state.queue
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => index >= windowEnd.value && item.manual);
+  return [...shown, ...added];
+});
+const logOpen = ref(false);
+const finishedRows = computed(() => finished.value.map((item, index) => ({ item, index })).reverse());
+// Everything finished so far, oldest first; the current song counts once revealed.
+const finished = computed(() => props.state.queue.slice(0, props.state.index + (props.state.phase === "revealed" ? 1 : 0)));
+
+function exportLog() {
+  const url = URL.createObjectURL(new Blob(["\uFEFF", playedLogCsv(finished.value)], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `gaq-party-played-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+const waiting = computed(() => (endless.value ? 0 : props.state.queue.length - windowEnd.value));
 
 const upNext = computed(() => {
   const index = props.state.index + 1;
   const item = props.state.queue[index];
   return item ? { index, item } : null;
 });
+
+// One-tap presets for the next song, armed the same way as Effects > Next song.
+const NO_EFFECTS: PartyEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" };
+const FULL_BLUR = 40;
+const armed = computed(() => props.state.nextEffects);
+const QUICK = [
+  { id: "blur", label: "Full blur", on: (e: PartyEffects) => e.blur >= FULL_BLUR, toggle: (e: PartyEffects, on: boolean) => ({ ...e, blur: on ? 0 : FULL_BLUR }) },
+  { id: "pixelate", label: "Pixelate", on: (e: PartyEffects) => e.pixelate > 0, toggle: (e: PartyEffects, on: boolean) => ({ ...e, pixelate: on ? 0 : 32 }) },
+  { id: "muted", label: "Mute", on: (e: PartyEffects) => e.muted, toggle: (e: PartyEffects, on: boolean) => ({ ...e, muted: !on }) },
+  { id: "music", label: "Music player", on: (e: PartyEffects) => e.picture === "music", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "music" }) },
+  { id: "bubbles", label: "Bubbles", on: (e: PartyEffects) => e.picture === "bubbles", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "bubbles" }) },
+] as const satisfies readonly { id: string; label: string; on: (e: PartyEffects) => boolean; toggle: (e: PartyEffects, on: boolean) => PartyEffects }[];
+
+function toggleQuick(option: (typeof QUICK)[number]) {
+  const base = armed.value ?? NO_EFFECTS;
+  const effects = option.toggle(base, option.on(base));
+  const plain = JSON.stringify(effects) === JSON.stringify(NO_EFFECTS);
+  emit("command", { type: "effects", target: "next", effects: plain ? null : effects });
+}
 
 // Drag a song still to come onto another upcoming row to put it there.
 const dragFrom = ref<number | null>(null);
@@ -60,7 +101,12 @@ function endDrag() {
 
 <template>
   <section class="queue" aria-labelledby="queue-title">
-    <h2 id="queue-title" class="queue-title">Queue</h2>
+    <div class="queue-head">
+      <h2 id="queue-title" class="queue-title">Queue</h2>
+      <button v-if="state.queue.length - state.index > 2" type="button" class="reroll-btn" title="Shuffle the songs still to come" @click="emit('command', { type: 'queueShuffle' })">
+        &#8644; Shuffle upcoming
+      </button>
+    </div>
     <div v-if="upNext" class="up-next">
       <span class="up-next-text">
         <span class="up-next-label">Up next</span>
@@ -70,18 +116,38 @@ function endDrag() {
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
         &#8635; Pick another
       </button>
+      <div class="up-next-fx" role="group" aria-label="Effects for the next song">
+        <button
+          v-for="option in QUICK"
+          :key="option.id"
+          type="button"
+          class="fx-chip"
+          :class="{ on: armed && option.on(armed) }"
+          :aria-pressed="Boolean(armed && option.on(armed))"
+          @click="toggleQuick(option)"
+        >
+          {{ option.label }}
+        </button>
+        <button v-if="armed" type="button" class="fx-chip fx-clear" @click="emit('command', { type: 'effects', target: 'next', effects: null })">Clear</button>
+      </div>
     </div>
-    <details v-if="played.length" class="played-log">
-      <summary>Played ({{ played.length }})</summary>
-      <ol class="played-list">
-        <li v-for="entry in played" :key="`${entry.index}-${entry.item.cardId}`">
+    <div v-if="finished.length" class="played-log">
+      <div class="played-head">
+        <button type="button" class="played-toggle" :aria-expanded="logOpen" @click="logOpen = !logOpen">
+          <span class="played-chevron" :class="{ open: logOpen }" aria-hidden="true">&#9656;</span>
+          Played ({{ finished.length }})
+        </button>
+        <button type="button" class="played-export" @click="exportLog">Export CSV</button>
+      </div>
+      <ol v-if="logOpen" class="played-list">
+        <li v-for="entry in finishedRows" :key="`${entry.index}-${entry.item.cardId}`">
           <button type="button" class="played-item" @click="emit('jump', entry.index)">
             <span class="queue-num">{{ entry.index + 1 }}</span>
             {{ entry.item.answer.animeTitleEnglish }} &middot; {{ entry.item.answer.songTitle }}
           </button>
         </li>
       </ol>
-    </details>
+    </div>
     <ol class="queue-list">
       <li
         v-for="{ item, index } in rows"
@@ -162,6 +228,13 @@ function endDrag() {
   gap: 10px;
 }
 
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .queue-title {
   margin: 0;
   font-family: var(--font-display);
@@ -183,17 +256,43 @@ function endDrag() {
   font-size: 13px;
 }
 
-.played-log summary {
-  cursor: pointer;
+.played-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.played-toggle,
+.played-export {
+  border: 0;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.played-export {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+
+.played-chevron {
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.played-chevron.open {
+  transform: rotate(90deg);
 }
 
 .played-list {
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 220px;
+  max-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -228,12 +327,42 @@ function endDrag() {
 
 .up-next {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.up-next-fx {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fx-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fx-chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.fx-clear {
+  border-style: dashed;
 }
 
 .up-next-text {

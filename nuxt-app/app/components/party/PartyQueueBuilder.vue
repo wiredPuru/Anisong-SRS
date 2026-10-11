@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { StudyFilters } from "~/utils/studyFilters";
+import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 
-type SourceType = "all" | "artist" | "anime" | "created";
+type SourceType = "all" | "created";
 interface DeckOption {
   id: number;
   label: string;
@@ -15,12 +16,13 @@ interface DeckListItem {
 }
 
 const props = defineProps<{ gameRunning: boolean }>();
-const emit = defineEmits<{ loaded: [result: { loaded: number; skipped: number; total: number }] }>();
+const emit = defineEmits<{
+  loaded: [result: { loaded: number; skipped: number; total: number }];
+  source: [source: PartyEndlessSource];
+}>();
 
 const SOURCE_LABELS: Record<SourceType, string> = {
   all: "All cards",
-  artist: "Artist",
-  anime: "Anime",
   created: "Manual deck",
 };
 const DEBOUNCE_MS = 300;
@@ -29,6 +31,7 @@ const sourceType = ref<SourceType>("all");
 const deckQuery = ref("");
 const decks = ref<DeckOption[]>([]);
 const decksLoading = ref(false);
+const deckListOpen = ref(false);
 const selectedDeck = ref<DeckOption | null>(null);
 const filters = ref<StudyFilters>(structuredClone(EMPTY_STUDY_FILTERS));
 const filtersOpen = ref(false);
@@ -36,6 +39,7 @@ const shuffle = ref(true);
 const downloadedOnly = ref(false);
 
 const previewTotal = ref<number | null>(null);
+const libraryTotal = ref<number | null>(null);
 const previewError = ref<string | null>(null);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
@@ -45,6 +49,14 @@ const scope = computed(() => {
   if (sourceType.value === "all") return { type: "all" as const };
   return selectedDeck.value ? { type: sourceType.value, id: selectedDeck.value.id } : null;
 });
+
+// Endless play draws from whatever source and filters are set here.
+watch([scope, filters], () => {
+  emit("source", {
+    scope: sourceType.value === "all" ? { type: "all" } : selectedDeck.value ? { type: "created", id: selectedDeck.value.id } : null,
+    filters: filtersQueryValue(filters.value),
+  });
+}, { deep: true, immediate: true });
 
 let deckTimer: ReturnType<typeof setTimeout> | null = null;
 let deckRequest = 0;
@@ -73,12 +85,27 @@ watch(sourceType, () => {
   selectedDeck.value = null;
   deckQuery.value = "";
   decks.value = [];
+  deckListOpen.value = false;
   void fetchDecks();
 });
-watch(deckQuery, () => {
+watch(deckQuery, (text) => {
+  if (selectedDeck.value && text !== selectedDeck.value.label) selectedDeck.value = null;
   if (deckTimer) clearTimeout(deckTimer);
   deckTimer = setTimeout(fetchDecks, DEBOUNCE_MS);
 });
+
+function pickDeck(deck: DeckOption) {
+  selectedDeck.value = deck;
+  deckQuery.value = deck.label;
+  deckListOpen.value = false;
+}
+
+// A click on an option lands before the input's blur closes the list.
+function closeDeckListSoon() {
+  setTimeout(() => {
+    deckListOpen.value = false;
+  }, 150);
+}
 
 function requestBody(withShuffle: boolean) {
   return {
@@ -99,11 +126,14 @@ async function refreshPreview() {
     return;
   }
   try {
-    const result = await $fetch<{ total: number }>("/api/party/host/queue-preview", {
+    const result = await $fetch<{ total: number; libraryTotal: number }>("/api/party/host/queue-preview", {
       method: "POST",
       body: requestBody(false),
     });
-    if (request === previewRequest) previewTotal.value = result.total;
+    if (request === previewRequest) {
+      previewTotal.value = result.total;
+      libraryTotal.value = result.libraryTotal;
+    }
   } catch (err) {
     if (request !== previewRequest) return;
     previewTotal.value = null;
@@ -176,21 +206,27 @@ function applyFilters(next: StudyFilters) {
       </button>
     </div>
 
-    <div v-if="sourceType !== 'all'" class="deck-picker">
-      <input v-model="deckQuery" type="search" class="deck-search" :placeholder="`Search ${SOURCE_LABELS[sourceType].toLowerCase()}s`" />
-      <ul class="deck-list" :aria-busy="decksLoading">
-        <li v-for="deck in decks" :key="deck.id">
-          <button
-            type="button"
-            class="deck-option"
-            :class="{ selected: selectedDeck?.id === deck.id }"
-            @click="selectedDeck = deck"
-          >
+    <div v-if="sourceType === 'created'" class="deck-picker">
+      <input
+        v-model="deckQuery"
+        type="search"
+        class="deck-search"
+        placeholder="Pick or search a manual deck"
+        autocomplete="off"
+        aria-label="Manual deck"
+        @focus="deckListOpen = true; fetchDecks()"
+        @input="deckListOpen = true"
+        @blur="closeDeckListSoon"
+        @keydown.stop
+      />
+      <ul v-if="deckListOpen" class="deck-list deck-dropdown" :aria-busy="decksLoading" role="listbox">
+        <li v-for="deck in decks" :key="deck.id" role="option" :aria-selected="selectedDeck?.id === deck.id">
+          <button type="button" class="deck-option" :class="{ selected: selectedDeck?.id === deck.id }" @mousedown.prevent="pickDeck(deck)">
             <span class="deck-label">{{ deck.label }}</span>
             <span class="deck-count">{{ deck.cardCount }}</span>
           </button>
         </li>
-        <li v-if="!decks.length && !decksLoading" class="deck-empty">Nothing matches.</li>
+        <li v-if="!decks.length && !decksLoading" class="deck-empty">No manual deck matches.</li>
       </ul>
     </div>
 
@@ -211,7 +247,7 @@ function applyFilters(next: StudyFilters) {
     <p v-if="previewError" class="builder-error" role="alert">{{ previewError }}</p>
     <p v-else-if="!scope" class="builder-note">Pick a {{ SOURCE_LABELS[sourceType].toLowerCase() }} to play.</p>
     <p v-else-if="previewTotal !== null" class="builder-note">
-      {{ previewTotal }} song{{ previewTotal === 1 ? "" : "s" }} match<template v-if="previewTotal > 2000">; a game holds the first 2000{{ shuffle ? " of a shuffle" : "" }}</template>.
+      {{ previewTotal }} song{{ previewTotal === 1 ? "" : "s" }} match<template v-if="libraryTotal !== null"> (your library has {{ libraryTotal }} card{{ libraryTotal === 1 ? "" : "s" }})</template><template v-if="previewTotal > 2000">; a game holds the first 2000{{ shuffle ? " of a shuffle" : "" }}</template>.
     </p>
 
     <p v-if="loadError" class="builder-error" role="alert">{{ loadError }}</p>
@@ -276,6 +312,7 @@ function applyFilters(next: StudyFilters) {
 }
 
 .deck-picker {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -299,6 +336,17 @@ function applyFilters(next: StudyFilters) {
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+}
+
+.deck-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 4px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-soft);
 }
 
 .deck-option {

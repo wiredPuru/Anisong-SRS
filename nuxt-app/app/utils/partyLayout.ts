@@ -15,6 +15,7 @@ export const PARTY_PIECES = [
   "summaryTitle",
   "standings",
   "songList",
+  "rules",
 ] as const;
 export type PartyPieceId = (typeof PARTY_PIECES)[number];
 
@@ -54,6 +55,7 @@ export const PIECE_ANCHORS: Record<PartyPieceId, PartyAnchor> = {
   summaryTitle: { ax: 0, ay: 0 },
   standings: { ax: 0, ay: 0 },
   songList: { ax: 1, ay: 0 },
+  rules: { ax: 0, ay: 0.5 },
 };
 
 // Approximates the fixed spots each piece had before it could move.
@@ -73,6 +75,7 @@ export const DEFAULT_LAYOUT: PartyLayout = {
   summaryTitle: { x: 0.03, y: 0.03, scale: 1 },
   standings: { x: 0.03, y: 0.2, scale: 1 },
   songList: { x: 0.97, y: 0.2, scale: 1 },
+  rules: { x: 0.015, y: 0.5, scale: 1 },
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -109,7 +112,7 @@ const samePlacement = (a: PartyPlacement, b: PartyPlacement) => a.x === b.x && a
 
 /** Groups the host edits one at a time, so arranging stays manageable. */
 export const PIECE_CATEGORIES = [
-  { id: "main", label: "Main", pieces: ["count", "reveal", "scoreboard", "round"] },
+  { id: "main", label: "Main", pieces: ["count", "reveal", "scoreboard", "round", "rules"] },
   { id: "game", label: "Game", pieces: ["timer", "stake", "hints", "join", "buzz", "banner", "skip"] },
   { id: "choices", label: "Multiple choice", pieces: ["choices"] },
   { id: "results", label: "Results", pieces: ["summaryTitle", "standings", "songList"] },
@@ -132,6 +135,7 @@ export const PIECE_LABELS: Record<PartyPieceId, string> = {
   summaryTitle: "Results heading",
   standings: "Final standings",
   songList: "Songs played",
+  rules: "Rules",
 };
 
 export function categoryOf(piece: PartyPieceId): PartyCategoryId {

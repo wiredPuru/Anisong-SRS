@@ -251,6 +251,7 @@ function setSongVolume(volume: number) {
       >
         {{ state.summaryVisible ? "Hide results" : "Show results" }}
       </button>
+      <PartyAddToDeck v-if="current" :card-id="current.cardId" />
       <span class="np-spacer" />
       <template v-if="confirmingClear">
         <span class="np-confirm">End this game?</span>

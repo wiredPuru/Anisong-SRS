@@ -11,6 +11,7 @@ import {
   parsePartyCommand,
   parsePartyEffects,
   parsePartyLightning,
+  scoreRows,
   pickPartyClip,
   toDisplayState,
   planJoin,
@@ -427,9 +428,9 @@ describe("effects", () => {
     expect(applyPartyCommand(armed, { type: "effects", target: "next", effects: null }).nextEffects).toBeNull();
   });
 
-  it("carries the current effects to later songs and through clear", () => {
+  it("clears the current effects on the next song, but keeps them through clear", () => {
     const on = applyPartyCommand(loaded(3), { type: "effects", target: "current", effects: blur });
-    expect(applyPartyCommand(on, { type: "next" }).effects).toEqual(blur);
+    expect(applyPartyCommand(on, { type: "next" }).effects).toEqual(NO_EFFECTS);
     expect(applyPartyCommand(on, { type: "clear" }).effects).toEqual(blur);
   });
 
@@ -1032,5 +1033,141 @@ describe("round points (feature 91a)", () => {
     const scored = plus(plus(game(), 1), 2);
     expect(round(applyPartyCommand(scored, { type: "score", op: "reset" }))).toEqual([]);
     expect(round(applyPartyCommand(scored, { type: "score", op: "remove", id: 1 }))).toEqual([{ id: 2, name: "Bea", points: 1 }]);
+  });
+});
+
+describe("censor", () => {
+  const censor = { boxes: [{ x: 0.1, y: 0.1, w: 0.3, h: 0.3 }], style: "black" as const, muted: false };
+
+  it("parses the censor command", () => {
+    expect(parsePartyCommand({ type: "censor", censor })).toEqual({ type: "censor", censor });
+    expect(parsePartyCommand({ type: "censor", censor: null })).toEqual({ type: "censor", censor: null });
+    expect(parsePartyCommand({ type: "censor", censor: { ...censor, style: "red" } })).toHaveProperty("error");
+  });
+
+  it("shows on the display and the host, and only while a song is up", () => {
+    const on = applyPartyCommand(loaded(), { type: "censor", censor });
+    expect(toDisplayState(on).censor).toEqual(censor);
+    expect(toHostState(on)).toMatchObject({ censor, currentToken: on.queue[0]!.token });
+    expect(applyPartyCommand(initialPartyState(), { type: "censor", censor })).toEqual(initialPartyState());
+  });
+
+  it("lasts through the reveal and clears on the next song", () => {
+    const on = applyPartyCommand(loaded(3), { type: "censor", censor });
+    expect(applyPartyCommand(on, { type: "reveal" }).censor).toEqual(censor);
+    expect(applyPartyCommand(on, { type: "next" }).censor).toBeNull();
+    expect(applyPartyCommand(on, { type: "clear" }).censor).toBeNull();
+  });
+
+  it("always uses the host's style, which outlives the song and the game", () => {
+    const blurred = applyPartyCommand(loaded(3), { type: "censorStyle", style: "blur" });
+    const on = applyPartyCommand(blurred, { type: "censor", censor });
+    expect(on.censor?.style).toBe("blur");
+    expect(applyPartyCommand(on, { type: "censorStyle", style: "black" }).censor?.style).toBe("black");
+    expect(applyPartyCommand(on, { type: "next" }).censorStyle).toBe("blur");
+    expect(applyPartyCommand(on, { type: "clear" }).censorStyle).toBe("blur");
+    expect(toHostState(on).censorStyle).toBe("blur");
+    expect(parsePartyCommand({ type: "censorStyle", style: "pink" })).toHaveProperty("error");
+  });
+  it("records each change by clip time, preferring the preview's time", () => {
+    const playing = { ...loaded(3), position: { token: "", currentTime: 7, duration: 60, playing: true, blocked: false, elapsed: 7, ended: false } };
+    const recording = applyPartyCommand(playing, { type: "censorRecord", recording: true });
+    const on = applyPartyCommand(recording, { type: "censor", censor, at: 12 });
+    const off = applyPartyCommand(on, { type: "censor", censor: null });
+    expect(off.censorTrack).toEqual([{ at: 7, censor: null }, { at: 12, censor }]);
+    expect(off.censorTouched).toBe(true);
+    expect(parsePartyCommand({ type: "censor", censor: null, at: -2 })).toHaveProperty("error");
+  });
+
+  it("plays a saved track back on the display until the host changes the censor", () => {
+    const state = loaded(3);
+    const track = [{ at: 4, censor }];
+    const saved = applyPartyCommand(state, { type: "censorSaved", token: state.queue[0]!.token, track });
+    expect(saved.censorRemember).toBe(true);
+    expect(toDisplayState(saved).censorTrack).toEqual(track);
+    const touched = applyPartyCommand(saved, { type: "censor", censor: null, at: 2 });
+    expect(toDisplayState(touched).censorTrack).toBeNull();
+    expect(applyPartyCommand(state, { type: "censorSaved", token: "other", track })).toBe(state);
+  });
+
+  it("keeps no timings unless recording", () => {
+    const on = applyPartyCommand(loaded(3), { type: "censor", censor, at: 3 });
+    expect(on.censorTrack).toEqual([]);
+    expect(on.censor).toEqual(censor);
+  });
+
+  it("records a take, saves it on stop, and forgets it on request", () => {
+    const rec = applyPartyCommand(loaded(3), { type: "censorRecord", recording: true });
+    expect(rec).toMatchObject({ censorRecording: true, censorRemember: false });
+    const cut = applyPartyCommand(rec, { type: "censor", censor, at: 3 });
+    const stopped = applyPartyCommand(cut, { type: "censorRecord", recording: false });
+    expect(stopped).toMatchObject({ censorRecording: false, censorRemember: true });
+    expect(stopped.censorTrack).toHaveLength(1);
+    const forgotten = applyPartyCommand(stopped, { type: "censorForget" });
+    expect(forgotten).toMatchObject({ censorRemember: false, censorTrack: [] });
+  });
+
+  it("starts a new take from scratch and resets on the next song", () => {
+    const game = loaded(3);
+    const saved = applyPartyCommand(game, { type: "censorSaved", token: game.queue[0]!.token, track: [{ at: 4, censor }] });
+    const again = applyPartyCommand(saved, { type: "censorRecord", recording: true });
+    expect(again.censorTrack).toEqual([]);
+    const moved = applyPartyCommand(again, { type: "next" });
+    expect(moved).toMatchObject({ censorTrack: [], censorRemember: false, censorRecording: false, censorTouched: false });
+  });
+});
+
+describe("queue shuffle, censor delay and team rows", () => {
+  it("shuffles only the songs still to come", () => {
+    const game = applyPartyCommand(loaded(6), { type: "next" });
+    const shuffledGame = applyPartyCommand(game, { type: "queueShuffle" }, { random: () => 0 });
+    expect(shuffledGame.queue.slice(0, 2)).toEqual(game.queue.slice(0, 2));
+    expect(shuffledGame.queue.map((item) => item.token).sort()).toEqual(game.queue.map((item) => item.token).sort());
+    expect(shuffledGame.queue.slice(2).map((item) => item.token)).not.toEqual(game.queue.slice(2).map((item) => item.token));
+    expect(applyPartyCommand(loaded(2), { type: "queueShuffle" })).toBeDefined();
+  });
+
+  it("accepts a lift delay of 0 to 10 seconds only", () => {
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: 2 })).toEqual({ type: "censor", censor: null, delay: 2 });
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: 11 })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "censor", censor: null, delay: -1 })).toHaveProperty("error");
+  });
+
+  it("refuses the removed blackout and cover pictures and accepts music", () => {
+    const fx = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false };
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "blackout" } })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "cover" } })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "effects", target: "current", effects: { ...fx, picture: "music" } })).not.toHaveProperty("error");
+  });
+
+  it("lists a team's players with their own scores, best first", () => {
+    let game = loaded(1);
+    for (const name of ["Ann", "Bob"]) game = applyPartyCommand(game, { type: "score", op: "add", name });
+    game = applyPartyCommand(game, { type: "score", op: "teamAdd", name: "Red" });
+    const ids = game.scoreboard.players.map((p) => p.id);
+    const teamId = game.scoreboard.teams[0]!.id;
+    for (const id of ids) game = applyPartyCommand(game, { type: "score", op: "assign", id, teamId });
+    game = applyPartyCommand(game, { type: "score", op: "adjust", id: ids[1]!, delta: 3 });
+    const [row] = scoreRows(game);
+    expect(row).toMatchObject({ name: "Red", score: 3 });
+    expect(row!.memberRows!.map((m) => m.name)).toEqual(["Bob", "Ann"]);
+  });
+});
+
+describe("rules", () => {
+  it("keeps the text, gives the display trimmed rules or nothing, and survives End game", () => {
+    let s = initialPartyState();
+    expect(toDisplayState(s).rules).toBeNull();
+    s = applyPartyCommand(s, { type: "rules", text: "  Buzz first.\nNo cheating.  " });
+    expect(toDisplayState(s).rules).toBe("Buzz first.\nNo cheating.");
+    expect(toHostState(s).rules).toBe("  Buzz first.\nNo cheating.  ");
+    expect(applyPartyCommand(s, { type: "clear" }).rules).toBe(s.rules);
+    expect(toDisplayState(applyPartyCommand(s, { type: "rules", text: "   " })).rules).toBeNull();
+  });
+
+  it("validates the command", () => {
+    expect(parsePartyCommand({ type: "rules", text: "x" })).toEqual({ type: "rules", text: "x" });
+    expect(parsePartyCommand({ type: "rules" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "rules", text: "x".repeat(2001) })).toHaveProperty("error");
   });
 });

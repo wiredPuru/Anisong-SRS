@@ -101,7 +101,8 @@ function resetScores() {
         </select>
         <span class="score">{{ player.score }}</span>
         <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
-        <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+</button>
+        <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+1</button>
+        <button type="button" class="step plus" :aria-label="`Give ${player.name} two points`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 2 })">+2</button>
         <span v-if="kickingId === player.id" class="kick-confirm">
           <button type="button" class="mini" @click="kick(player.id)">Kick {{ player.name }}?</button>
           <button type="button" class="mini" @click="kickingId = null">Cancel</button>
@@ -182,13 +183,25 @@ function resetScores() {
 }
 
 .player {
-  display: grid;
-  grid-template-columns: 1fr auto 44px 44px 32px;
+  /* Flex, not a fixed grid: a row holds up to seven controls (team, kick,
+     its confirm) and a grid with fewer columns wrapped the extras. */
+  display: flex;
   align-items: center;
   gap: 6px;
 }
 
+.player .step {
+  width: 44px;
+  flex: none;
+}
+
+.player .rename {
+  flex: 1;
+}
+
 .name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

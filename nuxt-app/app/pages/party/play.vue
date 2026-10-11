@@ -58,6 +58,17 @@ const stage = computed<Stage>(() => {
   if (buzzer.canBuzz) return "ready";
   return "listen";
 });
+
+// Space is the buzzer on a keyboard.
+function onKey(event: KeyboardEvent) {
+  if (event.code !== "Space" || event.repeat || stage.value !== "ready" || buzzing.value) return;
+  const target = event.target as HTMLElement | null;
+  if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName))) return;
+  event.preventDefault();
+  void buzz();
+}
+onMounted(() => window.addEventListener("keydown", onKey));
+onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 </script>
 
 <template>
@@ -148,7 +159,7 @@ const stage = computed<Stage>(() => {
         :disabled="buzzing"
         @click="buzz"
       >
-        Buzz!
+        Buzz! <span class="buzz-key">Space</span>
       </button>
       <div v-else-if="stage === 'mine'" class="buzz-mine" role="status">
         <strong>You buzzed!</strong>
@@ -424,6 +435,14 @@ const stage = computed<Stage>(() => {
 .buzz-btn:active:not(:disabled) {
   transform: translateY(6px);
   box-shadow: 0 4px 0 var(--outline);
+}
+
+.buzz-key {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
 .buzz-btn:disabled {

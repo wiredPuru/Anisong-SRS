@@ -18,6 +18,7 @@ export const anime = sqliteTable("anime", {
   season: text("season").$type<AnimeSeason>(),
   format: text("format"),
   averageScore: integer("average_score"),
+  popularity: integer("popularity"),
   genres: text("genres", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
   tags: text("tags", { mode: "json" }).$type<AnimeTag[]>().notNull().default(sql`'[]'`),
   aniListDetailsCheckedAt: integer("ani_list_details_checked_at", { mode: "timestamp_ms" }),
@@ -196,3 +197,19 @@ export const apiCache = sqliteTable("api_cache", {
 });
 
 export type ApiCacheRow = typeof apiCache.$inferSelect;
+
+// Party mode's remembered censors, one track per song (a card id, or a
+// catalog song's negated AnisongDB id, as the party queue keys them).
+export const partyCensor = sqliteTable("party_censor", {
+  cardId: integer("card_id").primaryKey(),
+  track: text("track").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// The host's rules text, kept between party sessions (singleton row, id 1).
+export const partyRules = sqliteTable("party_rules", {
+  id: integer("id").primaryKey(),
+  text: text("text").notNull().default(""),
+});

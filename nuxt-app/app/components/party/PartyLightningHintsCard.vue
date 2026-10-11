@@ -39,27 +39,27 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
 <style scoped>
 .hints-card {
   /* The backdrop's old padding, taken off the viewport width. */
-  width: min(1200px, calc(100vw - 2 * clamp(16px, 4vw, 64px)));
+  width: min(111vh, calc(100vw - 2 * clamp(16px, 4vw, 5.93vh)));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 3vh, 36px);
+  gap: clamp(16px, 3vh, 3.33vh);
 }
 
 .hints-banner {
-  font-size: clamp(20px, 2.6vw, 44px);
+  font-size: clamp(20px, 2.6vw, 4.07vh);
 }
 
 .clues {
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  gap: clamp(10px, 1.5vw, 24px);
+  gap: clamp(10px, 1.5vw, 2.22vh);
   width: 100%;
 }
 
 .clue {
-  padding: clamp(12px, 2vh, 24px);
+  padding: clamp(12px, 2vh, 2.22vh);
   border: 2px solid var(--outline);
   border-radius: var(--radius);
   background: var(--surface);
@@ -69,13 +69,13 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
 
 .clue dt {
   color: var(--muted);
-  font-size: clamp(13px, 1.3vw, 22px);
+  font-size: clamp(13px, 1.3vw, 2.04vh);
 }
 
 .clue dd {
   margin: 4px 0 0;
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.6vw, 44px);
+  font-size: clamp(20px, 2.6vw, 4.07vh);
   color: var(--text);
 }
 
@@ -86,7 +86,7 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: clamp(8px, 1.2vw, 18px);
+  gap: clamp(8px, 1.2vw, 1.67vh);
 }
 
 .tag {
@@ -96,7 +96,7 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
   background: var(--surface);
   color: var(--accent);
   font-family: var(--font-display);
-  font-size: clamp(18px, 2.4vw, 40px);
+  font-size: clamp(18px, 2.4vw, 3.7vh);
   animation: pop-in 260ms ease-out;
 }
 
@@ -107,7 +107,7 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
   justify-content: center;
   gap: 0.12em;
   font-family: var(--font-display);
-  font-size: clamp(28px, 5vw, 88px);
+  font-size: clamp(28px, 5vw, 8.15vh);
   line-height: 1.2;
 }
 

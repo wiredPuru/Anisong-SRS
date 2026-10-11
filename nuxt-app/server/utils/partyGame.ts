@@ -1,17 +1,25 @@
+import { parsePartyCensor, recordCensorKey, type PartyCensor, type PartyCensorKey, type PartyCensorStyle } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
 import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
 
 export type PartyPhase = "idle" | "guessing" | "revealed";
-export type PartyPicture = "video" | "blackout" | "cover" | "bubbles";
+export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
 export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
+export const RULES_MAX = 2000;
+/** The host's house rules text; where and whether the display shows it is the display's own layout. */
+
 export interface PartyEndless {
   difficulty: EndlessDifficulty;
   downloadedOnly: boolean;
   /** Draw from AnisongDB's whole catalog instead of the library's cards. */
   outsideLibrary: boolean;
+  /** Which cards a library queue draws from. */
+  scope: { type: "all" } | { type: "created"; id: number };
+  /** Study filters narrow the draw; the filters themselves stay on the server. */
+  filtered: boolean;
 }
 
 /** Which parts of the answer the reveal shows. */
@@ -86,6 +94,8 @@ export interface PartyScoreRow {
   name: string;
   score: number;
   members?: string[];
+  // A team's players with their own scores, best first.
+  memberRows?: { id: number; name: string; score: number }[];
 }
 /** Points for the current song are multiplied; with risk, a wrong buzz costs the same multiple. */
 export interface PartyStake {
@@ -131,6 +141,8 @@ export interface PartyQueueItem {
   answer: PartyAnswer;
   // Only ever shown as lightning hints, and only as far as play time allows.
   details: PartyAnimeDetails;
+  // Added by the host into a running game, so an endless queue still lists it.
+  manual?: boolean;
 }
 export interface PartyPosition {
   token: string;
@@ -176,6 +188,7 @@ export interface PartyGameState {
   songVolume: number;
   // The display's corner chip with the player join address.
   joinInfoVisible: boolean;
+  rules: string;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -188,6 +201,22 @@ export interface PartyGameState {
   // Net points per player id on the current song only (feature 91a).
   roundPoints: Record<number, number>;
   summaryVisible: boolean;
+  // Hides parts of the current song's picture, or its sound, from the room.
+  censor: PartyCensor | null;
+  // How a censor hides the picture; the host's choice, kept between songs.
+  censorStyle: PartyCensorStyle;
+  // Every censor change on the current song, by clip time, so it can be
+  // saved and played back the next time the song comes up.
+  censorTrack: PartyCensorKey[];
+  // A saved track exists (or was just recorded) and replays next time.
+  censorRemember: boolean;
+  // The host is recording: every censor change is timed and kept for later.
+  censorRecording: boolean;
+  // The host has lifted the censor; the display lifts it a moment later.
+  censorLifting: boolean;
+  // Once the host changes the censor on a song, the saved track stops
+  // playing back and the live censor alone applies.
+  censorTouched: boolean;
 }
 export interface PartySummary {
   standings: { rank: number; name: string; score: number }[];
@@ -219,14 +248,19 @@ export type PartyCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
+  | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
+  | { type: "censorStyle"; style: PartyCensorStyle }
+  | { type: "censorRecord"; recording: boolean }
+  | { type: "censorForget" }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
   | { type: "stake"; config: PartyStake | null }
-  | { type: "endless"; config: PartyEndless | null }
+  | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
+  | { type: "queueShuffle" }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
@@ -235,6 +269,7 @@ export type PartyCommand =
   | { type: "music"; enabled: boolean; volume: number }
   | { type: "songVolume"; volume: number }
   | { type: "joinInfo"; visible: boolean }
+  | { type: "rules"; text: string }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }
   | { type: "award"; playerId: number; awarded: boolean }
@@ -247,7 +282,9 @@ export type PartyInternalCommand =
   | { type: "playerJoin"; name: string; claimId: number | null }
   | { type: "playerConnection"; id: number; connected: boolean }
   | { type: "buzz"; playerId: number }
-  | { type: "choicePick"; playerId: number; index: number };
+  | { type: "choicePick"; playerId: number; index: number }
+  // A song's saved censor track, loaded as the song comes up.
+  | { type: "censorSaved"; token: string; track: PartyCensorKey[] };
 export interface PartyJoinInfo {
   urls: string[];
 }
@@ -277,9 +314,13 @@ export interface PartyDisplayState {
   songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  rules: string | null;
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
+  censor: PartyCensor | null;
+  /** A saved censor track to play back by clip time, while the host leaves it alone. */
+  censorTrack: PartyCensorKey[] | null;
 }
 /** Sent to a joined phone: never an answer, clip token, or card id. */
 export interface PartyPlayerState {
@@ -324,6 +365,7 @@ export interface PartyHostState {
   music: PartyMusic;
   songVolume: number;
   joinInfoVisible: boolean;
+  rules: string;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -331,6 +373,13 @@ export interface PartyHostState {
   buzz: PartyBuzz;
   currentAwards: number[];
   summaryVisible: boolean;
+  // The host may watch the clip ahead of the room, so it gets the clip token.
+  currentToken: string | null;
+  censor: PartyCensor | null;
+  censorStyle: PartyCensorStyle;
+  censorTrack: PartyCensorKey[];
+  censorRemember: boolean;
+  censorTouched: boolean;
 }
 
 export const PARTY_LOAD_MAX = 2000;
@@ -349,7 +398,7 @@ export const NO_EFFECTS: PartyEffects = {
   muted: false,
   picture: "video",
 };
-const PICTURES: readonly PartyPicture[] = ["video", "blackout", "cover", "bubbles"];
+const PICTURES: readonly PartyPicture[] = ["video", "bubbles", "music"];
 const BLUR_MAX = 40;
 const PIXELATE_MIN = 4;
 const PIXELATE_MAX = 64;
@@ -382,7 +431,7 @@ export function parsePartyEffects(raw: unknown): PartyEffects | { error: string 
     return { error: "blur, pixelate, and decaySeconds must be numbers" };
   }
   if (typeof decay !== "boolean" || typeof muted !== "boolean") return { error: "decay and muted must be booleans" };
-  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'blackout', 'cover', or 'bubbles'" };
+  if (!PICTURES.includes(picture as PartyPicture)) return { error: "picture must be 'video', 'bubbles', or 'music'" };
   return {
     blur: Math.round(clamp(blur, 0, BLUR_MAX)),
     pixelate: pixelate <= 0 ? 0 : Math.round(clamp(pixelate, PIXELATE_MIN, PIXELATE_MAX)),
@@ -400,17 +449,19 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle"> = {
     scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
     songVolume: 1,
     joinInfoVisible: true,
+    rules: "",
     buzzerEnabled: false,
     endless: null,
     revealFields: ALL_REVEAL_FIELDS,
     autoAdvance: true,
     skipSeq: 0,
+    censorStyle: "black",
   },
 ): PartyGameState {
   return {
@@ -441,6 +492,12 @@ export function initialPartyState(
     awardValue: {},
     roundPoints: {},
     summaryVisible: false,
+    censor: null,
+    censorTrack: [],
+    censorRemember: false,
+    censorRecording: false,
+    censorLifting: false,
+    censorTouched: false,
     ...kept,
   };
 }
@@ -564,17 +621,26 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
     }
     case "endless": {
-      const { config } = body as { config?: unknown };
+      const { config, filters } = body as { config?: unknown; filters?: unknown };
       if (config === null) return { type, config: null };
-      const { difficulty, downloadedOnly, outsideLibrary } = (config ?? {}) as {
+      const { difficulty, downloadedOnly, outsideLibrary, scope } = (config ?? {}) as {
         difficulty?: unknown;
         downloadedOnly?: unknown;
         outsideLibrary?: unknown;
+        scope?: { type?: unknown; id?: unknown };
       };
+      if (filters !== undefined && typeof filters !== "string") return { error: "filters must be a JSON string" };
+      let parsedScope: PartyEndless["scope"] = { type: "all" };
+      if (scope?.type === "created") {
+        if (!Number.isInteger(scope.id) || (scope.id as number) <= 0) return { error: "scope.id must be a positive integer" };
+        parsedScope = { type: "created", id: scope.id as number };
+      } else if (scope !== undefined && scope.type !== "all") {
+        return { error: "scope.type must be 'all' or 'created'" };
+      }
       if (!ENDLESS_DIFFICULTIES.includes(difficulty as EndlessDifficulty)) return { error: "difficulty must be easy, medium, hard or random" };
       if (typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
       if (outsideLibrary !== undefined && typeof outsideLibrary !== "boolean") return { error: "outsideLibrary must be a boolean" };
-      return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true } };
+      return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true, scope: parsedScope, filtered: Boolean(filters) }, ...(filters ? { filters } : {}) };
     }
     case "revealFields": {
       const { fields } = body as { fields?: Record<string, unknown> };
@@ -600,6 +666,11 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const trimmed = typeof text === "string" ? text.trim() : "";
       if (!trimmed || trimmed.length > BANNER_MAX) return { error: `text must be 1-${BANNER_MAX} characters, or null` };
       return { type, text: trimmed };
+    }
+    case "rules": {
+      const { text } = body as { text?: unknown };
+      if (typeof text !== "string" || text.length > RULES_MAX) return { error: `text must be a string of at most ${RULES_MAX} characters` };
+      return { type, text };
     }
     case "joinInfo": {
       const { visible } = body as { visible?: unknown };
@@ -641,6 +712,24 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const parsed = parsePartyEffects(effects);
       return "error" in parsed ? parsed : { type, target, effects: parsed };
     }
+    case "censor": {
+      const { censor, at, delay } = body as { censor?: unknown; at?: unknown; delay?: unknown };
+      const parsed = parsePartyCensor(censor ?? null);
+      if (parsed && "error" in parsed) return parsed;
+      if (at !== undefined && !(typeof at === "number" && Number.isFinite(at) && at >= 0)) return { error: "at must be a number of 0 or more" };
+      if (delay !== undefined && !(typeof delay === "number" && Number.isFinite(delay) && delay >= 0 && delay <= 10)) return { error: "delay must be 0 to 10 seconds" };
+      return { type, censor: parsed, ...(at === undefined ? {} : { at }), ...(delay === undefined ? {} : { delay }) };
+    }
+    case "censorRecord": {
+      const { recording } = body as { recording?: unknown };
+      return typeof recording === "boolean" ? { type, recording } : { error: "recording must be a boolean" };
+    }
+    case "censorForget":
+      return { type };
+    case "censorStyle": {
+      const { style } = body as { style?: unknown };
+      return style === "blur" || style === "black" ? { type, style } : { error: "style must be 'blur' or 'black'" };
+    }
     case "seek": {
       const { seconds } = body as { seconds?: unknown };
       if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) {
@@ -677,6 +766,7 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
     }
     case "changeSource":
+    case "queueShuffle":
       return { type };
     case "queueReroll": {
       const { index } = body as { index?: unknown };
@@ -902,7 +992,7 @@ function addRoundPoints(roundPoints: Record<number, number>, playerId: number, d
   return total === 0 ? rest : { ...rest, [playerId]: total };
 }
 
-function applyInternal(state: PartyGameState, command: PartyInternalCommand): PartyGameState {
+function applyInternal(state: PartyGameState, command: Exclude<PartyInternalCommand, { type: "censorSaved" }>): PartyGameState {
   const { players } = state.scoreboard;
   const withPlayers = (next: PartyPlayer[]) => ({ ...state, scoreboard: { ...state.scoreboard, players: next } });
   if (command.type === "playerJoin") {
@@ -955,7 +1045,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     position: null,
     // A lightning round always plays a random slice of each song.
     startFraction: state.randomStart || state.lightning ? random() : 0,
-    effects: state.nextEffects ?? state.effects,
+    effects: state.nextEffects ?? NO_EFFECTS,
     nextEffects: null,
     live: null,
     choices: null,
@@ -966,6 +1056,12 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     buzz: NO_BUZZ,
     roundPoints: {},
     summaryVisible: false,
+    censor: null,
+    censorTrack: [],
+    censorRemember: false,
+    censorRecording: false,
+    censorLifting: false,
+    censorTouched: false,
   };
 }
 
@@ -978,6 +1074,10 @@ export function applyPartyCommand(
   command: PartyCommand | PartyInternalCommand,
   options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number; choices?: string[] } = {},
 ): PartyGameState {
+  if (command.type === "censorSaved") {
+    if (currentPartyItem(state)?.token !== command.token || state.censorTouched || !command.track.length) return state;
+    return { ...state, censorTrack: command.track, censorRemember: true, version: state.version + 1 };
+  }
   if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz" || command.type === "choicePick") {
     const next = applyInternal(state, command);
     return next === state ? state : { ...next, version: state.version + 1 };
@@ -1070,6 +1170,15 @@ export function applyPartyCommand(
       }
       break;
     }
+    case "queueShuffle": {
+      // Only the songs still to come move; the one on screen and those played stay.
+      const from = state.index + 1;
+      if (hasItem && state.queue.length - from > 1) {
+        const upcoming = shuffled(state.queue.slice(from), random);
+        next = { ...state, queue: [...state.queue.slice(0, from), ...upcoming] };
+      }
+      break;
+    }
     case "queueReroll": {
       // The store picks the replacement; without one the song stays.
       const replacement = options.loaded?.[0];
@@ -1094,6 +1203,9 @@ export function applyPartyCommand(
     case "banner":
       if (command.text !== null) next = { ...state, banner: { text: command.text, shownAt: now() } };
       else if (state.banner) next = { ...state, banner: null };
+      break;
+    case "rules":
+      if (command.text !== state.rules) next = { ...state, rules: command.text };
       break;
     case "joinInfo":
       if (state.joinInfoVisible !== command.visible) next = { ...state, joinInfoVisible: command.visible };
@@ -1144,6 +1256,36 @@ export function applyPartyCommand(
         ? { ...state, effects: command.effects ?? NO_EFFECTS }
         : { ...state, nextEffects: command.effects };
       break;
+    case "censor":
+      // Every censor uses the host's chosen style, whoever sent it.
+      if (hasItem) {
+        const censor = command.censor && { ...command.censor, style: state.censorStyle };
+        // The host's preview runs ahead of the display, so it says when in
+        // the clip the change belongs; a hotkey falls back to the display.
+        const at = command.at ?? state.position?.currentTime ?? 0;
+        // Only a recording keeps timings; otherwise the censor is one-off.
+        const censorTrack = state.censorRecording ? recordCensorKey(state.censorTrack, at, censor) : state.censorTrack;
+        next = { ...state, censor, censorTouched: true, censorTrack };
+      }
+      break;
+    case "censorRecord":
+      if (!hasItem || state.censorRecording === command.recording) break;
+      if (command.recording) {
+        // A fresh take: the old track is replaced, starting from what is on screen.
+        const at = state.position?.currentTime ?? 0;
+        next = { ...state, censorRecording: true, censorTouched: true, censorRemember: false, censorTrack: state.censor ? recordCensorKey([], at, state.censor) : [] };
+      } else {
+        next = { ...state, censorRecording: false, censorRemember: state.censorTrack.length > 0 };
+      }
+      break;
+    case "censorForget":
+      if (hasItem && (state.censorRemember || state.censorRecording || state.censorTrack.length)) {
+        next = { ...state, censorRecording: false, censorRemember: false, censorTrack: [], censorTouched: true };
+      }
+      break;
+    case "censorStyle":
+      next = { ...state, censorStyle: command.style, censor: state.censor && { ...state.censor, style: command.style } };
+      break;
     case "reveal":
       if (hasItem && state.phase !== "revealed") {
         next = { ...state, phase: "revealed", revealedAtElapsed: state.position?.elapsed ?? 0, buzz: { ...state.buzz, playerId: null } };
@@ -1157,12 +1299,14 @@ export function applyPartyCommand(
           music: state.music,
           songVolume: state.songVolume,
           joinInfoVisible: state.joinInfoVisible,
+          rules: state.rules,
           buzzerEnabled: state.buzzerEnabled,
           // End game ends an endless queue too; otherwise it would refill at once.
           endless: null,
           revealFields: state.revealFields,
           autoAdvance: state.autoAdvance,
           skipSeq: state.skipSeq,
+          censorStyle: state.censorStyle,
         });
       }
       break;
@@ -1265,9 +1409,12 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
+    rules: state.rules.trim() || null,
     buzz: { answering: playerName(state, state.buzz.playerId) },
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,
+    censor: item ? state.censor : null,
+    censorTrack: item && !state.censorTouched && state.censorTrack.length ? state.censorTrack : null,
   };
 }
 
@@ -1281,7 +1428,8 @@ export function scoreRows(state: PartyGameState): PartyScoreRow[] {
   const { players, teams } = state.scoreboard;
   const rows: PartyScoreRow[] = teams.map((team) => {
     const members = players.filter((p) => p.teamId === team.id);
-    return { id: -team.id, name: team.name, score: members.reduce((sum, p) => sum + p.score, 0), members: members.map((p) => p.name) };
+    const memberRows = members.map((p) => ({ id: p.id, name: p.name, score: p.score })).sort((a, b) => b.score - a.score);
+    return { id: -team.id, name: team.name, score: members.reduce((sum, p) => sum + p.score, 0), members: members.map((p) => p.name), memberRows };
   });
   const known = new Set(teams.map((t) => t.id));
   for (const p of players) if (p.teamId === null || !known.has(p.teamId)) rows.push({ id: p.id, name: p.name, score: p.score });
@@ -1368,7 +1516,13 @@ export function toHostState(state: PartyGameState): PartyHostState {
     phase: state.phase,
     index: state.index,
     playing: state.playing,
-    queue: state.queue.map((item) => ({ cardId: item.cardId, kind: item.clip.kind, origin: item.clip.source.type === "local" ? "local" : "stream", answer: item.answer })),
+    queue: state.queue.map((item) => ({
+      cardId: item.cardId,
+      kind: item.clip.kind,
+      origin: item.clip.source.type === "local" ? "local" : "stream",
+      manual: item.manual === true,
+      answer: item.answer,
+    })),
     position: state.position,
     randomStart: state.randomStart,
     effects: state.effects,
@@ -1384,6 +1538,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     music: state.music,
     songVolume: state.songVolume,
     joinInfoVisible: state.joinInfoVisible,
+    rules: state.rules,
     buzzerEnabled: state.buzzerEnabled,
     endless: state.endless,
     revealFields: state.revealFields,
@@ -1391,6 +1546,14 @@ export function toHostState(state: PartyGameState): PartyHostState {
     buzz: state.buzz,
     currentAwards: (item && state.awards[item.token]) ?? [],
     summaryVisible: state.summaryVisible,
+    currentToken: item?.token ?? null,
+    censor: state.censor,
+    censorStyle: state.censorStyle,
+    censorTrack: state.censorTrack,
+    censorRemember: state.censorRemember,
+    censorRecording: state.censorRecording,
+    censorLifting: state.censorLifting,
+    censorTouched: state.censorTouched,
   };
 }
 

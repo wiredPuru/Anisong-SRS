@@ -17,42 +17,42 @@ const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 <style scoped>
 .choices {
-  width: min(1100px, calc(100vw - 32px));
+  width: min(101.9vh, calc(100vw - 32px));
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(8px, 1.4vw, 20px);
+  gap: clamp(8px, 1.4vw, 1.85vh);
 }
 
 .choices.is-list {
-  width: min(720px, calc(100vw - 32px));
+  width: min(66.7vh, calc(100vw - 32px));
   grid-template-columns: minmax(0, 1fr);
 }
 
 .choices.is-row {
-  width: min(1700px, calc(100vw - 32px));
+  width: min(157.4vh, calc(100vw - 32px));
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .is-row .choice {
   flex-direction: column;
   text-align: center;
-  font-size: clamp(14px, 1.7vw, 30px);
+  font-size: clamp(14px, 1.7vw, 2.78vh);
 }
 
 .choice {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.2vw, 18px);
-  padding: clamp(10px, 1.4vw, 22px);
+  gap: clamp(10px, 1.2vw, 1.67vh);
+  padding: clamp(10px, 1.4vw, 2.04vh);
   border: 2px solid var(--outline);
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-soft);
-  font-size: clamp(16px, 2.2vw, 36px);
+  font-size: clamp(16px, 2.2vw, 3.33vh);
   font-weight: 700;
   animation: choice-in 260ms ease-out backwards;
 }

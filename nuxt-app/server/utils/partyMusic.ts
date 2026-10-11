@@ -13,16 +13,49 @@ export function partyMusicFolder(): string {
   return join(dirname(resolveDbPath(process.env, process.cwd())), "party-music");
 }
 
+// A download is named "<anime> - <slot> - <artist>", and playing those between
+// songs would give the answers away, so library folders skip them.
+const DOWNLOADED_CLIP = / - (OP|ED|IN)[\w-]* - /i;
+const LIBRARY_MUSIC_SUBFOLDER = "party-music";
+
+export interface PartyMusicTrack {
+  name: string;
+  path: string;
+}
+
+function audioIn(folder: string, skip: (name: string) => boolean): PartyMusicTrack[] {
+  try {
+    return readdirSync(folder)
+      .filter((name) => isMusicFile(name) && !skip(name) && statSync(join(folder, name)).isFile())
+      .map((name) => ({ name, path: join(folder, name) }));
+  } catch {
+    return [];
+  }
+}
+
 // Read fresh on every call, so tracks dropped in mid-event join the rotation.
-export function listPartyMusic(): { folder: string; tracks: string[] } {
+// Sources: the party-music folder beside the database, plus every media
+// library folder from Settings (its audio files, and any party-music folder
+// inside it).
+export function listPartyMusic(libraryFolders: readonly string[] = []): { folder: string; folders: string[]; tracks: string[]; files: PartyMusicTrack[] } {
   const folder = partyMusicFolder();
   try {
     mkdirSync(folder, { recursive: true });
-    const tracks = readdirSync(folder)
-      .filter((name) => isMusicFile(name) && statSync(join(folder, name)).isFile())
-      .sort((a, b) => a.localeCompare(b));
-    return { folder, tracks };
   } catch {
-    return { folder, tracks: [] };
+    // An unwritable folder just means no tracks from it.
   }
+  const sources = [folder, ...libraryFolders, ...libraryFolders.map((dir) => join(dir, LIBRARY_MUSIC_SUBFOLDER))];
+  const seen = new Set<string>();
+  const files: PartyMusicTrack[] = [];
+  for (const source of sources) {
+    const isLibrary = source !== folder && !source.endsWith(LIBRARY_MUSIC_SUBFOLDER);
+    for (const track of audioIn(source, (name) => isLibrary && (extname(name).toLowerCase() === ".webm" || DOWNLOADED_CLIP.test(name)))) {
+      if (!seen.has(track.path)) {
+        seen.add(track.path);
+        files.push(track);
+      }
+    }
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name));
+  return { folder, folders: [folder, ...libraryFolders], tracks: files.map((file) => file.name), files };
 }

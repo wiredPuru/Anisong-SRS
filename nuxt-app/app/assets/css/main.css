@@ -51,6 +51,8 @@
   --veil-paused: rgba(0, 0, 0, 0.42);
   --veil-error: rgba(10, 10, 14, 0.72);
   --veil-status: rgba(10, 10, 12, 0.72);
+  --censor-fill: #000;
+  --censor-tint: rgba(0, 0, 0, 0.25);
 
   /* panels over a picture: no blur, which made text hard to read over busy
      frames, and no tint, which turned dark clips' panels blue */
