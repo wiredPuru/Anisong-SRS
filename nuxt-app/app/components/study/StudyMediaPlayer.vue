@@ -1070,7 +1070,7 @@ onUnmounted(() => stopDrag?.());
   >
     <div
       class="player-frame"
-      :class="{ 'ambient-glass': ambient }"
+      :class="{ 'ambient-glass': ambient, 'controls-rest': isPlaying && !isDragging }"
       @mousemove="onPlayerPointerMove"
       @mouseleave="resetPlayerParallax"
     >
@@ -1245,6 +1245,10 @@ onUnmounted(() => stopDrag?.());
           :mood="idleMood"
           :text="IDLE_TEXT[idleMood]"
         />
+      </div>
+
+      <div class="mini-progress" aria-hidden="true">
+        <span :style="{ width: progressPercent + '%' }" />
       </div>
 
       <div class="player-controls">
@@ -1732,6 +1736,57 @@ onUnmounted(() => stopDrag?.());
   bottom: clamp(8px, 0.83cqw, 19px);
   gap: clamp(9px, 0.97cqw, 22px);
   padding: clamp(4px, 0.41cqw, 10px) clamp(10px, 1.1cqw, 26px) clamp(4px, 0.41cqw, 10px) clamp(4px, 0.41cqw, 10px);
+}
+
+.player-controls {
+  transition: opacity 0.15s ease;
+}
+
+/* The thin line that stands in for the controls while a clip plays: how far
+   through it is, nothing to click. */
+.mini-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.mini-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.player-card.expanded .mini-progress {
+  height: clamp(3px, 0.3cqw, 6px);
+}
+
+/* Only where there is a pointer to bring the controls back; a touch screen
+   keeps them on screen. They stay up while the pointer is over the frame, while
+   keyboard focus is inside, and while the volume slider is held (a scrub drag
+   already lifts .controls-rest). */
+@media (hover: hover) {
+  .player-frame.controls-rest:not(:hover, :has(:focus-visible), :has(.volume-slider:active)) .player-controls {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .player-frame.controls-rest:not(:hover, :has(:focus-visible), :has(.volume-slider:active)) .mini-progress {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-controls,
+  .mini-progress {
+    transition: none;
+  }
 }
 
 .play-btn {

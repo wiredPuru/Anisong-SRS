@@ -16,7 +16,7 @@ const props = defineProps<{
   // The card is flipped to its details, which already show the info, so the
   // bar offers the way back to the video instead.
   onDetails?: boolean;
-  // A graded round tints the whole bar green or red.
+  // A graded round puts a check or cross on the cover until the next card.
   result?: "pass" | "fail" | null;
 }>();
 
@@ -31,14 +31,20 @@ const native = computed(() =>
 </script>
 
 <template>
-  <section class="now-playing" :class="result ? `result-${result}` : null" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
-    <div v-if="onDetails" class="np-art" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z" /></svg>
-    </div>
-    <div v-else class="np-art" :class="{ revealed: !hidden && coverImageUrl && !coverFailed }" aria-hidden="true">
-      <img v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
-      <span v-else-if="hidden">?</span>
-      <svg v-else viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
+  <section class="now-playing" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
+    <div class="np-art-wrap">
+      <div v-if="onDetails" class="np-art" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z" /></svg>
+      </div>
+      <div v-else class="np-art" :class="{ revealed: !hidden && coverImageUrl && !coverFailed }" aria-hidden="true">
+        <img v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
+        <span v-else-if="hidden">?</span>
+        <svg v-else viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
+      </div>
+      <span v-if="result" :key="result" class="np-badge" :class="result" aria-hidden="true">
+        <svg v-if="result === 'pass'" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+        <svg v-else viewBox="0 0 24 24"><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
+      </span>
     </div>
     <div class="np-text">
       <template v-if="onDetails">
@@ -95,16 +101,6 @@ const native = computed(() =>
   color: var(--text);
 }
 
-.now-playing.result-pass {
-  border-color: var(--pass);
-  background: linear-gradient(0deg, rgba(126, 224, 161, 0.18), rgba(126, 224, 161, 0.18)), rgba(14, 14, 17, 0.86);
-}
-
-.now-playing.result-fail {
-  border-color: var(--fail);
-  background: linear-gradient(0deg, rgba(255, 138, 138, 0.18), rgba(255, 138, 138, 0.18)), rgba(14, 14, 17, 0.86);
-}
-
 .np-art {
   display: grid;
   place-items: center;
@@ -116,6 +112,57 @@ const native = computed(() =>
   color: var(--muted);
   font: 700 28px var(--font-display);
   overflow: hidden;
+}
+
+.np-art-wrap {
+  position: relative;
+}
+
+/* Marks the round's result and stays until the next card; it pops in with the
+   grade moment so the two read as one beat. */
+.np-badge {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  animation: badge-pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1) 120ms backwards;
+}
+
+.np-badge.pass {
+  background: var(--pass);
+  color: var(--pass-ink);
+}
+
+.np-badge.fail {
+  background: var(--fail);
+  color: var(--fail-ink);
+}
+
+.np-badge svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes badge-pop {
+  0% { opacity: 0; transform: scale(0); }
+  60% { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-badge {
+    animation: none;
+  }
 }
 
 .np-art img {

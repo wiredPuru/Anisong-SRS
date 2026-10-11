@@ -268,9 +268,8 @@ function readBurstOrigin(): BurstRect {
 // Session-only visual feedback for the moment a grade lands - never persisted,
 // cleared on its own after the CSS animation finishes.
 const gradeFlash = ref<"pass" | "fail" | null>(null);
-// The glow's own animation is 500ms; Kai's sticker rides the same element and
-// needs longer to be read.
-const GRADE_STICKER_MS = 1100;
+// How long the grade moment (rings, particles, Kai and the banner) stays mounted.
+const GRADE_MOMENT_MS = 1400;
 let gradeFlashTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function flashGrade(result: "pass" | "fail") {
@@ -283,7 +282,7 @@ function flashGrade(result: "pass" | "fail") {
     gradeFlash.value = result;
     gradeFlashTimeout = setTimeout(() => {
       gradeFlash.value = null;
-    }, GRADE_STICKER_MS);
+    }, GRADE_MOMENT_MS);
   });
 }
 
@@ -1486,10 +1485,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               </div>
             </template>
           </StudyMediaPlayer>
-          <template v-if="gradeFlash">
-            <div class="grade-flash" :class="gradeFlash" aria-hidden="true" />
-            <StudyGradeSticker :result="gradeFlash" />
-          </template>
+          <StudyGradeMoment v-if="gradeFlash" :result="gradeFlash" />
           <StudyDetailsCard
             :open="showDetails"
             :cover-image-url="detailsHidden ? null : currentCard.animeCoverImageUrl"
@@ -2251,34 +2247,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 @media (prefers-reduced-motion: reduce) {
   .combo-shake {
     animation: none;
-  }
-}
-
-.grade-flash {
-  position: absolute;
-  inset: 12px;
-  pointer-events: none;
-  border-radius: var(--radius);
-  animation: grade-flash-pulse 500ms ease-out forwards;
-}
-
-.grade-flash.pass {
-  box-shadow: 0 0 0 2px var(--pass), 0 0 32px 4px var(--pass);
-}
-
-.grade-flash.fail {
-  box-shadow: 0 0 0 2px var(--fail), 0 0 32px 4px var(--fail);
-}
-
-@keyframes grade-flash-pulse {
-  0% {
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
   }
 }
 
