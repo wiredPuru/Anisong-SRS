@@ -61,7 +61,8 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
 .summary {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  /* The clip stays visible behind; only a light wash keeps the text readable. */
+  background: color-mix(in srgb, var(--bg) 22%, transparent);
   overflow: hidden;
   animation: summary-in 300ms ease-out;
 }
@@ -108,7 +109,8 @@ const earlier = computed(() => Math.max(0, props.summary.songs.length - SONGS_SH
   padding: clamp(12px, 1.6vw, 2.22vh);
   border: 3px solid var(--outline);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  backdrop-filter: blur(12px);
   overflow: hidden;
 }
 
