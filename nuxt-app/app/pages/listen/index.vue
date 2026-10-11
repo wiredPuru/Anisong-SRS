@@ -202,14 +202,6 @@ const stageStyle = usePlayerFrameBox(playerPaneRef, presentationKey);
 const DETAILS_STORAGE_KEY = "gaqSrs:listenDetails";
 const showDetails = ref(false);
 
-// Clicking the empty space around the picture flips between it and the details.
-function onStageBackgroundClick(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  // The player card is stretched across the pane, so the sides belong to it.
-  if (target === event.currentTarget || target === playerPaneRef.value || target.classList.contains("player-card")) {
-    showDetails.value = !showDetails.value;
-  }
-}
 onMounted(() => {
   try {
     showDetails.value = localStorage.getItem(DETAILS_STORAGE_KEY) === "1";
@@ -353,7 +345,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <template v-if="capped"> Showing the first {{ total + skippedCount }} songs.</template>
         </p>
       </header>
-      <div class="stage" :style="stageStyle" @click="onStageBackgroundClick">
+      <div class="stage" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture">
           <StudyMediaPlayer
             :key="presentationKey"
