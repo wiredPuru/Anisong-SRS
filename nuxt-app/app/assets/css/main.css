@@ -59,6 +59,7 @@
   --glass-blur: none;
   --glass-surface: rgba(14, 14, 17, 0.78);
   --glass-surface-panel: rgba(14, 14, 17, 0.86);
+  --glass-surface-display: rgba(14, 14, 17, 0.62);
   --glass-border: rgba(255, 255, 255, 0.12);
 
   --ambient-wash-opacity: 1;

@@ -1,42 +1,46 @@
 <script setup lang="ts">
-const props = defineProps<{ text: string }>();
+const props = defineProps<{ text: string; divided?: boolean }>();
 
 const lines = computed(() => props.text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
 </script>
 
 <template>
-  <div class="rules-card">
+  <section class="rules" :class="{ divided }" aria-label="Rules">
     <h2 class="kai-banner kai-banner-neutral rules-title">Rules</h2>
-    <ol class="rules-list">
+    <ul class="rules-list">
       <li v-for="(line, i) in lines" :key="i">{{ line }}</li>
-    </ol>
-  </div>
+    </ul>
+  </section>
 </template>
 
 <style scoped>
-.rules-card {
-  width: max-content;
-  max-width: 34vw;
-  padding: 1.6vmin 2vmin;
-  border: 2px solid var(--outline);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rules.divided {
+  padding-bottom: 10px;
+  border-bottom: 2px dashed var(--border);
 }
 
 .rules-title {
-  margin: 0 0 1.2vmin;
-  text-align: center;
-  font-size: 2.6vmin;
+  align-self: flex-start;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(16px, 1.6vw, 2.41vh);
 }
 
 .rules-list {
   margin: 0;
-  padding-left: 1.4em;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.8vmin;
-  font-size: 2vmin;
+  gap: 4px;
+  font-size: clamp(14px, 1.3vw, 2.1vh);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 </style>

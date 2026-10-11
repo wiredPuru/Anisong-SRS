@@ -62,7 +62,7 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
   padding: clamp(12px, 2vh, 2.22vh);
   border: 2px solid var(--outline);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--glass-surface-panel);
   text-align: center;
   animation: pop-in 260ms ease-out;
 }
@@ -93,7 +93,7 @@ const TITLES: Record<NonNullable<PartyHints>["kind"], string> = {
   padding: 0.35em 0.9em;
   border: 2px solid var(--accent);
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  background: var(--glass-surface-panel);
   color: var(--accent);
   font-family: var(--font-display);
   font-size: clamp(18px, 2.4vw, 3.7vh);

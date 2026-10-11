@@ -7,6 +7,7 @@ const props = defineProps<{
   songClock?: PartySongClock | null;
   guessing: boolean;
   scoreboard: PartyScoreRow[] | null;
+  rules: string | null;
   banner: PartyBanner | null;
   join: PartyJoinInfo | null;
   answering: string | null;
@@ -15,6 +16,7 @@ const props = defineProps<{
 }>();
 
 const board = computed(() => props.scoreboard ?? (props.arranging ? SAMPLE_PLAYERS : null));
+const rulesShown = computed(() => props.rules?.trim() || (props.arranging ? SAMPLE_RULES : null));
 const joinShown = computed(() => props.join ?? (props.arranging ? SAMPLE_JOIN : null));
 const joinAddress = computed(() => joinShown.value?.urls[0]?.replace(/^https?:\/\//, "") ?? null);
 
@@ -60,25 +62,28 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       </div>
     </PartyLayoutFrame>
 
-    <PartyLayoutFrame v-if="board" piece="scoreboard">
+    <PartyLayoutFrame v-if="board || rulesShown" piece="scoreboard">
       <aside class="scoreboard" aria-label="Scoreboard">
-        <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
-        <ol class="scoreboard-list">
-          <li v-for="(player, index) in board" :key="player.id" class="scoreboard-item" :class="{ team: player.memberRows }">
-            <div class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0, 'team-row': player.memberRows }">
-              <span class="scoreboard-rank">{{ index + 1 }}</span>
-              <span class="scoreboard-name">{{ player.name }}</span>
-              <span class="scoreboard-score">{{ player.score }}</span>
-            </div>
-            <ol v-if="player.memberRows?.length" class="team-members">
-              <li v-for="member in player.memberRows" :key="member.id" class="team-member">
-                <span class="scoreboard-name">{{ member.name }}</span>
-                <span class="scoreboard-score">{{ member.score }}</span>
-              </li>
-            </ol>
-          </li>
-          <li v-if="!board.length" class="scoreboard-empty">No players yet</li>
-        </ol>
+        <PartyRulesCard v-if="rulesShown" :text="rulesShown" :divided="Boolean(board)" />
+        <template v-if="board">
+          <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
+          <ol class="scoreboard-list">
+            <li v-for="(player, index) in board" :key="player.id" class="scoreboard-item" :class="{ team: player.memberRows }">
+              <div class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0, 'team-row': player.memberRows }">
+                <span class="scoreboard-rank">{{ index + 1 }}</span>
+                <span class="scoreboard-name">{{ player.name }}</span>
+                <span class="scoreboard-score">{{ player.score }}</span>
+              </div>
+              <ol v-if="player.memberRows?.length" class="team-members">
+                <li v-for="member in player.memberRows" :key="member.id" class="team-member">
+                  <span class="scoreboard-name">{{ member.name }}</span>
+                  <span class="scoreboard-score">{{ member.score }}</span>
+                </li>
+              </ol>
+            </li>
+            <li v-if="!board.length" class="scoreboard-empty">No players yet</li>
+          </ol>
+        </template>
       </aside>
     </PartyLayoutFrame>
 

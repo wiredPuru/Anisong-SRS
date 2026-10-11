@@ -42,7 +42,7 @@ function save() {
         @keydown.stop
       />
       <div class="rules-foot">
-        <span class="rules-count">{{ draft.length }} / {{ MAX }}. Place, resize or hide them from the display's Arrange layout.</span>
+        <span class="rules-count">{{ draft.length }} / {{ MAX }}. They show above the scores on the display.</span>
         <button type="button" class="rules-save" :disabled="!dirty" @click="save">Save</button>
       </div>
     </template>

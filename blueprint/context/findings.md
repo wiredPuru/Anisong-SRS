@@ -70,3 +70,59 @@
 **Why it matters:** `stats` (2098 lines, 647 of script, about 565 of template), `decks` (2074, 785 script), `study` (2036, 1010 script), and `cards` (1914, 616 script) each own the state of many unrelated features. `study/index.vue` alone holds typed answers, scoring, Auto Reveal, filters, history, and session log wiring. `coding-standards.md` asks for "one job per component" and composables for reusable stateful logic. No defect today, but it is where features 79+ will land. Every change has to be read against a 1000-line script, and the recent feature/fix history keeps touching these files.
 **Suggested fix:** Not a rewrite. When a feature next touches one of these pages, move one cohesive slice out with it: study's Auto Reveal and typed-answer round state into composables, and stats' self-contained sections (health, forecast, rhythm, trouble cards) into `components/stats/` the way `StatsActivityHeatmap.vue` already is.
 **Resolution:**
+
+### F-24 [P2] open - With the display on the LAN, any device can pause the game or force a reveal through the display door's unauthenticated write routes
+
+**File:** nuxt-app/server/api/party/display/position.post.ts:4
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `launcher/party.ts:24-27` says the opt-in LAN display door "only reaches the display routes, and answers stay hidden until the host reveals them". That does not hold. `POST /api/party/display/position` and `POST /api/party/display/toggle-play` need no login, and the display stream hands every client the current song's token (`toDisplayState`, `item.token`). `parsePartyPosition` accepts any finite numbers, and `reportPartyPosition` (`partyStore.ts:499`) acts on them: `shouldRevealEarly` reveals once `duration - currentTime <= AUTO_REVEAL_LEAD_SECONDS`, `ended: true` reveals through `driveAutoAdvance`, and a large `elapsed` steps a lightning round. A player on the same Wi-Fi who knows the display port (`GAQ_PARTY_DISPLAY_LAN=1`) can therefore reveal the answer early, skip songs, or pause the game. The upcoming tokens in the same stream also open `/api/party/display/clip?t=` for songs that have not played. With the default loopback-only display none of this is reachable.
+**Suggested fix:** When the display door is on the LAN, print a random per-run key in the display URL and require it on the two POST routes (and the stream). Or keep the display read-only on the LAN and let only a loopback display report positions. At minimum, correct the launcher comment and the AGENTS.md party-mode note.
+**Resolution:**
+
+### F-25 [P3] open - A disconnected phone player's name can be claimed by anyone, taking their score and signing the original phone out
+
+**File:** nuxt-app/server/utils/partyGame.ts:899
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `planJoin` lets a join take over any player of the same name unless `match.phone && match.connected`. A phone's stream closes whenever its screen locks or Wi-Fi drops, so `connected` goes false and another person typing that name inherits the score. `revokeFor` (`partyPlayers.ts`) then deletes the original phone's session, which finds itself signed out with no reason shown. Reconnecting after a lost cookie is the point of the claim, so this is a trade-off, not an accident, but nothing limits it to the brief window or to host-added players.
+**Suggested fix:** Allow the claim only for host-added players (`phone === false`), or for a phone player after a short disconnected grace period, and show the original phone why it was signed out. Feature 102b's IP ban will not cover this.
+**Resolution:**
+
+### F-26 [P3] open - An exhausted endless queue re-runs the library query on every position report
+
+**File:** nuxt-app/server/utils/partyStore.ts:241
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `commit` calls `topUpEndless` after every state change, and the display reports its position about once a second (`PartyDisplayPlayer.vue:26`, `reportPartyPosition` commits each one). When the endless scope has nothing new to offer (a small deck with every song already queued, `downloadedOnly` with few files, or every pick dropped by the clip settings), `pickEndlessBatch` returns nothing, `upcoming < ENDLESS_AHEAD` stays true, and the next report repeats `listEndlessCandidates`' full card/song/anime join, and `resolveQueue`'s `getCardsByIds` when ids come back but no clip survives. That is roughly one library-wide query per second for the rest of the game. Runtime cost was not measured, and SQLite on a small library makes it cheap, so this is a waste more than an outage.
+**Suggested fix:** Remember that the last top-up added nothing and skip until the queue, scope, filters or settings change (or back off by a few seconds). Do not top up from a position report at all.
+**Resolution:**
+
+### F-27 [P3] open - Catalog "add" uses one global last-search map, so overlapping searches can make Add silently load nothing
+
+**File:** nuxt-app/server/utils/partyStore.ts:159
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `rememberCatalogSearch` replaces `lastCatalogSearch` whenever any search finishes. `PartyQueueSearch.vue` drops stale responses on the client (`isCurrent()`), but the server keeps whichever request finished last. If the search for an earlier keystroke returns after the later one, the host sees the newer results while the server holds the older set, and `addCatalogSongs` finds none of the clicked ids and returns 0 with no error. Timing-dependent, from reading the code only (not reproduced).
+**Suggested fix:** Merge each search into the map (bounded to a few hundred entries) instead of replacing it, or send the song fields with the add request and look nothing up.
+**Resolution:**
+
+### F-28 [P3] open - Party state logic is concentrated in a few very large functions and files
+
+**File:** nuxt-app/server/utils/partyGame.ts:1072
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `applyPartyCommand` is about 245 lines (1072-1319) and `parsePartyCommand` about 215 (575-789) inside a 1580-line file that also holds the types, the three view projections and the scoring. `coding-standards.md` asks for functions under 50 lines where possible. Every party feature since 86 has grown the same switch, which is why a 3000-line commit needed so little structure. Smaller items on the same theme: the JSDoc "The results screen: standings..." sits above `scoreRows` (line 1427) while `buildSummary` (line 1439) has none; `PartyNowPlaying.vue` (620 lines) and `PartyCensorPanel.vue` (555) carry several jobs each.
+**Suggested fix:** Split by concern when next touching it: commands per area (scoring, queue, effects, censor, lightning) behind one dispatcher, and the three `to*State` projections into their own module. Move the misplaced doc comment.
+**Resolution:**
+
+### F-29 [P3] open - The party store's timers and position-driven transitions have no tests
+
+**File:** nuxt-app/server/utils/partyStore.ts:499
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: tests)
+**Why it matters:** The reducer is well covered (`partyGame.test.ts`, 110 cases, plus stakes, players, endless, lightning, access, doors). The glue that decides when things happen is not: `reportPartyPosition`'s token gate, `driveAutoAdvance`'s `endedToken` de-duplication and delayed Next, `scheduleTimer`'s stale-timer check, `topUpEndless`, and the pending censor lift. These are the paths behind "the song revealed or skipped on its own", which is exactly the class of issue reported in party mode. `servePartyClip` (token to local file or stream) is also untested. No skipped, focused, or placeholder tests were found in the party suite.
+**Suggested fix:** Give the store a resettable state and an injected clock/timer (`vi.useFakeTimers()`) and test those few transitions, plus `servePartyClip` for an unknown token and a path outside the library.
+**Resolution:**
+
+### F-30 [P3] unverified - Party commits were never typechecked
+
+**File:** nuxt-app/package.json
+**Found:** 2026-10-10 by /audit (scope: path nuxt-app party mode; lens: all)
+**Why it matters:** `nuxi typecheck` could not run because `vue-tsc` is not installed, and no Verify command exists. About 3000 lines of party TypeScript and Vue (commits `40b7c07`, `810757b`) rely on the 1963 passing Vitest cases and the build only. A type error would show up there only if the tests happen to touch it. No error was observed; this tracks the missing signal.
+**Suggested fix:** Add `vue-tsc` and run `/ci` for a Verify command, then run the typecheck once over the party files.
+**Resolution:**

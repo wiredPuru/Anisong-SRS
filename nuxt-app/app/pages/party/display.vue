@@ -214,10 +214,6 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <PartyLayoutFrame v-if="started && (state?.rules || arranging)" piece="rules">
-      <PartyRulesCard :text="state?.rules ?? SAMPLE_RULES" />
-    </PartyLayoutFrame>
-
     <PartyRoundSummary v-if="showSummary" :summary="state?.summary ?? SAMPLE_SUMMARY" :sample="!state?.summary" />
 
     <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" :arranging="arranging" />
@@ -233,6 +229,7 @@ onBeforeUnmount(() => {
         :song-clock="state.item ? currentSongClock : null"
         :guessing="state.phase === 'guessing'"
         :scoreboard="scores?.scoreboard ?? null"
+        :rules="state.rules"
         :banner="state.banner"
         :join="state.item && !state.answer ? state.join : null"
         :answering="state.item ? state.buzz.answering : null"
@@ -314,6 +311,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .display {
+  /* The screen is watched for the clip, so its panels let more of it through. */
+  --glass-surface-panel: var(--glass-surface-display);
   position: relative;
   min-height: 100vh;
   overflow: hidden;
@@ -428,7 +427,7 @@ onBeforeUnmount(() => {
   padding: clamp(14px, 2vw, 2.59vh) clamp(20px, 3vw, 4.07vh);
   border: 3px solid var(--outline);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--glass-surface-panel);
 }
 
 .display-join p {
