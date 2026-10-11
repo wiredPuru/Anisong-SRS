@@ -217,6 +217,11 @@ watch(showDetails, (open) => {
   }
 });
 
+// A new song always opens on the picture, even if the last one was flipped.
+watch(presentationKey, () => {
+  showDetails.value = false;
+});
+
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {

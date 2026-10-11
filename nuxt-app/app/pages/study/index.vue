@@ -306,6 +306,10 @@ watch(showDetails, (open) => {
     // Not remembered without storage; the drawer still opens and closes.
   }
 });
+// A new song always opens on the picture, even if the last one was flipped.
+watch(presentationKey, () => {
+  showDetails.value = false;
+});
 watch(cardEditing, (editing) => {
   if (editing) showDetails.value = true;
 });
