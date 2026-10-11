@@ -1170,7 +1170,7 @@ cleaned-up checkbox version before generating the project overview.
   from a deck without the party server. Reached from a "Listen" button
   beside "Study this deck" on `/decks`, and from the rail.
 
-- [ ] 102. **Party kick and IP ban** - the host can kick a joined player and
+- [x] 102. **Party kick and IP ban** - the host can kick a joined player and
   ban their IP so disruptive people cannot rejoin. A kick signs the phone out
   and shows it a "removed by the host" screen; a ban also blocks that IP from
   joining or opening the player stream until unbanned. The host panel gets a
@@ -1178,7 +1178,7 @@ cleaned-up checkbox version before generating the project overview.
   in memory, so bans clear when `gaq-party` restarts.
   - [x] 102a. **Kick** - revoke the player's session, tell the phone, and drop
     them from the scoreboard.
-  - [ ] 102b. **IP ban** - record each player's IP at join, keep a ban list,
+  - [x] 102b. **IP ban** - record each player's IP at join, keep a ban list,
     refuse join and stream from a banned IP, and add the host UI.
 
 - [ ] 103. **Configurable hotkeys + Space to play/pause** - every Study,

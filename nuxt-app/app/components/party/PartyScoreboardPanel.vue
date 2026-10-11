@@ -23,7 +23,63 @@ async function kick(id: number) {
   kickingId.value = null;
 }
 
+interface PartyBan {
+  ip: string;
+  name: string;
+  bannedAt: number;
+}
+interface PlayerAddress {
+  id: number;
+  ip: string | null;
+  sharedWith: number;
+}
+
+const bans = ref<PartyBan[]>([]);
+const addresses = ref<PlayerAddress[]>([]);
+const banningId = ref<number | null>(null);
+const banError = ref<string | null>(null);
+
+// Addresses never ride the party state, so the host asks for them separately.
+async function loadModeration() {
+  try {
+    const result = await $fetch<{ bans: PartyBan[]; addresses: PlayerAddress[] }>("/api/party/host/moderation");
+    bans.value = result.bans;
+    addresses.value = result.addresses;
+  } catch {
+    // Without it Ban stays unavailable; kicking and the scoreboard still work.
+  }
+}
+
+const addressOf = (id: number) => addresses.value.find((a) => a.id === id) ?? null;
+
+const banningInfo = computed(() => (banningId.value === null ? null : addressOf(banningId.value)));
+
+async function ban(id: number) {
+  banError.value = null;
+  try {
+    await $fetch("/api/party/host/ban", { method: "POST", body: { id } });
+  } catch (err) {
+    const status = (err as { statusCode?: number }).statusCode;
+    banError.value = status === 409 ? "No address was recorded for that phone." : "Couldn't ban that player.";
+  }
+  banningId.value = null;
+  await loadModeration();
+}
+
+async function unban(ip: string) {
+  banError.value = null;
+  try {
+    await $fetch("/api/party/host/unban", { method: "POST", body: { ip } });
+  } catch {
+    banError.value = "Couldn't unban that address.";
+  }
+  await loadModeration();
+}
+
 const players = computed(() => props.state.scoreboard.players);
+
+onMounted(loadModeration);
+watch(() => players.value.map((p) => p.id).join(","), loadModeration);
 const teams = computed(() => props.state.scoreboard.teams);
 const newTeam = ref("");
 
@@ -107,12 +163,43 @@ function resetScores() {
           <button type="button" class="mini" @click="kick(player.id)">Kick {{ player.name }}?</button>
           <button type="button" class="mini" @click="kickingId = null">Cancel</button>
         </span>
-        <button v-else-if="player.phone" type="button" class="mini" @click="kickingId = player.id">Kick</button>
+        <button v-else-if="player.phone && banningId !== player.id" type="button" class="mini" @click="kickingId = player.id; banningId = null">Kick</button>
+        <span v-if="banningId === player.id" class="kick-confirm">
+          <button type="button" class="mini" @click="ban(player.id)">Ban {{ addressOf(player.id)?.ip }}?</button>
+          <button type="button" class="mini" @click="banningId = null">Cancel</button>
+        </span>
+        <button
+          v-else-if="player.phone && kickingId !== player.id"
+          type="button"
+          class="mini"
+          :disabled="!addressOf(player.id)?.ip"
+          :title="addressOf(player.id)?.ip ? 'Block this connection from rejoining' : 'No address was recorded for this phone'"
+          @click="banningId = player.id; kickingId = null"
+        >Ban</button>
         <button type="button" class="remove" :aria-label="`Remove ${player.name}`" @click="emit('command', { type: 'score', op: 'remove', id: player.id })">✕</button>
       </li>
       <li v-if="!players.length" class="empty">No players yet.</li>
     </ul>
     <p v-if="kickError" class="empty" role="alert">{{ kickError }}</p>
+    <p v-if="banningInfo?.ip" class="ban-warning" role="alert">
+      Banning {{ banningInfo.ip }} blocks everyone on that connection
+      <template v-if="banningInfo.sharedWith">
+        ({{ banningInfo.sharedWith }} other {{ banningInfo.sharedWith === 1 ? "player is" : "players are" }} on it and will be removed too)
+      </template>
+      until you unban it or the party restarts.
+    </p>
+    <p v-if="banError" class="empty" role="alert">{{ banError }}</p>
+
+    <div v-if="bans.length" class="banned">
+      <p class="teams-label">Banned, until the party restarts:</p>
+      <ul class="ban-list">
+        <li v-for="entry in bans" :key="entry.ip" class="ban-row">
+          <span class="ban-ip">{{ entry.ip }}</span>
+          <span class="ban-name">{{ entry.name }}</span>
+          <button type="button" class="link" :aria-label="`Unban ${entry.ip}`" @click="unban(entry.ip)">Unban</button>
+        </li>
+      </ul>
+    </div>
 
     <form class="add" @submit.prevent="addPlayer">
       <input v-model="newName" class="text" type="text" maxlength="24" :placeholder="full ? 'Scoreboard is full' : 'Player or team name'" :disabled="full" />
@@ -238,6 +325,37 @@ function resetScores() {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.ban-warning {
+  margin: 0;
+  color: var(--fail);
+  font-size: 13px;
+}
+
+.ban-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ban-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.ban-ip {
+  font-weight: 700;
+}
+
+.ban-name {
+  flex: 1;
+  color: var(--muted);
 }
 
 .kick-confirm {

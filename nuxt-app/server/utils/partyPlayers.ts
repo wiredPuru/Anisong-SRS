@@ -1,9 +1,19 @@
 import { randomBytes } from "node:crypto";
 import { planJoin, planRename, type PartyInternalCommand, type PartyPlayer } from "./partyGame.ts";
+import { normalizeIp } from "./partyIp.ts";
 
 export type PlayerJoinResult =
   | { ok: true; token: string; player: PartyPlayer }
-  | { ok: false; status: 400 | 409; message: string };
+  | { ok: false; status: 400 | 403 | 409; message: string };
+
+/** `name` is the player's name when banned, so the host can tell who a row was. */
+export interface PartyBan {
+  ip: string;
+  name: string;
+  bannedAt: number;
+}
+
+export type BanResult = { ok: true; ip: string; removed: number } | { ok: false; reason: "unknown" | "noAddress" };
 
 type RenameCommand = { type: "score"; op: "rename"; id: number; name: string };
 
@@ -16,6 +26,7 @@ const JOIN_ERRORS = {
   invalid: { status: 400, message: "Names are 1-24 characters." },
   taken: { status: 409, message: "Someone is already using that name." },
   full: { status: 409, message: "The game is full." },
+  banned: { status: 403, message: "You can't join this game." },
 } as const;
 
 /**
@@ -28,6 +39,9 @@ export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
   const openStreams = new Map<number, number>();
   // Ids are never reused, so a kicked id stays a reliable "why" for its phone.
   const kicked = new Set<number>();
+  // Where each player last joined from, and the addresses the host has banned.
+  const addressOf = new Map<number, string>();
+  const banned = new Map<string, PartyBan>();
 
   const find = (id: number) => getPlayers().find((p) => p.id === id) ?? null;
   const playerFor = (token: string | undefined | null): PartyPlayer | null => {
@@ -44,23 +58,71 @@ export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
     for (const [token, id] of sessions) if (id === playerId) sessions.delete(token);
   };
 
+  const kickPlayer = (playerId: number): boolean => {
+    if (!find(playerId)) return false;
+    revokeFor(playerId);
+    kicked.add(playerId);
+    addressOf.delete(playerId);
+    apply({ type: "score", op: "remove", id: playerId });
+    return true;
+  };
+
   return {
     playerFor,
 
     wasKicked: (playerId: number): boolean => kicked.has(playerId),
 
     /** Signs the phone out and drops the player; false when no such player. */
-    kick(playerId: number): boolean {
-      if (!find(playerId)) return false;
-      revokeFor(playerId);
-      kicked.add(playerId);
-      apply({ type: "score", op: "remove", id: playerId });
-      return true;
+    kick: kickPlayer,
+
+    ipOf: (playerId: number): string | null => addressOf.get(playerId) ?? null,
+
+    isBanned: (ip: string | null | undefined): boolean => {
+      const address = normalizeIp(ip);
+      return address !== null && banned.has(address);
     },
 
-    join({ name, token }: { name: unknown; token?: string | null }): PlayerJoinResult {
+    bans: (): PartyBan[] => [...banned.values()].sort((a, b) => a.bannedAt - b.bannedAt),
+
+    /** Each current player's address and how many other players share it. */
+    addresses: (): { id: number; ip: string | null; sharedWith: number }[] =>
+      getPlayers().map((player) => {
+        const ip = addressOf.get(player.id) ?? null;
+        const sharedWith = ip ? getPlayers().filter((p) => p.id !== player.id && addressOf.get(p.id) === ip).length : 0;
+        return { id: player.id, ip, sharedWith };
+      }),
+
+    /**
+     * Bans the player's address and kicks everyone recorded from it, so a phone
+     * sharing that address cannot linger on the scoreboard. `removed` counts
+     * every player taken off, the banned one included.
+     */
+    ban(playerId: number): BanResult {
+      const player = find(playerId);
+      if (!player) return { ok: false, reason: "unknown" };
+      const ip = addressOf.get(playerId);
+      if (!ip) return { ok: false, reason: "noAddress" };
+      const sharing = getPlayers().filter((p) => addressOf.get(p.id) === ip);
+      banned.set(ip, { ip, name: player.name, bannedAt: Date.now() });
+      for (const other of sharing) kickPlayer(other.id);
+      return { ok: true, ip, removed: sharing.length };
+    },
+
+    unban: (ip: string): boolean => banned.delete(normalizeIp(ip) ?? ""),
+
+    join({ name, token, ip }: { name: unknown; token?: string | null; ip?: string | null }): PlayerJoinResult {
+      const address = normalizeIp(ip);
+      if (address && banned.has(address)) return { ok: false, ...JOIN_ERRORS.banned };
+      const remember = (playerId: number) => {
+        if (address) addressOf.set(playerId, address);
+        else addressOf.delete(playerId);
+      };
+
       const existing = playerFor(token);
-      if (existing && token) return { ok: true, token, player: existing };
+      if (existing && token) {
+        remember(existing.id);
+        return { ok: true, token, player: existing };
+      }
 
       const plan = planJoin(getPlayers(), name);
       if ("error" in plan) return { ok: false, ...JOIN_ERRORS[plan.error] };
@@ -72,6 +134,7 @@ export function createPlayerRegistry({ getPlayers, apply }: RegistryDeps) {
         ? find(plan.claimId)
         : getPlayers().find((p) => p.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase()) ?? null;
       if (!joined) return { ok: false, ...JOIN_ERRORS.full };
+      remember(joined.id);
       return { ok: true, token: startSession(joined.id), player: joined };
     },
 

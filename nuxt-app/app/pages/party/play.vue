@@ -88,6 +88,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
       <button type="button" class="play-btn play-btn-secondary" @click="joinAgain">Join again</button>
     </section>
 
+    <section v-else-if="view === 'banned'" class="play-card">
+      <header class="play-header">
+        <MascotKai pose="slump" size="companion" />
+        <div>
+          <h1 class="play-title">You can't join this game</h1>
+          <p class="play-note">The host has blocked this connection. If that's a mistake, ask the host.</p>
+        </div>
+      </header>
+    </section>
+
     <section v-else-if="view === 'join'" class="play-card">
       <header class="play-header">
         <MascotKai pose="wave" size="companion" />

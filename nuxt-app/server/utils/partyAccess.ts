@@ -45,3 +45,10 @@ export function partyRouteAccess(rawPath: string, door: PartyDoor | null, partyE
   if (path.startsWith("/api/party/host/")) return "session";
   return "notFound";
 }
+
+/** A banned address is refused every player-door API call, join included. */
+export function isBannedPlayerRequest(rawPath: string, door: PartyDoor | null, banned: boolean): boolean {
+  if (!banned || door !== "player") return false;
+  const path = rawPath.split("?")[0]!.replace(/\/+$/, "");
+  return path.startsWith("/api/party/player/");
+}

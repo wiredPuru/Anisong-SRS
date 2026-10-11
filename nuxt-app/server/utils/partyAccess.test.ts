@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePartyDoor, partyRouteAccess } from "./partyAccess.ts";
+import { isBannedPlayerRequest, parsePartyDoor, partyRouteAccess } from "./partyAccess.ts";
 
 describe("parsePartyDoor", () => {
   it("accepts only the three door names", () => {
@@ -68,5 +68,37 @@ describe("partyRouteAccess", () => {
     for (const path of ["/party/host", "/party/display", "/api/party/status", "/api/party/login", "/api/party/password", "/api/party/host/command", "/api/party/display/stream"]) {
       expect(partyRouteAccess(path, "player", true)).toBe("notFound");
     }
+  });
+});
+
+describe("isBannedPlayerRequest", () => {
+  it("refuses every player API route to a banned address", () => {
+    for (const path of ["join", "me", "name", "buzz", "choice", "stream"]) {
+      expect(isBannedPlayerRequest(`/api/party/player/${path}`, "player", true), path).toBe(true);
+    }
+  });
+
+  it("ignores a query string and a trailing slash", () => {
+    expect(isBannedPlayerRequest("/api/party/player/me?x=1", "player", true)).toBe(true);
+    expect(isBannedPlayerRequest("/api/party/player/me/", "player", true)).toBe(true);
+  });
+
+  it("leaves the player page itself reachable so the phone can explain", () => {
+    expect(isBannedPlayerRequest("/party/play", "player", true)).toBe(false);
+  });
+
+  it("only gates the player door", () => {
+    expect(isBannedPlayerRequest("/api/party/player/join", "display", true)).toBe(false);
+    expect(isBannedPlayerRequest("/api/party/player/join", "control", true)).toBe(false);
+    expect(isBannedPlayerRequest("/api/party/player/join", null, true)).toBe(false);
+  });
+
+  it("does nothing for an address that is not banned", () => {
+    expect(isBannedPlayerRequest("/api/party/player/join", "player", false)).toBe(false);
+  });
+
+  it("does not catch look-alike paths", () => {
+    expect(isBannedPlayerRequest("/api/party/players", "player", true)).toBe(false);
+    expect(isBannedPlayerRequest("/api/party/host/kick", "player", true)).toBe(false);
   });
 });

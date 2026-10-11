@@ -18,7 +18,7 @@ export interface PartyPlayerState {
   log: { number: number; anime: string; song: string; artist: string; scored: boolean }[];
 }
 
-export type PartyPlayerView = "checking" | "join" | "joined" | "kicked";
+export type PartyPlayerView = "checking" | "join" | "joined" | "kicked" | "banned";
 
 const NAME_KEY = "gaqParty:playerName";
 const RETRY_MIN_MS = 1000;
@@ -69,6 +69,15 @@ export function usePartyPlayer() {
     view.value = "join";
   }
 
+  // The door answers 403 to a banned address on every route; there is no
+  // form to offer, since another join from here would be refused too.
+  function enterBanned() {
+    closeStream();
+    state.value = null;
+    notice.value = null;
+    view.value = "banned";
+  }
+
   function openStream() {
     closeStream();
     source = new EventSource("/api/party/player/stream");
@@ -115,6 +124,10 @@ export function usePartyPlayer() {
       openStream();
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
+      if (status === 403) {
+        enterBanned();
+        return;
+      }
       if (status === 401) {
         backToJoin(view.value === "joined" ? "The game restarted. Join again to keep playing." : null);
         return;
@@ -138,6 +151,10 @@ export function usePartyPlayer() {
       openStream();
       return null;
     } catch (err) {
+      if ((err as { statusCode?: number }).statusCode === 403) {
+        enterBanned();
+        return null;
+      }
       return extractErrorMessage(err, "Could not join. Check you are on the same network.");
     }
   }

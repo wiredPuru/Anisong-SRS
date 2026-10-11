@@ -1,4 +1,4 @@
-import { getPlayerToken, setPlayerCookie } from "../../../utils/partySession.ts";
+import { getPartyClientIp, getPlayerToken, setPlayerCookie } from "../../../utils/partySession.ts";
 import { partyPlayers } from "../../../utils/partyStore.ts";
 
 export default defineEventHandler(async (event) => {
@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
   const result = partyPlayers.join({
     name: body?.name,
     token: getPlayerToken(event),
+    ip: getPartyClientIp(event),
   });
   if (!result.ok) {
     throw createError({ statusCode: result.status, statusMessage: result.message });

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a527edfb211af15235c823c2297f4e5ea9a923283575630276d0aff5d5584197 -->
+<!-- blueprint:source-hash 7a1282b248da36477c8ff6b07c38b30db44b553e58b9caa551dcca5aa57eac54 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2508,7 +2508,7 @@ hotkeys §3's Study session bullet already describes.
     SRS-and-typed-answer heavy; shuffle default on; the playlist stops at its
     end with a Play again action rather than looping.
 102. **Party kick and IP ban** - added to `build-plan.md` 2026-10-10, in two
-    sub-features, not yet built. A kick revokes a player's session and shows their
+    sub-features, both built. A kick revokes a player's session and shows their
     phone a "removed by the host" screen; a ban also refuses that IP at join and
     stream on the player door until unbanned. IPs come from the door-stamped
     `x-gaq-party-client-ip` header, are recorded at join, and live in memory only.
@@ -2516,7 +2516,18 @@ hotkeys §3's Study session bullet already describes.
     says before confirming. An IP ban is a deterrent, not a guarantee: a banned
     person can switch networks.
     - **102a. Kick** - revoke the session, notify the phone, drop the player.
-    - **102b. IP ban** - record IPs, ban list, join and stream refusal, host UI.
+    - **102b. IP ban** - done 2026-10-12. `normalizeIp` (`server/utils/partyIp.ts`)
+      lowercases and unwraps `::ffff:a.b.c.d`; the player registry records each
+      player's door-stamped address at join, and `ban(playerId)` bans it and kicks
+      every player recorded from it. `isBannedPlayerRequest` (`partyAccess.ts`),
+      checked in the party middleware, answers `403` to every
+      `/api/party/player/*` call from a banned address while `/party/play` still
+      loads. Host routes `GET /api/party/host/moderation`, `POST .../ban`
+      `{ id }` (`404` unknown, `409` no address) and `POST .../unban` `{ ip }`;
+      the scoreboard panel gets Ban with a confirm naming the address and how many
+      others share it, plus a Banned list with Unban. A banned phone shows "You
+      can't join this game" with no form. Bans live in memory and clear on a
+      `gaq-party` restart; addresses are only ever sent to the host panel.
 103. **Configurable hotkeys + Space to play/pause** - added to `build-plan.md`
     2026-10-11, in three sub-features; 103a and 103b are built. Every Study, Listen and
     Preview hotkey becomes a named action with a default key and an optional
