@@ -16,7 +16,7 @@ vi.mock("../db/client.ts", async () => {
 });
 
 const EMPTY: StudyFilters = {
-  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
+  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [], themeMix: null,
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
   listAniListIds: null, listSource: null,
 };
@@ -25,6 +25,20 @@ const SOURCE = { site: "anilist" as const, username: "Kyoto", fetchedAt: "2026-0
 function parse(value: Partial<StudyFilters> | string) {
   return parseStudyFilters(typeof value === "string" ? value : JSON.stringify(value));
 }
+
+describe("parseStudyFilters theme mix", () => {
+  const parse = (themeMix: unknown) => parseStudyFilters(JSON.stringify({ themeMix }));
+
+  it("accepts weights and treats a mix as an active filter", () => {
+    expect(parse({ OP: 70, ED: 30, IN: 0 })).toEqual({ filters: expect.objectContaining({ themeMix: { OP: 70, ED: 30, IN: 0 } }) });
+  });
+
+  it("rejects missing keys, out-of-range values and an all-zero mix", () => {
+    for (const bad of [{ OP: 70, ED: 30 }, { OP: 101, ED: 0, IN: 0 }, { OP: 1.5, ED: 0, IN: 0 }, { OP: 0, ED: 0, IN: 0 }, [1, 2, 3]]) {
+      expect(parse(bad)).toHaveProperty("error");
+    }
+  });
+});
 
 describe("parseStudyFilters", () => {
   it("treats a missing or empty filter set as no filtering", () => {

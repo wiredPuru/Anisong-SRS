@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { songLogFileName, songLogToCsv } from "~/utils/partySongExport";
 definePageMeta({ layout: "party" });
 useHead({ title: "GAQ Party - Join" });
 
@@ -21,6 +22,17 @@ async function submitJoin() {
 const renaming = ref(false);
 const newName = ref("");
 const renameError = ref<string | null>(null);
+
+function exportSongs() {
+  const log = state.value?.log ?? [];
+  const csv = `\uFEFF${songLogToCsv(log)}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = songLogFileName(new Date());
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function startRename() {
   newName.value = state.value?.me?.name ?? "";
@@ -182,7 +194,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
       </ol>
 
       <section v-if="state?.log.length" class="song-log" aria-label="Song log">
-        <h2 class="log-title">Song log</h2>
+        <div class="log-head">
+          <h2 class="log-title">Song log</h2>
+          <button type="button" class="link-btn" @click="exportSongs">Export songs</button>
+        </div>
         <ol>
           <li v-for="entry in state.log" :key="entry.number" :class="{ scored: entry.scored }">
             <span class="log-num">{{ entry.number }}</span>
@@ -519,8 +534,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
   gap: 4px;
 }
 
+.log-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
 .log-title {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 1rem;
 }
 

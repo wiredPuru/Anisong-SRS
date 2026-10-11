@@ -1,6 +1,8 @@
 export type StudyThemeType = "OP" | "ED" | "IN";
 export type StudySeason = "WINTER" | "SPRING" | "SUMMER" | "FALL";
 const STUDY_SEASONS: readonly string[] = ["WINTER", "SPRING", "SUMMER", "FALL"];
+export type ThemeMixWeights = Record<StudyThemeType, number>;
+export const DEFAULT_THEME_MIX: ThemeMixWeights = { OP: 70, ED: 30, IN: 0 };
 export type StudyListSite = "anilist" | "mal";
 
 export interface StudyListSource {
@@ -19,6 +21,7 @@ export interface StudyFilters {
   scoreMax: number | null;
   formats: string[];
   themeTypes: StudyThemeType[];
+  themeMix: ThemeMixWeights | null;
   genresInclude: string[];
   genresExclude: string[];
   tagsInclude: string[];
@@ -38,6 +41,7 @@ export const EMPTY_STUDY_FILTERS: StudyFilters = {
   scoreMax: null,
   formats: [],
   themeTypes: [],
+  themeMix: null,
   genresInclude: [],
   genresExclude: [],
   tagsInclude: [],
@@ -65,6 +69,7 @@ export function countActiveFilters(filters: StudyFilters): number {
     + Number(filters.scoreMin !== null || filters.scoreMax !== null)
     + Number(filters.formats.length > 0)
     + Number(filters.themeTypes.length > 0)
+    + Number(filters.themeMix !== null)
     + filters.genresInclude.length + filters.genresExclude.length
     + filters.tagsInclude.length + filters.tagsExclude.length
     + Number(filters.listAniListIds !== null);
@@ -90,7 +95,26 @@ export function studyFiltersProblem(filters: StudyFilters): string | null {
   if (filters.scoreMin !== null && filters.scoreMax !== null && filters.scoreMin > filters.scoreMax) {
     return "The minimum score is above the maximum.";
   }
+  if (filters.themeMix) {
+    const weights = Object.values(filters.themeMix);
+    if (weights.some((weight) => !Number.isInteger(weight) || weight < 0 || weight > 100)) return "Mix amounts are whole numbers from 0 to 100.";
+    if (weights.every((weight) => weight === 0)) return "Give at least one theme type a mix amount above 0.";
+  }
   return null;
+}
+
+/** "70% / 30% / 0%" style shares, rounded from the raw weights. */
+export function mixShares(mix: ThemeMixWeights): Record<StudyThemeType, number> {
+  const total = mix.OP + mix.ED + mix.IN;
+  const share = (weight: number) => (total ? Math.round((weight / total) * 100) : 0);
+  return { OP: share(mix.OP), ED: share(mix.ED), IN: share(mix.IN) };
+}
+
+function mixValid(value: unknown): value is ThemeMixWeights | null {
+  if (value === null) return true;
+  if (typeof value !== "object" || Array.isArray(value)) return false;
+  const mix = value as Record<string, unknown>;
+  return (["OP", "ED", "IN"] as const).every((type) => typeof mix[type] === "number");
 }
 
 const isStringList = (value: unknown): value is string[] =>
@@ -123,7 +147,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     && stored.seasons.every((season) => STUDY_SEASONS.includes(season));
   const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
     && typeof stored.tagMinRank === "number";
-  if (!listsValid || !boundsValid || !listFieldsValid(stored.listAniListIds, stored.listSource) || studyFiltersProblem(stored)) {
+  if (!listsValid || !boundsValid || !mixValid(stored.themeMix) || !listFieldsValid(stored.listAniListIds, stored.listSource) || studyFiltersProblem(stored)) {
     return { ...EMPTY_STUDY_FILTERS };
   }
   return {
@@ -134,6 +158,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     scoreMax: stored.scoreMax,
     formats: stored.formats,
     themeTypes: stored.themeTypes,
+    themeMix: stored.themeMix,
     genresInclude: stored.genresInclude,
     genresExclude: stored.genresExclude,
     tagsInclude: stored.tagsInclude,

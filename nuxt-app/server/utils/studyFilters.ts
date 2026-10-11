@@ -1,6 +1,7 @@
 import { and, gte, like, lte, inArray, isNotNull, not, or, sql, type SQL } from "drizzle-orm";
 import { ANIME_SEASONS, type AnimeSeason } from "../lib/anilist.ts";
 import { anime, song } from "../db/schema.ts";
+import { effectiveThemeTypes } from "./themeMix.ts";
 
 export const THEME_TYPES = ["OP", "ED", "IN"] as const;
 export type ThemeType = (typeof THEME_TYPES)[number];
@@ -16,6 +17,8 @@ const MAX_LIST_ANIME = 5000;
 
 export const LIST_SITES = ["anilist", "mal"] as const;
 export type ListSite = (typeof LIST_SITES)[number];
+
+export type ThemeMixWeights = Record<ThemeType, number>;
 
 export interface StudyListSource {
   site: ListSite;
@@ -34,6 +37,8 @@ export interface StudyFilters {
   scoreMax: number | null;
   formats: string[];
   themeTypes: ThemeType[];
+  // Feature 103: relative weights (0-100) for how often each type is served.
+  themeMix: ThemeMixWeights | null;
   genresInclude: string[];
   genresExclude: string[];
   tagsInclude: string[];
@@ -88,8 +93,19 @@ function parseListSource(raw: unknown): Parsed<StudyListSource | null> {
   return { value: { site: source.site as ListSite, username: source.username.trim(), fetchedAt: source.fetchedAt } };
 }
 
+function parseThemeMix(raw: unknown): Parsed<ThemeMixWeights | null> {
+  if (raw == null) return { value: null };
+  const mix = raw as Record<string, unknown>;
+  const valid = typeof raw === "object" && !Array.isArray(raw)
+    && THEME_TYPES.every((type) => typeof mix[type] === "number" && Number.isInteger(mix[type]) && (mix[type] as number) >= 0 && (mix[type] as number) <= 100);
+  if (!valid) return { error: "themeMix must give OP, ED and IN a whole number from 0 to 100" };
+  const weights = { OP: mix.OP, ED: mix.ED, IN: mix.IN } as ThemeMixWeights;
+  if (THEME_TYPES.every((type) => weights[type] === 0)) return { error: "themeMix needs at least one type above 0" };
+  return { value: weights };
+}
+
 function isEmpty(filters: StudyFilters): boolean {
-  if (filters.listAniListIds !== null) return false;
+  if (filters.listAniListIds !== null || filters.themeMix !== null) return false;
   return [filters.yearMin, filters.yearMax, filters.scoreMin, filters.scoreMax].every((bound) => bound === null)
     && [filters.seasons, filters.formats, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
       .every((list) => list.length === 0);
@@ -117,6 +133,7 @@ export function parseStudyFilters(raw: unknown): { filters: StudyFilters | null 
     scoreMax: parseBound(body.scoreMax, "scoreMax", 0, 100),
     formats: parseNames(body.formats, "formats", ANIME_FORMATS),
     themeTypes: parseNames(body.themeTypes, "themeTypes", THEME_TYPES),
+    themeMix: parseThemeMix(body.themeMix),
     genresInclude: parseNames(body.genresInclude, "genresInclude"),
     genresExclude: parseNames(body.genresExclude, "genresExclude"),
     tagsInclude: parseNames(body.tagsInclude, "tagsInclude"),
@@ -167,7 +184,8 @@ export function studyFilterCondition(filters: StudyFilters | null): SQL | undefi
   if (filters.scoreMin !== null) conditions.push(gte(anime.averageScore, filters.scoreMin));
   if (filters.scoreMax !== null) conditions.push(lte(anime.averageScore, filters.scoreMax));
   if (filters.formats.length) conditions.push(inArray(anime.format, filters.formats));
-  if (filters.themeTypes.length) conditions.push(or(...filters.themeTypes.map((type) => like(song.themeSlot, `${type}%`))));
+  const themeTypes = effectiveThemeTypes(filters.themeTypes, filters.themeMix);
+  if (themeTypes.length) conditions.push(or(...themeTypes.map((type) => like(song.themeSlot, `${type}%`))));
   conditions.push(...filters.genresInclude.map(hasGenre));
   conditions.push(...filters.genresExclude.map((genre) => not(hasGenre(genre))));
   conditions.push(...filters.tagsInclude.map((tag) => hasTag(tag, filters.tagMinRank)));

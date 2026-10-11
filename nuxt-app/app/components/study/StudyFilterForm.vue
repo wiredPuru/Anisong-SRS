@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { catalogFilterOptions, type CatalogOptionsReply } from "~/utils/studyFilters";
+import { catalogFilterOptions, DEFAULT_THEME_MIX, mixShares, type CatalogOptionsReply } from "~/utils/studyFilters";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import type { StudyFilters, StudyListSite, StudySeason, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
@@ -222,6 +222,25 @@ const listCheckedOn = computed(() => {
         >
           {{ type.label }}
         </button>
+      </div>
+      <label v-if="!catalog" class="mix-toggle">
+        <input
+          type="checkbox"
+          :checked="draft.themeMix !== null"
+          @change="draft.themeMix = ($event.target as HTMLInputElement).checked ? { ...DEFAULT_THEME_MIX } : null"
+        />
+        Mix themes by amount
+      </label>
+      <div v-if="draft.themeMix" class="mix-row">
+        <label v-for="type in THEME_TYPES" :key="type.value" class="mix-field">
+          <span>{{ type.label }}</span>
+          <input v-model.number="draft.themeMix[type.value]" type="number" min="0" max="100" step="5" />
+        </label>
+        <p class="mix-note">
+          Serves about
+          {{ THEME_TYPES.map((type) => `${mixShares(draft.themeMix!)[type.value]}% ${type.label.toLowerCase()}`).join(", ") }}.
+          Types set to 0 are left out.
+        </p>
       </div>
     </section>
 
@@ -636,5 +655,44 @@ const listCheckedOn = computed(() => {
 .text-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.mix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.mix-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mix-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mix-field input {
+  width: 84px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+.mix-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 </style>

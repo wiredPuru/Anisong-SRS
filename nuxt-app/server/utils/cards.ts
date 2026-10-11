@@ -10,7 +10,8 @@ import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCrite
 import { getOrCreateArtist } from "./lookup.ts";
 import { PAGE_SIZE } from "./pagination.ts";
 import { removeCachedStream } from "./streamCache.ts";
-import { studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
+import { studyFilterCondition, type StudyFilters, type ThemeMixWeights, type ThemeType } from "./studyFilters.ts";
+import { pickMixedType, typeOfSlot } from "./themeMix.ts";
 
 export interface Paginated<T> {
   items: T[];
@@ -438,7 +439,16 @@ export function getNextDueCard(
   // Study asks for a just-undone card back first, but only if it still belongs
   // in this queue; otherwise the usual pick is the right answer.
   const preferred = preferId === null ? undefined : pool.find((entry) => entry.id === preferId);
-  return preferred ?? orderAwayFromRecent(pool, recentIds, 1)[0];
+  if (preferred) return preferred;
+  return orderAwayFromRecent(narrowToMixedType(pool, filters?.themeMix ?? null), recentIds, 1)[0];
+}
+
+// With a theme mix, this draw's type is picked by weight among the types that
+// have a due card, so the served stream follows the chosen ratio over time.
+function narrowToMixedType<T extends { themeSlot: string }>(pool: T[], mix: ThemeMixWeights | null): T[] {
+  if (!mix) return pool;
+  const type = pickMixedType(mix, new Set(pool.map((entry) => typeOfSlot(entry.themeSlot)).filter((t): t is ThemeType => t !== null)));
+  return type ? pool.filter((entry) => typeOfSlot(entry.themeSlot) === type) : pool;
 }
 
 export interface PracticeEntry {
