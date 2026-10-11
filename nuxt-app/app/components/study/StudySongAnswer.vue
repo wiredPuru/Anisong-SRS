@@ -225,7 +225,19 @@ small { display: block; font-size: 11px; color: var(--muted); }
 }
 
 .song-answer.primary input { flex-basis: 60%; padding: 10px; font-size: 15px; }
-.song-answer.primary .answer-status { right: calc(40% + 22px); font-size: 12px; }
+.song-answer.primary .primary-actions { order: 2; }
+
+/* The primary box always has a hint, and it is longer than the room beside the
+   input, so it takes its own line under the row instead of overlaying it. */
+.song-answer.primary .answer-status {
+  position: static;
+  order: 3;
+  flex-basis: 100%;
+  padding: 0;
+  transform: none;
+  background: none;
+  font-size: 12px;
+}
 
 .primary-actions { display: flex; gap: 8px; }
 

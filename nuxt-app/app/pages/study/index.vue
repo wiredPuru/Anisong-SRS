@@ -153,6 +153,7 @@ const {
 } = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters, studyTrack);
 
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
+const categoryLockState = computed(() => categoryLock(scope.value?.type ?? null, criterion.value));
 const visibleAnswers = computed(() => visibleAnswerCategories(criterion.value, typedAnswerCategories.value));
 const showSongAnswer = computed(() => visibleAnswers.value.songName);
 const showThemeSlotAnswer = computed(() => visibleAnswers.value.themeSlot);
@@ -1360,6 +1361,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :locked="Boolean(quizResult) || submissionBusy"
             :categories="typedAnswerCategories"
             :required-categories="requiredAnswers"
+            :lock="categoryLockState"
             @toggle="typedAnswers = !typedAnswers"
             @update:categories="typedAnswerCategories = $event"
           />

@@ -47,6 +47,19 @@ export function requiredCategories(criterion: GradingCriterion): RequiredCategor
   };
 }
 
+export type CategoryLock = "none" | "deck" | "anime";
+
+/**
+ * Who decides a typed round's categories. A manual deck graded on anything but
+ * the title decides all of them ("deck"); one graded on the title always asks
+ * the anime ("anime"). Every other scope is the player's own choice, even when
+ * switching Anime name off has moved the session onto another track.
+ */
+export function categoryLock(scopeType: "all" | "artist" | "anime" | "created" | null, criterion: GradingCriterion): CategoryLock {
+  if (scopeType !== "created") return "none";
+  return criterion === "title" ? "anime" : "deck";
+}
+
 /**
  * Which answer boxes a typed round shows beside the main answer. Only the
  * anime-title track offers the optional Song name, OP/ED and Artist bonuses; a deck graded on

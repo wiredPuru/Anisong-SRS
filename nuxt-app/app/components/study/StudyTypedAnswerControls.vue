@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RequiredCategories } from "~/utils/criterionGrading";
+import type { CategoryLock, RequiredCategories } from "~/utils/criterionGrading";
 import type { TypedAnswerCategories } from "~/utils/typedAnswerCategories";
 
 defineProps<{
@@ -7,6 +7,7 @@ defineProps<{
   locked: boolean;
   categories: TypedAnswerCategories;
   requiredCategories?: RequiredCategories;
+  lock?: CategoryLock;
 }>();
 const emit = defineEmits<{
   toggle: [];
@@ -44,6 +45,7 @@ const showCategories = ref(false);
       v-if="showCategories"
       :categories="categories"
       :required="requiredCategories"
+      :lock="lock"
       @update:categories="emit('update:categories', $event)"
       @close="showCategories = false"
     />

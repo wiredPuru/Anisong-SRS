@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GRADING_CRITERIA,
   buildCriterion,
+  categoryLock,
   criterionCategories,
   describeCriterion,
   gradeTypedRound,
@@ -146,5 +147,23 @@ describe("visibleAnswerCategories", () => {
   it("never hands back the stored object itself", () => {
     const stored = { anime: true, themeSlot: true, songName: true, artist: true };
     expect(visibleAnswerCategories("title", stored)).not.toBe(stored);
+  });
+});
+
+describe("categoryLock", () => {
+  it("lets a manual deck graded on something else decide everything", () => {
+    expect(categoryLock("created", "song")).toBe("deck");
+    expect(categoryLock("created", "title+slot+artist")).toBe("deck");
+  });
+
+  it("only locks the anime row for a manual deck graded on the title", () => {
+    expect(categoryLock("created", "title")).toBe("anime");
+  });
+
+  it("leaves every other scope to the player, even on a non-title track", () => {
+    expect(categoryLock("all", "song+artist")).toBe("none");
+    expect(categoryLock("artist", "artist")).toBe("none");
+    expect(categoryLock("anime", "title")).toBe("none");
+    expect(categoryLock(null, "title")).toBe("none");
   });
 });
