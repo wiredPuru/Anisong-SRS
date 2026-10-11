@@ -7,6 +7,7 @@ import {
   getWithheldNewCount,
 } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel, resolveScopeCriterion } from "../../utils/decks.ts";
+import { parseGradingCriterion } from "../../utils/gradingCriterion.ts";
 import { parseStudyFilters } from "../../utils/studyFilters.ts";
 import { parseBuriedCardIds, parsePreferredCardId, parseRecentCardIds } from "../../utils/studyRecent.ts";
 import { parseStudyScope } from "../../utils/studyScope.ts";
@@ -14,7 +15,7 @@ import { parseStudyScope } from "../../utils/studyScope.ts";
 const NOT_FOUND = { artist: "Artist not found", anime: "Anime not found", created: "Deck not found" } as const;
 
 export default defineEventHandler((event) => {
-  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw, prefer: preferRaw, practice: practiceRaw } = getQuery(event);
+  const { type, id: idRaw, includeNew, filters: filtersRaw, recent: recentRaw, bury: buryRaw, prefer: preferRaw, practice: practiceRaw, track: trackRaw } = getQuery(event);
   // Infinite mode (feature 95b): once nothing is due, serve a practice card.
   const practiceWhenCaughtUp = practiceRaw === "true";
   // Session-only opt-in from Study's "Study new cards" action; anything other
@@ -60,7 +61,14 @@ export default defineEventHandler((event) => {
   // Resolved once per request: every count below has to describe the same
   // track as the card being served, and re-reading the deck per call would
   // let a criterion changed mid-request split them.
-  const criterion = resolveScopeCriterion(scope);
+  // A manual deck's own criterion always wins. Elsewhere, Typed Answers with
+  // Anime name switched off asks for a non-title track by name.
+  let criterion = resolveScopeCriterion(scope);
+  if (trackRaw !== undefined && scope.type !== "created") {
+    const track = parseGradingCriterion(trackRaw);
+    if (track === null) throw createError({ statusCode: 400, statusMessage: "Invalid track" });
+    criterion = track;
+  }
   const nextCard = getNextDueCard(scope, includeNewBeyondLimit, criterion, filters, recentIds, buriedIds, parsedPrefer.preferId);
 
   const practiceCard = nextCard || !practiceWhenCaughtUp

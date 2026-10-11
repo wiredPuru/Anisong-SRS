@@ -103,7 +103,7 @@ export function getBoxOneStreakRequired(): number {
     .from(mediaLibrarySettings)
     .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
     .get();
-  return row?.boxOneStreakRequired ?? 3;
+  return row?.boxOneStreakRequired ?? 2;
 }
 
 export function setBoxOneStreakRequired(required: number): { error: string } | { boxOneStreakRequired: number } {

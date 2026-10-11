@@ -95,7 +95,7 @@ export function useListenAutoReveal(revealed: Ref<boolean>, presentationKey: Ref
   onMounted(() => {
     try {
       const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
-      mode.value = isAutoRevealMode(storedMode) ? storedMode : "off";
+      mode.value = readStoredAutoRevealMode(storedMode);
       const storedSeconds = localStorage.getItem(SECONDS_STORAGE_KEY);
       seconds.value = storedSeconds !== null ? clampRevealSeconds(Number(storedSeconds)) : AUTO_REVEAL_SECONDS_DEFAULT;
     } catch {

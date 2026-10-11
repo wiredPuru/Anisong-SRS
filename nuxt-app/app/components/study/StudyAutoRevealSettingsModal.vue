@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type AutoRevealMode = "off" | "video" | "info" | "both";
+type AutoRevealMode = "off" | "info" | "both";
 
 defineProps<{
   mode: AutoRevealMode;
@@ -13,7 +13,6 @@ const emit = defineEmits<{
 
 const MODE_OPTIONS: { value: AutoRevealMode; label: string }[] = [
   { value: "off", label: "Off" },
-  { value: "video", label: "Video" },
   { value: "info", label: "Info" },
   { value: "both", label: "Both" },
 ];
@@ -36,8 +35,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
         <h2 class="title">Auto Reveal</h2>
         <p class="hint">
-          Hides the chosen target(s) - Video hides whichever visual applies (video or cover), Info hides the text
-          panel - then reveals them after a timer.
+          Info hides the song details until the timer runs out. Both also hides the video (or the cover), so you
+          listen first.
         </p>
         <div class="mode-row">
           <button

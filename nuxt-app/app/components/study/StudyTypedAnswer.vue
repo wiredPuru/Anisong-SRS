@@ -145,7 +145,7 @@ onMounted(() => {
       <template v-else-if="error">{{ error }}</template>
       <template v-else-if="selected">Selected: {{ label(selected) }}</template>
       <template v-else-if="open && query.trim().length >= 2 && !results.length">No anime found.</template>
-      <template v-else>Start typing or press Space to play. Select a match, or press Enter to give up.</template>
+      <template v-else>Start typing or press Space to play. Select a match, or press Enter or the right arrow to give up.</template>
     </p>
     <p v-if="!available" class="answer-unavailable">This card has no valid anime identity. Turn Typed Answers off to review it manually.</p>
     <button v-if="selected" class="submit-btn" type="button" :disabled="disabled || !available" @click="emit('answer', selected)">Submit answer</button>

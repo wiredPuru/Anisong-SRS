@@ -49,6 +49,7 @@ export function useStudySession(
   audioOnly: ComputedRef<boolean>,
   clipSource: ComputedRef<"anisongdb" | "both" | "animethemes">,
   filters: Ref<StudyFilters>,
+  trackOverride: Readonly<Ref<GradingCriterion | null>> = ref(null),
 ) {
   const currentCard = ref<CardWithDetails | null>(null);
   const loading = ref(false);
@@ -111,6 +112,7 @@ export function useStudySession(
           ...(includeNewBeyondLimit.value ? { includeNew: "true" } : {}),
           ...(infinite.value ? { practice: "true" } : {}),
           filters: filtersQueryValue(filters.value),
+          ...(trackOverride.value ? { track: trackOverride.value } : {}),
           ...(recentCardIds.value.length > 0 ? { recent: recentCardIds.value.join(",") } : {}),
           ...(buriedCardIds.value.length > 0 ? { bury: buriedCardIds.value.join(",") } : {}),
           ...(typeof preferCardId === "number" ? { prefer: preferCardId } : {}),
@@ -239,6 +241,10 @@ export function useStudySession(
   // Unlike a scope change, the session itself carries on: only the queue it
   // draws from narrows or widens, so the card on screen is replaced.
   watch(filters, () => {
+    if (scope.value) fetchNext();
+  });
+
+  watch(trackOverride, () => {
     if (scope.value) fetchNext();
   });
 

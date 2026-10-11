@@ -24,7 +24,7 @@ const status = computed(() => {
   if (loading.value) return "Searching artists...";
   if (error.value) return error.value;
   if (open.value && query.value.trim().length >= 2 && !results.value.length) return "No artist found. Your typed answer still counts.";
-  if (props.primary) return "Start typing or press Space to play. Press Enter to submit, or give up.";
+  if (props.primary) return "Start typing or press Space to play. Press Enter to submit, or the right arrow to give up.";
   return "";
 });
 

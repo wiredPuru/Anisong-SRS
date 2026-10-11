@@ -13,9 +13,14 @@ const props = defineProps<{
   revealable?: boolean;
   // Seconds until Auto Reveal shows the answer; null when no countdown runs.
   countdownSeconds?: number | null;
+  // The card is flipped to its details, which already show the info, so the
+  // bar offers the way back to the video instead.
+  onDetails?: boolean;
+  // A graded round tints the whole bar green or red.
+  result?: "pass" | "fail" | null;
 }>();
 
-const emit = defineEmits<{ reveal: [] }>();
+const emit = defineEmits<{ reveal: []; watchVideo: [] }>();
 
 const coverFailed = ref(false);
 watch(() => props.coverImageUrl, () => (coverFailed.value = false));
@@ -26,14 +31,24 @@ const native = computed(() =>
 </script>
 
 <template>
-  <section class="now-playing" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
-    <div class="np-art" :class="{ revealed: !hidden && coverImageUrl && !coverFailed }" aria-hidden="true">
+  <section class="now-playing" :class="result ? `result-${result}` : null" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
+    <div v-if="onDetails" class="np-art" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z" /></svg>
+    </div>
+    <div v-else class="np-art" :class="{ revealed: !hidden && coverImageUrl && !coverFailed }" aria-hidden="true">
       <img v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
       <span v-else-if="hidden">?</span>
       <svg v-else viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
     </div>
     <div class="np-text">
-      <template v-if="hidden">
+      <template v-if="onDetails">
+        <p class="np-title">Keep watching?</p>
+        <p class="np-sub">The clip is still playing behind the details.</p>
+        <button type="button" class="np-watch" @click="emit('watchVideo')">
+          Back to the video <kbd>D</kbd>
+        </button>
+      </template>
+      <template v-else-if="hidden">
         <p class="np-title">Now playing</p>
         <p v-if="countdownSeconds != null" class="np-sub np-countdown">
           Revealing in <strong>{{ countdownSeconds }}</strong>
@@ -78,6 +93,16 @@ const native = computed(() =>
   background: rgba(14, 14, 17, 0.86);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   color: var(--text);
+}
+
+.now-playing.result-pass {
+  border-color: var(--pass);
+  background: linear-gradient(0deg, rgba(126, 224, 161, 0.18), rgba(126, 224, 161, 0.18)), rgba(14, 14, 17, 0.86);
+}
+
+.now-playing.result-fail {
+  border-color: var(--fail);
+  background: linear-gradient(0deg, rgba(255, 138, 138, 0.18), rgba(255, 138, 138, 0.18)), rgba(14, 14, 17, 0.86);
 }
 
 .np-art {
@@ -145,6 +170,32 @@ const native = computed(() =>
 
 .np-countdown strong {
   font-variant-numeric: tabular-nums;
+}
+
+.np-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: 700 13px var(--font-sans);
+  cursor: pointer;
+}
+
+.np-watch:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.np-watch kbd {
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid currentColor;
+  font: 700 11px var(--font-sans);
+  opacity: 0.6;
 }
 
 .np-reveal {

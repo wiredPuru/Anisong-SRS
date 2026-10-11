@@ -14,6 +14,9 @@ const route = useRoute();
 const typedAnswers = ref(false);
 const TYPED_ANSWERS_STORAGE_KEY = "gaqSrs:typedAnswers";
 const typedAnswerCategories = ref<TypedAnswerCategories>({ ...DEFAULT_TYPED_ANSWER_CATEGORIES });
+// Anime name switched off moves a non-deck session onto the track for what is
+// still asked; manual Pass/Fail always grades the anime title.
+const studyTrack = computed(() => (typedAnswers.value ? trackWithoutAnime(typedAnswerCategories.value) : null));
 
 onMounted(() => {
   try {
@@ -147,7 +150,7 @@ const {
   skip: skipCard,
   removeDeleted,
   refresh: refreshStudySession,
-} = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters);
+} = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters, studyTrack);
 
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
 const visibleAnswers = computed(() => visibleAnswerCategories(criterion.value, typedAnswerCategories.value));
@@ -215,6 +218,9 @@ interface QuizResultPhase {
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
 const quizScore = ref(createQuizScore());
 const quizResult = ref<QuizResultPhase | null>(null);
+// A manual Pass/Fail holds on the card, flipped to its details, until Next.
+const manualResult = ref<{ presentationKey: number; result: "pass" | "fail" } | null>(null);
+const roundResult = computed(() => quizResult.value !== null || manualResult.value !== null);
 // Whatever the Opening/Ending picker currently holds when the anime answer
 // is submitted or given up - null means the bonus category was skipped for
 // this question, not graded as wrong. Reset per card below.
@@ -228,6 +234,7 @@ watch(scope, () => {
   sessionHistory.value = [];
   quizScore.value = createQuizScore();
   quizResult.value = null;
+  manualResult.value = null;
 });
 
 const burstLayerRef = ref<{
@@ -292,14 +299,6 @@ const cardEditPanelRef = ref<{ toggle: () => void } | null>(null);
 const DETAILS_STORAGE_KEY = "gaqSrs:studyDetails";
 const showDetails = ref(false);
 
-// Clicking the empty space around the picture flips between it and the details.
-function onStageBackgroundClick(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  // The player card is stretched across the pane, so the sides belong to it.
-  if (target === event.currentTarget || target === playerPaneRef.value || target.classList.contains("player-card")) {
-    showDetails.value = !showDetails.value;
-  }
-}
 onMounted(() => {
   try {
     showDetails.value = localStorage.getItem(DETAILS_STORAGE_KEY) === "1";
@@ -313,6 +312,14 @@ watch(showDetails, (open) => {
   } catch {
     // Not remembered without storage; the drawer still opens and closes.
   }
+});
+// A new song always opens on the picture, even if the last one was flipped.
+watch(presentationKey, () => {
+  showDetails.value = false;
+});
+// A graded round, typed or manual, right or wrong, shows the details until the next song.
+watch(roundResult, (shown) => {
+  if (shown) showDetails.value = true;
 });
 watch(cardEditing, (editing) => {
   if (editing) showDetails.value = true;
@@ -329,6 +336,7 @@ watch([presentationKey, scope], () => {
   burstLayerRef.value?.cancel();
   scoreChipRef.value?.settle();
   quizResult.value = null;
+  manualResult.value = null;
   cardEditing.value = false;
   sourceActionError.value = null;
   themeSlotSelection.value = null;
@@ -344,17 +352,13 @@ async function submitReview(result: "pass" | "fail") {
   const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
   submissionBusy.value = true;
   try {
-    await reviewSubmission.run(async () => {
-      const saved = await submit(result);
-      if (saved && stillCurrent()) {
-        awaitingNextCard.value = true;
-        flashGrade(result);
-        sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
-      }
-      return saved;
-    }, async () => {
-      return stillCurrent() ? await refreshStudySession() : false;
-    });
+    const saveState = await reviewSubmission.saveOnce(() => submit(result));
+    if (saveState !== "saved" || !stillCurrent()) return;
+    awaitingNextCard.value = true;
+    flashGrade(result);
+    sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
+    manualResult.value = { presentationKey: presentation, result };
+    revealCurrentCard();
   } finally {
     submissionBusy.value = false;
   }
@@ -564,14 +568,33 @@ function giveUpMainAnswer() {
   submitMainAnswer();
 }
 
+function giveUpRound() {
+  if (!typedAnswers.value || quizResult.value || answerControlsDisabled.value) return;
+  if (mainAnswer.value === "anime") void saveTypedAnswer("fail", null);
+  else giveUpMainAnswer();
+}
+
+// Right arrow gives up a typed round. Inside an answer box it only does so
+// with the caret at the end, so moving through typed text still works.
+function isRightArrowGiveUp(event: KeyboardEvent): boolean {
+  if (event.key !== "ArrowRight" || event.repeat || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
+  if (!typedAnswers.value || quizResult.value || event.isComposing || showFilters.value || showFindSource.value) return false;
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+  }
+  return !isTypingTarget(event);
+}
+
 async function continueTypedAnswer() {
-  if (!quizResult.value || submissionBusy.value || loading.value) return;
+  if (!roundResult.value || submissionBusy.value || loading.value) return;
   awaitingNextCard.value = true;
   submissionBusy.value = true;
   try {
     const advanced = await reviewSubmission.advanceOnce(refreshStudySession);
     if (advanced) {
       quizResult.value = null;
+      manualResult.value = null;
       awaitingNextCard.value = false;
     }
   } finally {
@@ -589,6 +612,14 @@ function revealCurrentCard() {
   autoRevealedThisCard.value = true;
   stopAutoRevealTimeout();
   autoRevealRemainingMs = null;
+}
+
+// Pressing Reveal (button, bar or Enter) also flips to the details, where the
+// answer is shown and the card is graded. Auto Reveal only unveils in place.
+function revealAndFlip() {
+  if (typedAnswers.value) return;
+  revealCurrentCard();
+  showDetails.value = true;
 }
 
 const mediaPlayerRef = ref<{ pause: () => void; playIfPaused: () => void } | null>(null);
@@ -637,6 +668,7 @@ async function undoLastReview() {
     burstLayerRef.value?.cancel();
     scoreChipRef.value?.settle();
     quizResult.value = null;
+    manualResult.value = null;
     awaitingNextCard.value = false;
   } finally {
     submissionBusy.value = false;
@@ -825,18 +857,12 @@ const hideCover = ref(false);
 const currentMediaKind = ref<"video" | "audio">("video");
 const randomStart = ref(false);
 const ambientMode = ref(false);
-type AutoRevealMode = "off" | "video" | "info" | "both";
-const AUTO_REVEAL_MODES: readonly AutoRevealMode[] = ["off", "video", "info", "both"];
-function isAutoRevealMode(value: string | null): value is AutoRevealMode {
-  return value !== null && (AUTO_REVEAL_MODES as readonly string[]).includes(value);
-}
-
 const autoRevealMode = ref<AutoRevealMode>("off");
 // "Visual" covers both Hide Video and Hide Cover - feature 44/45 already
 // treats them as the same slot (whichever applies to the current card's
 // type), so "Auto Reveal Video" targets whichever one is actually relevant
 // rather than being restricted to literally video-capable cards.
-const autoRevealTargetsVisual = computed(() => autoRevealMode.value === "video" || autoRevealMode.value === "both");
+const autoRevealTargetsVisual = computed(() => autoRevealMode.value === "both");
 const autoRevealTargetsInfo = computed(() => autoRevealMode.value === "info" || autoRevealMode.value === "both");
 
 const AUTO_REVEAL_SECONDS_DEFAULT = 5;
@@ -871,7 +897,7 @@ onMounted(() => {
 
   try {
     const stored = localStorage.getItem(AUTO_REVEAL_MODE_STORAGE_KEY);
-    autoRevealMode.value = isAutoRevealMode(stored) ? stored : "off";
+    autoRevealMode.value = readStoredAutoRevealMode(stored);
   } catch {
     autoRevealMode.value = "off";
   }
@@ -1179,15 +1205,22 @@ onUnmounted(() => setAmbientGlass(false));
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
+  if (isRightArrowGiveUp(event)) {
+    event.preventDefault();
+    giveUpRound();
+    return;
+  }
   if (isTypingTarget(event) || showFilters.value || showFindSource.value) return;
   if (event.key.toLowerCase() === "u" && !event.repeat) {
     void undoLastReview();
     return;
   }
-  if (quizResult.value) {
+  if (roundResult.value) {
     if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
       event.preventDefault();
       void continueTypedAnswer();
+    } else if (event.key.toLowerCase() === "d" && !event.repeat) {
+      showDetails.value = !showDetails.value;
     }
     // Playback's S hotkey is handled independently by StudyMediaPlayer. Keep
     // the result stable by suppressing page-level navigation and reveal keys.
@@ -1411,7 +1444,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           </button>
         </div>
       </header>
-      <div class="stage" :class="{ flipped: showDetails }" :style="stageStyle" @click="onStageBackgroundClick">
+      <div class="stage" :class="{ flipped: showDetails }" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
@@ -1449,7 +1482,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <div v-if="error || sourceActionError" class="stage-alerts" role="alert">
                 <p v-if="error">{{ error }}</p>
                 <p v-if="sourceActionError">{{ sourceActionError }}</p>
-                <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
+                <button v-if="error && awaitingNextCard && !roundResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
               </div>
             </template>
           </StudyMediaPlayer>
@@ -1554,7 +1587,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hidden-line="typedAnswers ? `Guess the ${mainAnswer}` : 'Click to reveal'"
             :revealable="!typedAnswers && !answerControlsDisabled"
             :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
-            @reveal="revealCurrentCard"
+            :on-details="showDetails"
+            :result="quizResult?.result ?? manualResult?.result ?? null"
+            @reveal="revealAndFlip"
+            @watch-video="showDetails = false"
           >
             <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
               <p v-if="criterionCopy" class="criterion-prompt">Graded on: {{ criterionCopy.chip }}</p>
@@ -1634,6 +1670,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 @undo="undoLastReview"
               />
             </div>
+            <div v-else-if="manualResult" class="result-slot">
+              <StudyManualResult
+                :result="manualResult.result"
+                :busy="submissionBusy || loading"
+                :retry="Boolean(error && awaitingNextCard)"
+                :can-undo="canUndo"
+                @continue="continueTypedAnswer"
+                @undo="undoLastReview"
+              />
+            </div>
             <div v-else class="grade-slot">
               <p v-if="criterionCopy" class="criterion-prompt">{{ criterionCopy.prompt }}</p>
               <StudyAnswerControls
@@ -1641,7 +1687,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :awaiting-reveal="hideInfo && !autoRevealedThisCard"
                 @pass="submitReview('pass')"
                 @fail="submitReview('fail')"
-                @reveal="revealCurrentCard"
+                @reveal="revealAndFlip"
               />
             </div>
           </StudyNowPlaying>
