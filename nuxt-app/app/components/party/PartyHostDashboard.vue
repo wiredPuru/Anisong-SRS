@@ -109,6 +109,7 @@ usePartyHotkeys(
 
         <section v-if="state" class="panel grow">
           <PartyScoreboardPanel :state="state" @command="send" />
+          <PartyRulesPanel :state="state" @command="send" />
         </section>
       </div>
 

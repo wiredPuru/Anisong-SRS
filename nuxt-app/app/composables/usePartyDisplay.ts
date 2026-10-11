@@ -109,6 +109,7 @@ export interface PartyDisplayState {
   songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  rules: string | null;
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;

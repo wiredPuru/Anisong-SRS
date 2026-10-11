@@ -69,6 +69,7 @@ export interface PartyHostState {
   music: PartyMusic;
   songVolume: number;
   joinInfoVisible: boolean;
+  rules: { text: string; visible: boolean };
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -105,6 +106,7 @@ export type PartyHostCommand =
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
   | { type: "stake"; config: PartyStake | null }
+  | { type: "rules"; text?: string; visible?: boolean }
   | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }

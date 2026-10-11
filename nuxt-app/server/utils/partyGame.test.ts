@@ -1153,3 +1153,29 @@ describe("queue shuffle, censor delay and team rows", () => {
     expect(row!.memberRows!.map((m) => m.name)).toEqual(["Bob", "Ann"]);
   });
 });
+
+describe("rules", () => {
+  it("keeps text and visibility, shows the display only visible non-empty rules, and survives End game", () => {
+    let s = initialPartyState();
+    expect(toDisplayState(s).rules).toBeNull();
+    s = applyPartyCommand(s, { type: "rules", text: "  Buzz first.\nNo cheating.  " });
+    expect(toDisplayState(s).rules).toBeNull();
+    s = applyPartyCommand(s, { type: "rules", visible: true });
+    expect(toDisplayState(s).rules).toBe("Buzz first.\nNo cheating.");
+    expect(toHostState(s).rules).toEqual({ text: "  Buzz first.\nNo cheating.  ", visible: true });
+    expect(applyPartyCommand(s, { type: "clear" }).rules).toEqual(s.rules);
+    expect(applyPartyCommand(s, { type: "rules", visible: false }).rules.visible).toBe(false);
+  });
+
+  it("shows nothing for blank rules even when visible", () => {
+    const s = applyPartyCommand(initialPartyState(), { type: "rules", visible: true });
+    expect(toDisplayState(s).rules).toBeNull();
+  });
+
+  it("validates the command", () => {
+    expect(parsePartyCommand({ type: "rules", text: "x", visible: true })).toEqual({ type: "rules", text: "x", visible: true });
+    expect(parsePartyCommand({ type: "rules" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "rules", text: "x".repeat(2001) })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "rules", visible: "yes" })).toHaveProperty("error");
+  });
+});

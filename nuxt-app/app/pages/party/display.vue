@@ -214,6 +214,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <PartyRulesCard v-if="started && state?.rules" :text="state.rules" />
+
     <PartyRoundSummary v-if="showSummary" :summary="state?.summary ?? SAMPLE_SUMMARY" :sample="!state?.summary" />
 
     <PartyDisplaySkip v-if="started" :skip-seq="state?.skipSeq ?? null" :arranging="arranging" />

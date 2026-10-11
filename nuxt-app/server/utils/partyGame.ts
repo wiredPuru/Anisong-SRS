@@ -8,6 +8,14 @@ export type PartyPhase = "idle" | "guessing" | "revealed";
 export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
 export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
+export const RULES_MAX = 2000;
+/** The host's house rules; the display shows them only while visible. */
+export interface PartyRules {
+  text: string;
+  visible: boolean;
+}
+export const NO_RULES: PartyRules = { text: "", visible: false };
+
 export interface PartyEndless {
   difficulty: EndlessDifficulty;
   downloadedOnly: boolean;
@@ -185,6 +193,7 @@ export interface PartyGameState {
   songVolume: number;
   // The display's corner chip with the player join address.
   joinInfoVisible: boolean;
+  rules: PartyRules;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -265,6 +274,7 @@ export type PartyCommand =
   | { type: "music"; enabled: boolean; volume: number }
   | { type: "songVolume"; volume: number }
   | { type: "joinInfo"; visible: boolean }
+  | { type: "rules"; text?: string; visible?: boolean }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }
   | { type: "award"; playerId: number; awarded: boolean }
@@ -309,6 +319,7 @@ export interface PartyDisplayState {
   songVolume: number;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
+  rules: string | null;
   buzz: { answering: string | null };
   roundPoints: PartyRoundPoint[];
   summary: PartySummary | null;
@@ -359,6 +370,7 @@ export interface PartyHostState {
   music: PartyMusic;
   songVolume: number;
   joinInfoVisible: boolean;
+  rules: PartyRules;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -442,12 +454,13 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle"> = {
     scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
     songVolume: 1,
     joinInfoVisible: true,
+    rules: NO_RULES,
     buzzerEnabled: false,
     endless: null,
     revealFields: ALL_REVEAL_FIELDS,
@@ -658,6 +671,13 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const trimmed = typeof text === "string" ? text.trim() : "";
       if (!trimmed || trimmed.length > BANNER_MAX) return { error: `text must be 1-${BANNER_MAX} characters, or null` };
       return { type, text: trimmed };
+    }
+    case "rules": {
+      const { text, visible } = body as { text?: unknown; visible?: unknown };
+      if (text === undefined && visible === undefined) return { error: "text or visible is required" };
+      if (text !== undefined && (typeof text !== "string" || text.length > RULES_MAX)) return { error: `text must be at most ${RULES_MAX} characters` };
+      if (visible !== undefined && typeof visible !== "boolean") return { error: "visible must be a boolean" };
+      return { type, ...(text === undefined ? {} : { text }), ...(visible === undefined ? {} : { visible }) };
     }
     case "joinInfo": {
       const { visible } = body as { visible?: unknown };
@@ -1191,6 +1211,11 @@ export function applyPartyCommand(
       if (command.text !== null) next = { ...state, banner: { text: command.text, shownAt: now() } };
       else if (state.banner) next = { ...state, banner: null };
       break;
+    case "rules": {
+      const rules = { text: command.text ?? state.rules.text, visible: command.visible ?? state.rules.visible };
+      if (rules.text !== state.rules.text || rules.visible !== state.rules.visible) next = { ...state, rules };
+      break;
+    }
     case "joinInfo":
       if (state.joinInfoVisible !== command.visible) next = { ...state, joinInfoVisible: command.visible };
       break;
@@ -1283,6 +1308,7 @@ export function applyPartyCommand(
           music: state.music,
           songVolume: state.songVolume,
           joinInfoVisible: state.joinInfoVisible,
+          rules: state.rules,
           buzzerEnabled: state.buzzerEnabled,
           // End game ends an endless queue too; otherwise it would refill at once.
           endless: null,
@@ -1392,6 +1418,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
+    rules: state.rules.visible && state.rules.text.trim() ? state.rules.text.trim() : null,
     buzz: { answering: playerName(state, state.buzz.playerId) },
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,
@@ -1520,6 +1547,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     music: state.music,
     songVolume: state.songVolume,
     joinInfoVisible: state.joinInfoVisible,
+    rules: state.rules,
     buzzerEnabled: state.buzzerEnabled,
     endless: state.endless,
     revealFields: state.revealFields,
