@@ -27,6 +27,25 @@ watch(hasGame, (running, was) => {
   if (running && !was && tab.value === "game") tab.value = "round";
 }, { immediate: true });
 
+// Unlike the app-wide Ambient preference, the host's glow starts on.
+const AMBIENT_KEY = "gaqSrs:partyHostAmbient";
+const ambientOn = ref(true);
+onMounted(() => {
+  try {
+    ambientOn.value = localStorage.getItem(AMBIENT_KEY) !== "0";
+  } catch {
+    // Storage can be unavailable; the glow just stays on.
+  }
+});
+function toggleAmbient() {
+  ambientOn.value = !ambientOn.value;
+  try {
+    localStorage.setItem(AMBIENT_KEY, ambientOn.value ? "1" : "0");
+  } catch {
+    // The choice still holds until the page reloads.
+  }
+}
+
 const helpOpen = ref(false);
 usePartyHotkeys(
   state,
@@ -42,7 +61,8 @@ usePartyHotkeys(
 </script>
 
 <template>
-  <div class="dashboard">
+  <PartyHostAmbient v-if="ambientOn" :state="state" />
+  <div class="dashboard" :class="{ ambient: ambientOn }">
     <header class="dashboard-header">
       <MascotKai pose="clap" size="small" />
       <h1 class="dashboard-title">GAQ Party</h1>
@@ -53,6 +73,7 @@ usePartyHotkeys(
         {{ state.scoreboard.players.length }} player{{ state.scoreboard.players.length === 1 ? "" : "s" }}
       </span>
       <span class="dashboard-spacer" />
+      <button type="button" class="link-btn" :aria-pressed="ambientOn" @click="toggleAmbient">Ambient: {{ ambientOn ? "on" : "off" }}</button>
       <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>
@@ -159,6 +180,8 @@ usePartyHotkeys(
 /* One screen, no page scroll: each column scrolls on its own if it must,
    with its scrollbar hidden. Below 1100px it stacks into one long page. */
 .dashboard {
+  position: relative;
+  z-index: 1;
   height: 100vh;
   padding: 16px 20px;
   display: flex;
@@ -398,5 +421,12 @@ usePartyHotkeys(
   .dashboard-header {
     flex-wrap: wrap;
   }
+}
+</style>
+
+<style scoped>
+.dashboard.ambient .panel {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(16px);
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PartyEffects } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
+import { playedLogCsv } from "~/utils/partyLogExport";
 
 const props = defineProps<{ state: PartyHostState }>();
 const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCommand] }>();
@@ -9,7 +10,7 @@ const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCo
 const isUpcoming = (index: number) => index > props.state.index;
 
 // The board only ever shows five songs: the one before, the current one, the
-// next, and two more. Older songs sit in the played log, the rest wait unseen.
+// next, and two more. Finished songs sit in the played log, the rest wait unseen.
 // An endless queue shows only the one before, the current one and the next,
 // plus any song the host added by hand.
 const WINDOW_SIZE = 5;
@@ -26,9 +27,19 @@ const rows = computed(() => {
     .filter(({ item, index }) => index >= windowEnd.value && item.manual);
   return [...shown, ...added];
 });
-const played = computed(() =>
-  props.state.queue.slice(0, windowStart.value).map((item, index) => ({ item, index })).reverse(),
-);
+const logOpen = ref(false);
+const finishedRows = computed(() => finished.value.map((item, index) => ({ item, index })).reverse());
+// Everything finished so far, oldest first; the current song counts once revealed.
+const finished = computed(() => props.state.queue.slice(0, props.state.index + (props.state.phase === "revealed" ? 1 : 0)));
+
+function exportLog() {
+  const url = URL.createObjectURL(new Blob(["\uFEFF", playedLogCsv(finished.value)], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `gaq-party-played-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 const waiting = computed(() => (endless.value ? 0 : props.state.queue.length - windowEnd.value));
 
 const upNext = computed(() => {
@@ -120,17 +131,23 @@ function endDrag() {
         <button v-if="armed" type="button" class="fx-chip fx-clear" @click="emit('command', { type: 'effects', target: 'next', effects: null })">Clear</button>
       </div>
     </div>
-    <details v-if="played.length" class="played-log">
-      <summary>Played ({{ played.length }})</summary>
-      <ol class="played-list">
-        <li v-for="entry in played" :key="`${entry.index}-${entry.item.cardId}`">
+    <div v-if="finished.length" class="played-log">
+      <div class="played-head">
+        <button type="button" class="played-toggle" :aria-expanded="logOpen" @click="logOpen = !logOpen">
+          <span class="played-chevron" :class="{ open: logOpen }" aria-hidden="true">&#9656;</span>
+          Played ({{ finished.length }})
+        </button>
+        <button type="button" class="played-export" @click="exportLog">Export CSV</button>
+      </div>
+      <ol v-if="logOpen" class="played-list">
+        <li v-for="entry in finishedRows" :key="`${entry.index}-${entry.item.cardId}`">
           <button type="button" class="played-item" @click="emit('jump', entry.index)">
             <span class="queue-num">{{ entry.index + 1 }}</span>
             {{ entry.item.answer.animeTitleEnglish }} &middot; {{ entry.item.answer.songTitle }}
           </button>
         </li>
       </ol>
-    </details>
+    </div>
     <ol class="queue-list">
       <li
         v-for="{ item, index } in rows"
@@ -239,17 +256,43 @@ function endDrag() {
   font-size: 13px;
 }
 
-.played-log summary {
-  cursor: pointer;
+.played-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.played-toggle,
+.played-export {
+  border: 0;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.played-export {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+
+.played-chevron {
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.played-chevron.open {
+  transform: rotate(90deg);
 }
 
 .played-list {
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 114px;
+  max-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
