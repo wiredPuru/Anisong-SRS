@@ -180,6 +180,7 @@ onBeforeUnmount(() => {
         {{ option.label }}
       </button>
     </div>
+    <p v-if="target === 'current'" class="effects-hint">Press V to hide or show the picture for this song.</p>
 
     <div class="fx-actions">
       <template v-if="target === 'next'">

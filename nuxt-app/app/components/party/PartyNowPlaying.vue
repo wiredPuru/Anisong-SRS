@@ -183,26 +183,45 @@ function setSongVolume(volume: number) {
     </div>
 
     <div class="np-transport">
-      <button type="button" class="tbtn" :disabled="atStart" @click="emit('command', { type: 'previous' })">Previous</button>
+      <button type="button" class="tbtn tbtn-icon" aria-label="Previous song" :disabled="atStart" @click="emit('command', { type: 'previous' })">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5 9 12l10 7z" /><path d="M5 5v14" /></svg>
+        <span class="tooltip">Previous song &middot; P</span>
+      </button>
       <button
         type="button"
-        class="tbtn tbtn-main"
+        class="tbtn tbtn-icon tbtn-main"
+        :aria-label="state.playing ? 'Pause' : 'Play'"
         @click="emit('command', { type: state.playing ? 'pause' : 'play' })"
       >
-        {{ state.playing ? "Pause" : "Play" }}
-      </button>
-      <button type="button" class="tbtn" :disabled="atEnd && state.summaryVisible" @click="emit('command', { type: 'next' })">
-        {{ atEnd ? "Show results" : "Next" }}
+        <svg v-if="state.playing" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 13 8-13 8z" /></svg>
+        <span class="tooltip">{{ state.playing ? "Pause" : "Play" }} &middot; Space</span>
       </button>
       <button
         type="button"
-        class="tbtn tbtn-reveal"
+        class="tbtn tbtn-icon"
+        :aria-label="atEnd ? 'Show results' : 'Next song'"
+        :disabled="atEnd && state.summaryVisible"
+        @click="emit('command', { type: 'next' })"
+      >
+        <svg v-if="atEnd" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10" /><path d="M12 20V4" /><path d="M19 20v-7" /></svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 10 7-10 7z" /><path d="M19 5v14" /></svg>
+        <span class="tooltip">{{ atEnd ? "Show results" : "Next song \u00B7 N" }}</span>
+      </button>
+      <button
+        type="button"
+        class="tbtn tbtn-icon tbtn-reveal"
+        aria-label="Reveal"
         :disabled="state.phase === 'revealed'"
         @click="emit('command', { type: 'reveal' })"
       >
-        Reveal
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+        <span class="tooltip">Reveal &middot; R</span>
       </button>
-      <button type="button" class="tbtn" :disabled="skipSeconds === null" @click="skipToEnd">Skip to end</button>
+      <button type="button" class="tbtn tbtn-icon" aria-label="Skip to end" :disabled="skipSeconds === null" @click="skipToEnd">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 5 8 7-8 7z" /><path d="m11 5 8 7-8 7z" /><path d="M21 5v14" /></svg>
+        <span class="tooltip">Skip to the last 3 seconds &middot; E</span>
+      </button>
     </div>
 
     <label class="np-volume">
@@ -439,7 +458,7 @@ function setSongVolume(volume: number) {
 
 .np-transport {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -459,6 +478,75 @@ function setSongVolume(volume: number) {
 .tbtn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.tbtn-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+/* Dim the button, not its tooltip: a disabled icon still says which key it is. */
+.tbtn-icon:disabled {
+  opacity: 1;
+}
+
+.tbtn-icon:disabled::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: var(--surface);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.tbtn-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tbtn-main svg {
+  fill: currentColor;
+}
+
+.tbtn .tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+/* The last button sits at the card's edge, so its longer tooltip grows leftwards. */
+.tbtn-icon:last-child .tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.tbtn:hover .tooltip,
+.tbtn:focus-visible .tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .tbtn-main {
@@ -610,11 +698,5 @@ function setSongVolume(volume: number) {
 
 .link-btn.danger {
   color: var(--fail);
-}
-
-@media (max-width: 820px) {
-  .np-transport {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 </style>

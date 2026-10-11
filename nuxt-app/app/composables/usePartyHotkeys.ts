@@ -1,5 +1,6 @@
 import type { PartyHostCommand, PartyHostState } from "./usePartyHost";
 import { FULL_FRAME } from "~/utils/partyCensorBoxes";
+import { DEFAULT_HIDING_PICTURE, togglePicture } from "~/utils/partyPicture";
 import { parsePreviewLead } from "~/utils/partyPreview";
 
 export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
@@ -13,6 +14,7 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "D", action: "Delete the picked censor box, or all of them" },
   { keys: "B", action: "Blur on / off" },
   { keys: "X", action: "Pixelate on / off" },
+  { keys: "V", action: "Hide / show the picture (Bubbles or Music player)" },
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
   { keys: "1-4", action: "Round, Screen, Players, New game tabs" },
@@ -45,6 +47,9 @@ export function usePartyHotkeys(
   toggleHelp: () => void,
   selectTab: (index: number) => void = () => {},
 ) {
+  // The hiding picture V brings back; it follows whatever the host last had up.
+  let lastHidingPicture = DEFAULT_HIDING_PICTURE;
+
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing || isTyping(event.target)) return;
     if (event.key === "?") {
@@ -73,7 +78,11 @@ export function usePartyHotkeys(
     } else if (key === "m") command = { type: "effects", target: "current", effects: { ...current.effects, muted: !current.effects.muted } };
     else if (key === "b" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, blur: current.effects.blur > 0 ? 0 : 14 } };
     else if (key === "x" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, pixelate: current.effects.pixelate > 0 ? 0 : 24 } };
-    else if (key === "c" && hasGame) {
+    else if (key === "v" && hasGame) {
+      const toggled = togglePicture(current.effects.picture, lastHidingPicture);
+      lastHidingPicture = toggled.lastHiding;
+      command = { type: "effects", target: "current", effects: { ...current.effects, picture: toggled.picture } };
+    } else if (key === "c" && hasGame) {
       command = current.censor
         ? { type: "censor", censor: null, delay: storedPreviewLead() }
         : { type: "censor", censor: { boxes: [FULL_FRAME], style: current.censorStyle, muted: false } };
