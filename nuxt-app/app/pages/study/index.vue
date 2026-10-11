@@ -218,6 +218,9 @@ interface QuizResultPhase {
 const sessionHistory = ref<SessionHistoryEntry[]>([]);
 const quizScore = ref(createQuizScore());
 const quizResult = ref<QuizResultPhase | null>(null);
+// A manual Pass/Fail holds on the card, flipped to its details, until Next.
+const manualResult = ref<{ presentationKey: number; result: "pass" | "fail" } | null>(null);
+const roundResult = computed(() => quizResult.value !== null || manualResult.value !== null);
 // Whatever the Opening/Ending picker currently holds when the anime answer
 // is submitted or given up - null means the bonus category was skipped for
 // this question, not graded as wrong. Reset per card below.
@@ -231,6 +234,7 @@ watch(scope, () => {
   sessionHistory.value = [];
   quizScore.value = createQuizScore();
   quizResult.value = null;
+  manualResult.value = null;
 });
 
 const burstLayerRef = ref<{
@@ -313,9 +317,9 @@ watch(showDetails, (open) => {
 watch(presentationKey, () => {
   showDetails.value = false;
 });
-// A graded typed guess, right or wrong, shows the details until the next song.
-watch(quizResult, (result) => {
-  if (result) showDetails.value = true;
+// A graded round, typed or manual, right or wrong, shows the details until the next song.
+watch(roundResult, (shown) => {
+  if (shown) showDetails.value = true;
 });
 watch(cardEditing, (editing) => {
   if (editing) showDetails.value = true;
@@ -332,6 +336,7 @@ watch([presentationKey, scope], () => {
   burstLayerRef.value?.cancel();
   scoreChipRef.value?.settle();
   quizResult.value = null;
+  manualResult.value = null;
   cardEditing.value = false;
   sourceActionError.value = null;
   themeSlotSelection.value = null;
@@ -347,17 +352,13 @@ async function submitReview(result: "pass" | "fail") {
   const stillCurrent = () => presentationKey.value === presentation && JSON.stringify(scope.value) === scopeKey;
   submissionBusy.value = true;
   try {
-    await reviewSubmission.run(async () => {
-      const saved = await submit(result);
-      if (saved && stillCurrent()) {
-        awaitingNextCard.value = true;
-        flashGrade(result);
-        sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
-      }
-      return saved;
-    }, async () => {
-      return stillCurrent() ? await refreshStudySession() : false;
-    });
+    const saveState = await reviewSubmission.saveOnce(() => submit(result));
+    if (saveState !== "saved" || !stillCurrent()) return;
+    awaitingNextCard.value = true;
+    flashGrade(result);
+    sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
+    manualResult.value = { presentationKey: presentation, result };
+    revealCurrentCard();
   } finally {
     submissionBusy.value = false;
   }
@@ -586,13 +587,14 @@ function isRightArrowGiveUp(event: KeyboardEvent): boolean {
 }
 
 async function continueTypedAnswer() {
-  if (!quizResult.value || submissionBusy.value || loading.value) return;
+  if (!roundResult.value || submissionBusy.value || loading.value) return;
   awaitingNextCard.value = true;
   submissionBusy.value = true;
   try {
     const advanced = await reviewSubmission.advanceOnce(refreshStudySession);
     if (advanced) {
       quizResult.value = null;
+      manualResult.value = null;
       awaitingNextCard.value = false;
     }
   } finally {
@@ -658,6 +660,7 @@ async function undoLastReview() {
     burstLayerRef.value?.cancel();
     scoreChipRef.value?.settle();
     quizResult.value = null;
+    manualResult.value = null;
     awaitingNextCard.value = false;
   } finally {
     submissionBusy.value = false;
@@ -1210,10 +1213,12 @@ function onKeydown(event: KeyboardEvent) {
     void undoLastReview();
     return;
   }
-  if (quizResult.value) {
+  if (roundResult.value) {
     if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
       event.preventDefault();
       void continueTypedAnswer();
+    } else if (event.key.toLowerCase() === "d" && !event.repeat) {
+      showDetails.value = !showDetails.value;
     }
     // Playback's S hotkey is handled independently by StudyMediaPlayer. Keep
     // the result stable by suppressing page-level navigation and reveal keys.
@@ -1475,7 +1480,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <div v-if="error || sourceActionError" class="stage-alerts" role="alert">
                 <p v-if="error">{{ error }}</p>
                 <p v-if="sourceActionError">{{ sourceActionError }}</p>
-                <button v-if="error && awaitingNextCard && !quizResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
+                <button v-if="error && awaitingNextCard && !roundResult" type="button" :disabled="submissionBusy" @click="submitReview('fail')">Retry loading next card</button>
               </div>
             </template>
           </StudyMediaPlayer>
@@ -1580,7 +1585,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hidden-line="typedAnswers ? `Guess the ${mainAnswer}` : 'Click to reveal'"
             :revealable="!typedAnswers && !answerControlsDisabled"
             :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
+            :on-details="showDetails"
             @reveal="revealCurrentCard"
+            @watch-video="showDetails = false"
           >
             <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
               <p v-if="criterionCopy" class="criterion-prompt">Graded on: {{ criterionCopy.chip }}</p>
@@ -1653,6 +1660,16 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :bonus-results="quizResult.bonusResults"
                 :score="quizScore.score"
                 :combo="quizScore.combo"
+                :busy="submissionBusy || loading"
+                :retry="Boolean(error && awaitingNextCard)"
+                :can-undo="canUndo"
+                @continue="continueTypedAnswer"
+                @undo="undoLastReview"
+              />
+            </div>
+            <div v-else-if="manualResult" class="result-slot">
+              <StudyManualResult
+                :result="manualResult.result"
                 :busy="submissionBusy || loading"
                 :retry="Boolean(error && awaitingNextCard)"
                 :can-undo="canUndo"

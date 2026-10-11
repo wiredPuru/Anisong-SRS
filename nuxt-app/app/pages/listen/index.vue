@@ -424,7 +424,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             hidden-line="Click to reveal"
             revealable
             :countdown-seconds="autoReveal.countdownActive.value ? autoReveal.displaySeconds.value : null"
+            :on-details="showDetails"
             @reveal="reveal"
+            @watch-video="showDetails = false"
           >
             <div class="transport" role="group" aria-label="Playlist">
               <button
