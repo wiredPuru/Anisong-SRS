@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, lte, ne, n
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { animeCoverUrl } from "./animeCoverSql.ts";
+import { cardStatusExpr, type CardStatus } from "./cardStatus.ts";
 import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { trackBoxExpr, trackDueCondition, trackNextReviewAtExpr, trackStreakExpr } from "./cardTrack.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
@@ -27,6 +28,8 @@ export interface CardWithDetails {
   animethemesAudioUrl: string | null;
   notes: string | null;
   suspended: boolean;
+  known: boolean;
+  status: CardStatus;
   box: number;
   streak: number;
   nextReviewAt: Date;
@@ -60,6 +63,8 @@ const cardSelection = (criterion: GradingCriterion) => ({
   animethemesAudioUrl: card.animethemesAudioUrl,
   notes: card.notes,
   suspended: card.suspended,
+  known: card.known,
+  status: cardStatusExpr,
   box: trackBoxExpr(criterion),
   streak: trackStreakExpr(criterion),
   nextReviewAt: trackNextReviewAtExpr(criterion),
@@ -290,7 +295,7 @@ export function baseDueCondition(
   includeNewBeyondLimit = false,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
 ) {
-  const isDue = and(trackDueCondition(criterion), eq(card.suspended, false));
+  const isDue = and(trackDueCondition(criterion), eq(card.suspended, false), eq(card.known, false));
   // A subquery, not a join, so the callers sharing this condition keep their
   // own join lists (deck tile counts group by artist/anime id).
   const dueCondition = getThemesOnly()
@@ -476,7 +481,7 @@ export function pickPracticeId(
 }
 
 // A card to practice once nothing is due: anything in scope and filters that is
-// not suspended or buried, due or not. Serving it never touches the schedule.
+// not suspended, known, or buried, due or not. Serving it never touches the schedule.
 export function getPracticeCard(
   scope: StudyScope,
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
@@ -488,6 +493,7 @@ export function getPracticeCard(
   const lastReviewed = sql<number>`coalesce((select max(${reviewLog.reviewedAt}) from ${reviewLog} where ${reviewLog.cardId} = ${card.id} and ${reviewLog.criterion} = ${criterion}), 0)`;
   const playable = and(
     eq(card.suspended, false),
+    eq(card.known, false),
     getThemesOnly() ? inArray(card.songId, db.select({ id: song.id }).from(song).where(isNotNull(song.animethemesThemeId))) : undefined,
   );
   const pool = db

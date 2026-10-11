@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash f5db3f528c3d95fcddc694c3a4da2c40a609b348fefa9109dacaf2cbb2ebcced -->
+<!-- blueprint:source-hash 1ab60438a65302055950f382fb1b5d5804a4fd32b2ca9f8b81b306c3d099bcb9 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -341,6 +341,11 @@ Feature 103 (configurable hotkeys, in three sub-features 103a-103c) was added to
 rebindable actions saved in the browser, Space joins S as play/pause, and every
 tooltip shows the key actually set. No `project-plan.md` change: it extends the
 hotkeys §3's Study session bullet already describes.
+Feature 104 (learning status, in two sub-features 104a-104b) was added to
+`build-plan.md` on 2026-10-11. Cards gain a stored Known flag and a visible
+New / Learning / Known / Suspended status, so songs the user already knows can
+be taken out of the Leitner queue, singly or in bulk. It amended
+`project-plan.md` §3's Study session bullet and §4's Flashcards bullet.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2570,6 +2575,32 @@ hotkeys §3's Study session bullet already describes.
       `app/utils/hotkeyEditor.ts`. The Display menu on Study and Listen gets a
       "Hotkeys..." link that opens the section in a new tab, and a change there
       reaches an open Study tab with no reload.
+104. **Learning status (Known / Learning / New)** - added to `build-plan.md`
+    2026-10-11, in two sub-features; 104a is built, 104b is not. Every card shows a
+    status chip: New (never reviewed), Learning (in rotation), Known (marked by
+    the user), or Suspended (feature 89). Mark known keeps a card the user
+    already knows, such as a bulk-imported playlist, out of the Leitner queue;
+    Mark unknown returns it. Known cards stay out of Study (next card, "N
+    left", prefetch lookahead, infinite mode) and out of Home's and Decks' due
+    counts, on every grading track, and marking changes no box, streak, due
+    date, or review history. Decisions made at intake: Known and Suspended are
+    mutually exclusive (setting one clears the other); unmarking does not reset
+    the schedule; New and Learning are derived from review history, not stored;
+    Known is per card, not per grading track, like Suspend; feature 87's Bury
+    is unchanged and gets no chip.
+    - **104a. Known flag + server** - done 2026-10-11. `Card.known` (migration `0035`), excluded
+      wherever `suspended` is, `POST /api/cards/known` `{ ids (1-500), known }`,
+      a derived status on the card shape, and a Known count in `/stats`
+      collection health (its only UI). As built: `status` is one SQL `case`
+      expression (`cardStatusExpr`, `server/utils/cardStatus.ts`) in the shared
+      card selection, suspended beating known beating reviewed; `setCardsKnown`
+      and `setCardsSuspended` each clear the other flag; known cards leave the
+      box figures, mature %, and never-reviewed count. Party and Listen never
+      read `suspended`, so they ignore `known` too.
+    - **104b. Status UI + bulk** - the status chip on `/cards` rows, the
+      inspector and Study's info; Mark known / unknown in Study's Edit card
+      panel, the `/cards` inspector and the bulk selection bar; a Status filter
+      on `/cards`; and "Mark all N matching known".
 
 ## Data model
 
@@ -2647,6 +2678,9 @@ stored: video if any video source is present, audio-only otherwise.
   `0026`).
   Applies to every grading track of the card; `CardTrack` has no flag of its
   own.
+- `known` (boolean, not null, default `false`) - feature 104a (migration `0035`).
+  Marked by the user as already known; out of Study on every grading track,
+  never set together with `suspended`.
 - `createdAt` (datetime)
 
 > A card must have at least one non-null source across the four

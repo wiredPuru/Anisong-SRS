@@ -72,7 +72,8 @@ game, behind a password.
   is served and never change scheduling. The most recent reviews of a
   session can be undone, restoring the card's previous schedule so it can be
   graded again. A card can be suspended to keep it in the library but out of
-  Study until it is unsuspended.
+  Study until it is unsuspended. A card can be marked known to keep it out of Study as one the user
+  already knows, and marked unknown to bring it back.
 - **Listen mode** - plays the songs of a deck, or of all cards, in order or
   shuffled, using the Study screen's player and display toggles. It has no
   grading, scheduling or score and never changes a card's review state.
@@ -114,7 +115,7 @@ game, behind a password.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
   criterion; the card's own columns are the anime-title track), and whether
-  the card is suspended from Study.
+  the card is suspended or marked known.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks). A manual deck also stores the

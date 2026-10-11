@@ -38,6 +38,7 @@ function input(overrides: Partial<CollectionHealthInput> = {}): CollectionHealth
     boxCounts: [],
     boxOneStreakCounts: [],
     neverReviewed: 0,
+    knownCards: 0,
     boxOneStreakRequired: 3,
     ...overrides,
   };
@@ -57,6 +58,14 @@ describe("shapeCollectionHealth", () => {
       { box: 4, count: 0 },
       { box: 5, count: 0 },
     ]);
+  });
+
+  it("passes the known count through without counting it as a box", () => {
+    const health = shapeCollectionHealth(input({ boxCounts: [{ box: 4, count: 1 }, { box: 1, count: 1 }], knownCards: 7 }));
+
+    expect(health.knownCards).toBe(7);
+    expect(health.totalCards).toBe(2);
+    expect(health.maturePercent).toBe(0.5);
   });
 
   it("fills in boxes no card occupies", () => {

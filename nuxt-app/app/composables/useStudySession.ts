@@ -21,6 +21,8 @@ export interface CardWithDetails {
   animethemesAudioUrl: string | null;
   notes: string | null;
   suspended: boolean;
+  known: boolean;
+  status: "new" | "learning" | "known" | "suspended";
   box: number;
   streak: number;
   nextReviewAt: string;

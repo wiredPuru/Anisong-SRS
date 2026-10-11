@@ -1201,6 +1201,23 @@ cleaned-up checkbox version before generating the project overview.
     key(s). Click, press a key to rebind, and conflicts are explained and
     must be resolved before saving. Includes Reset one, Reset all, and the
     Display menu link.
+- [ ] 104. **Learning status (Known / Learning / New)** - every card shows a
+  status chip: New (never reviewed), Learning (in rotation), Known (marked by
+  you), or Suspended (feature 89). Mark known skips the Leitner queue for songs
+  you already know, e.g. a bulk-imported playlist. Mark unknown puts it back.
+  Known cards stay out of Study (next card, "N left", prefetch, infinite mode)
+  and out of Home's and Decks' due counts, on every grading track. Marking
+  changes no box, streak, due date, or review history.
+  - [x] 104a. **Known flag + server** - stored `Card.known` flag (migration),
+    mutually exclusive with `suspended`, excluded wherever suspended is.
+    `POST /api/cards/known` `{ ids (1-500), known }`. A derived status on the
+    card shape. `/stats` collection health shows a Known count (its only UI).
+  - [ ] 104b. **Status UI + bulk** - the status chip on `/cards` rows, the
+    inspector, and Study's info. Mark known / Mark unknown in Study's Edit card
+    panel (then moves on), the `/cards` inspector, and the bulk selection bar.
+    `/cards` gains a Status filter (New / Learning / Known / Suspended) and a
+    "Mark all N matching known" bar, like feature 61c, so a whole searched
+    playlist is one click.
 
 ## Plan maintenance
 

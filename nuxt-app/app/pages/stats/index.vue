@@ -34,6 +34,7 @@ interface AnimeStats {
 // Mirrors CollectionHealth in server/utils/stats.ts, same field order (F-09).
 interface CollectionHealth {
   totalCards: number;
+  knownCards: number;
   neverReviewed: number;
   matureCards: number;
   maturePercent: number | null;
@@ -778,7 +779,7 @@ function setType(type: StatsType) {
       <div v-else-if="collectionError" class="state state-error">
         Couldn't load collection health. Try refreshing.
       </div>
-      <p v-else-if="!collection || !collection.totalCards" class="state">
+      <p v-else-if="!collection || (!collection.totalCards && !collection.knownCards)" class="state">
         No cards yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.
       </p>
       <template v-else>
@@ -799,6 +800,9 @@ function setType(type: StatsType) {
             <span class="health-figure-label">Never reviewed</span>
           </div>
         </div>
+        <p v-if="collection.knownCards" class="health-known-note">
+          {{ collection.knownCards }} known, left out of the figures above
+        </p>
         <div class="health-bar">
           <span
             v-for="stage in visibleHealthStages"
@@ -1564,6 +1568,11 @@ function setType(type: StatsType) {
 .health-figure-note {
   font-size: 12px;
   color: var(--faint);
+}
+
+.health-known-note {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .health-bar {

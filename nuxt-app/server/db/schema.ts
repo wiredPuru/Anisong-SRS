@@ -61,6 +61,9 @@ export const card = sqliteTable("card", {
   notes: text("notes"),
   // Out of Study on every grading track until unsuspended (feature 89).
   suspended: integer("suspended", { mode: "boolean" }).notNull().default(false),
+  // The user already knows it: out of Study on every grading track until unmarked,
+  // never set together with suspended (feature 104).
+  known: integer("known", { mode: "boolean" }).notNull().default(false),
   box: integer("box").notNull().default(1),
   streak: integer("streak").notNull().default(0),
   nextReviewAt: integer("next_review_at", { mode: "timestamp" })

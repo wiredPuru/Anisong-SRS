@@ -77,3 +77,46 @@ describe("suspended cards and due state", () => {
     expect(getNextDueCard(ALL, false, "title", null, [], [], first)).toMatchObject({ id: first, box: 1, suspended: false });
   });
 });
+
+function setKnown(cardId: number, known: boolean) {
+  db.update(card).set({ known }).where(eq(card.id, cardId)).run();
+}
+
+describe("known cards and due state", () => {
+  it("never serves, counts, or prefetches a known card", () => {
+    const [first, second] = ids as [number, number];
+    setKnown(first, true);
+
+    expect(getNextDueCard(ALL)!.id).toBe(second);
+    expect(getDueCardCount(ALL)).toBe(1);
+    expect(getUpcomingDueCards(ALL, undefined, 5).map((c) => c.id)).toEqual([second]);
+  });
+
+  it("leaves a known card out of every grading track", () => {
+    const [first, second] = ids as [number, number];
+    db.insert(cardTrack).values({ cardId: first, criterion: "song", nextReviewAt: new Date(0) }).run();
+    setKnown(first, true);
+
+    expect(getDueCardCount(ALL, false, "song")).toBe(1);
+    expect(getNextDueCard(ALL, false, "song")!.id).toBe(second);
+  });
+
+  it("leaves a known card out of the review forecast and deck tile due counts", () => {
+    setKnown(ids[0]!, true);
+
+    const forecast = getReviewForecast();
+    expect(forecast.backlog).toBe(1);
+    expect(forecast.dueNow).toBe(1);
+    expect(listArtistDecks(1).items[0]!.dueCount).toBe(1);
+  });
+
+  it("brings a due card back once it is unmarked, schedule untouched", () => {
+    const [first] = ids as [number, number];
+    db.update(card).set({ box: 4, streak: 0 }).where(eq(card.id, first)).run();
+    setKnown(first, true);
+    setKnown(first, false);
+
+    expect(getDueCardCount(ALL)).toBe(2);
+    expect(getNextDueCard(ALL, false, "title", null, [], [], first)).toMatchObject({ id: first, box: 4, known: false });
+  });
+});

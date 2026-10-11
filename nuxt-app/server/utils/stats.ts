@@ -351,6 +351,9 @@ const MAX_BOX = 5;
 
 export interface CollectionHealth {
   totalCards: number;
+  // Cards marked known (feature 104): counted here and nowhere in the box
+  // figures, since they are out of the learning set.
+  knownCards: number;
   neverReviewed: number;
   matureCards: number;
   maturePercent: number | null;
@@ -366,6 +369,7 @@ export interface CollectionHealthInput {
   boxCounts: { box: number; count: number }[];
   boxOneStreakCounts: { streak: number; count: number }[];
   neverReviewed: number;
+  knownCards: number;
   boxOneStreakRequired: number;
 }
 
@@ -397,6 +401,7 @@ export function shapeCollectionHealth(input: CollectionHealthInput): CollectionH
 
   return {
     totalCards,
+    knownCards: input.knownCards,
     neverReviewed: input.neverReviewed,
     matureCards,
     maturePercent: totalCards > 0 ? matureCards / totalCards : null,
@@ -418,7 +423,14 @@ function sumFrom(counts: Map<number, number>, from: number): number {
 export function getCollectionHealth(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION): CollectionHealth {
   const boxExpr = trackBoxExpr(criterion);
   const streakExpr = trackStreakExpr(criterion);
-  const population = trackPopulationCondition(criterion);
+  const knownCondition = eq(card.known, true);
+  const population = and(trackPopulationCondition(criterion), eq(card.known, false));
+
+  const knownCards = db
+    .select({ count: count(card.id) })
+    .from(card)
+    .where(and(trackPopulationCondition(criterion), knownCondition))
+    .get()!.count;
 
   const boxCounts = db
     .select({ box: boxExpr, count: count(card.id) })
@@ -445,6 +457,7 @@ export function getCollectionHealth(criterion: GradingCriterion = DEFAULT_GRADIN
     boxCounts,
     boxOneStreakCounts,
     neverReviewed,
+    knownCards,
     boxOneStreakRequired: getBoxOneStreakRequired(),
   });
 }
@@ -513,22 +526,22 @@ export function getReviewForecast(criterion: GradingCriterion = DEFAULT_GRADING_
   endExclusive.setHours(0, 0, 0, 0);
   endExclusive.setDate(endExclusive.getDate() + FORECAST_DAYS);
   const population = trackPopulationCondition(criterion);
-  // Suspended cards are never served, so the forecast leaves them out the same
-  // way baseDueCondition does for dueNow.
-  const notSuspended = eq(card.suspended, false);
+  // Suspended and known cards are never served, so the forecast leaves them out
+  // the same way baseDueCondition does for dueNow.
+  const inRotation = and(eq(card.suspended, false), eq(card.known, false));
 
   const dueDateExpr = sql<string>`date(${trackNextReviewAtExpr(criterion)}, 'unixepoch', 'localtime')`;
   const dueByDate = db
     .select({ date: dueDateExpr, count: count(card.id) })
     .from(card)
-    .where(and(population, notSuspended, trackDueBeforeCondition(criterion, endExclusive)))
+    .where(and(population, inRotation, trackDueBeforeCondition(criterion, endExclusive)))
     .groupBy(dueDateExpr)
     .all();
 
   const backlog = db
     .select({ count: count(card.id) })
     .from(card)
-    .where(and(population, notSuspended, trackDueCondition(criterion)))
+    .where(and(population, inRotation, trackDueCondition(criterion)))
     .get()!.count;
 
   return shapeForecast({

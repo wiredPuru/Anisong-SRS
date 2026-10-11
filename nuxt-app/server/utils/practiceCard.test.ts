@@ -17,10 +17,10 @@ afterEach(() => {
   db.delete(reviewLog).run(); db.delete(card).run(); db.delete(song).run(); db.delete(anime).run();
 });
 
-function addCard(aniListId: number, slot: string, extra: { suspended?: boolean } = {}): number {
+function addCard(aniListId: number, slot: string, extra: { suspended?: boolean; known?: boolean } = {}): number {
   const animeRow = upsertAnime({ aniListId, animethemesId: null, titleRomaji: `A${aniListId}`, titleEnglish: null, titleNative: null });
   const songRow = upsertSong({ animeId: animeRow.id, artistId: getOrCreateArtist("Artist").id, title: slot, themeSlot: slot, animethemesThemeId: null });
-  return db.insert(card).values({ songId: songRow.id, animethemesAudioUrl: "https://a/x.ogg", suspended: extra.suspended ?? false }).returning().get().id;
+  return db.insert(card).values({ songId: songRow.id, animethemesAudioUrl: "https://a/x.ogg", suspended: extra.suspended ?? false, known: extra.known ?? false }).returning().get().id;
 }
 
 describe("getPracticeCard", () => {
@@ -42,6 +42,12 @@ describe("getPracticeCard", () => {
     const kept = addCard(3, "OP1");
     expect(suspended).not.toBe(kept);
     expect(getPracticeCard({ type: "all" }, "title", null, [], [buried])?.id).toBe(kept);
+  });
+
+  it("leaves out known cards", () => {
+    addCard(1, "OP1", { known: true });
+    const kept = addCard(2, "OP1");
+    expect(getPracticeCard({ type: "all" })?.id).toBe(kept);
   });
 
   it("returns nothing when the scope has no cards", () => {

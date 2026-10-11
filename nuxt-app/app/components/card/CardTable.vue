@@ -6,6 +6,8 @@ interface CardRow {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   suspended: boolean;
+  known: boolean;
+  status: "new" | "learning" | "known" | "suspended";
   nextReviewAt: string;
   songTitle: string;
   themeSlot: string;

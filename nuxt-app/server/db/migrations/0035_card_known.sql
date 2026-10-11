@@ -1,0 +1,1 @@
+ALTER TABLE `card` ADD `known` integer DEFAULT false NOT NULL;

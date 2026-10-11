@@ -8,6 +8,8 @@ interface CardWithDetails {
   animethemesAudioUrl: string | null;
   notes: string | null;
   suspended: boolean;
+  known: boolean;
+  status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;
   createdAt: string;
