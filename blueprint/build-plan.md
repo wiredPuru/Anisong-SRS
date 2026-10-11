@@ -1181,7 +1181,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 102b. **IP ban** - record each player's IP at join, keep a ban list,
     refuse join and stream from a banned IP, and add the host UI.
 
-- [ ] 103. **Configurable hotkeys + Space to play/pause** - every Study,
+- [x] 103. **Configurable hotkeys + Space to play/pause** - every Study,
   Listen and Preview hotkey becomes a named action with a default key that
   you can rebind, and every tooltip and hint shows the key you actually set.
   Space joins S as a play/pause key. Rebinding lives in a new Settings >
@@ -1197,7 +1197,7 @@ cleaned-up checkbox version before generating the project overview.
     the hard-coded key checks with registry lookups, add Space for
     play/pause, and make tooltips, the Study legend and Listen's button hints
     read the current key.
-  - [ ] 103c. **Settings > Hotkeys** - a section listing every action with its
+  - [x] 103c. **Settings > Hotkeys** - a section listing every action with its
     key(s). Click, press a key to rebind, and conflicts are explained and
     must be resolved before saving. Includes Reset one, Reset all, and the
     Display menu link.

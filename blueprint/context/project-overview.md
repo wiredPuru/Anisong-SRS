@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 7a1282b248da36477c8ff6b07c38b30db44b553e58b9caa551dcca5aa57eac54 -->
+<!-- blueprint:source-hash f5db3f528c3d95fcddc694c3a4da2c40a609b348fefa9109dacaf2cbb2ebcced -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2529,7 +2529,7 @@ hotkeys §3's Study session bullet already describes.
       can't join this game" with no form. Bans live in memory and clear on a
       `gaq-party` restart; addresses are only ever sent to the host panel.
 103. **Configurable hotkeys + Space to play/pause** - added to `build-plan.md`
-    2026-10-11, in three sub-features; 103a and 103b are built. Every Study, Listen and
+    2026-10-11, in three sub-features, all built. Every Study, Listen and
     Preview hotkey becomes a named action with a default key and an optional
     alternate (play/pause defaults to Space and S; the rest have one default).
     Bindings are plain keys only (no Ctrl/Cmd/Alt), unique across actions, and
@@ -2558,8 +2558,18 @@ hotkeys §3's Study session bullet already describes.
       always keeps it. `claimSpace` suppresses the key-up too, for Firefox
       (unchecked). Known, not fixed: with a Preview open over Study, Study's
       player stays mounted so S and Space toggle both players.
-    - **103c. Settings > Hotkeys** - rebinding UI with conflict handling,
-      reset one/all, and the Display menu link.
+    - **103c. Settings > Hotkeys** - done 2026-10-12. A Hotkeys section in
+      Settings (`/settings?section=hotkeys`, `SettingsHotkeys.vue`, outside the
+      settings fetch) lists every action in five page groups with Primary and
+      Alternate key buttons: click, press a key, Esc cancels, Backspace or Delete
+      clears, Ctrl/Cmd/Alt is refused. A key another action holds, a reserved key
+      and the same key in both slots each get a plain message and change nothing
+      (`describeBindingFailure`); Reset per action (refused if its default was
+      taken since) and Reset all behind a confirm. `captureKey`,
+      `describeBindingFailure` and `hotkeyGroups` live in
+      `app/utils/hotkeyEditor.ts`. The Display menu on Study and Listen gets a
+      "Hotkeys..." link that opens the section in a new tab, and a change there
+      reaches an open Study tab with no reload.
 
 ## Data model
 

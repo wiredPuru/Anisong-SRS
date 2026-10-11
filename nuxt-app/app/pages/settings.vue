@@ -23,6 +23,7 @@ type SettingsSection =
   | "library"
   | "study"
   | "playback"
+  | "hotkeys"
   | "cache"
   | "import"
   | "health"
@@ -32,6 +33,7 @@ const SECTIONS: SettingsSection[] = [
   "library",
   "study",
   "playback",
+  "hotkeys",
   "cache",
   "import",
   "health",
@@ -41,6 +43,7 @@ const SECTION_LABELS: Record<SettingsSection, string> = {
   library: "Media library",
   study: "Study pacing",
   playback: "Playback",
+  hotkeys: "Hotkeys",
   cache: "Cache",
   import: "Import & export",
   health: "Library health",
@@ -263,6 +266,11 @@ async function importDeck() {
         <div v-else-if="activeSection === 'health'" class="section-panels">
           <SettingsLibraryHealth class="panel-full" />
           <SettingsLibraryRecover class="panel-full" />
+        </div>
+
+        <!-- Bindings live in the browser, so no settings fetch is needed. -->
+        <div v-else-if="activeSection === 'hotkeys'" class="section-panels">
+          <SettingsHotkeys class="panel-full" />
         </div>
 
         <template v-else>

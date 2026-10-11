@@ -46,6 +46,8 @@ defineExpose({ close: () => (open.value = false) });
     </button>
     <div v-show="open" class="menu-panel" role="group" :aria-label="`${label} options`">
       <slot />
+      <!-- A new tab, so a running Study or Listen session is not lost. -->
+      <NuxtLink to="/settings?section=hotkeys" target="_blank" rel="noopener" class="menu-link">Hotkeys...</NuxtLink>
     </div>
   </div>
 </template>
@@ -120,5 +122,21 @@ defineExpose({ close: () => (open.value = false) });
 
 .menu-panel :deep(.theme-chips-note) {
   display: none;
+}
+
+.menu-link {
+  justify-self: start;
+  padding-top: 10px;
+  border-top: 1px solid var(--glass-border);
+  width: 100%;
+  color: var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.menu-link:hover,
+.menu-link:focus-visible {
+  text-decoration: underline;
 }
 </style>
