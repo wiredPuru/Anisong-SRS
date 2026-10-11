@@ -1445,7 +1445,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </header>
       <div class="stage" :class="{ flipped: showDetails }" :style="stageStyle">
-        <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
+        <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake, 'fail-shake': (quizResult?.result ?? manualResult?.result) === 'fail' }">
+          <StudyResultFx :result="quizResult?.result ?? manualResult?.result ?? null" />
           <StudyMediaPlayer
             ref="mediaPlayerRef"
             :key="presentationKey"
@@ -2103,6 +2104,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 /* The video takes the stage; the Now playing bar sits under it, as wide as
    the picture (--frame-w is measured, since the frame's width follows the
    height left over). */
+.player-pane.fail-shake {
+  animation: fail-shake 0.5s;
+}
+
+@keyframes fail-shake {
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-pane.fail-shake { animation: none; }
+}
+
 .stage {
   flex: 1;
   min-height: 0;
