@@ -9,12 +9,7 @@ export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export const LIGHTNING_MODES = ["regular", "blind", "peek", "cover", "clues", "tags", "title"] as const;
 export type PartyLightningMode = (typeof LIGHTNING_MODES)[number];
 export const RULES_MAX = 2000;
-/** The host's house rules; the display shows them only while visible. */
-export interface PartyRules {
-  text: string;
-  visible: boolean;
-}
-export const NO_RULES: PartyRules = { text: "", visible: false };
+/** The host's house rules text; where and whether the display shows it is the display's own layout. */
 
 export interface PartyEndless {
   difficulty: EndlessDifficulty;
@@ -193,7 +188,7 @@ export interface PartyGameState {
   songVolume: number;
   // The display's corner chip with the player join address.
   joinInfoVisible: boolean;
-  rules: PartyRules;
+  rules: string;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -274,7 +269,7 @@ export type PartyCommand =
   | { type: "music"; enabled: boolean; volume: number }
   | { type: "songVolume"; volume: number }
   | { type: "joinInfo"; visible: boolean }
-  | { type: "rules"; text?: string; visible?: boolean }
+  | { type: "rules"; text: string }
   | { type: "buzzer"; enabled: boolean }
   | { type: "buzzJudge"; correct: boolean }
   | { type: "award"; playerId: number; awarded: boolean }
@@ -370,7 +365,7 @@ export interface PartyHostState {
   music: PartyMusic;
   songVolume: number;
   joinInfoVisible: boolean;
-  rules: PartyRules;
+  rules: string;
   buzzerEnabled: boolean;
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
@@ -460,7 +455,7 @@ export function initialPartyState(
     music: DEFAULT_MUSIC,
     songVolume: 1,
     joinInfoVisible: true,
-    rules: NO_RULES,
+    rules: "",
     buzzerEnabled: false,
     endless: null,
     revealFields: ALL_REVEAL_FIELDS,
@@ -673,11 +668,9 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return { type, text: trimmed };
     }
     case "rules": {
-      const { text, visible } = body as { text?: unknown; visible?: unknown };
-      if (text === undefined && visible === undefined) return { error: "text or visible is required" };
-      if (text !== undefined && (typeof text !== "string" || text.length > RULES_MAX)) return { error: `text must be at most ${RULES_MAX} characters` };
-      if (visible !== undefined && typeof visible !== "boolean") return { error: "visible must be a boolean" };
-      return { type, ...(text === undefined ? {} : { text }), ...(visible === undefined ? {} : { visible }) };
+      const { text } = body as { text?: unknown };
+      if (typeof text !== "string" || text.length > RULES_MAX) return { error: `text must be a string of at most ${RULES_MAX} characters` };
+      return { type, text };
     }
     case "joinInfo": {
       const { visible } = body as { visible?: unknown };
@@ -1211,11 +1204,9 @@ export function applyPartyCommand(
       if (command.text !== null) next = { ...state, banner: { text: command.text, shownAt: now() } };
       else if (state.banner) next = { ...state, banner: null };
       break;
-    case "rules": {
-      const rules = { text: command.text ?? state.rules.text, visible: command.visible ?? state.rules.visible };
-      if (rules.text !== state.rules.text || rules.visible !== state.rules.visible) next = { ...state, rules };
+    case "rules":
+      if (command.text !== state.rules) next = { ...state, rules: command.text };
       break;
-    }
     case "joinInfo":
       if (state.joinInfoVisible !== command.visible) next = { ...state, joinInfoVisible: command.visible };
       break;
@@ -1418,7 +1409,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
-    rules: state.rules.visible && state.rules.text.trim() ? state.rules.text.trim() : null,
+    rules: state.rules.trim() || null,
     buzz: { answering: playerName(state, state.buzz.playerId) },
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,

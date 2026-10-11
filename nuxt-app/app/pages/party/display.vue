@@ -214,7 +214,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <PartyRulesCard v-if="started && state?.rules" :text="state.rules" />
+    <PartyLayoutFrame v-if="started && (state?.rules || arranging)" piece="rules">
+      <PartyRulesCard :text="state?.rules ?? SAMPLE_RULES" />
+    </PartyLayoutFrame>
 
     <PartyRoundSummary v-if="showSummary" :summary="state?.summary ?? SAMPLE_SUMMARY" :sample="!state?.summary" />
 

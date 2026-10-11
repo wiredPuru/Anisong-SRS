@@ -6,22 +6,18 @@ const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const MAX = 2000;
 const open = ref(false);
-const draft = ref(props.state.rules.text);
+const draft = ref(props.state.rules);
 const editing = ref(false);
 
 // The server's copy wins unless the host is typing.
-watch(() => props.state.rules.text, (text) => {
+watch(() => props.state.rules, (text) => {
   if (!editing.value) draft.value = text;
 });
 
-const dirty = computed(() => draft.value !== props.state.rules.text);
+const dirty = computed(() => draft.value !== props.state.rules);
 
 function save() {
   if (dirty.value) emit("command", { type: "rules", text: draft.value });
-}
-
-function setVisible(visible: boolean) {
-  emit("command", { type: "rules", ...(dirty.value ? { text: draft.value } : {}), visible });
 }
 </script>
 
@@ -31,16 +27,6 @@ function setVisible(visible: boolean) {
       <button type="button" class="rules-toggle" :aria-expanded="open" @click="open = !open">
         <span class="rules-chevron" :class="{ open }" aria-hidden="true">&#9656;</span>
         <span id="rules-title">Rules</span>
-      </button>
-      <span v-if="state.rules.visible" class="rules-chip">On screen</span>
-      <button
-        type="button"
-        class="rules-show"
-        :class="{ active: state.rules.visible }"
-        :disabled="!draft.trim() && !state.rules.visible"
-        @click="setVisible(!state.rules.visible)"
-      >
-        {{ state.rules.visible ? "Hide from screen" : "Show on screen" }}
       </button>
     </div>
     <template v-if="open">
@@ -56,7 +42,7 @@ function setVisible(visible: boolean) {
         @keydown.stop
       />
       <div class="rules-foot">
-        <span class="rules-count">{{ draft.length }} / {{ MAX }}</span>
+        <span class="rules-count">{{ draft.length }} / {{ MAX }}. Place, resize or hide them from the display's Arrange layout.</span>
         <button type="button" class="rules-save" :disabled="!dirty" @click="save">Save</button>
       </div>
     </template>
