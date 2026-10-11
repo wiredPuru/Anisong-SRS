@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash bf437acdcd8e3323e7d8f9deca95343bdc6b6260ed0f49c97281c0e12adc7384 -->
+<!-- blueprint:source-hash d13b068acf76eecc6a8b3953c50232fe1af0ed0e09678238ed8ad2657cdc16c5 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -336,6 +336,11 @@ Feature 102 (party kick and IP ban, in two sub-features 102a-102b) was added to
 phone out, and ban their IP from rejoining; bans live in memory and clear when
 `gaq-party` restarts. No `project-plan.md` change: it is a control on feature
 90's existing player management, like feature 93.
+Feature 103 (configurable hotkeys, in three sub-features 103a-103c) was added to
+`build-plan.md` on 2026-10-11. Study, Listen and Preview hotkeys become named,
+rebindable actions saved in the browser, Space joins S as play/pause, and every
+tooltip shows the key actually set. No `project-plan.md` change: it extends the
+hotkeys §3's Study session bullet already describes.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2512,6 +2517,28 @@ phone out, and ban their IP from rejoining; bans live in memory and clear when
     person can switch networks.
     - **102a. Kick** - revoke the session, notify the phone, drop the player.
     - **102b. IP ban** - record IPs, ban list, join and stream refusal, host UI.
+103. **Configurable hotkeys + Space to play/pause** - added to `build-plan.md`
+    2026-10-11, in three sub-features; 103a is built. Every Study, Listen and
+    Preview hotkey becomes a named action with a default key and an optional
+    alternate (play/pause defaults to Space and S; the rest have one default).
+    Bindings are plain keys only (no Ctrl/Cmd/Alt), unique across actions, and
+    saved in `localStorage` (`gaqSrs:hotkeys`), never the database. Enter,
+    Escape, Tab and the typed-answer box keys stay fixed. Tooltips, Study's
+    hotkey legend and Listen's button hints read the current key. Rebinding
+    lives in Settings > Hotkeys, linked from the Display menu on Study and
+    Listen. Party mode's host-panel hotkeys are out of scope. Space must not
+    double-fire with a focused button or scroll the page.
+    - **103a. Hotkey registry** - done 2026-10-11. `app/utils/hotkeys.ts`
+      (pure: 16 actions with per-page scopes, defaults, key normalisation,
+      validation, `parseStored`/`serializeOverrides`, `actionForEvent`,
+      `hotkeyHint`, `resetBinding`) plus `useHotkeys()`. Conflicts count only
+      between actions sharing a page; a taken key is refused, never stolen;
+      saved bindings are checked as a set. No UI and no existing handler
+      changed.
+    - **103b. Wire Study, Listen and Preview** - registry lookups replace the
+      hard-coded checks; Space plays/pauses; labels follow the bindings.
+    - **103c. Settings > Hotkeys** - rebinding UI with conflict handling,
+      reset one/all, and the Display menu link.
 
 ## Data model
 

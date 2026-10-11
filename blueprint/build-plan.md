@@ -1181,6 +1181,27 @@ cleaned-up checkbox version before generating the project overview.
   - [ ] 102b. **IP ban** - record each player's IP at join, keep a ban list,
     refuse join and stream from a banned IP, and add the host UI.
 
+- [ ] 103. **Configurable hotkeys + Space to play/pause** - every Study,
+  Listen and Preview hotkey becomes a named action with a default key that
+  you can rebind, and every tooltip and hint shows the key you actually set.
+  Space joins S as a play/pause key. Rebinding lives in a new Settings >
+  Hotkeys section, reachable from a "Hotkeys..." link at the bottom of the
+  Display menu on Study and Listen. Bindings are saved in the browser
+  (`localStorage`); nothing touches the database. Party mode's own host-panel
+  hotkeys are out of scope.
+  - [x] 103a. **Hotkey registry** - a pure module with the action list,
+    default keys, key normalisation, conflict and reserved-key validation,
+    and the display label for a key (`Space`, arrows). A `useHotkeys()`
+    composable holds the saved bindings. No UI, so behaviour is unchanged.
+  - [ ] 103b. **Wire Study, Listen and Preview to the registry** - replace
+    the hard-coded key checks with registry lookups, add Space for
+    play/pause, and make tooltips, the Study legend and Listen's button hints
+    read the current key.
+  - [ ] 103c. **Settings > Hotkeys** - a section listing every action with its
+    key(s). Click, press a key to rebind, and conflicts are explained and
+    must be resolved before saving. Includes Reset one, Reset all, and the
+    Display menu link.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
