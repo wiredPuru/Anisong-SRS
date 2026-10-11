@@ -614,6 +614,14 @@ function revealCurrentCard() {
   autoRevealRemainingMs = null;
 }
 
+// Pressing Reveal (button, bar or Enter) also flips to the details, where the
+// answer is shown and the card is graded. Auto Reveal only unveils in place.
+function revealAndFlip() {
+  if (typedAnswers.value) return;
+  revealCurrentCard();
+  showDetails.value = true;
+}
+
 const mediaPlayerRef = ref<{ pause: () => void; playIfPaused: () => void } | null>(null);
 const viewedHistoryEntry = ref<SessionHistoryEntry | null>(null);
 const showSessionLog = ref(false);
@@ -1580,7 +1588,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :revealable="!typedAnswers && !answerControlsDisabled"
             :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
             :on-details="showDetails"
-            @reveal="revealCurrentCard"
+            @reveal="revealAndFlip"
             @watch-video="showDetails = false"
           >
             <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
@@ -1678,7 +1686,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :awaiting-reveal="hideInfo && !autoRevealedThisCard"
                 @pass="submitReview('pass')"
                 @fail="submitReview('fail')"
-                @reveal="revealCurrentCard"
+                @reveal="revealAndFlip"
               />
             </div>
           </StudyNowPlaying>
