@@ -80,16 +80,18 @@ watch(
   },
 );
 
-// The player owns the S hotkey, but it is not mounted until Play, so until
-// then S does the same as the Play button. Once it is mounted this stands
-// down and the player's own handler toggles play and pause.
+// The player owns the play/pause hotkey, but it is not mounted until Play, so
+// until then the key does the same as the Play button. Once it is mounted this
+// stands down and the player's own handler toggles play and pause.
 const { isTypingTarget } = useHotkeyGuard();
+const { actionFor, claimSpace } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key.toLowerCase() !== "s" || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.defaultPrevented || isTypingTarget(event)) return;
+  if (actionFor("preview", event) !== "playPause" || event.repeat) return;
   if (!props.card || playRequested.value || editingId.value !== null) return;
   if (!sourceBadges(props.card).length) return;
+  claimSpace(event);
   playRequested.value = true;
 }
 

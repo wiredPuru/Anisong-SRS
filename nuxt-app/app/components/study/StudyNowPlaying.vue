@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { hint } = useHotkeys();
 const props = defineProps<{
   themeSlot: string;
   animeTitleEnglish: string;
@@ -51,7 +52,7 @@ const native = computed(() =>
         <p class="np-title">Keep watching?</p>
         <p class="np-sub">The clip is still playing behind the details.</p>
         <button type="button" class="np-watch" @click="emit('watchVideo')">
-          Back to the video <kbd>D</kbd>
+          Back to the video <kbd v-if="hint('flipCard')">{{ hint("flipCard") }}</kbd>
         </button>
       </template>
       <template v-else-if="hidden">

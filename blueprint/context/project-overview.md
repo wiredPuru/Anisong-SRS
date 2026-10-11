@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash d13b068acf76eecc6a8b3953c50232fe1af0ed0e09678238ed8ad2657cdc16c5 -->
+<!-- blueprint:source-hash a527edfb211af15235c823c2297f4e5ea9a923283575630276d0aff5d5584197 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2518,7 +2518,7 @@ hotkeys §3's Study session bullet already describes.
     - **102a. Kick** - revoke the session, notify the phone, drop the player.
     - **102b. IP ban** - record IPs, ban list, join and stream refusal, host UI.
 103. **Configurable hotkeys + Space to play/pause** - added to `build-plan.md`
-    2026-10-11, in three sub-features; 103a is built. Every Study, Listen and
+    2026-10-11, in three sub-features; 103a and 103b are built. Every Study, Listen and
     Preview hotkey becomes a named action with a default key and an optional
     alternate (play/pause defaults to Space and S; the rest have one default).
     Bindings are plain keys only (no Ctrl/Cmd/Alt), unique across actions, and
@@ -2535,8 +2535,18 @@ hotkeys §3's Study session bullet already describes.
       between actions sharing a page; a taken key is refused, never stolen;
       saved bindings are checked as a set. No UI and no existing handler
       changed.
-    - **103b. Wire Study, Listen and Preview** - registry lookups replace the
-      hard-coded checks; Space plays/pauses; labels follow the bindings.
+    - **103b. Wire Study, Listen and Preview** - done 2026-10-12. Registry
+      lookups (`useHotkeys().actionFor(scope, event)`) replace every hard-coded
+      key check in Study, Listen, Preview and the `/cards` inspector; Space and
+      S play/pause; tooltips, the Study legend and the Reveal/Next/Missed/Got it
+      hints read the current keys and hide when unbound. `StudyMediaPlayer` takes
+      a `hotkeyScope` prop (default `preview`). `app/utils/hotkeyTarget.ts`
+      decides when Space keeps its native job: Study and Listen claim it even
+      from a focused page-level button, `/cards` and Preview yield to a focused
+      control unless a dialog is open behind it, and a control inside a dialog
+      always keeps it. `claimSpace` suppresses the key-up too, for Firefox
+      (unchecked). Known, not fixed: with a Preview open over Study, Study's
+      player stays mounted so S and Space toggle both players.
     - **103c. Settings > Hotkeys** - rebinding UI with conflict handling,
       reset one/all, and the Display menu link.
 

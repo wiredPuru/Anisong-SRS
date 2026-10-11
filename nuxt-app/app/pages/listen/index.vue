@@ -3,6 +3,7 @@ import type { StudyFilters } from "~/utils/studyFilters";
 import type { StudyScope } from "~/composables/useStudySession";
 import { buildSourceLinks } from "~/utils/sourceLinks";
 import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
+import type { HotkeyActionId } from "~/utils/hotkeys";
 
 const route = useRoute();
 
@@ -223,18 +224,28 @@ watch(presentationKey, () => {
 });
 
 const { isTypingTarget } = useHotkeyGuard();
+const hotkeys = useHotkeys();
+const { hint: hotkeyHint } = hotkeys;
+
+// Playback's key is handled independently by StudyMediaPlayer.
+const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
+  listenNext: next,
+  listenPrevious: previous,
+  hideInfo: () => { hideInfo.value = !hideInfo.value; },
+  hideVideo: () => { hideVideo.value = !hideVideo.value; },
+  hideCover: () => { hideCover.value = !hideCover.value; },
+  ambient: () => { ambientMode.value = !ambientMode.value; },
+  reveal,
+  flipCard: () => { showDetails.value = !showDetails.value; },
+};
 
 function onKeydown(event: KeyboardEvent) {
-  if (isTypingTarget(event) || event.metaKey || event.ctrlKey || event.altKey) return;
-  const key = event.key.toLowerCase();
-  if (event.key === "ArrowRight") next();
-  else if (event.key === "ArrowLeft") previous();
-  else if (key === "i") hideInfo.value = !hideInfo.value;
-  else if (key === "v") hideVideo.value = !hideVideo.value;
-  else if (key === "c") hideCover.value = !hideCover.value;
-  else if (key === "a") ambientMode.value = !ambientMode.value;
-  else if (key === "r") reveal();
-  else if (key === "d") showDetails.value = !showDetails.value;
+  if (isTypingTarget(event)) return;
+  const action = hotkeys.actionFor("listen", event);
+  const run = action && PAGE_ACTIONS[action];
+  if (!run) return;
+  hotkeys.claimSpace(event);
+  run();
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -353,6 +364,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="stage" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture">
           <StudyMediaPlayer
+            hotkey-scope="listen"
             :key="presentationKey"
             :card="currentCard"
             :hide-video="videoHidden"
@@ -435,7 +447,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 class="transport-btn"
                 @click="reveal"
               >
-                Reveal <kbd>R</kbd>
+                Reveal <kbd v-if="hotkeyHint('reveal')">{{ hotkeyHint("reveal") }}</kbd>
               </button>
               <button
                 type="button"
@@ -451,7 +463,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               </span>
               <span class="position">{{ positionLabel(index, total) }}</span>
               <button type="button" class="transport-btn next" @click="next">
-                Next <kbd>&rarr;</kbd>
+                Next <kbd v-if="hotkeyHint('listenNext')">{{ hotkeyHint("listenNext") }}</kbd>
               </button>
             </div>
           </StudyNowPlaying>

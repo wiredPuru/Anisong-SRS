@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CardWithDetails } from "~/composables/useStudySession";
+import type { HotkeyScope } from "~/utils/hotkeys";
 
 const props = defineProps<{
   card: Pick<
@@ -16,6 +17,8 @@ const props = defineProps<{
   randomStart?: boolean;
   ambient?: boolean;
   allowExpand?: boolean;
+  // Which page's key bindings apply; Preview and the /cards inspector use the default.
+  hotkeyScope?: HotkeyScope;
   immersive?: boolean;
   hideThemeBadge?: boolean;
   hasDefaultDownloadFolder?: boolean;
@@ -1010,12 +1013,16 @@ function retryAmbientPreload(retriesLeft: number) {
 }
 
 const { isTypingTarget } = useHotkeyGuard();
+const { actionFor, claimSpace, hint: hotkeyHint } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event)) return;
-  if (event.key.toLowerCase() === "s") {
+  const action = actionFor(props.hotkeyScope ?? "preview", event);
+  if (action === "playPause") {
+    if (event.repeat) return;
+    claimSpace(event);
     togglePlay();
-  } else if (event.key.toLowerCase() === "f" && props.allowExpand && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  } else if (action === "expand" && props.allowExpand) {
     emit("update:immersive", !props.immersive);
   } else if (event.key === "Escape" && props.immersive) {
     emit("update:immersive", false);
@@ -1083,7 +1090,7 @@ onUnmounted(() => stopDrag?.());
         @click="emit('update:immersive', !immersive)"
       >
         {{ immersive ? "⤡" : "⤢" }}
-        <span class="tooltip">Hotkey: F</span>
+        <span v-if="hotkeyHint('expand')" class="tooltip">Hotkey: {{ hotkeyHint("expand") }}</span>
       </button>
 
       <video
@@ -1260,7 +1267,7 @@ onUnmounted(() => stopDrag?.());
           <svg v-else class="play-icon play-icon-play" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M8 5.5v13a1 1 0 0 0 1.5.87l10.4-6.5a1 1 0 0 0 0-1.74L9.5 4.63A1 1 0 0 0 8 5.5z" />
           </svg>
-          <span class="tooltip">Hotkey: S</span>
+          <span v-if="hotkeyHint('playPause')" class="tooltip">Hotkey: {{ hotkeyHint("playPause") }}</span>
         </button>
         <div class="scrub" :class="{ dragging: isDragging }" @mousedown="onScrubMouseDown">
           <span :style="{ width: progressPercent + '%' }" />

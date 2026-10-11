@@ -30,6 +30,7 @@ const emit = defineEmits<{
 }>();
 
 const showAutoRevealSettings = ref(false);
+const { hint } = useHotkeys();
 </script>
 
 <template>
@@ -52,7 +53,7 @@ const showAutoRevealSettings = ref(false);
         @click="emit('toggle-hide-video')"
       >
         Video
-        <span class="tooltip">Hotkey: V</span>
+        <span v-if="hint('hideVideo')" class="tooltip">Hotkey: {{ hint("hideVideo") }}</span>
       </button>
       <button
         v-else
@@ -64,7 +65,7 @@ const showAutoRevealSettings = ref(false);
         @click="emit('toggle-hide-cover')"
       >
         Cover
-        <span class="tooltip">Hotkey: C</span>
+        <span v-if="hint('hideCover')" class="tooltip">Hotkey: {{ hint("hideCover") }}</span>
       </button>
       <button
         type="button"
@@ -75,7 +76,7 @@ const showAutoRevealSettings = ref(false);
         @click="emit('toggle-hide-info')"
       >
         Info
-        <span class="tooltip">Hotkey: I</span>
+        <span v-if="hint('hideInfo')" class="tooltip">Hotkey: {{ hint("hideInfo") }}</span>
       </button>
     </div>
     <button
@@ -117,7 +118,7 @@ const showAutoRevealSettings = ref(false);
       @click="emit('toggle-ambient-mode')"
     >
       Ambient
-      <span class="tooltip">Hotkey: A</span>
+      <span v-if="hint('ambient')" class="tooltip">Hotkey: {{ hint("ambient") }}</span>
     </button>
     <button
       type="button"

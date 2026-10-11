@@ -3,6 +3,7 @@ const props = defineProps<{ disabled: boolean; awaitingReveal: boolean }>();
 const emit = defineEmits<{ pass: []; fail: []; reveal: [] }>();
 
 const { isTypingTarget } = useHotkeyGuard();
+const { actionFor, claimSpace, hint } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
   if (props.disabled || isTypingTarget(event)) return;
@@ -15,12 +16,11 @@ function onKeydown(event: KeyboardEvent) {
     }
     return;
   }
-  if (event.key === "ArrowLeft") {
+  const action = actionFor("study", event);
+  if (action === "fail" || action === "pass") {
     event.preventDefault();
-    emit("fail");
-  } else if (event.key === "ArrowRight") {
-    event.preventDefault();
-    emit("pass");
+    claimSpace(event);
+    emit(action);
   }
 }
 
@@ -41,10 +41,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     </button>
     <template v-else>
       <button type="button" class="grade-btn fail" :disabled="disabled" @click="emit('fail')">
-        Missed <kbd aria-label="Left arrow">&larr;</kbd>
+        Missed <kbd v-if="hint('fail')">{{ hint("fail") }}</kbd>
       </button>
       <button type="button" class="grade-btn pass" :disabled="disabled" @click="emit('pass')">
-        Got it <kbd aria-label="Right arrow">&rarr;</kbd>
+        Got it <kbd v-if="hint('pass')">{{ hint("pass") }}</kbd>
       </button>
     </template>
   </div>

@@ -13,6 +13,7 @@ interface ManualDeck {
 	name: string
 }
 
+const { hint } = useHotkeys();
 const props = defineProps<{
 	card: CardWithDetails
 	manualDecks: ManualDeck[]
@@ -196,7 +197,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			@click="startEdit"
 		>
 			Edit card
-			<span class="tooltip">Hotkey: E</span>
+			<span v-if="hint('editCard')" class="tooltip">Hotkey: {{ hint("editCard") }}</span>
 		</button>
 		<form v-else ref="formRef" class="edit-form" @submit.prevent="save">
 			<div class="skip-actions">

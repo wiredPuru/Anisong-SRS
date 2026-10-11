@@ -9,6 +9,8 @@ import type { BurstRect } from "~/utils/scoreBurst";
 import { buildBurstPlan, COMBO_SHAKE_FROM } from "~/utils/scoreBurst";
 import { buildSourceLinks } from "~/utils/sourceLinks";
 import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
+import { eventKey, type HotkeyActionId } from "~/utils/hotkeys";
+import { typedGiveUpApplies } from "~/utils/hotkeyTarget";
 
 const route = useRoute();
 const typedAnswers = ref(false);
@@ -574,16 +576,22 @@ function giveUpRound() {
   else giveUpMainAnswer();
 }
 
-// Right arrow gives up a typed round. Inside an answer box it only does so
-// with the caret at the end, so moving through typed text still works.
-function isRightArrowGiveUp(event: KeyboardEvent): boolean {
-  if (event.key !== "ArrowRight" || event.repeat || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
+const hotkeys = useHotkeys();
+const { hint: hotkeyHint } = hotkeys;
+
+// The pass key gives up a typed round. Inside an answer box only the right
+// arrow does, with the caret at the end, so moving through typed text still works.
+function isGiveUpKey(event: KeyboardEvent): boolean {
+  if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return false;
   if (!typedAnswers.value || quizResult.value || event.isComposing || showFilters.value || showFindSource.value) return false;
+  const key = eventKey(event);
+  if (key === null) return false;
   const target = event.target;
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    return target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
-  }
-  return !isTypingTarget(event);
+  const inTextField = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+  if (inTextField && event.shiftKey) return false;
+  if (!inTextField && isTypingTarget(event)) return false;
+  const caretAtEnd = inTextField && target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+  return typedGiveUpApplies({ passKeys: hotkeys.keys("pass"), key, inTextField, caretAtEnd });
 }
 
 async function continueTypedAnswer() {
@@ -1204,49 +1212,58 @@ onUnmounted(() => setAmbientGlass(false));
 
 const { isTypingTarget } = useHotkeyGuard();
 
+function toggleEditFromKey() {
+  if (loading.value || submissionBusy.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
+  showDetails.value = true;
+  cardEditPanelRef.value?.toggle();
+}
+
+// Playback's key is handled independently by StudyMediaPlayer.
+const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
+  hideInfo: () => { hideInfo.value = !hideInfo.value; },
+  hideVideo: () => { hideVideo.value = !hideVideo.value; },
+  hideCover: () => { hideCover.value = !hideCover.value; },
+  ambient: () => { ambientMode.value = !ambientMode.value; },
+  previousCard: openPreviousCard,
+  sessionLog: () => { showSessionLog.value = !showSessionLog.value; },
+  flipCard: () => { showDetails.value = !showDetails.value; },
+  editCard: toggleEditFromKey,
+};
+
 function onKeydown(event: KeyboardEvent) {
-  if (isRightArrowGiveUp(event)) {
+  if (isGiveUpKey(event)) {
     event.preventDefault();
     giveUpRound();
     return;
   }
   if (isTypingTarget(event) || showFilters.value || showFindSource.value) return;
-  if (event.key.toLowerCase() === "u" && !event.repeat) {
+  if (roundResult.value && event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
+    event.preventDefault();
+    void continueTypedAnswer();
+    return;
+  }
+  const action = hotkeys.actionFor("study", event);
+  if (!action) return;
+  if (action === "undo") {
+    if (event.repeat) return;
+    hotkeys.claimSpace(event);
     void undoLastReview();
     return;
   }
+  // Once a typed round has a result, only flip card and undo stay live, so
+  // the result stays put.
   if (roundResult.value) {
-    if (event.key === "Enter" && !shouldIgnoreAnswerKey(false, event.isComposing, false, event.repeat)) {
-      event.preventDefault();
-      void continueTypedAnswer();
-    } else if (event.key.toLowerCase() === "d" && !event.repeat) {
+    if (action === "flipCard" && !event.repeat) {
+      hotkeys.claimSpace(event);
       showDetails.value = !showDetails.value;
     }
-    // Playback's S hotkey is handled independently by StudyMediaPlayer. Keep
-    // the result stable by suppressing page-level navigation and reveal keys.
     return;
   }
-  if (typedAnswers.value && ["i", "c"].includes(event.key.toLowerCase())) return;
-  const key = event.key.toLowerCase();
-  if (key === "i") {
-    hideInfo.value = !hideInfo.value;
-  } else if (key === "v") {
-    hideVideo.value = !hideVideo.value;
-  } else if (key === "c") {
-    hideCover.value = !hideCover.value;
-  } else if (key === "a") {
-    ambientMode.value = !ambientMode.value;
-  } else if (key === "p") {
-    openPreviousCard();
-  } else if (key === "l") {
-    showSessionLog.value = !showSessionLog.value;
-  } else if (key === "d") {
-    showDetails.value = !showDetails.value;
-  } else if (key === "e") {
-    if (loading.value || submissionBusy.value || viewedHistoryEntry.value || showSessionLog.value || !currentCard.value) return;
-    showDetails.value = true;
-    cardEditPanelRef.value?.toggle();
-  }
+  if (typedAnswers.value && (action === "hideInfo" || action === "hideCover")) return;
+  const run = PAGE_ACTIONS[action];
+  if (!run) return;
+  hotkeys.claimSpace(event);
+  run();
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -1309,11 +1326,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           @click="showSessionLog = true"
         >
           <span aria-hidden="true">📋</span> Session log
-          <span class="tooltip">See every card from this session &middot; Hotkey: L</span>
+          <span class="tooltip">See every card from this session<template v-if="hotkeyHint('sessionLog')"> &middot; Hotkey: {{ hotkeyHint("sessionLog") }}</template></span>
         </button>
         <button type="button" class="undo-btn" :disabled="!canUndo" @click="undoLastReview">
           &#8634; Undo review
-          <span class="tooltip">Take back your last answer and grade it again &middot; Hotkey: U</span>
+          <span class="tooltip">Take back your last answer and grade it again<template v-if="hotkeyHint('undo')"> &middot; Hotkey: {{ hotkeyHint("undo") }}</template></span>
         </button>
       </div>
       <p v-if="error" role="alert">{{ error }}</p>
@@ -1449,6 +1466,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
+            hotkey-scope="study"
             :key="presentationKey"
             :card="currentCard"
             :hide-video="typedAnswers ? (hideVideo || autoRevealTargetsVisual) && !quizResult : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
@@ -1551,8 +1569,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 <template v-if="typedAnswers">
                   <template v-if="quizResult">
                     <span><kbd>Enter</kbd> continue</span>
-                    <span><kbd>U</kbd> undo</span>
-                    <span><kbd>S</kbd> play/pause</span>
+                    <span v-if="hotkeyHint('undo')"><kbd>{{ hotkeyHint("undo") }}</kbd> undo</span>
+                    <span v-if="hotkeyHint('playPause')"><kbd>{{ hotkeyHint("playPause") }}</kbd> play/pause</span>
                   </template>
                   <template v-else>
                     <span><kbd>&uarr;&darr;</kbd> choose</span>
@@ -1561,12 +1579,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   </template>
                 </template>
                 <template v-else>
-                  <span><kbd>S</kbd> play/pause</span>
-                  <span><kbd>I</kbd> hide info</span>
-                  <span><kbd>U</kbd> undo</span>
-                  <span><kbd>L</kbd> session log</span>
-                  <span><kbd>E</kbd> edit card</span>
-                  <span><kbd>D</kbd> flip card</span>
+                  <span v-if="hotkeyHint('playPause')"><kbd>{{ hotkeyHint("playPause") }}</kbd> play/pause</span>
+                  <span v-if="hotkeyHint('hideInfo')"><kbd>{{ hotkeyHint("hideInfo") }}</kbd> hide info</span>
+                  <span v-if="hotkeyHint('undo')"><kbd>{{ hotkeyHint("undo") }}</kbd> undo</span>
+                  <span v-if="hotkeyHint('sessionLog')"><kbd>{{ hotkeyHint("sessionLog") }}</kbd> session log</span>
+                  <span v-if="hotkeyHint('editCard')"><kbd>{{ hotkeyHint("editCard") }}</kbd> edit card</span>
+                  <span v-if="hotkeyHint('flipCard')"><kbd>{{ hotkeyHint("flipCard") }}</kbd> flip card</span>
                 </template>
               </p>
             </template>

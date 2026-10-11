@@ -112,7 +112,7 @@ function actionById(id: HotkeyActionId): HotkeyAction {
   return HOTKEY_ACTIONS.find((a) => a.id === id)!;
 }
 
-function keysOf(binding: HotkeyBinding): string[] {
+export function keysOf(binding: HotkeyBinding): string[] {
   return [binding.primary, binding.alternate].filter((k): k is string => k !== null);
 }
 

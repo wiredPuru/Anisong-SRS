@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BonusCategoryResult } from "~/utils/quizScore";
 
+const { hint } = useHotkeys();
 const props = defineProps<{
   result: "pass" | "fail";
   selectedTitle: string | null;
@@ -121,7 +122,7 @@ onMounted(() => nextTick(() => {
       <p class="listen-hint">Keep listening, then continue when you’re ready.</p>
       <button type="button" class="undo-action" :disabled="busy || !canUndo" @click="emit('undo')">
         Undo
-        <kbd>U</kbd>
+        <kbd v-if="hint('undo')">{{ hint("undo") }}</kbd>
       </button>
       <button ref="continueButton" type="button" :disabled="busy" @click="emit('continue')">
         {{ retry ? "Retry next card" : "Continue" }}

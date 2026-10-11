@@ -1193,7 +1193,7 @@ cleaned-up checkbox version before generating the project overview.
     default keys, key normalisation, conflict and reserved-key validation,
     and the display label for a key (`Space`, arrows). A `useHotkeys()`
     composable holds the saved bindings. No UI, so behaviour is unchanged.
-  - [ ] 103b. **Wire Study, Listen and Preview to the registry** - replace
+  - [x] 103b. **Wire Study, Listen and Preview to the registry** - replace
     the hard-coded key checks with registry lookups, add Space for
     play/pause, and make tooltips, the Study legend and Listen's button hints
     read the current key.
