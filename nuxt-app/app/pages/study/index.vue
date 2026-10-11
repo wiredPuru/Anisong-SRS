@@ -849,18 +849,12 @@ const hideCover = ref(false);
 const currentMediaKind = ref<"video" | "audio">("video");
 const randomStart = ref(false);
 const ambientMode = ref(false);
-type AutoRevealMode = "off" | "video" | "info" | "both";
-const AUTO_REVEAL_MODES: readonly AutoRevealMode[] = ["off", "video", "info", "both"];
-function isAutoRevealMode(value: string | null): value is AutoRevealMode {
-  return value !== null && (AUTO_REVEAL_MODES as readonly string[]).includes(value);
-}
-
 const autoRevealMode = ref<AutoRevealMode>("off");
 // "Visual" covers both Hide Video and Hide Cover - feature 44/45 already
 // treats them as the same slot (whichever applies to the current card's
 // type), so "Auto Reveal Video" targets whichever one is actually relevant
 // rather than being restricted to literally video-capable cards.
-const autoRevealTargetsVisual = computed(() => autoRevealMode.value === "video" || autoRevealMode.value === "both");
+const autoRevealTargetsVisual = computed(() => autoRevealMode.value === "both");
 const autoRevealTargetsInfo = computed(() => autoRevealMode.value === "info" || autoRevealMode.value === "both");
 
 const AUTO_REVEAL_SECONDS_DEFAULT = 5;
@@ -895,7 +889,7 @@ onMounted(() => {
 
   try {
     const stored = localStorage.getItem(AUTO_REVEAL_MODE_STORAGE_KEY);
-    autoRevealMode.value = isAutoRevealMode(stored) ? stored : "off";
+    autoRevealMode.value = readStoredAutoRevealMode(stored);
   } catch {
     autoRevealMode.value = "off";
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-type AutoRevealMode = "off" | "video" | "info" | "both";
+type AutoRevealMode = "off" | "info" | "both";
 
 defineProps<{
   hideVideo: boolean;
