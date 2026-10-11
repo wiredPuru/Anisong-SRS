@@ -20,6 +20,27 @@ const deckRows = computed(() => [
   { label: "Opening/Ending number", required: props.required.themeSlot },
   { label: "Artist", required: props.required.artist },
 ]);
+type ToggleKey = keyof TypedAnswerCategories;
+const bonusOnly = computed(() => props.categories.songName || props.categories.themeSlot || props.categories.artist);
+const toggleRows = computed(() => {
+  const c = props.categories;
+  const others = (key: ToggleKey) => (["anime", "songName", "artist"] as const).filter((k) => k !== key && c[k]).length;
+  const lastOne = (key: ToggleKey) => c[key] && others(key) === 0;
+  return [
+    { key: "anime" as const, label: "Anime name", locked: lastOne("anime"), lockedReason: "Turn on the song or artist first" },
+    { key: "songName" as const, label: "Song name", locked: lastOne("songName"), lockedReason: "At least one category must stay on" },
+    { key: "themeSlot" as const, label: "Opening/Ending number", locked: !c.anime, lockedReason: "Needs Anime name" },
+    { key: "artist" as const, label: "Artist", locked: lastOne("artist"), lockedReason: "At least one category must stay on" },
+  ];
+});
+
+function toggle(key: ToggleKey) {
+  const next = { ...props.categories, [key]: !props.categories[key] };
+  if (!next.anime) next.themeSlot = false;
+  if (!hasAnswerCategory(next)) return;
+  emit("update:categories", next);
+}
+
 const emit = defineEmits<{
   "update:categories": [TypedAnswerCategories];
   close: [];
@@ -43,47 +64,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
         <h2 class="title">Answer categories</h2>
         <template v-if="titleGraded">
-          <p class="hint">Choose what you guess each round. Correct extra categories add bonus points - only the anime name affects scheduling.</p>
-          <div class="category-row locked">
-            <span class="category-label">Anime name</span>
-            <span class="locked-badge">Always on</span>
-          </div>
-          <div class="category-row">
-            <span class="category-label">Song name</span>
+          <p class="hint">Choose what you guess each round, at least one. Turn Anime name off to grade on the song or artist instead, on their own schedule.</p>
+          <div v-for="row in toggleRows" :key="row.key" class="category-row">
+            <span class="category-label">{{ row.label }}</span>
             <button
               type="button"
               class="category-toggle"
-              :class="{ on: categories.songName }"
-              :aria-pressed="categories.songName"
-              @click="emit('update:categories', { ...categories, songName: !categories.songName })"
+              :class="{ on: categories[row.key] }"
+              :aria-pressed="categories[row.key]"
+              :disabled="row.locked"
+              :title="row.lockedReason"
+              @click="toggle(row.key)"
             >
-              {{ categories.songName ? "On" : "Off" }}
+              {{ categories[row.key] ? "On" : "Off" }}
             </button>
           </div>
-          <div class="category-row">
-            <span class="category-label">Opening/Ending number</span>
-            <button
-              type="button"
-              class="category-toggle"
-              :class="{ on: categories.themeSlot }"
-              :aria-pressed="categories.themeSlot"
-              @click="emit('update:categories', { ...categories, themeSlot: !categories.themeSlot })"
-            >
-              {{ categories.themeSlot ? "On" : "Off" }}
-            </button>
-          </div>
-          <div class="category-row">
-            <span class="category-label">Artist</span>
-            <button
-              type="button"
-              class="category-toggle"
-              :class="{ on: categories.artist }"
-              :aria-pressed="categories.artist"
-              @click="emit('update:categories', { ...categories, artist: !categories.artist })"
-            >
-              {{ categories.artist ? "On" : "Off" }}
-            </button>
-          </div>
+          <p v-if="!categories.anime" class="hint">Opening/Ending number needs Anime name, so it is off while that is.</p>
+          <p v-else-if="bonusOnly" class="hint">With Anime name on, extra categories add bonus points and only the anime name affects scheduling.</p>
         </template>
         <template v-else>
           <p class="hint">This deck decides what each round asks.</p>
@@ -195,6 +192,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.category-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .category-toggle.on {

@@ -55,7 +55,7 @@ export function requiredCategories(criterion: GradingCriterion): RequiredCategor
 export function visibleAnswerCategories(criterion: GradingCriterion, stored: TypedAnswerCategories): TypedAnswerCategories {
   if (criterion === "title") return { ...stored };
   const required = requiredCategories(criterion);
-  return { themeSlot: required.themeSlot, songName: required.songName, artist: required.artist };
+  return { anime: required.anime, themeSlot: required.themeSlot, songName: required.songName, artist: required.artist };
 }
 
 /**

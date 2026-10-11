@@ -14,6 +14,9 @@ const route = useRoute();
 const typedAnswers = ref(false);
 const TYPED_ANSWERS_STORAGE_KEY = "gaqSrs:typedAnswers";
 const typedAnswerCategories = ref<TypedAnswerCategories>({ ...DEFAULT_TYPED_ANSWER_CATEGORIES });
+// Anime name switched off moves a non-deck session onto the track for what is
+// still asked; manual Pass/Fail always grades the anime title.
+const studyTrack = computed(() => (typedAnswers.value ? trackWithoutAnime(typedAnswerCategories.value) : null));
 
 onMounted(() => {
   try {
@@ -147,7 +150,7 @@ const {
   skip: skipCard,
   removeDeleted,
   refresh: refreshStudySession,
-} = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters);
+} = useStudySession(scope, effectiveAudioOnly, clipSource, studyFilters, studyTrack);
 
 const requiredAnswers = computed(() => requiredCategories(criterion.value));
 const visibleAnswers = computed(() => visibleAnswerCategories(criterion.value, typedAnswerCategories.value));
@@ -309,6 +312,10 @@ watch(showDetails, (open) => {
 // A new song always opens on the picture, even if the last one was flipped.
 watch(presentationKey, () => {
   showDetails.value = false;
+});
+// A graded typed guess, right or wrong, shows the details until the next song.
+watch(quizResult, (result) => {
+  if (result) showDetails.value = true;
 });
 watch(cardEditing, (editing) => {
   if (editing) showDetails.value = true;
@@ -558,6 +565,24 @@ function giveUpMainAnswer() {
   if (mainAnswer.value === "artist") artistAnswerText.value = null;
   else songAnswerText.value = null;
   submitMainAnswer();
+}
+
+function giveUpRound() {
+  if (!typedAnswers.value || quizResult.value || answerControlsDisabled.value) return;
+  if (mainAnswer.value === "anime") void saveTypedAnswer("fail", null);
+  else giveUpMainAnswer();
+}
+
+// Right arrow gives up a typed round. Inside an answer box it only does so
+// with the caret at the end, so moving through typed text still works.
+function isRightArrowGiveUp(event: KeyboardEvent): boolean {
+  if (event.key !== "ArrowRight" || event.repeat || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
+  if (!typedAnswers.value || quizResult.value || event.isComposing || showFilters.value || showFindSource.value) return false;
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+  }
+  return !isTypingTarget(event);
 }
 
 async function continueTypedAnswer() {
@@ -1175,6 +1200,11 @@ onUnmounted(() => setAmbientGlass(false));
 const { isTypingTarget } = useHotkeyGuard();
 
 function onKeydown(event: KeyboardEvent) {
+  if (isRightArrowGiveUp(event)) {
+    event.preventDefault();
+    giveUpRound();
+    return;
+  }
   if (isTypingTarget(event) || showFilters.value || showFindSource.value) return;
   if (event.key.toLowerCase() === "u" && !event.repeat) {
     void undoLastReview();

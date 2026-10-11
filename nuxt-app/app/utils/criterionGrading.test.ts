@@ -121,10 +121,10 @@ describe("describeCriterion", () => {
 
 describe("visibleAnswerCategories", () => {
   const storedCombinations = [
-    { themeSlot: false, songName: false, artist: false },
-    { themeSlot: true, songName: false, artist: false },
-    { themeSlot: false, songName: true, artist: true },
-    { themeSlot: true, songName: true, artist: true },
+    { anime: true, themeSlot: false, songName: false, artist: false },
+    { anime: true, themeSlot: true, songName: false, artist: false },
+    { anime: true, themeSlot: false, songName: true, artist: true },
+    { anime: true, themeSlot: true, songName: true, artist: true },
   ];
 
   it.each(storedCombinations)("title echoes the stored bonuses %j", (stored) => {
@@ -132,11 +132,11 @@ describe("visibleAnswerCategories", () => {
   });
 
   it.each([
-    ["song", { themeSlot: false, songName: true, artist: false }],
-    ["artist", { themeSlot: false, songName: false, artist: true }],
-    ["title+song", { themeSlot: false, songName: true, artist: false }],
-    ["title+slot", { themeSlot: true, songName: false, artist: false }],
-    ["title+song+slot+artist", { themeSlot: true, songName: true, artist: true }],
+    ["song", { anime: false, themeSlot: false, songName: true, artist: false }],
+    ["artist", { anime: false, themeSlot: false, songName: false, artist: true }],
+    ["title+song", { anime: true, themeSlot: false, songName: true, artist: false }],
+    ["title+slot", { anime: true, themeSlot: true, songName: false, artist: false }],
+    ["title+song+slot+artist", { anime: true, themeSlot: true, songName: true, artist: true }],
   ] as const)("%s shows exactly its required categories whatever is stored", (criterion, expected) => {
     for (const stored of storedCombinations) {
       expect(visibleAnswerCategories(criterion, stored)).toEqual(expected);
@@ -144,7 +144,7 @@ describe("visibleAnswerCategories", () => {
   });
 
   it("never hands back the stored object itself", () => {
-    const stored = { themeSlot: true, songName: true, artist: true };
+    const stored = { anime: true, themeSlot: true, songName: true, artist: true };
     expect(visibleAnswerCategories("title", stored)).not.toBe(stored);
   });
 });
