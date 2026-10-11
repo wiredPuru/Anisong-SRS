@@ -13,6 +13,10 @@ export interface PartyEndless {
   downloadedOnly: boolean;
   /** Draw from AnisongDB's whole catalog instead of the library's cards. */
   outsideLibrary: boolean;
+  /** Which cards a library queue draws from. */
+  scope: { type: "all" } | { type: "created"; id: number };
+  /** Study filters narrow the draw; the filters themselves stay on the server. */
+  filtered: boolean;
 }
 
 /** Which parts of the answer the reveal shows. */
@@ -248,7 +252,7 @@ export type PartyCommand =
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
   | { type: "stake"; config: PartyStake | null }
-  | { type: "endless"; config: PartyEndless | null }
+  | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }
@@ -609,17 +613,26 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
     }
     case "endless": {
-      const { config } = body as { config?: unknown };
+      const { config, filters } = body as { config?: unknown; filters?: unknown };
       if (config === null) return { type, config: null };
-      const { difficulty, downloadedOnly, outsideLibrary } = (config ?? {}) as {
+      const { difficulty, downloadedOnly, outsideLibrary, scope } = (config ?? {}) as {
         difficulty?: unknown;
         downloadedOnly?: unknown;
         outsideLibrary?: unknown;
+        scope?: { type?: unknown; id?: unknown };
       };
+      if (filters !== undefined && typeof filters !== "string") return { error: "filters must be a JSON string" };
+      let parsedScope: PartyEndless["scope"] = { type: "all" };
+      if (scope?.type === "created") {
+        if (!Number.isInteger(scope.id) || (scope.id as number) <= 0) return { error: "scope.id must be a positive integer" };
+        parsedScope = { type: "created", id: scope.id as number };
+      } else if (scope !== undefined && scope.type !== "all") {
+        return { error: "scope.type must be 'all' or 'created'" };
+      }
       if (!ENDLESS_DIFFICULTIES.includes(difficulty as EndlessDifficulty)) return { error: "difficulty must be easy, medium, hard or random" };
       if (typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
       if (outsideLibrary !== undefined && typeof outsideLibrary !== "boolean") return { error: "outsideLibrary must be a boolean" };
-      return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true } };
+      return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true, scope: parsedScope, filtered: Boolean(filters) }, ...(filters ? { filters } : {}) };
     }
     case "revealFields": {
       const { fields } = body as { fields?: Record<string, unknown> };

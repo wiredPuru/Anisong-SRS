@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 defineProps<{ displayUrl: string; controlUrls: string[]; isLoopback: boolean }>();
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
 const { state, connected, sessionLost, commandError, send } = usePartyHost();
+const endlessSource = ref<PartyEndlessSource>({ scope: { type: "all" }, filters: undefined });
 const lastLoad = ref<{ loaded: number; skipped: number; total: number } | null>(null);
 const hasGame = computed(() => Boolean(state.value && state.value.index >= 0 && state.value.queue.length));
 
@@ -132,9 +134,9 @@ usePartyHotkeys(
           </template>
           <!-- Kept mounted so a half-built game survives a look at another tab. -->
           <section v-show="tab === 'game'" class="panel">
-            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
+            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
           </section>
-          <section v-if="tab === 'game' && state" class="panel"><PartyEndlessPanel :state="state" @command="send" /></section>
+          <section v-if="tab === 'game' && state" class="panel"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
         </div>
       </div>
     </div>

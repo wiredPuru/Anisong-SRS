@@ -18,6 +18,7 @@ export const anime = sqliteTable("anime", {
   season: text("season").$type<AnimeSeason>(),
   format: text("format"),
   averageScore: integer("average_score"),
+  popularity: integer("popularity"),
   genres: text("genres", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
   tags: text("tags", { mode: "json" }).$type<AnimeTag[]>().notNull().default(sql`'[]'`),
   aniListDetailsCheckedAt: integer("ani_list_details_checked_at", { mode: "timestamp_ms" }),

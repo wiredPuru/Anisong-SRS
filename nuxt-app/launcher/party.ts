@@ -1,9 +1,15 @@
-import { networkInterfaces } from "node:os";
+import { homedir, networkInterfaces } from "node:os";
 import { DOOR_HOME, type Door, decideDoorRequest, lanAddresses } from "./partyDoors.ts";
-import { applyServerEnv, openBrowser, startBuiltServer, waitForServer } from "./serverEnv.ts";
+import { join } from "node:path";
+import { pickPartyDataDir } from "./partyDataDir.ts";
+import { applyServerEnv, isCompiled, openBrowser, realDir, startBuiltServer, waitForServer } from "./serverEnv.ts";
+import { resolveUserDataDir } from "./userDataDir.ts";
 
 // Party mode (feature 86). Deliberately never sets GAQ_SRS_INSTALL_DIR: only
 // the SRS launcher offers self-update or cleans up after one.
+if (!process.env.GAQ_SRS_DATA_DIR && !isCompiled) {
+  process.env.GAQ_SRS_DATA_DIR = pickPartyDataDir(resolveUserDataDir(process.platform, process.env, homedir()), join(realDir, "..", ".data"));
+}
 applyServerEnv();
 
 const displayPort = Number(process.env.GAQ_PARTY_DISPLAY_PORT || 4000);
@@ -100,6 +106,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 console.log("GAQ Party is running.");
+console.log(`  Library and decks from:      ${process.env.GAQ_SRS_DATA_DIR}`);
 console.log(`  Display (this machine only): ${displayUrl}`);
 for (const lanUrl of lanDisplayUrls) console.log(`  Display on your network:     ${lanUrl}`);
 console.log(`  Host panel:                  ${localControlUrl}`);

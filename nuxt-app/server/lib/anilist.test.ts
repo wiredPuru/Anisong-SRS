@@ -120,6 +120,7 @@ describe("AniList details", () => {
     startDate: { year: 2006 },
     format: "TV",
     averageScore: 78,
+    popularity: 120000,
     genres: ["Comedy", "Slice of Life"],
     tags: [{ name: "Cute Girls Doing Cute Things", rank: 92, isMediaSpoiler: false }],
   };
@@ -127,7 +128,7 @@ describe("AniList details", () => {
   it("parses details from both by-id queries and selects them in each", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }))
       .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }));
-    const expected = { year: 2006, season: "SPRING", format: "TV", averageScore: 78, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
+    const expected = { year: 2006, season: "SPRING", format: "TV", averageScore: 78, popularity: 120000, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
     expect((await client.fetchAnimeFromAniList(1))?.details).toEqual(expected);
     expect((await client.fetchAnimeFromAniListByMalId(1))?.details).toEqual(expected);
     for (const call of fetch.mock.calls) {
@@ -138,9 +139,9 @@ describe("AniList details", () => {
   });
 
   it("falls back to startDate.year and keeps unknown fields null", async () => {
-    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: { year: 1998 }, format: null, averageScore: null, genres: [], tags: [] } } }))
-      .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: null, format: null, averageScore: null, genres: [], tags: [] } } }));
-    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, season: null, format: null, averageScore: null, genres: [], tags: [] });
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: { year: 1998 }, format: null, averageScore: null, popularity: null, genres: [], tags: [] } } }))
+      .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: null, format: null, averageScore: null, popularity: null, genres: [], tags: [] } } }));
+    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, season: null, format: null, averageScore: null, popularity: null, genres: [], tags: [] });
     expect((await client.fetchAnimeFromAniList(1))?.details?.year).toBeNull();
   });
 

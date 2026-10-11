@@ -11,6 +11,8 @@ import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
+import { popularityCutoffs } from "./popularityCutoffs.ts";
+import { parseStudyFilters, type StudyFilters } from "./studyFilters.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import { createPlayerRegistry } from "./partyPlayers.ts";
 import { loadSavedCensor, storeSavedCensor } from "./partyCensorStore.ts";
@@ -197,6 +199,10 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
   }
 }
 
+// The filters an endless queue draws under. They can carry thousands of list
+// ids, so they live here rather than in the state every client receives.
+let endlessFilters: StudyFilters | null = null;
+
 // An endless queue keeps a few songs ready ahead of the current one. It runs
 // after every change, so a skip, a jump or a removal refills it too.
 function topUpEndless(): void {
@@ -214,7 +220,8 @@ function topUpEndless(): void {
   try {
     // A few spare picks cover songs the clip settings drop.
     const cardIds = pickEndlessBatch({
-      candidates: listEndlessCandidates(),
+      candidates: listEndlessCandidates(config.scope, endlessFilters),
+      cutoffs: popularityCutoffs(),
       difficulty: config.difficulty,
       downloadedOnly: config.downloadedOnly,
       queue: state.queue.map((item) => item.cardId),
@@ -355,6 +362,13 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));
     return {};
   }
+  if (command.type === "endless") {
+    const parsed = parseStudyFilters(command.filters);
+    endlessFilters = "error" in parsed ? null : parsed.filters;
+    const { filters: _filters, ...plain } = command;
+    commit(applyPartyCommand(state, plain));
+    return {};
+  }
   if (command.type === "censor") {
     cancelPendingLift();
     const { delay, ...plain } = command;
@@ -416,7 +430,8 @@ function rerollQueueItem(index: number): { loaded: number } {
   }
   const downloadedOnly = config?.downloadedOnly ?? false;
   const cardIds = pickEndlessBatch({
-    candidates: listEndlessCandidates(),
+    candidates: listEndlessCandidates(config?.scope, config ? endlessFilters : null),
+    cutoffs: popularityCutoffs(),
     difficulty: config?.difficulty ?? "random",
     downloadedOnly,
     queue: state.queue.map((item) => item.cardId),

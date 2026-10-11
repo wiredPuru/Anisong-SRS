@@ -85,19 +85,20 @@ export function pickPartyQueue(
   return { cardIds: ordered.slice(0, PARTY_LOAD_MAX), total: ids.length };
 }
 
-/** Every card with the anime's AniList score and whether it has a local file, for endless queues. */
-export function listEndlessCandidates(): EndlessCandidate[] {
+/** Every card in the scope that passes the filters, with the anime's AniList popularity and whether it has a local file, for endless queues. */
+export function listEndlessCandidates(scope: StudyScope = { type: "all" }, filters: StudyFilters | null = null): EndlessCandidate[] {
   return db
     .select({
       cardId: card.id,
       animeId: anime.id,
-      score: anime.averageScore,
+      popularity: anime.popularity,
       localVideoPath: card.localVideoPath,
       localAudioPath: card.localAudioPath,
     })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
+    .where(and(scopeFilter(scope), studyFilterCondition(filters)))
     .all()
     .map(({ localVideoPath, localAudioPath, ...rest }) => ({ ...rest, downloaded: Boolean(localVideoPath || localAudioPath) }));
 }

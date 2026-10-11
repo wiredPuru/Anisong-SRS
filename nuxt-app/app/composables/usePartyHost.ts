@@ -18,6 +18,8 @@ export interface PartyEndless {
   difficulty: PartyEndlessDifficulty;
   downloadedOnly: boolean;
   outsideLibrary: boolean;
+  scope: { type: "all" } | { type: "created"; id: number };
+  filtered: boolean;
 }
 
 export interface PartyRevealFields {
@@ -103,7 +105,7 @@ export type PartyHostCommand =
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }
   | { type: "stake"; config: PartyStake | null }
-  | { type: "endless"; config: PartyEndless | null }
+  | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
   | { type: "queueReroll"; index: number }

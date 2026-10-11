@@ -16,6 +16,7 @@ export interface AniListDetails {
   season: AnimeSeason | null;
   format: string | null;
   averageScore: number | null;
+  popularity: number | null;
   genres: string[];
   tags: AnimeTag[];
 }
@@ -98,6 +99,7 @@ const DETAILS_FIELDS = `
       startDate { year }
       format
       averageScore
+      popularity
       genres
       tags { name rank }
 `;
@@ -124,8 +126,8 @@ function isTag(tag: unknown): tag is AnimeTag {
 // never mistaken for an anime AniList reported as having no genres or tags.
 function toAniListDetails(media: Record<string, unknown>): AniListDetails | undefined {
   if (!("genres" in media)) return undefined;
-  const { season, seasonYear, startDate, format, averageScore, genres, tags } = media;
-  if (!isNullableInt(seasonYear) || !isNullableInt(averageScore) || (format != null && typeof format !== "string") ||
+  const { season, seasonYear, startDate, format, averageScore, popularity, genres, tags } = media;
+  if (!isNullableInt(seasonYear) || !isNullableInt(averageScore) || !isNullableInt(popularity) || (format != null && typeof format !== "string") ||
     (startDate != null && (!isRecord(startDate) || !isNullableInt(startDate.year))) ||
     !Array.isArray(genres) || !genres.every((genre) => typeof genre === "string") ||
     !Array.isArray(tags) || !tags.every(isTag)) {
@@ -138,6 +140,7 @@ function toAniListDetails(media: Record<string, unknown>): AniListDetails | unde
     season: ANIME_SEASONS.find((known) => known === season) ?? null,
     format: format ?? null,
     averageScore: averageScore ?? null,
+    popularity: popularity ?? null,
     genres,
     tags: tags.map(({ name, rank }) => ({ name, rank })),
   };

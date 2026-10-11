@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StudyFilters } from "~/utils/studyFilters";
+import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 
 type SourceType = "all" | "created";
 interface DeckOption {
@@ -15,7 +16,10 @@ interface DeckListItem {
 }
 
 const props = defineProps<{ gameRunning: boolean }>();
-const emit = defineEmits<{ loaded: [result: { loaded: number; skipped: number; total: number }] }>();
+const emit = defineEmits<{
+  loaded: [result: { loaded: number; skipped: number; total: number }];
+  source: [source: PartyEndlessSource];
+}>();
 
 const SOURCE_LABELS: Record<SourceType, string> = {
   all: "All cards",
@@ -45,6 +49,14 @@ const scope = computed(() => {
   if (sourceType.value === "all") return { type: "all" as const };
   return selectedDeck.value ? { type: sourceType.value, id: selectedDeck.value.id } : null;
 });
+
+// Endless play draws from whatever source and filters are set here.
+watch([scope, filters], () => {
+  emit("source", {
+    scope: sourceType.value === "all" ? { type: "all" } : selectedDeck.value ? { type: "created", id: selectedDeck.value.id } : null,
+    filters: filtersQueryValue(filters.value),
+  });
+}, { deep: true, immediate: true });
 
 let deckTimer: ReturnType<typeof setTimeout> | null = null;
 let deckRequest = 0;
