@@ -16,6 +16,8 @@ const props = defineProps<{
   // The card is flipped to its details, which already show the info, so the
   // bar offers the way back to the video instead.
   onDetails?: boolean;
+  // A graded round tints the whole bar green or red.
+  result?: "pass" | "fail" | null;
 }>();
 
 const emit = defineEmits<{ reveal: []; watchVideo: [] }>();
@@ -29,7 +31,7 @@ const native = computed(() =>
 </script>
 
 <template>
-  <section class="now-playing" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
+  <section class="now-playing" :class="result ? `result-${result}` : null" :aria-label="hidden ? 'Now playing, answer hidden' : 'Now playing'">
     <div v-if="onDetails" class="np-art" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z" /></svg>
     </div>
@@ -91,6 +93,16 @@ const native = computed(() =>
   background: rgba(14, 14, 17, 0.86);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   color: var(--text);
+}
+
+.now-playing.result-pass {
+  border-color: var(--pass);
+  background: linear-gradient(0deg, rgba(126, 224, 161, 0.18), rgba(126, 224, 161, 0.18)), rgba(14, 14, 17, 0.86);
+}
+
+.now-playing.result-fail {
+  border-color: var(--fail);
+  background: linear-gradient(0deg, rgba(255, 138, 138, 0.18), rgba(255, 138, 138, 0.18)), rgba(14, 14, 17, 0.86);
 }
 
 .np-art {

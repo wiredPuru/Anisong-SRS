@@ -14,7 +14,7 @@ onMounted(() => continueButton.value?.focus({ preventScroll: true }));
 
 <template>
   <section class="manual-result" :class="result" role="status" aria-live="polite" aria-atomic="true">
-    <h2 class="heading">{{ result === "pass" ? "Got it" : "Missed" }}</h2>
+    <h2 class="sr-only">{{ result === "pass" ? "Got it" : "Missed" }}</h2>
     <span class="spacer" />
     <button type="button" class="btn ghost" :disabled="busy || !canUndo" @click="emit('undo')">Undo</button>
     <button ref="continueButton" type="button" class="btn primary" :disabled="busy" @click="emit('continue')">
@@ -32,15 +32,6 @@ onMounted(() => continueButton.value?.focus({ preventScroll: true }));
   gap: 10px 12px;
   min-width: 0;
   width: 100%;
-}
-
-.manual-result.pass { --result-color: var(--pass); }
-.manual-result.fail { --result-color: var(--fail); }
-
-.heading {
-  margin: 0;
-  color: var(--result-color);
-  font: 700 20px var(--font-display);
 }
 
 .spacer { flex: 1; }

@@ -1588,6 +1588,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :revealable="!typedAnswers && !answerControlsDisabled"
             :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
             :on-details="showDetails"
+            :result="quizResult?.result ?? manualResult?.result ?? null"
             @reveal="revealAndFlip"
             @watch-video="showDetails = false"
           >
