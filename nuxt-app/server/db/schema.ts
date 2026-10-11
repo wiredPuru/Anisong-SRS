@@ -141,7 +141,7 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
     .default(sql`'[]'`),
   defaultDownloadFolder: text("default_download_folder"),
   dailyNewCardLimit: integer("daily_new_card_limit"),
-  boxOneStreakRequired: integer("box_one_streak_required").notNull().default(3),
+  boxOneStreakRequired: integer("box_one_streak_required").notNull().default(2),
   streamCacheMaxBytes: integer("stream_cache_max_bytes").notNull().default(1_073_741_824),
   playbackMode: text("playback_mode").$type<"auto" | "audioOnly">().notNull().default("auto"),
   autoDownload: integer("auto_download", { mode: "boolean" }).notNull().default(false),

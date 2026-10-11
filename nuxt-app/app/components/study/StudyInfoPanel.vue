@@ -33,7 +33,7 @@ const props = withDefaults(
     immersive?: boolean;
     presentationKey?: number;
   }>(),
-  { streakRequired: 3 },
+  { streakRequired: 2 },
 );
 
 const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-change": [boolean] }>();
