@@ -265,30 +265,7 @@ function readBurstOrigin(): BurstRect {
   return { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
 }
 
-// Session-only visual feedback for the moment a grade lands - never persisted,
-// cleared on its own after the CSS animation finishes.
-const gradeFlash = ref<"pass" | "fail" | null>(null);
-// The glow's own animation is 500ms; Kai's sticker rides the same element and
-// needs longer to be read.
-const GRADE_STICKER_MS = 1100;
-let gradeFlashTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function flashGrade(result: "pass" | "fail") {
-  if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
-  gradeFlash.value = null;
-  // Restart the CSS animation even on the same result back-to-back (e.g. two
-  // quick fails): re-add the class on the next tick rather than relying on
-  // the class staying set, which wouldn't retrigger the animation at all.
-  nextTick(() => {
-    gradeFlash.value = result;
-    gradeFlashTimeout = setTimeout(() => {
-      gradeFlash.value = null;
-    }, GRADE_STICKER_MS);
-  });
-}
-
 onUnmounted(() => {
-  if (gradeFlashTimeout) clearTimeout(gradeFlashTimeout);
   if (comboShakeTimeout) clearTimeout(comboShakeTimeout);
 });
 
@@ -355,7 +332,6 @@ async function submitReview(result: "pass" | "fail") {
     const saveState = await reviewSubmission.saveOnce(() => submit(result));
     if (saveState !== "saved" || !stillCurrent()) return;
     awaitingNextCard.value = true;
-    flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore: null });
     manualResult.value = { presentationKey: presentation, result };
     revealCurrentCard();
@@ -525,7 +501,6 @@ async function saveTypedAnswer(animeResult: "pass" | "fail", selectedTitle: stri
     const transition = applyQuizResult(quizScore.value, result);
     quizScore.value = transition.score;
     const bonusResults = gradeBonusCategories(reviewedCard);
-    flashGrade(result);
     sessionHistory.value.push({ card: reviewedCard, result, reviewLogId: lastReviewLogId.value, scoreBefore });
     launchScoreBursts({
       result,
@@ -1463,7 +1438,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :clip-source="clipSource"
             :hide-cover="(typedAnswers && !quizResult) || ((hideCover || autoRevealTargetsVisual) && !autoRevealedThisCard && !quizResult)"
             :guessing="typedAnswers && !quizResult"
-            :hide-listening-label="gradeFlash !== null || Boolean(typedAnswers && quizResult)"
+            :hide-listening-label="Boolean(typedAnswers && quizResult)"
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"
             @local-path-updated="onLocalPathUpdated"
@@ -1486,10 +1461,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               </div>
             </template>
           </StudyMediaPlayer>
-          <template v-if="gradeFlash">
-            <div class="grade-flash" :class="gradeFlash" aria-hidden="true" />
-            <StudyGradeSticker :result="gradeFlash" />
-          </template>
           <StudyDetailsCard
             :open="showDetails"
             :cover-image-url="detailsHidden ? null : currentCard.animeCoverImageUrl"
@@ -2251,34 +2222,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 @media (prefers-reduced-motion: reduce) {
   .combo-shake {
     animation: none;
-  }
-}
-
-.grade-flash {
-  position: absolute;
-  inset: 12px;
-  pointer-events: none;
-  border-radius: var(--radius);
-  animation: grade-flash-pulse 500ms ease-out forwards;
-}
-
-.grade-flash.pass {
-  box-shadow: 0 0 0 2px var(--pass), 0 0 32px 4px var(--pass);
-}
-
-.grade-flash.fail {
-  box-shadow: 0 0 0 2px var(--fail), 0 0 32px 4px var(--fail);
-}
-
-@keyframes grade-flash-pulse {
-  0% {
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
   }
 }
 
