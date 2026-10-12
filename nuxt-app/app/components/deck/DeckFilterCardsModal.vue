@@ -360,7 +360,7 @@ onUnmounted(() => {
                   :disabled="submitting"
                   @change="toggleAnime(anime.id)"
                 />
-                <img v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
+                <NetworkImage v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
                 <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
                 <span class="anime-text">
                   <span class="anime-title">{{ anime.titleRomaji }}</span>
@@ -400,7 +400,7 @@ onUnmounted(() => {
                       :disabled="submitting"
                       @change="toggleAniList(anime.aniListId)"
                     />
-                    <img v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
+                    <NetworkImage v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
                     <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
                     <span class="anime-text">
                       <span class="anime-title">{{ anime.titleRomaji }}</span>

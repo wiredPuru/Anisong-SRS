@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { resolveDbPath } from "../db/dataDir.ts";
 import { getStreamCacheMaxBytes } from "./mediaLibrary.ts";
 import { DOWNLOAD_TIMEOUT_MS, USER_AGENT } from "./mediaDownload.ts";
+import { assertOnline } from "./networkMode.ts";
 
 // Lives alongside the DB and the seeded "themes" library folder, both of
 // which already relocate to GAQ_SRS_DATA_DIR in a packaged build (feature
@@ -71,6 +72,7 @@ function isTimeout(err: unknown): boolean {
 }
 
 async function fetchToTempFile(url: string, tempPath: string): Promise<{ size: number } | { error: string }> {
+  assertOnline();
   let response: Response;
   try {
     response = await fetch(url, {
@@ -127,15 +129,16 @@ async function fetchAndCache(url: string, destPath: string): Promise<{ path: str
 
 const inFlight = new Map<string, Promise<{ path: string } | { error: string }>>();
 
-export function resolveCachedPath(url: string): Promise<{ path: string } | { error: string }> {
+export async function resolveCachedPath(url: string): Promise<{ path: string } | { error: string }> {
   ensureCacheDir();
   const destPath = cachedPathFor(url);
 
-  if (existsSync(destPath)) {
+  if (existsSync(destPath) && statSync(destPath).isFile()) {
     touchAccess(destPath);
     return Promise.resolve({ path: destPath });
   }
 
+  assertOnline();
   const key = cacheKey(url);
   const existing = inFlight.get(key);
   if (existing) return existing;
@@ -154,7 +157,7 @@ export function cachedFilePathIfPresent(url: string): string | null {
   if (!parseAllowedStreamUrl(url)) return null;
   ensureCacheDir();
   const destPath = cachedPathFor(url);
-  if (!existsSync(destPath)) return null;
+  if (!existsSync(destPath) || !statSync(destPath).isFile()) return null;
   touchAccess(destPath);
   return destPath;
 }

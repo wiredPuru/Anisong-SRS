@@ -253,6 +253,13 @@
       "when": 1791756460008,
       "tag": "0035_card_known",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791840707709,
+      "tag": "0036_light_phalanx",
+      "breakpoints": true
     }
   ]
 }

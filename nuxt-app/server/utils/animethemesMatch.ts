@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { anime, card, song } from "../db/schema.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
 import { setAnimeAnimethemesSlug } from "./lookup.ts";
+import { assertOnline } from "./networkMode.ts";
 import { findThemeMatch, matchLinkSlugs, startMatchIndexLoads, type AnimeThemesMatchIndex } from "./themeSource.ts";
 
 export interface MatchCandidate {
@@ -76,11 +77,13 @@ export async function backfillAnimeThemesMatches(
     now = () => new Date(),
   }: { loadIndexes?: IndexLoader; store?: StoreMatch; report?: ReportImportProgress; now?: () => Date } = {},
 ): Promise<MatchBackfillResult> {
+  assertOnline();
   const loads = loadIndexes(candidates.map((candidate) => candidate.aniListId));
   const result: MatchBackfillResult = { checked: candidates.length, matched: 0, missing: 0, unavailable: 0 };
 
   let completed = 0;
   for (const candidate of candidates) {
+    assertOnline();
     const index = await loads.get(candidate.aniListId)!;
 
     // An outage cannot tell "no match" from "could not check", so the row is

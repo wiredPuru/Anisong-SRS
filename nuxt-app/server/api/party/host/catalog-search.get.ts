@@ -1,11 +1,13 @@
 import { searchSongs } from "../../../lib/anisongdb.ts";
 import { getIncludeInsertSongs } from "../../../utils/mediaLibrary.ts";
 import { rememberCatalogSearch } from "../../../utils/partyStore.ts";
+import { assertOnline, OfflineModeError } from "../../../utils/networkMode.ts";
 
 const MIN_QUERY_LENGTH = 2;
 
 // Songs from AnisongDB's whole catalog, whether or not the library has a card.
 export default defineEventHandler(async (event) => {
+  assertOnline();
   const raw = getQuery(event).q;
   const q = typeof raw === "string" ? raw.trim() : "";
   if (q.length < MIN_QUERY_LENGTH) return { results: [] };
@@ -21,7 +23,8 @@ export default defineEventHandler(async (event) => {
         themeSlot: song.themeSlot,
       })),
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof OfflineModeError) throw error;
     return { results: [] };
   }
 });

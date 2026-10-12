@@ -2,6 +2,7 @@ import { and, count, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { ensureAnimeCoverLocal, type EnsureCoverResult } from "./animeCoverSave.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface CoverSaveResult {
   checked: number;
@@ -21,10 +22,12 @@ type EnsureCover = (animeId: number) => Promise<EnsureCoverResult>;
 // Sequential on purpose, like the other backfills: one CDN, hundreds of files.
 // A failure is counted and skipped, so a re-run picks up whatever was missed.
 export async function saveCoversLocally(ensureCover: EnsureCover = ensureAnimeCoverLocal): Promise<CoverSaveResult> {
+  assertOnline();
   const rows = db.select({ id: anime.id }).from(anime).where(notSavedLocally).all();
 
   let saved = 0;
   for (const row of rows) {
+    assertOnline();
     if ((await ensureCover(row.id)) === "saved") saved += 1;
   }
   return { checked: rows.length, saved, failed: rows.length - saved };

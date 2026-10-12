@@ -1252,7 +1252,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 107a. **Local-first metadata resolution** - resolve imported anime
     from SQLite before querying providers; preserve stored metadata and
     provide an explicit online refresh.
-  - [ ] 107b. **Offline mode** - persist a Settings toggle that prevents
+  - [x] 107b. **Offline mode** - persist a Settings toggle that prevents
     server and browser requests to external providers, including automatic
     backfills, remote images, and media; local playback remains available.
   - [ ] 107c. **Offline UX and verification** - explain unavailable discovery,

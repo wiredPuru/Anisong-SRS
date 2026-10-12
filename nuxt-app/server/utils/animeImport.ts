@@ -10,6 +10,7 @@ import { isMissingAnimeThemesMatch, resolveThemes } from "./themeSource.ts";
 import { saveAnimeCoverInBackground } from "./animeCoverSave.ts";
 import { fetchAnimeFromAniList } from "../lib/anilist.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface ImportedTheme {
   songId: number;
@@ -36,6 +37,7 @@ export interface ImportedAnime {
 
 /** Looks one anime up and stores it with its themes; null when no provider knows it. */
 export async function importAnimeThemes(aniListId: number): Promise<ImportedAnime | null> {
+  assertOnline();
   const metadata = createAnimeMetadataResolver();
   const aniListAnime = await metadata.byAniListId(aniListId);
   if (!aniListAnime) return null;

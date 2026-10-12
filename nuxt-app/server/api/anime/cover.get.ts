@@ -10,6 +10,9 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 404, statusMessage: "No cover for this anime" });
   }
   if (cover.kind === "remote") {
+    if (getQuery(event).localOnly === "1") {
+      throw createError({ statusCode: 404, statusMessage: "No cover for this anime" });
+    }
     return sendRedirect(event, cover.url, 302);
   }
 

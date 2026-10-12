@@ -163,6 +163,28 @@ export function setAutoDownload(enabled: boolean): { error: string } | { autoDow
   return { autoDownload: enabled };
 }
 
+export function getOfflineMode(): boolean {
+  const row = db
+    .select({ offlineMode: mediaLibrarySettings.offlineMode })
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.offlineMode ?? false;
+}
+
+export function setOfflineMode(enabled: unknown): { error: string } | { offlineMode: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "enabled is required and must be a boolean" };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, offlineMode: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { offlineMode: enabled } })
+    .run();
+
+  return { offlineMode: enabled };
+}
+
 export function getPartyAutoDownload(): boolean {
   const row = db
     .select()

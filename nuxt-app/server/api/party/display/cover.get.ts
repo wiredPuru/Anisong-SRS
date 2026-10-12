@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolveAnimeCover } from "../../../utils/animeCoverStore.ts";
 import { findPartyItemByToken } from "../../../utils/partyStore.ts";
 import { USER_AGENT } from "../../../utils/version.ts";
+import { getOfflineMode } from "../../../utils/mediaLibrary.ts";
 
 // Cover mode shows the answer's artwork, so, like clips, it reaches the
 // display only by token and never as an AniList URL.
@@ -22,6 +23,9 @@ export default defineEventHandler(async (event) => {
     return new Uint8Array(readFileSync(saved.path));
   }
   const remoteUrl = saved?.kind === "remote" ? saved.url : url;
+  if (getOfflineMode() || getQuery(event).localOnly === "1") {
+    throw createError({ statusCode: 404, statusMessage: "Cover not found" });
+  }
 
   let response: Response;
   try {

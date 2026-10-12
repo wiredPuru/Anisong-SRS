@@ -510,7 +510,7 @@ type ClipCard = Pick<CardWithDetails, "localVideoPath" | "localAudioPath" | "ani
 // stream instead of a clip that 404s mid-game.
 export function listPartyClips(
   card: ClipCard,
-  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean },
+  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean; offlineMode?: boolean },
   localFileUsable: (path: string) => boolean = () => true,
 ): PartyClip[] {
   const remote = (url: string | null) =>
@@ -527,12 +527,12 @@ export function listPartyClips(
     if (!source || (kind === "video" && settings.playbackMode === "audioOnly")) continue;
     clips.push({ kind, source });
   }
-  return clips;
+  return settings.offlineMode ? clips.sort((first, second) => Number(first.source.type === "remote") - Number(second.source.type === "remote")) : clips;
 }
 
 export function pickPartyClip(
   card: ClipCard,
-  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean },
+  settings: { clipSource: ClipSource; playbackMode: "auto" | "audioOnly"; downloadedOnly?: boolean; offlineMode?: boolean },
   localFileUsable: (path: string) => boolean = () => true,
 ): PartyClip | null {
   return listPartyClips(card, settings, localFileUsable)[0] ?? null;

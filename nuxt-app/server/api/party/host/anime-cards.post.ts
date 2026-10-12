@@ -2,10 +2,12 @@ import { inArray } from "drizzle-orm";
 import { db } from "../../../db/client.ts";
 import { card } from "../../../db/schema.ts";
 import { cardExistsForSong, createCard } from "../../../utils/cards.ts";
+import { assertOnline } from "../../../utils/networkMode.ts";
 
 // Makes cards for chosen themes of a looked-up show (the same cards /cards
 // would add) and returns every card id, so the queue can load them.
 export default defineEventHandler(async (event) => {
+  assertOnline();
   const body = await readBody(event);
   const themes: unknown = body?.themes;
   const valid =

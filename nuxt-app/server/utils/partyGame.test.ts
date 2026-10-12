@@ -81,6 +81,13 @@ describe("nextPartyClip", () => {
 });
 
 describe("pickPartyClip", () => {
+  it("prefers readable local audio over a remote video offline without treating missing files as local", () => {
+    const source = card({ localVideoPath: "/lib/missing.webm", animethemesVideoUrl: AMQ, localAudioPath: "/lib/audio.wav" });
+    const settings = { clipSource: "both" as const, playbackMode: "auto" as const, offlineMode: true };
+    const usable = (path: string) => path === "/lib/audio.wav";
+    expect(pickPartyClip(source, settings, usable)?.source).toEqual({ type: "local", path: "/lib/audio.wav" });
+    expect(pickPartyClip(source, { ...settings, offlineMode: false }, usable)?.source).toEqual({ type: "remote", url: AMQ });
+  });
   it("prefers local video, then remote video, then local audio, then remote audio", () => {
     const all = card({ localVideoPath: "/lib/v.webm", animethemesVideoUrl: AMQ, localAudioPath: "/lib/a.mp3", animethemesAudioUrl: AMQ_AUDIO });
     expect(pickPartyClip(all, AUTO)).toEqual({ kind: "video", source: { type: "local", path: "/lib/v.webm" } });

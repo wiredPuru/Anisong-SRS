@@ -15,7 +15,7 @@ const shown = computed(() => (cover.value && failed.value !== cover.value ? cove
 <template>
   <div class="host-ambient" aria-hidden="true">
     <Transition name="host-ambient-fade">
-      <img v-if="shown" :key="shown" :src="shown" alt="" class="host-ambient-image" @error="failed = shown" />
+      <NetworkImage v-if="shown" :key="shown" :src="shown" alt="" class="host-ambient-image" @error="failed = shown" />
     </Transition>
     <div class="host-ambient-vignette" />
   </div>

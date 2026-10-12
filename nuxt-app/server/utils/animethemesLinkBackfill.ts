@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { anime, card, song } from "../db/schema.ts";
 import type { ReportImportProgress } from "./importProgress.ts";
 import { setAnimeAnimethemesSlug } from "./lookup.ts";
+import { assertOnline } from "./networkMode.ts";
 import { startMatchIndexLoads, type AnimeThemesMatchIndex } from "./themeSource.ts";
 
 export interface LinkCandidate {
@@ -64,11 +65,13 @@ export async function backfillAnimeThemesLinks(
     report,
   }: { loadIndexes?: IndexLoader; store?: StoreLinks; report?: ReportImportProgress } = {},
 ): Promise<LinkBackfillResult> {
+  assertOnline();
   const loads = loadIndexes(candidates.map((candidate) => candidate.aniListId));
   const result: LinkBackfillResult = { checked: candidates.length, filled: 0, notFound: 0, unavailable: 0 };
 
   let completed = 0;
   for (const candidate of candidates) {
+    assertOnline();
     const index = await loads.get(candidate.aniListId)!;
 
     // Nothing is written on an outage, so the anime stays a candidate and the

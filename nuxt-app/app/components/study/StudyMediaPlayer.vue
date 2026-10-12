@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { CardWithDetails } from "~/composables/useStudySession";
 import type { HotkeyScope } from "~/utils/hotkeys";
+import { networkImageSrc } from "~/utils/networkImage";
+import { networkMediaKind } from "~/utils/networkPlayback";
 
 const props = defineProps<{
   card: Pick<
@@ -53,9 +55,33 @@ const emit = defineEmits<{
   "local-path-cleared": [{ kind: "video" | "audio" }];
 }>();
 
+const { offlineMode, canUseRemote } = useNetworkMode();
+const localAvailability = ref<{ video: boolean; audio: boolean } | null>(null);
+const availabilityPending = ref(offlineMode.value !== false);
+const localVideoPath = computed(() => offlineMode.value === false || localAvailability.value?.video ? props.card.localVideoPath : null);
+const localAudioPath = computed(() => offlineMode.value === false || localAvailability.value?.audio ? props.card.localAudioPath : null);
+let availabilityRequest = 0;
+watch(() => [props.card.id, props.card.localVideoPath, props.card.localAudioPath, offlineMode.value], async () => {
+  const requestId = ++availabilityRequest;
+  localAvailability.value = null;
+  availabilityPending.value = offlineMode.value !== false;
+  if (!import.meta.client || !availabilityPending.value) return;
+  const check = async (path: string | null) => path
+    ? (await $fetch<{ available: boolean }>("/api/media/availability", { query: { path }, cache: "no-store" })).available
+    : false;
+  try {
+    const [video, audio] = await Promise.all([check(props.card.localVideoPath), check(props.card.localAudioPath)]);
+    if (requestId === availabilityRequest) localAvailability.value = { video, audio };
+  } catch {
+    if (requestId === availabilityRequest) localAvailability.value = { video: false, audio: false };
+  } finally {
+    if (requestId === availabilityRequest) availabilityPending.value = false;
+  }
+}, { immediate: true });
+
 function mediaUrl(localPath: string | null, remoteUrl: string | null): string | null {
   if (localPath) return `/api/media?path=${encodeURIComponent(localPath)}`;
-  if (remoteUrl) return `/api/media/stream?url=${encodeURIComponent(remoteUrl)}`;
+  if (remoteUrl && offlineMode.value !== null) return `/api/media/stream?url=${encodeURIComponent(remoteUrl)}`;
   return null;
 }
 
@@ -63,8 +89,8 @@ function mediaUrl(localPath: string | null, remoteUrl: string | null): string | 
 // allows its host - a local file always counts, regardless of the setting.
 const remoteVideoAllowed = computed(() => isRemoteUrlAllowed(props.card.animethemesVideoUrl, props.clipSource ?? "anisongdb"));
 const remoteAudioAllowed = computed(() => isRemoteUrlAllowed(props.card.animethemesAudioUrl, props.clipSource ?? "anisongdb"));
-const hasVideoSource = computed(() => Boolean(props.card.localVideoPath) || remoteVideoAllowed.value);
-const hasAudioSource = computed(() => Boolean(props.card.localAudioPath) || remoteAudioAllowed.value);
+const hasVideoSource = computed(() => Boolean(localVideoPath.value) || remoteVideoAllowed.value);
+const hasAudioSource = computed(() => Boolean(localAudioPath.value) || remoteAudioAllowed.value);
 
 // Which element/src actually mounts - deliberately independent of hideVideo,
 // so toggling it never swaps the underlying element mid-playback (that
@@ -92,9 +118,9 @@ watch(
   },
 );
 const mediaKind = computed<"video" | "audio">(() => {
-  if (props.audioOnly && hasAudioSource.value) return "audio";
-  if (audioFallbackChosen.value && hasAudioSource.value) return "audio";
-  return hasVideoSource.value ? "video" : "audio";
+  return networkMediaKind({ offlineMode: offlineMode.value, audioOnly: Boolean(props.audioOnly),
+    audioFallback: audioFallbackChosen.value, localVideo: Boolean(localVideoPath.value),
+    localAudio: Boolean(localAudioPath.value), hasVideo: hasVideoSource.value, hasAudio: hasAudioSource.value });
 });
 
 // Lets the page's display-toggle strip show only the one Video/Cover pill
@@ -132,6 +158,7 @@ const quizType = computed<"video" | "audio">(() => (props.hideVideo || props.aud
 // anyway) - while a genuinely video-capable card with Hide Video on keeps
 // today's plain veil untouched, since mediaKind stays "video" for it.
 const coverImageFailed = ref(false);
+const coverSource = computed(() => networkImageSrc(props.card.animeCoverImageUrl, offlineMode.value));
 watch(
   () => props.card.animeCoverImageUrl,
   () => {
@@ -142,7 +169,7 @@ const showCoverArt = computed(
   () =>
     mediaKind.value === "audio" &&
     !props.hideCover &&
-    Boolean(props.card.animeCoverImageUrl) &&
+    Boolean(coverSource.value) &&
     !coverImageFailed.value,
 );
 
@@ -151,8 +178,8 @@ const showCoverArt = computed(
 // that is already working.
 const cardSrc = computed(() =>
   mediaKind.value === "video"
-    ? mediaUrl(props.card.localVideoPath, props.card.animethemesVideoUrl)
-    : mediaUrl(props.card.localAudioPath, props.card.animethemesAudioUrl),
+    ? mediaUrl(localVideoPath.value, remoteVideoAllowed.value ? props.card.animethemesVideoUrl : null)
+    : mediaUrl(localAudioPath.value, remoteAudioAllowed.value ? props.card.animethemesAudioUrl : null),
 );
 
 // A background Auto Download (feature 59) finishing mid-card writes a local
@@ -165,7 +192,8 @@ const cardSrc = computed(() =>
 // keep - a card change, a media-kind swap, or a user-initiated retry or
 // redownload - so feature 42's recovery from the failure veil still works.
 const loadedSrc = ref<string | null>(null);
-const src = computed(() => loadedSrc.value ?? cardSrc.value);
+const src = computed(() => availabilityPending.value ? null : loadedSrc.value ?? cardSrc.value);
+watch(offlineMode, () => { loadedSrc.value = null; });
 
 // 3D parallax: the record tilts toward the cursor like a physical disk
 // viewed from a shifting angle, and the visualizer ring (sitting "behind"
@@ -215,7 +243,7 @@ const prefetchUrl = computed(() =>
   resolveRemotePrefetchUrl(props.card, props.audioOnly, props.clipSource ?? "anisongdb"));
 
 function triggerPrefetch(url: string | null) {
-  if (!url) return;
+  if (!url || !canUseRemote.value) return;
   $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
 }
 
@@ -532,13 +560,13 @@ async function redownload(kind: "video" | "audio") {
 // "nothing to download" (no remote source, or already local), so this
 // settles to null on its own once the download lands.
 const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
-  props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
+  canUseRemote.value && props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
     ? mediaKind.value
     : null,
 );
 
 function triggerAutoDownload(kind: "video" | "audio" | null) {
-  if (!kind) return;
+  if (!kind || !canUseRemote.value) return;
   runDownload(kind);
 }
 
@@ -546,7 +574,7 @@ const autoplayPlan = computed(() =>
   planAutoplay({
     autoplay: Boolean(props.autoplay),
     hasSource: Boolean(src.value),
-    canDownloadFirst: props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
+    canDownloadFirst: canUseRemote.value && props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
   }),
 );
 
@@ -564,10 +592,13 @@ onMounted(() => {
 });
 
 const savingForAutoplay = ref<"video" | "audio" | null>(null);
+watch(availabilityPending, (pending, previous) => {
+  if (previous && !pending && (props.autoplay || props.startOnMount) && src.value) nextTick(playIfPaused);
+});
 
 async function runAutoplay(plan: "play" | "download-then-play") {
   quietPlay = true;
-  if (plan === "download-then-play") {
+  if (plan === "download-then-play" && canUseRemote.value) {
     const kind = mediaKind.value;
     savingForAutoplay.value = kind;
     // A failed download is already reported through downloadError; the
@@ -701,8 +732,8 @@ function recordLastPlayed() {
   if (!meta) return;
   const base = { cardId: props.card.id, songTitle: meta.songTitle, animeTitle: meta.animeTitle };
   if (showCoverArt.value) {
-    const cover = props.card.animeCoverImageUrl;
-    if (cover?.startsWith("https://")) setLastPlayed({ ...base, image: cover, tint: null });
+    const cover = coverSource.value;
+    if (cover) setLastPlayed({ ...base, image: cover, tint: null });
     return;
   }
   const video = videoRef.value;
@@ -1144,7 +1175,7 @@ onUnmounted(() => stopDrag?.());
         <div class="record-disk" :class="{ spinning: isPlaying && !isBuffering }">
           <img
             ref="coverImageRef"
-            :src="card.animeCoverImageUrl!"
+            :src="coverSource"
             alt=""
             class="record-label"
             @error="coverImageFailed = true"

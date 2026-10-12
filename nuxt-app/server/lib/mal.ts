@@ -1,5 +1,6 @@
 import { isRecord, ProviderUnavailableError } from "./graphql.ts";
 import { USER_AGENT } from "../utils/mediaDownload.ts";
+import { assertOnline } from "../utils/networkMode.ts";
 
 // MyAnimeList's own list endpoint - the page Jikan used to scrape on our
 // behalf. Called directly because Jikan's copy answers 504 "failed to connect
@@ -28,6 +29,7 @@ export async function fetchMalCompletedList(username: string, onPage?: (page: nu
   const entries: MalCompletedEntry[] = [];
 
   for (let page = 1; page <= MAX_PAGES; page++) {
+    assertOnline();
     const url = `${MAL_BASE}/${encodeURIComponent(username)}/load.json?status=2&offset=${(page - 1) * PAGE_SIZE}`;
     let response: Response;
     try {

@@ -40,7 +40,7 @@ onUnmounted(() => document.documentElement.removeAttribute("data-ambient-backdro
 
 <template>
   <div v-if="active && lastPlayed" class="ambient-backdrop" aria-hidden="true">
-    <img :src="lastPlayed.image" alt="" class="backdrop-image" />
+    <NetworkImage :src="lastPlayed.image" alt="" class="backdrop-image" />
     <div class="backdrop-vignette" />
   </div>
 </template>

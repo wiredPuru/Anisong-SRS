@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRequestHeader, setResponseHeader, type H3Event } from "h3";
 import { createImportStream, respondWithImportProgress } from "./importProgress";
 
-vi.mock("h3", () => ({
+vi.mock("h3", async (importOriginal) => ({
+  ...await importOriginal<typeof import("h3")>(),
   getRequestHeader: vi.fn(), setResponseHeader: vi.fn(), sendStream: vi.fn((_event, stream) => stream),
 }));
 beforeEach(() => vi.clearAllMocks());

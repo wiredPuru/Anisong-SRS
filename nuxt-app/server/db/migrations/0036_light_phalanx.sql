@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `offline_mode` integer DEFAULT false NOT NULL;

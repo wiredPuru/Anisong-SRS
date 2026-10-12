@@ -6,16 +6,19 @@ export interface UpdateStatus {
   downloadUrl: string | null;
   releaseNotes: string | null;
   checkFailed: boolean;
-  checkedAt: string;
+  checkedAt: string | null;
+  offlineMode: boolean;
 }
 
 // Shared app-wide state so the rail and the Settings About panel read one
 // result instead of each firing their own request on every page load.
 export function useUpdateCheck() {
+  const { offlineMode } = useNetworkMode();
   const status = useState<UpdateStatus | null>("updateStatus", () => null);
   const pending = useState<boolean>("updateStatusPending", () => false);
 
   async function check(force = false): Promise<void> {
+    if (offlineMode.value === null) return;
     if (pending.value) return;
     if (status.value && !force) return;
 

@@ -18,6 +18,7 @@ export function useListenSession(
   audioOnly: ComputedRef<boolean>,
   clipSource: ComputedRef<ClipSource>,
 ) {
+  const { canUseRemote } = useNetworkMode();
   const cards = ref<CardWithDetails[]>([]);
   const index = ref(0);
   const finished = ref(false);
@@ -104,6 +105,7 @@ export function useListenSession(
   // Best-effort cache warm-up for the songs coming up; the current song's own
   // warm-up is StudyMediaPlayer's job.
   watch([cards, index], () => {
+    if (!canUseRemote.value) return;
     for (const upcoming of cards.value.slice(index.value + 1, index.value + 1 + PREFETCH_AHEAD)) {
       const url = resolveRemotePrefetchUrl(upcoming, audioOnly.value, clipSource.value);
       if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});

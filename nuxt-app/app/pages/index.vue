@@ -101,7 +101,7 @@ function formatRelativeTime(iso: string): string {
       </div>
       <div v-else-if="data" class="dashboard-grid">
         <div class="hero-panel">
-          <img
+          <NetworkImage
             class="hero-art"
             src="/mascot/kai-hero-528.webp"
             srcset="/mascot/kai-hero-528.webp 528w, /mascot/kai-hero-1056.webp 1056w"
@@ -125,7 +125,7 @@ function formatRelativeTime(iso: string): string {
               :to="{ path: '/cards', query: { q: lastPlayed.songTitle } }"
               class="last-played"
             >
-              <img :src="lastPlayed.image" alt="" class="last-played-thumb" />
+              <NetworkImage :src="lastPlayed.image" alt="" class="last-played-thumb" />
               <span class="last-played-text">
                 <span class="last-played-label">Last played</span>
                 <span class="last-played-song">{{ lastPlayed.songTitle }}</span>
@@ -183,7 +183,7 @@ function formatRelativeTime(iso: string): string {
               :to="`/decks?type=${entry.type}&id=${entry.id}`"
               class="weak-deck-row"
             >
-              <img v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="weak-deck-cover" />
+              <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="weak-deck-cover" />
               <span v-else class="weak-deck-cover weak-deck-cover-empty" />
               <span class="weak-deck-info">
                 <span class="weak-deck-label">{{ entry.label }}</span>

@@ -53,6 +53,7 @@ export function useStudySession(
   filters: Ref<StudyFilters>,
   trackOverride: Readonly<Ref<GradingCriterion | null>> = ref(null),
 ) {
+  const { canUseRemote } = useNetworkMode();
   const currentCard = ref<CardWithDetails | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -135,6 +136,7 @@ export function useStudySession(
       // the queue actually reaches them (current card's own warm-up is
       // StudyMediaPlayer's job, triggered separately on mount).
       for (const upcomingCard of result.upcoming) {
+        if (!canUseRemote.value) break;
         const url = resolveRemotePrefetchUrl(upcomingCard, audioOnly.value, clipSource.value);
         if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
       }

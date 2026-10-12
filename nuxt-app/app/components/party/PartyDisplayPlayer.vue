@@ -33,8 +33,9 @@ const BLUR_ZOOM = 1.08;
 // The three elements stay mounted while their assigned songs change.
 const SLOT_COUNT = 3;
 const UNLOCK_SRC = "/party-unlock.mp4";
+const { offlineMode, canUseRemote } = useNetworkMode();
 const tokens = computed(() => props.token
-  ? [props.token, ...props.upcoming.filter((token) => token !== props.token)].slice(0, SLOT_COUNT)
+  ? [props.token, ...(canUseRemote.value ? props.upcoming.filter((token) => token !== props.token) : [])].slice(0, SLOT_COUNT)
   : []);
 const slots = ref<(string | null)[]>(Array(SLOT_COUNT).fill(null));
 // Each element is sized to its own picture rather than letterboxed inside a
@@ -51,8 +52,8 @@ let playAttempt = 0;
 // so "asked to play" and "actually audible" can be told apart.
 const audible = ref(false);
 const loading = computed(() => props.playing && !audible.value && !failed.value && !blocked.value);
-const clipSrc = (token: string) => `/api/party/display/clip?t=${encodeURIComponent(token)}`;
-const coverSrc = computed(() => `/api/party/display/cover?t=${encodeURIComponent(props.token)}`);
+const clipSrc = (token: string) => offlineMode.value === null ? UNLOCK_SRC : `/api/party/display/clip?t=${encodeURIComponent(token)}`;
+const coverSrc = computed(() => offlineMode.value === null ? undefined : `/api/party/display/cover?t=${encodeURIComponent(props.token)}&localOnly=${offlineMode.value ? "1" : "0"}`);
 
 // Seconds played since this song's own start position (random start included),
 // which is what blur and pixelate decay against.

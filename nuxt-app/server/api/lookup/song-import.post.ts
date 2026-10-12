@@ -5,8 +5,10 @@ import { getOrCreateArtist, setAnimeAnimethemesSlug, upsertAnime, upsertSong } f
 import { getClipSource, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, loadAnimeThemesMatchIndex, matchLinkSlugs } from "../../utils/themeSource.ts";
 import { saveAnimeCoverInBackground } from "../../utils/animeCoverSave.ts";
+import { assertOnline } from "../../utils/networkMode.ts";
 
 export default defineEventHandler(async (event) => {
+  assertOnline();
   const body = await readBody(event);
 
   if (!body || typeof body.animeAniListId !== "number" || typeof body.themeSlot !== "string" || !body.themeSlot.trim()) {

@@ -2,6 +2,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import { copyFile, open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { cachedFilePathIfPresent } from "./streamCache.ts";
+import { assertOnline, OfflineModeError } from "./networkMode.ts";
 
 // animethemes.moe blocks Node's default fetch User-Agent with a bare 403; matches server/lib/animethemes.ts.
 export const USER_AGENT = "GAQ-SRS/1.0 (personal AMQ study app)";
@@ -52,7 +53,7 @@ function isTimeout(err: unknown): boolean {
 export type DownloadProgressEvent =
   | { type: "progress"; loaded: number; total: number }
   | { type: "success"; path: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: "OFFLINE_MODE" };
 
 export async function* downloadMediaFile(
   url: string,
@@ -82,11 +83,16 @@ export async function* downloadMediaFile(
 
   let response: Response;
   try {
+    assertOnline();
     response = await fetch(url, {
       headers: { "user-agent": USER_AGENT },
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
   } catch (err) {
+    if (err instanceof OfflineModeError) {
+      yield { type: "error", message: err.statusMessage, code: "OFFLINE_MODE" };
+      return;
+    }
     yield { type: "error", message: isTimeout(err) ? "Download timed out." : "Failed to download the file." };
     return;
   }

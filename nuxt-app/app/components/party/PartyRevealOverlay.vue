@@ -13,7 +13,7 @@ watch(() => props.answer.coverImageUrl, () => {
 
 <template>
   <section class="reveal" aria-live="polite">
-    <img
+    <NetworkImage
       v-if="answer.coverImageUrl && !coverFailed"
       class="reveal-cover"
       :src="answer.coverImageUrl"

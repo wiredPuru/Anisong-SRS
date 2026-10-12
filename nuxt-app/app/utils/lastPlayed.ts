@@ -1,4 +1,5 @@
 import type { Rgb } from "./ambientTint";
+import { isSavedImage } from "./networkImage";
 
 export const LAST_PLAYED_STORAGE_KEY = "gaqSrs:lastPlayed";
 
@@ -20,10 +21,8 @@ function isRgb(value: unknown): value is Rgb {
   );
 }
 
-// Data URLs only for frames; a cover is a plain https URL. Anything else is
-// refused so a tampered value can never point an <img> at an arbitrary scheme.
 function isSafeImage(value: unknown): value is string {
-  return typeof value === "string" && (value.startsWith("data:image/jpeg;base64,") || value.startsWith("https://"));
+  return typeof value === "string" && (isSavedImage(value) || value.startsWith("https://"));
 }
 
 export function parseLastPlayed(raw: string | null): LastPlayed | null {

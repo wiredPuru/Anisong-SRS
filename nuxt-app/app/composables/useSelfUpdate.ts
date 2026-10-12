@@ -1,6 +1,6 @@
 export interface SelfUpdateStatus {
   state: "unavailable" | "idle" | "downloading" | "verifying" | "unpacking" | "ready" | "failed";
-  reason: "not-packaged" | "up-to-date" | "no-asset" | "no-digest" | "not-writable" | "check-failed" | null;
+  reason: "not-packaged" | "up-to-date" | "no-asset" | "no-digest" | "not-writable" | "check-failed" | "offline-mode" | null;
   version: string | null;
   receivedBytes: number;
   totalBytes: number | null;
@@ -19,6 +19,7 @@ export function isSelfUpdateRunning(state: SelfUpdateStatus["state"] | undefined
 // Polls only while a job is running. A failed request leaves `status` null,
 // which the About panel renders as nothing: the manual link below it still works.
 export function useSelfUpdate() {
+  const { offlineMode } = useNetworkMode();
   const status = ref<SelfUpdateStatus | null>(null);
   const starting = ref(false);
   const restartPhase = ref<RestartPhase>("idle");
@@ -33,6 +34,7 @@ export function useSelfUpdate() {
   }
 
   async function refresh(): Promise<void> {
+    if (offlineMode.value === null) return;
     try {
       status.value = await $fetch<SelfUpdateStatus>("/api/update/status");
     } catch {

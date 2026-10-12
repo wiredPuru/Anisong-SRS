@@ -3,6 +3,7 @@ import { fetchAnimeMetadataFromAnimeThemes, searchAnimeOnAnimeThemes } from "../
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { findAnimeByAniListId } from "./lookup.ts";
 import type { Anime } from "../db/schema.ts";
+import { assertOnline } from "./networkMode.ts";
 
 // malId and coverImageUrl are optional because the fallback paths below return
 // a stored Anime row or AnimeThemes metadata, neither of which carries them.
@@ -51,6 +52,7 @@ export function createAnimeMetadataResolver() {
       const stored = findAnimeByAniListId(id);
       if (stored) return storedAnimeMetadata(stored);
     }
+    assertOnline();
     if (!primaryUnavailable) {
       try {
         return await (site === "ANILIST" ? fetchAnimeFromAniList(id) : fetchAnimeFromAniListByMalId(id));
@@ -71,6 +73,7 @@ export function createAnimeMetadataResolver() {
   }
 
   async function search(query: string): Promise<AniListAnime[]> {
+    assertOnline();
     if (!primaryUnavailable) {
       try {
         return await searchAnimeOnAniList(query);

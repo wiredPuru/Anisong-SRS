@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import type { AniListAnime } from "../lib/anilist.ts";
 import { setAnimeCoverImage } from "./lookup.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface CoverBackfillResult {
   checked: number;
@@ -21,6 +22,7 @@ export function countAnimeMissingCover(): number {
 // Injected rather than imported so the tests can drive the outcomes (missing
 // record, record with no cover, provider down) without stubbing global fetch.
 export async function backfillMissingCovers(fetchAnime: AniListFetcher): Promise<CoverBackfillResult> {
+  assertOnline();
   const rows = db
     .select({ id: anime.id, aniListId: anime.aniListId })
     .from(anime)
@@ -29,6 +31,7 @@ export async function backfillMissingCovers(fetchAnime: AniListFetcher): Promise
 
   let updated = 0;
   for (const row of rows) {
+    assertOnline();
     // Sequential on purpose: AniList rate limits, and this can run over every
     // anime imported during an outage, not just a handful.
     const fresh = await fetchAnime(row.aniListId);

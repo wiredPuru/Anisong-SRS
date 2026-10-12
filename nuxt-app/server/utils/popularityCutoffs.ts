@@ -1,6 +1,7 @@
 import { requestAniList } from "../lib/anilist.ts";
 import { DEFAULT_CUTOFFS, type PopularityCutoffs } from "./partyEndless.ts";
 import { createTimedCache } from "./timedCache.ts";
+import { getOfflineMode } from "./mediaLibrary.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const QUERY = `
@@ -27,6 +28,7 @@ let current: PopularityCutoffs = DEFAULT_CUTOFFS;
 
 /** The last cutoffs AniList reported (or sensible defaults); refreshes in the background. */
 export function popularityCutoffs(): PopularityCutoffs {
+  if (getOfflineMode()) return current;
   void loadCutoffs().then((fresh) => {
     current = fresh;
   }, () => undefined);

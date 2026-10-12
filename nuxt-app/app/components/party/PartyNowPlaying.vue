@@ -104,7 +104,7 @@ function setSongVolume(volume: number) {
     </div>
 
     <div v-if="current" class="np-answer">
-      <img v-if="current.answer.coverImageUrl" class="np-cover" :src="current.answer.coverImageUrl" alt="" />
+      <NetworkImage v-if="current.answer.coverImageUrl" class="np-cover" :src="current.answer.coverImageUrl" alt="" />
       <div class="np-text">
         <p class="np-title">{{ current.answer.animeTitleEnglish }}</p>
         <p v-if="current.answer.animeTitleRomaji !== current.answer.animeTitleEnglish" class="np-sub">

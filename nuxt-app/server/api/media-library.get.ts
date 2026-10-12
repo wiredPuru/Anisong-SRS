@@ -6,6 +6,7 @@ import { countAnimeMissingCover } from "../utils/coverBackfill.ts";
 import { countAnimeCoversNotLocal } from "../utils/coverSaveLocal.ts";
 import {
   getAutoDownload,
+  getOfflineMode,
   getThemesOnly,
   getIncludeInsertSongs,
   getBoxOneStreakRequired,
@@ -28,6 +29,7 @@ export default defineEventHandler(() => {
     streamCachePath: getStreamCacheDir(),
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
+    offlineMode: getOfflineMode(),
     themesOnly: getThemesOnly(),
     includeInsertSongs: getIncludeInsertSongs(),
     clipSource: getClipSource(),

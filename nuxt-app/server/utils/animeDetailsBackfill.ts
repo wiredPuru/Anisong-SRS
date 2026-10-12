@@ -2,6 +2,7 @@ import { count, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { ANILIST_DETAILS_BATCH_SIZE, type AniListDetails } from "../lib/anilist.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface AnimeDetailsBackfillResult {
   checked: number;
@@ -19,6 +20,7 @@ export function countAnimeMissingDetails(): number {
 // Saves after every batch, so an AniList outage partway through keeps the
 // batches already fetched and a rerun resumes from the rows still unchecked.
 export async function backfillAnimeDetails(fetchDetails: DetailsFetcher): Promise<AnimeDetailsBackfillResult> {
+  assertOnline();
   const rows = db
     .select({ id: anime.id, aniListId: anime.aniListId })
     .from(anime)
@@ -27,6 +29,7 @@ export async function backfillAnimeDetails(fetchDetails: DetailsFetcher): Promis
 
   let updated = 0;
   for (let start = 0; start < rows.length; start += ANILIST_DETAILS_BATCH_SIZE) {
+    assertOnline();
     const batch = rows.slice(start, start + ANILIST_DETAILS_BATCH_SIZE);
     const found = await fetchDetails(batch.map((row) => row.aniListId));
     const checkedAt = new Date();

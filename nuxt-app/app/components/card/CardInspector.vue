@@ -294,7 +294,7 @@ async function toggleKnown(target: CardWithDetails) {
         @local-path-cleared="onLocalPathCleared"
       />
       <div v-else class="inspector-cover">
-        <img v-if="card.animeCoverImageUrl" :src="card.animeCoverImageUrl" alt="" />
+        <NetworkImage v-if="card.animeCoverImageUrl" :src="card.animeCoverImageUrl" alt="" />
         <span class="inspector-slot">{{ formatThemeSlotLabel(card.themeSlot) }}</span>
         <button v-if="sourceBadges(card).length" type="button" class="inspector-play" @click="playRequested = true">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>

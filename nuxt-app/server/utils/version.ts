@@ -1,3 +1,6 @@
+import { getOfflineMode } from "./mediaLibrary.ts";
+import { assertOnline } from "./networkMode.ts";
+
 // The repo name deliberately differs from the local directory name (GAQ_SRS);
 // never derive it from the folder.
 export const GITHUB_REPO = "wiredPuru/Anisong-SRS";
@@ -22,7 +25,8 @@ export interface UpdateStatus {
   downloadUrl: string | null;
   releaseNotes: string | null;
   checkFailed: boolean;
-  checkedAt: string;
+  checkedAt: string | null;
+  offlineMode: boolean;
 }
 
 export interface ReleaseAsset {
@@ -131,6 +135,10 @@ export function pickDownloadUrl(
 // limit, a repo with no releases yet, or malformed JSON all degrade to "no
 // update notice", which is the same thing the user saw before this feature.
 export async function getUpdateStatus(current: string): Promise<UpdateStatus> {
+  if (getOfflineMode()) {
+    return { current, latest: null, updateAvailable: false, releaseUrl: null,
+      downloadUrl: null, releaseNotes: null, checkFailed: true, checkedAt: null, offlineMode: true };
+  }
   const lookup = await getReleaseLookup();
 
   return {
@@ -142,10 +150,12 @@ export async function getUpdateStatus(current: string): Promise<UpdateStatus> {
     releaseNotes: lookup.releaseNotes,
     checkFailed: lookup.checkFailed,
     checkedAt: lookup.checkedAt,
+    offlineMode: false,
   };
 }
 
 export async function getReleaseLookup(): Promise<ReleaseLookup> {
+  assertOnline();
   const now = Date.now();
   if (cached && cached.expiresAt > now) return cached.lookup;
 

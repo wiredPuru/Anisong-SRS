@@ -1,3 +1,5 @@
+import { assertOnline } from "../utils/networkMode.ts";
+
 export class ProviderUnavailableError extends Error {
   readonly statusCode = 503;
   readonly statusMessage: string;
@@ -37,6 +39,7 @@ export async function postGraphQL(
   variables: Record<string, unknown>,
   allowNotFound = false,
 ): Promise<Record<string, unknown> | null> {
+  assertOnline();
   let response: Response;
   try {
     response = await fetch(endpoint, {

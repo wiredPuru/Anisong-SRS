@@ -9,6 +9,7 @@ import type { ReportImportProgress } from "./importProgress.ts";
 import { getClipSource } from "./mediaLibrary.ts";
 import { titleKey } from "./textMatch.ts";
 import { isInsertSlot } from "./themeSlot.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface SourceRefreshCandidate {
   cardId: number;
@@ -128,6 +129,7 @@ export async function refreshCardSources(
   report: ReportImportProgress,
   cardIds?: readonly number[],
 ): Promise<SourceRefreshResult> {
+  assertOnline();
   const candidates = listSourceRefreshCandidates(cardIds);
 
   // One provider round trip per anime, not per card: every card under an anime
@@ -150,6 +152,7 @@ export async function refreshCardSources(
   // Only a timed refusal is worth waiting on: a provider that is simply down
   // sends no Retry-After, and sleeping on that stalls the run to learn nothing.
   async function fetchAnimeWaitingOutRateLimits(aniListId: number) {
+    assertOnline();
     try {
       return await deps.fetchAnime(aniListId);
     } catch (error) {
@@ -161,14 +164,17 @@ export async function refreshCardSources(
       // deliberate silence.
       const waitMs = Math.min(error.retryAfterMs, MAX_WAIT_MS);
       for (let waited = 0; waited < waitMs; waited += WAIT_TICK_MS) {
+        assertOnline();
         reportProgress("Waiting out AniList's rate limit");
         await sleep(Math.min(WAIT_TICK_MS, waitMs - waited));
       }
+      assertOnline();
       return await deps.fetchAnime(aniListId);
     }
   }
 
   for (const group of byAnime.values()) {
+    assertOnline();
     const { aniListId } = group[0]!;
     try {
       let record;
@@ -186,6 +192,7 @@ export async function refreshCardSources(
       // Deliberately not caught: AnisongDB is the only source of a faster URL,
       // so an outage here cannot be degraded around, and continuing would spend
       // an AniList call per remaining anime to learn the same thing again.
+      assertOnline();
       const themes = await deps.fetchThemes(record.malId, aniListId);
 
       for (const candidate of group) {

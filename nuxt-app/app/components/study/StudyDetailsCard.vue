@@ -14,7 +14,7 @@ watch(() => props.coverImageUrl, () => (coverFailed.value = false));
   <Transition name="flip">
     <section v-if="open" class="details-card on-picture" aria-label="Card details">
       <div class="details-art" aria-hidden="true">
-        <img v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
+        <NetworkImage v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
         <span v-else>?</span>
       </div>
       <div class="details-body">

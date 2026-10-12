@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import { getRequestHeader, sendStream, setResponseHeader, type H3Event } from "h3";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
+import { assertOnline, OfflineModeError } from "./networkMode.ts";
 
 export interface ImportProgress {
   label: string;
@@ -29,17 +30,23 @@ export function createImportStream<T>(run: (report: ReportImportProgress) => Pro
       ? error.statusMessage : "Import failed. Please try again.";
     // Flagged so the client can tell an upstream outage, which no retry or
     // corrected input will fix, from a failure the user can act on.
-    write({ type: "error", message, unavailable: error instanceof ProviderUnavailableError });
+    write({ type: "error", message, unavailable: error instanceof ProviderUnavailableError,
+      ...(error instanceof OfflineModeError ? { code: "OFFLINE_MODE" } : {}),
+    });
   }).finally(() => stream.end());
 
   return stream;
 }
 
 export function respondWithImportProgress<T>(event: H3Event, run: (report: ReportImportProgress) => Promise<T>) {
+  assertOnline();
   if (!getRequestHeader(event, "accept")?.split(",").some((type) => type.trim() === "application/x-ndjson")) {
     return run(() => {});
   }
   setResponseHeader(event, "content-type", "application/x-ndjson");
   setResponseHeader(event, "cache-control", "no-store");
-  return sendStream(event, createImportStream(run));
+  return sendStream(event, createImportStream((report) => {
+    assertOnline();
+    return run(report);
+  }));
 }

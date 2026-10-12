@@ -38,7 +38,7 @@ const native = computed(() =>
         <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8z" /></svg>
       </div>
       <div v-else class="np-art" :class="{ revealed: !hidden && coverImageUrl && !coverFailed }" aria-hidden="true">
-        <img v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
+        <NetworkImage v-if="!hidden && coverImageUrl && !coverFailed" :src="coverImageUrl" alt="" @error="coverFailed = true" />
         <span v-else-if="hidden">?</span>
         <svg v-else viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>
       </div>

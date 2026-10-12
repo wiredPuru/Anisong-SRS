@@ -5,6 +5,8 @@ import { assertClipUrlAllowed } from "../../utils/clipSourceGuard.ts";
 import { acquireDownloadGuard, downloadGuardKey, releaseDownloadGuard } from "../../utils/downloadGuard.ts";
 import { buildDownloadBaseName, downloadMediaFile } from "../../utils/mediaDownload.ts";
 import { getDefaultDownloadFolder } from "../../utils/mediaLibrary.ts";
+import { assertOnline } from "../../utils/networkMode.ts";
+import { cachedFilePathIfPresent } from "../../utils/streamCache.ts";
 
 async function* streamDownloadResponse(
   sourceUrl: string,
@@ -22,7 +24,7 @@ async function* streamDownloadResponse(
         continue;
       }
       if (event.type === "error") {
-        yield `${JSON.stringify({ type: "error", message: event.message })}\n`;
+        yield `${JSON.stringify(event)}\n`;
         return;
       }
 
@@ -97,6 +99,7 @@ export default defineEventHandler(async (event) => {
     });
   }
   assertClipUrlAllowed(sourceUrl);
+  if (!cachedFilePathIfPresent(sourceUrl)) assertOnline();
 
   // Guards against a concurrent request for the same card+kind (e.g. Auto
   // Download racing a manual/Preview download) that would otherwise also

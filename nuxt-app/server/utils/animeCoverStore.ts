@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { eq } from "drizzle-orm";
 import { resolveDbPath } from "../db/dataDir.ts";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { deckImageFileName, isSafeDeckImageName, MAX_DECK_IMAGE_BYTES, mimeForDeckImageName, sniffImageType } from "./deckImage.ts";
+import { getOfflineMode } from "./mediaLibrary.ts";
 
 // Covers share deck pictures' size cap, magic-byte sniffing, and
 // `<id>-<8 hex>.<ext>` names, since both are small user-data images.
@@ -64,7 +65,8 @@ export function resolveAnimeCover(animeId: number): AnimeCover | null {
   if (row.coverImagePath) {
     const mime = mimeForDeckImageName(row.coverImagePath);
     const path = join(animeCoverFolder(), row.coverImagePath);
-    if (mime && existsSync(path)) return { kind: "file", path, mime };
+    if (mime && existsSync(path) && statSync(path).isFile()) return { kind: "file", path, mime };
   }
+  if (getOfflineMode()) return null;
   return row.coverImageUrl ? { kind: "remote", url: row.coverImageUrl } : null;
 }

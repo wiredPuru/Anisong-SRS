@@ -3,6 +3,7 @@ import { isRecord, ProviderRequestError, ProviderUnavailableError, retryAfterMs 
 import { USER_AGENT } from "../utils/mediaDownload.ts";
 import { titleKey } from "../utils/textMatch.ts";
 import { insertSlot } from "../utils/themeSlot.ts";
+import { assertOnline } from "../utils/networkMode.ts";
 
 const ANISONGDB_BASE_URL = "https://anisongdb.com/api";
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -27,11 +28,13 @@ export interface AnisongTheme {
 
 // Random songs must differ on every call, so that route is never cached.
 async function postJson(path: string, payload: unknown, cacheTtlMs: number | null = 3 * DAY_MS): Promise<unknown[]> {
+  assertOnline();
   if (cacheTtlMs === null) return fetchJson(path, payload);
   return apiResponseCache.through("anisongdb", { path, payload }, cacheTtlMs, () => fetchJson(path, payload));
 }
 
 async function fetchJson(path: string, payload: unknown): Promise<unknown[]> {
+  assertOnline();
   let response: Response;
   try {
     response = await fetch(`${ANISONGDB_BASE_URL}/${path}`, {

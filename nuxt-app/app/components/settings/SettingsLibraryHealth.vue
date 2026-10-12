@@ -217,7 +217,7 @@ const hasMissing = computed(() =>
 
         <ul class="health-list">
           <li v-for="row in scan.issues" :key="row.card.id" class="health-row">
-            <img v-if="row.card.animeCoverImageUrl" :src="row.card.animeCoverImageUrl" alt="" class="cover-thumb" />
+            <NetworkImage v-if="row.card.animeCoverImageUrl" :src="row.card.animeCoverImageUrl" alt="" class="cover-thumb" />
             <span v-else class="cover-thumb cover-thumb-empty" />
 
             <div class="health-row-body">

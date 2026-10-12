@@ -1,5 +1,6 @@
 import { isRecord, postGraphQL, ProviderUnavailableError } from "./graphql.ts";
 import { apiResponseCache, DAY_MS } from "../utils/apiCache.ts";
+import { assertOnline } from "../utils/networkMode.ts";
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
@@ -43,6 +44,7 @@ async function rawRequestAniList(
   allowNotFound: boolean,
   validate: (data: Record<string, unknown> | null) => unknown,
 ): Promise<Record<string, unknown> | null> {
+  assertOnline();
   if (Date.now() < unavailableUntil || recoveryInFlight) {
     throw new ProviderUnavailableError("AniList", Math.max(0, unavailableUntil - Date.now()));
   }
@@ -74,6 +76,7 @@ export async function requestAniList<T>(
   allowNotFound = false,
   cacheTtlMs = ANILIST_CACHE_TTL_MS,
 ): Promise<T> {
+  assertOnline();
   const raw = await apiResponseCache.through("anilist", { query, variables, allowNotFound }, cacheTtlMs, () =>
     rawRequestAniList(query, variables, allowNotFound, parse),
   );

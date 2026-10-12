@@ -2,6 +2,7 @@ import { respondWithImportProgress } from "../../utils/importProgress.ts";
 import { createAnimeMetadataResolver } from "../../utils/animeMetadata.ts";
 import type { AniListAnime } from "../../lib/anilist.ts";
 import { fetchMalCompletedList, MalUserNotFoundError } from "../../lib/mal.ts";
+import { assertOnline } from "../../utils/networkMode.ts";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
     });
     reportResolution();
     for (const entry of malEntries) {
+      assertOnline();
       // Resolve sequentially to avoid flooding either metadata provider.
       const anime = await metadata.byMalId(entry.malId);
       if (anime && !results.some((result) => result.aniListId === anime.aniListId)) {

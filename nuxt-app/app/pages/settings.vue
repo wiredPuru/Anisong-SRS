@@ -8,6 +8,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  offlineMode: boolean;
   themesOnly: boolean;
   includeInsertSongs: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
@@ -192,6 +193,7 @@ async function importDeck() {
             </div>
 
             <p class="version-line">{{ updateStatus?.current ?? appVersion }}</p>
+            <SettingsSelfUpdate />
 
             <p v-if="updatePending" class="state">Checking for updates...</p>
             <div
@@ -199,7 +201,6 @@ async function importDeck() {
               class="update-available"
             >
               <p class="update-headline">Update available - {{ updateStatus.latest }}</p>
-              <SettingsSelfUpdate />
               <div class="update-actions">
                 <a :href="updateStatus.downloadUrl" rel="noreferrer" class="update-link update-download">
                   {{ downloadLabel }}
@@ -245,6 +246,9 @@ async function importDeck() {
             >
               Update available - {{ updateStatus.latest }}
             </a>
+            <p v-else-if="updateStatus?.offlineMode" class="version-hint">
+              Updates not checked while Offline mode is enabled.
+            </p>
             <p v-else-if="updateStatus && !updateStatus.checkFailed" class="version-hint">
               You're up to date.
             </p>
@@ -283,6 +287,7 @@ async function importDeck() {
         <template v-else-if="data">
           <div class="section-panels">
             <template v-if="activeSection === 'library'">
+              <SettingsOfflineModeControl :enabled="data.offlineMode" />
               <div class="panel panel-full">
                 <div class="panel-header">
                   <span class="panel-title">Local folders</span>

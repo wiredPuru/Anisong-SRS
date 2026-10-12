@@ -994,7 +994,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most improved</span>
               <p v-if="!improvedDecks.length" class="trend-note">No deck has improved yet.</p>
               <div v-for="entry in improvedDecks" :key="`up-${entry.type}-${entry.id}`" class="mover-row">
-                <img v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
+                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
                 <span v-else class="mover-cover mover-cover-empty" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
@@ -1010,7 +1010,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most declined</span>
               <p v-if="!declinedDecks.length" class="trend-note">No deck has declined yet.</p>
               <div v-for="entry in declinedDecks" :key="`down-${entry.type}-${entry.id}`" class="mover-row">
-                <img v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
+                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
                 <span v-else class="mover-cover mover-cover-empty" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
@@ -1128,7 +1128,7 @@ function setType(type: StatsType) {
           class="trouble-row"
           @click="previewCard = entry.card"
         >
-          <img v-if="entry.card.animeCoverImageUrl" :src="entry.card.animeCoverImageUrl" alt="" class="mover-cover" />
+          <NetworkImage v-if="entry.card.animeCoverImageUrl" :src="entry.card.animeCoverImageUrl" alt="" class="mover-cover" />
           <span v-else class="mover-cover mover-cover-empty" />
           <span class="mover-info">
             <span class="mover-label">{{ entry.card.songTitle }}</span>

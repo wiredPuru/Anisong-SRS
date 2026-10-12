@@ -5,6 +5,8 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { unzip } from "fflate";
 import { swapInstall } from "./selfUpdateSwap.ts";
+import { getOfflineMode } from "./mediaLibrary.ts";
+import { assertOnline, OfflineModeError } from "./networkMode.ts";
 import {
   getReleaseLookup,
   isNewerVersion,
@@ -19,7 +21,8 @@ export type SelfUpdateUnavailableReason =
   | "no-asset"
   | "no-digest"
   | "not-writable"
-  | "check-failed";
+  | "check-failed"
+  | "offline-mode";
 
 export type SelfUpdateAvailability =
   | { available: true }
@@ -118,6 +121,7 @@ export async function downloadAndVerify(
   updatesDir: string,
   options: DownloadOptions = {},
 ): Promise<DownloadResult> {
+  assertOnline();
   const { fetchImpl = fetch, idleTimeoutMs = IDLE_TIMEOUT_MS, onBytes, onVerifying } = options;
   if (!isAllowedAssetUrl(asset.url)) {
     return { ok: false, error: "The release download link was not a GitHub address." };
@@ -141,6 +145,7 @@ export async function downloadAndVerify(
   const file = await open(partialPath, "w");
   try {
     resetIdle();
+    assertOnline();
     const response = await fetchImpl(asset.url, {
       headers: { "User-Agent": USER_AGENT },
       signal: controller.signal,
@@ -157,12 +162,12 @@ export async function downloadAndVerify(
       received += value.byteLength;
       onBytes?.(received);
     }
-  } catch {
+  } catch (error) {
     await file.close();
     await rm(partialPath, { force: true });
     return {
       ok: false,
-      error: controller.signal.aborted
+      error: error instanceof OfflineModeError ? error.statusMessage : controller.signal.aborted
         ? "The download stalled. Check your connection and try again."
         : "The download failed. Check your connection and try again.",
     };
@@ -341,6 +346,7 @@ function isRunning(current: Job | null): boolean {
 }
 
 async function resolveTarget(current: string) {
+  assertOnline();
   const installDir = process.env.GAQ_SRS_INSTALL_DIR || null;
   const lookup = await getReleaseLookup();
   const asset = pickPlatformAsset(lookup.assets, process.platform, process.arch);
@@ -381,6 +387,7 @@ export async function getSelfUpdateStatus(current: string): Promise<SelfUpdateSt
     job = null;
   }
 
+  if (getOfflineMode()) return emptyStatus("unavailable", "offline-mode", null);
   const { availability, latest } = await resolveTarget(current);
   if (!availability.available) return emptyStatus("unavailable", availability.reason, null);
   return emptyStatus("idle", null, latest);
@@ -390,6 +397,8 @@ export async function getSelfUpdateStatus(current: string): Promise<SelfUpdateSt
 // client sends nothing, so what gets downloaded is decided here alone.
 export async function startSelfUpdate(current: string): Promise<SelfUpdateStatus> {
   const status = await getSelfUpdateStatus(current);
+  if (status.state === "ready" || isRunning(job)) return status;
+  assertOnline();
   if (status.state !== "idle" && status.state !== "failed") return status;
 
   const { availability, asset, latest } = await resolveTarget(current);

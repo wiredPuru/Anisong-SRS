@@ -12,8 +12,9 @@ const SYNC_MS = 250;
 const LIVE_SEND_MS = 100;
 
 const token = computed(() => props.state.currentToken);
+const { offlineMode } = useNetworkMode();
 const kind = computed(() => props.state.queue[props.state.index]?.kind ?? "video");
-const clipSrc = computed(() => (token.value ? `/api/party/host/clip?t=${encodeURIComponent(token.value)}` : undefined));
+const clipSrc = computed(() => (token.value && offlineMode.value !== null ? `/api/party/host/clip?t=${encodeURIComponent(token.value)}` : undefined));
 
 const lead = ref(2);
 function setLead(value: number) {

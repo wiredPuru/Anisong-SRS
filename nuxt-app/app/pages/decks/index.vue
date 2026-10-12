@@ -899,7 +899,7 @@ function backToDecks() {
             @click="editingDeckId === item.id ? undefined : selectDeck(item.id)"
           >
             <div class="deck-tile-cover">
-              <img v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" @error="markCoverBroken(item.coverImageUrl)" />
+              <NetworkImage v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" @error="markCoverBroken(item.coverImageUrl)" />
               <div
                 v-else-if="activeType !== 'anime'"
                 class="deck-tile-monogram"
@@ -1067,7 +1067,7 @@ function backToDecks() {
           </div>
           <template v-else>
             <div class="deck-detail-title">
-              <img
+              <NetworkImage
                 v-if="selectedDeckCover"
                 :src="selectedDeckCover"
                 alt=""

@@ -90,7 +90,7 @@ const headerCheckState = computed(() =>
         :aria-pressed="selectedId === c.id"
         @click="emit('select', c.id)"
       >
-        <img v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
+        <NetworkImage v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
         <span v-else class="cover-thumb cover-thumb-empty" />
         <span class="cell-song">
           <span class="song-title" :title="c.songTitle">

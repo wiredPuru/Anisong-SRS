@@ -1,11 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
 import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
 import { fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
-import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode, isPathWithinLibrary } from "./mediaLibrary.ts";
+import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode } from "./mediaLibrary.ts";
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
@@ -13,6 +12,9 @@ import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.t
 import { listEndlessCandidates } from "./partySources.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
+import { getOfflineMode } from "./mediaLibrary.ts";
+import { assertOnline } from "./networkMode.ts";
+import { localMediaAvailable } from "./localMedia.ts";
 import { parseStudyFilters, type StudyFilters } from "./studyFilters.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import { createPlayerRegistry } from "./partyPlayers.ts";
@@ -64,7 +66,9 @@ export function onPartyChange(listener: (state: PartyGameState) => void): () => 
 // current song and the ones the display buffers ahead are fetched as soon as
 // the game moves. Failures are the clip route's to report.
 function prefetchAround(current: PartyGameState): void {
+  if (getOfflineMode()) return;
   for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PARTY_LOOKAHEAD)) {
+    if (getOfflineMode()) return;
     if (item.clip.source.type === "remote") void resolveCachedPath(item.clip.source.url).catch(() => {});
   }
 }
@@ -75,12 +79,13 @@ let downloading = false;
 // Catalog songs have no card, so Study's Auto Download never reaches them.
 // Runs one at a time, and a finished file only replaces a song that has not started.
 async function downloadUpcoming(): Promise<void> {
-  if (downloading || !getPartyAutoDownload()) return;
+  if (downloading || getOfflineMode() || !getPartyAutoDownload()) return;
   const folder = getDefaultDownloadFolder();
   if (!folder) return;
   downloading = true;
   try {
     for (let next = selectDownloadTargets(state, downloadAttempted)[0]; next; next = selectDownloadTargets(state, downloadAttempted)[0]) {
+      if (getOfflineMode()) return;
       downloadAttempted.add(next.token);
       const clip = await downloadCatalogClip(next, folder);
       if (clip) commit(withLocalClip(state, next.token, clip));
@@ -167,6 +172,7 @@ export function rememberCatalogSearch(results: AnisongSongResult[]): void {
 
 /** Adds songs from the last catalog search to the queue; the count actually added. */
 export function addCatalogSongs(annSongIds: number[]): number {
+  assertOnline();
   const queued = new Set(state.queue.map((item) => item.cardId));
   const items = annSongIds
     .map((id) => lastCatalogSearch.get(id))
@@ -186,6 +192,7 @@ export function addCatalogSongs(annSongIds: number[]): number {
 }
 
 async function topUpCatalog(hasGame: boolean): Promise<void> {
+  if (getOfflineMode()) return;
   fetchingCatalog = true;
   try {
     const queued = new Set(state.queue.map((item) => item.cardId));
@@ -297,11 +304,7 @@ function followSavedCensor(previous: PartyGameState): void {
 }
 
 function localFileUsable(path: string): boolean {
-  try {
-    return existsSync(path) && statSync(path).isFile() && isPathWithinLibrary(path);
-  } catch {
-    return false;
-  }
+  return localMediaAvailable(path);
 }
 
 function loadAnimeDetails(animeIds: number[]): Map<number, PartyAnimeDetails> {
@@ -323,7 +326,7 @@ function loadAnimeDetails(animeIds: number[]): Map<number, PartyAnimeDetails> {
 }
 
 function resolveQueue(cardIds: number[], downloadedOnly: boolean): { items: PartyQueueItem[]; skipped: number } {
-  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), downloadedOnly };
+  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), downloadedOnly, offlineMode: getOfflineMode() };
   const cards = getCardsByIds(cardIds);
   const byId = new Map(cards.map((card) => [card.id, card]));
   const details = loadAnimeDetails(cards.map((card) => card.animeId));
@@ -376,6 +379,7 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     return {};
   }
   if (command.type === "endless") {
+    if (command.config?.outsideLibrary) assertOnline();
     const parsed = parseStudyFilters(command.filters);
     endlessFilters = "error" in parsed ? null : parsed.filters;
     const { filters: _filters, ...plain } = command;
@@ -425,7 +429,7 @@ function changeCurrentSource(): boolean {
   if (!item || item.cardId <= 0) return false;
   const card = getCardsByIds([item.cardId])[0];
   if (!card) return false;
-  const clips = listPartyClips(card, { clipSource: getClipSource(), playbackMode: getPlaybackMode() }, localFileUsable);
+  const clips = listPartyClips(card, { clipSource: getClipSource(), playbackMode: getPlaybackMode(), offlineMode: getOfflineMode() }, localFileUsable);
   const clip = nextPartyClip(clips, item.clip);
   if (!clip) return false;
   commit(applyPartyCommand(state, { type: "changeSource" }, { loaded: [{ ...item, clip, token: randomBytes(12).toString("hex") }] }));

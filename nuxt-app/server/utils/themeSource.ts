@@ -3,6 +3,7 @@ import { fetchThemesByMalId, type AnisongTheme } from "../lib/anisongdb.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { titleKey } from "./textMatch.ts";
 import { isInsertSlot } from "./themeSlot.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface ResolvedTheme {
   themeSlot: string;
@@ -71,6 +72,7 @@ export async function loadAnimeThemesMatchIndex(aniListId: number): Promise<Anim
 
 // null is an outage, so the caller can retry it or give up on the whole chunk.
 async function loadMatchIndexChunk(aniListIds: number[]): Promise<Map<number, AnimeThemesMatchIndex> | null> {
+  assertOnline();
   try {
     const found = await fetchThemeTitlesByAniListIds(aniListIds);
     return new Map(aniListIds.map((id) => {
@@ -96,6 +98,7 @@ export function startMatchIndexLoads(
   { chunkSize = 40, concurrency = 2, retryDelayMs = 1000, giveUpAfter = 2 }:
     { chunkSize?: number; concurrency?: number; retryDelayMs?: number; giveUpAfter?: number } = {},
 ): Map<number, Promise<AnimeThemesMatchIndex>> {
+  assertOnline();
   const ids = [...new Set(aniListIds)];
   const chunks: number[][] = [];
   for (let i = 0; i < ids.length; i += chunkSize) chunks.push(ids.slice(i, i + chunkSize));

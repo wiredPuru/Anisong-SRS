@@ -7,6 +7,7 @@ import { findSongByAnimeAndSlot, getOrCreateArtist, setAnimeAnimethemesSlug, ups
 import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "../../utils/mediaLibrary.ts";
 import { findThemeMatch, isMissingAnimeThemesMatch, matchLinkSlugs, startMatchIndexLoads } from "../../utils/themeSource.ts";
 import { saveAnimeCoverInBackground } from "../../utils/animeCoverSave.ts";
+import { assertOnline } from "../../utils/networkMode.ts";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -21,6 +22,7 @@ export default defineEventHandler(async (event) => {
   return respondWithImportProgress(event, async (report) => {
     report({ label: `Fetching artist catalog from ${candidate.source === "anisongdb" ? "AnisongDB" : "AnimeThemes"}` });
     const artistThemes = await resolveArtistThemes(candidate, { includeInserts: getIncludeInsertSongs() });
+    assertOnline();
     if (!artistThemes) {
       throw createError({ statusCode: 404, statusMessage: "Artist not found" });
     }
@@ -72,6 +74,7 @@ export default defineEventHandler(async (event) => {
     });
     reportResolution();
     for (const [aniListId, entries] of entriesByAniListId) {
+      assertOnline();
       try {
         let aniListAnime;
         try {

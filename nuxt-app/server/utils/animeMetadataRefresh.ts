@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { fetchAnimeFromAniListFresh, type AniListAnime } from "../lib/anilist.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
+import { assertOnline } from "./networkMode.ts";
 
 export interface AnimeMetadataRefreshResult {
   animeId: number;
@@ -29,6 +30,7 @@ export async function refreshAnimeMetadata(
   const stored = db.select().from(anime).where(eq(anime.id, animeId)).get();
   if (!stored) throw new AnimeMetadataRefreshError(404, "Saved anime not found");
 
+  assertOnline();
   const fresh = await fetchAnime(stored.aniListId);
   if (!fresh) throw new AnimeMetadataRefreshError(404, "AniList no longer returns this anime");
   if (fresh.aniListId !== stored.aniListId || !fresh.details) throw new ProviderUnavailableError("AniList");
