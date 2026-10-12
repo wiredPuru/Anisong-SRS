@@ -1219,7 +1219,7 @@ cleaned-up checkbox version before generating the project overview.
     "Mark all N matching known" bar, like feature 61c, so a whole searched
     playlist is one click.
 
-- [ ] 105. **Artist link opens deck + catalog search** - clicking the artist's
+- [x] 105. **Artist link opens deck + catalog search** - clicking the artist's
   name on a card in Study or Listen opens a new tab at that artist's
   `/decks` page, which also shows an "Other songs by this artist" section
   below the card list: the same animethemes/AnisongDB catalog search `/cards`
@@ -1230,7 +1230,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 105a. **Catalog section on the artist deck page** - an "Other songs by
     this artist" block under an artist deck's card list, reusing
     `CardAddArtistResults` with the artist's name; no new server route.
-  - [ ] 105b. **Open it from Study and Listen** - the artist in
+  - [x] 105b. **Open it from Study and Listen** - the artist in
     `StudyInfoPanel` becomes a link that opens that deck page in a new tab
     (`target="_blank"`, `noopener`), on `/study` and `/listen`. Still follows
     Hide Info on Study, so it never reveals an answer early.

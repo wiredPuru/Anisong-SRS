@@ -406,6 +406,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :song-title="currentCard.songTitle"
                 :song-title-native="currentCard.songTitleNative"
                 :artist-name="currentCard.artistName"
+                :artist-href="artistDeckPath(currentCard.artistId)"
+                artist-new-tab
                 :anime-title-english="currentCard.animeTitleEnglish"
                 :anime-title-romaji="currentCard.animeTitleRomaji"
                 :anime-title-native="currentCard.animeTitleNative"

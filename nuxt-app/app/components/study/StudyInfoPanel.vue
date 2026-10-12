@@ -18,6 +18,9 @@ const props = withDefaults(
     // both render as today's plain text unless a caller opts in.
     animeHref?: string;
     artistHref?: string;
+    // Opens the Artist link in a new tab, for callers (Study, Listen) whose
+    // session a same-tab navigation would abandon.
+    artistNewTab?: boolean;
     notes?: string | null;
     status?: CardStatus;
     // AniList/AnimeThemes links. Left out of the immersive overlay, which is
@@ -46,6 +49,12 @@ const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-cha
 const NuxtLinkComponent = resolveComponent("NuxtLink");
 const animeTitleTag = computed(() => (props.animeHref ? NuxtLinkComponent : "div"));
 const artistNameTag = computed(() => (props.artistHref ? NuxtLinkComponent : "span"));
+const artistLinkAttrs = computed(() => {
+  if (!props.artistHref) return {};
+  return props.artistNewTab
+    ? { to: props.artistHref, target: "_blank", rel: "noopener" }
+    : { to: props.artistHref };
+});
 
 // This panel deliberately isn't remounted per card (it would reset the
 // language toggles below), so the same element carries the CSS blur
@@ -259,7 +268,7 @@ watch(
         <span class="label">Artist</span>
         <component
           :is="artistNameTag"
-          v-bind="artistHref ? { to: artistHref } : {}"
+          v-bind="artistLinkAttrs"
           class="value"
           :class="{ 'deck-link': artistHref }"
           >{{ artistName }}</component
