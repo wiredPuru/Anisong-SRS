@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 04f801a1b90c22c37705c92e2f59ab851be166955cf96057b153e044cc1f4d03 -->
+<!-- blueprint:source-hash 7ef6be9a2d6a717f868c4fdfe85e617d70edad2e701d07ad2bb17074008054bd -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2653,6 +2653,23 @@ feature 105.
     anime deck page from Study and Listen, while Preview and the `/cards`
     inspector keep that same-tab link. Follows Hide Info like the artist link.
     No server change and no `project-plan.md` change.
+
+107. **Offline-first library** - approved 2026-10-12, not built. Saved anime
+    metadata and local assets remain usable without external providers; new
+    discovery and deliberate metadata refresh remain online operations. Uses
+    the existing SQLite library, downloaded clips, and local cover support,
+    not a catalog mirror or expanded data collection.
+    - **107a. Local-first metadata resolution** - use stored anime metadata
+      before provider lookups, preserve it, and offer explicit online refresh.
+    - **107b. Offline mode** - a persisted Settings toggle suppresses external
+      provider requests from both server and browser, including backfills,
+      remote images, and media. Local app and party LAN requests still work.
+    - **107c. Offline UX and verification** - explain unavailable discovery,
+      list refreshes, covers, and clips; prove Study, Listen, and Party work
+      with downloaded content.
+    Backup/restore, internal-identity migration, catalog mirroring, and provider
+    permissions are not part of this feature. Existing storage-policy
+    compliance needs separate review; this plan does not claim permission.
 
 ## Data model
 

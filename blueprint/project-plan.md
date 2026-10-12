@@ -107,6 +107,11 @@ game, behind a password.
   the display, and buzz in; the host judges each buzz and awards points. Party play never counts
   as a review.
 
+- **Offline-first library** - saved metadata and local assets remain usable
+  without external providers. An explicit offline mode prevents external
+  requests. Discovery and metadata refresh require online mode. This does not
+  mirror third-party catalogs or expand data collection.
+
 ## 4. Data - What are we storing?
 
 - Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED/insert

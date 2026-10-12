@@ -1246,6 +1246,19 @@ cleaned-up checkbox version before generating the project overview.
   (new tab), and the link still follows Hide Info so it never reveals the
   answer early.
 
+- [ ] 107. **Offline-first library** - use saved anime metadata first,
+  provide an explicit offline mode that prevents external provider requests,
+  and clearly distinguish available local content from online-only discovery.
+  - [ ] 107a. **Local-first metadata resolution** - resolve imported anime
+    from SQLite before querying providers; preserve stored metadata and
+    provide an explicit online refresh.
+  - [ ] 107b. **Offline mode** - persist a Settings toggle that prevents
+    server and browser requests to external providers, including automatic
+    backfills, remote images, and media; local playback remains available.
+  - [ ] 107c. **Offline UX and verification** - explain unavailable discovery,
+    list refreshes, covers, and clips without blocking local library use;
+    verify Study, Listen, and Party against downloaded content.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
