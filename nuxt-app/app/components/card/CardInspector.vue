@@ -27,6 +27,12 @@ interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
+interface FlagUpdateResult {
+  updated: number;
+  notFound: number[];
+  statuses: Record<number, "new" | "learning" | "known" | "suspended">;
+}
+
 interface ManualDeck {
   id: number;
   name: string;
@@ -223,8 +229,37 @@ async function toggleSuspended(target: CardWithDetails) {
   suspendError.value = null;
   suspending.value = true;
   try {
-    await $fetch("/api/cards/suspend", { method: "POST", body: { ids: [target.id], suspended: !target.suspended } });
-    emit("updated", { ...target, suspended: !target.suspended });
+    const result = await $fetch<FlagUpdateResult>("/api/cards/suspend", {
+      method: "POST",
+      body: { ids: [target.id], suspended: !target.suspended },
+    });
+    emit("updated", {
+      ...target,
+      suspended: !target.suspended,
+      known: target.suspended ? target.known : false,
+      status: result.statuses[target.id] ?? target.status,
+    });
+  } catch (err) {
+    suspendError.value = extractErrorMessage(err, "Failed to update the card.");
+  } finally {
+    suspending.value = false;
+  }
+}
+
+async function toggleKnown(target: CardWithDetails) {
+  suspendError.value = null;
+  suspending.value = true;
+  try {
+    const result = await $fetch<FlagUpdateResult>("/api/cards/known", {
+      method: "POST",
+      body: { ids: [target.id], known: !target.known },
+    });
+    emit("updated", {
+      ...target,
+      known: !target.known,
+      suspended: target.known ? target.suspended : false,
+      status: result.statuses[target.id] ?? target.status,
+    });
   } catch (err) {
     suspendError.value = extractErrorMessage(err, "Failed to update the card.");
   } finally {
@@ -267,7 +302,7 @@ async function toggleSuspended(target: CardWithDetails) {
       </div>
       <div class="inspector-body">
         <div class="inspector-titles">
-          <span class="inspector-song">{{ card.songTitle }}</span>
+          <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /></span>
           <span v-if="isCurrentDeck('artist', card.artistId)" class="inspector-meta">{{ card.artistName }}</span>
           <NuxtLink v-else :to="artistDeckPath(card.artistId)" class="inspector-meta deck-link">{{
             card.artistName
@@ -415,9 +450,13 @@ async function toggleSuspended(target: CardWithDetails) {
           <button type="button" class="suspend-btn" :disabled="suspending" @click="toggleSuspended(card)">
             {{ card.suspended ? "Unsuspend" : "Suspend" }}
           </button>
+          <button type="button" class="known-btn" :disabled="suspending" @click="toggleKnown(card)">
+            {{ card.known ? "Mark unknown" : "Mark known" }}
+          </button>
           <button type="button" class="remove-btn" @click="confirmingRemoveId = card.id">Delete</button>
         </div>
         <p v-if="card.suspended" class="suspended-note">Suspended: kept out of Study until you unsuspend it.</p>
+        <p v-else-if="card.known" class="suspended-note">Known: kept out of Study until you mark it unknown. Its schedule is unchanged.</p>
         <p v-if="removeCardError[card.id]" class="edit-error">{{ removeCardError[card.id] }}</p>
         <p v-if="suspendError" class="edit-error">{{ suspendError }}</p>
       </div>
@@ -647,6 +686,17 @@ async function toggleSuspended(target: CardWithDetails) {
   border: 1px solid var(--accent-secondary);
   background: transparent;
   color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.known-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--pass);
+  background: transparent;
+  color: var(--pass);
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;

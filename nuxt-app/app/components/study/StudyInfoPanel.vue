@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CardStatus } from "../../utils/cardStatus";
 import type { SourceLink } from "../../utils/sourceLinks";
 
 const props = withDefaults(
@@ -18,6 +19,7 @@ const props = withDefaults(
     animeHref?: string;
     artistHref?: string;
     notes?: string | null;
+    status?: CardStatus;
     // AniList/AnimeThemes links. Left out of the immersive overlay, which is
     // chips over the video; the panel beside it is where they belong.
     sourceLinks?: SourceLink[];
@@ -266,6 +268,10 @@ watch(
       <div v-if="themeSlot" class="detail-row">
         <span class="label">Theme</span>
         <span class="value">{{ formatThemeSlotLabel(themeSlot) }}</span>
+      </div>
+      <div v-if="status" class="detail-row">
+        <span class="label">Status</span>
+        <CardStatusChip :status="status" />
       </div>
       <div v-if="notes" class="detail-row">
         <span class="label">Notes</span>

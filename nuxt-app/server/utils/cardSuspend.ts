@@ -2,6 +2,8 @@ import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
 import { BULK_DELETE_MAX } from "./cardDelete.ts";
+import { getCardStatuses } from "./cardStatusLookup.ts";
+import type { FlagUpdateResult } from "./cardStatus.ts";
 
 export interface SuspendBody {
   ids: number[];
@@ -30,7 +32,7 @@ export function parseSuspendBody(body: unknown): SuspendBody | { error: string }
 }
 
 /** Suspends or unsuspends cards without touching their schedule or history. Suspending also clears known. */
-export function setCardsSuspended(ids: readonly number[], suspended: boolean): { updated: number; notFound: number[] } {
+export function setCardsSuspended(ids: readonly number[], suspended: boolean): FlagUpdateResult {
   const found = new Set(
     db
       .update(card)
@@ -40,5 +42,9 @@ export function setCardsSuspended(ids: readonly number[], suspended: boolean): {
       .all()
       .map((row) => row.id),
   );
-  return { updated: found.size, notFound: ids.filter((id) => !found.has(id)) };
+  return {
+    updated: found.size,
+    notFound: ids.filter((id) => !found.has(id)),
+    statuses: getCardStatuses([...found]),
+  };
 }

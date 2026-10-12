@@ -1,6 +1,8 @@
 import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
+import { getCardStatuses } from "./cardStatusLookup.ts";
+import type { FlagUpdateResult } from "./cardStatus.ts";
 import { parseCardIds } from "./cardSuspend.ts";
 
 export interface KnownBody {
@@ -20,7 +22,7 @@ export function parseKnownBody(body: unknown): KnownBody | { error: string } {
 }
 
 /** Marks or unmarks cards as known without touching their schedule or history. Marking also clears suspended. */
-export function setCardsKnown(ids: readonly number[], known: boolean): { updated: number; notFound: number[] } {
+export function setCardsKnown(ids: readonly number[], known: boolean): FlagUpdateResult {
   const found = new Set(
     db
       .update(card)
@@ -30,5 +32,9 @@ export function setCardsKnown(ids: readonly number[], known: boolean): { updated
       .all()
       .map((row) => row.id),
   );
-  return { updated: found.size, notFound: ids.filter((id) => !found.has(id)) };
+  return {
+    updated: found.size,
+    notFound: ids.filter((id) => !found.has(id)),
+    statuses: getCardStatuses([...found]),
+  };
 }

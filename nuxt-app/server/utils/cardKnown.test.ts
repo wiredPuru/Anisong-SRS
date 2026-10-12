@@ -47,18 +47,24 @@ describe("setCardsKnown", () => {
     const [first, second] = ids as [number, number];
     db.insert(reviewLog).values({ cardId: first, result: "pass", boxBefore: 2, boxAfter: 3 }).run();
 
-    expect(setCardsKnown([first], true)).toEqual({ updated: 1, notFound: [] });
+    expect(setCardsKnown([first], true)).toEqual({ updated: 1, notFound: [], statuses: { [first]: "known" } });
     expect(row(first)).toMatchObject({ known: true, box: 3, streak: 2, nextReviewAt: DUE_AT });
     expect(row(second).known).toBe(false);
 
-    expect(setCardsKnown([first], false)).toEqual({ updated: 1, notFound: [] });
+    expect(setCardsKnown([first], false)).toEqual({ updated: 1, notFound: [], statuses: { [first]: "learning" } });
     expect(row(first)).toMatchObject({ known: false, box: 3, streak: 2, nextReviewAt: DUE_AT });
     expect(db.select().from(reviewLog).all()).toHaveLength(1);
   });
 
+  it("reports New for an unmarked card that was never reviewed", () => {
+    const [, second] = ids as [number, number];
+    setCardsKnown([second], true);
+    expect(setCardsKnown([second], false).statuses).toEqual({ [second]: "new" });
+  });
+
   it("reports ids that are not in the library", () => {
     const [first] = ids as [number, number];
-    expect(setCardsKnown([first, 9999], true)).toEqual({ updated: 1, notFound: [9999] });
+    expect(setCardsKnown([first, 9999], true)).toEqual({ updated: 1, notFound: [9999], statuses: { [first]: "known" } });
   });
 
   it("clears suspended when marking known", () => {

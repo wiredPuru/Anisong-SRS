@@ -1,3 +1,4 @@
+import { isCardStatus, type CardStatus } from "./cardStatus.ts";
 import type { CardListFilters } from "./cards.ts";
 import { parseStudyFilters } from "./studyFilters.ts";
 
@@ -38,14 +39,23 @@ export function parseMatchingQuery(q: unknown): string | null {
 export function parseCardListFilters(query: Record<string, unknown>): { filters: CardListFilters } | { error: string } {
   const parsed = parseStudyFilters(query.filters);
   if ("error" in parsed) return parsed;
+  const status = parseStatusParam(query);
+  if (typeof status === "object") return status;
   return {
     filters: {
       missingAnimeThemesMatch: query.missingAnimeThemes === "1",
-      suspendedOnly: query.suspended === "1",
+      ...(status ? { status } : {}),
       downloadedOnly: query.downloaded === "1",
       studyFilters: parsed.filters,
     },
   };
+}
+
+// `suspended=1` predates the Status filter and is kept so older links still work.
+function parseStatusParam(query: Record<string, unknown>): CardStatus | undefined | { error: string } {
+  if (query.status === undefined || query.status === "") return query.suspended === "1" ? "suspended" : undefined;
+  if (!isCardStatus(query.status)) return { error: "status must be new, learning, known, or suspended" };
+  return query.status;
 }
 
 /** GET /api/cards/ids must have at least one active filter, so it can never accidentally match the whole library. */
@@ -53,7 +63,7 @@ export function hasAnyCardsIdsFilter(q: string | null, filters: CardListFilters)
   return (
     q !== null ||
     Boolean(filters.missingAnimeThemesMatch) ||
-    Boolean(filters.suspendedOnly) ||
+    Boolean(filters.status) ||
     Boolean(filters.downloadedOnly) ||
     Boolean(filters.studyFilters)
   );

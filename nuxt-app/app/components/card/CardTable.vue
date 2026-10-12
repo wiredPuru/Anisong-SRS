@@ -95,7 +95,7 @@ const headerCheckState = computed(() =>
         <span class="cell-song">
           <span class="song-title" :title="c.songTitle">
             {{ c.songTitle }}
-            <span v-if="c.suspended" class="badge badge-suspended">Suspended</span>
+            <CardStatusChip :status="c.status" class="row-status" />
           </span>
           <span class="song-artist" :title="c.artistName">{{ c.artistName }}</span>
         </span>
@@ -285,9 +285,7 @@ const headerCheckState = computed(() =>
   white-space: nowrap;
 }
 
-.badge-suspended {
+.row-status {
   margin-left: 6px;
-  color: var(--muted);
-  vertical-align: middle;
 }
 </style>

@@ -31,6 +31,7 @@ const emit = defineEmits<{
 	deleted: [cardId: number]
 	buried: [cardId: number]
 	suspended: [cardId: number]
+	known: [cardId: number]
 	'find-source': []
 	'remove-from-deck': []
 }>()
@@ -112,6 +113,22 @@ async function suspendCard() {
 		suspendError.value = extractErrorMessage(err, 'Failed to suspend card.')
 	} finally {
 		suspending.value = false
+	}
+}
+
+const markingKnown = ref(false)
+const knownError = ref<string | null>(null)
+
+async function markKnown() {
+	knownError.value = null
+	markingKnown.value = true
+	try {
+		await $fetch('/api/cards/known', { method: 'POST', body: { ids: [props.card.id], known: true } })
+		emit('known', props.card.id)
+	} catch (err) {
+		knownError.value = extractErrorMessage(err, 'Failed to mark card as known.')
+	} finally {
+		markingKnown.value = false
 	}
 }
 
@@ -204,7 +221,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				<button
 					type="button"
 					class="bury-btn"
-					:disabled="saving || deleting || suspending"
+					:disabled="saving || deleting || suspending || markingKnown"
 					@click="emit('buried', card.id)"
 				>
 					Bury for this session
@@ -212,16 +229,24 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				<button
 					type="button"
 					class="suspend-btn"
-					:disabled="saving || deleting || suspending"
+					:disabled="saving || deleting || suspending || markingKnown"
 					@click="suspendCard"
 				>
 					{{ suspending ? 'Suspending...' : 'Suspend' }}
 				</button>
 				<button
+					type="button"
+					class="known-btn"
+					:disabled="saving || deleting || suspending || markingKnown"
+					@click="markKnown"
+				>
+					{{ markingKnown ? 'Marking...' : 'Mark known' }}
+				</button>
+				<button
 					v-if="!confirmingDelete"
 					type="button"
 					class="delete-btn"
-					:disabled="saving || deleting || suspending"
+					:disabled="saving || deleting || suspending || markingKnown"
 					@click="askDelete"
 				>
 					Delete
@@ -229,7 +254,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				<button
 					type="button"
 					class="source-btn"
-					:disabled="saving || deleting || suspending"
+					:disabled="saving || deleting || suspending || markingKnown"
 					@click="emit('find-source')"
 				>
 					Find another source
@@ -238,12 +263,12 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 					v-if="deckName"
 					type="button"
 					class="delete-btn"
-					:disabled="saving || deleting || suspending"
+					:disabled="saving || deleting || suspending || markingKnown"
 					@click="emit('remove-from-deck')"
 				>
 					Remove from {{ deckName }}
 				</button>
-				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards. Removing from a deck leaves the card in your library.</p>
+				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards. Mark known does the same for a song you already know, and Cards can undo it. Removing from a deck leaves the card in your library.</p>
 			</div>
 			<div
 				v-if="confirmingDelete"
@@ -276,6 +301,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			</div>
 			<p v-if="deleteError" class="edit-error">{{ deleteError }}</p>
 			<p v-if="suspendError" class="edit-error">{{ suspendError }}</p>
+			<p v-if="knownError" class="edit-error">{{ knownError }}</p>
 			<label class="field">
 				<span class="field-label">Local video path</span>
 				<div class="path-row">
@@ -622,6 +648,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 
 .bury-btn,
 .suspend-btn,
+.known-btn,
 .source-btn,
 .delete-btn {
 	white-space: nowrap;
@@ -637,6 +664,11 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .bury-btn {
 	border: 1px solid var(--accent-secondary);
 	color: var(--accent-secondary);
+}
+
+.known-btn {
+	border: 1px solid var(--pass);
+	color: var(--pass);
 }
 
 .suspend-btn,
@@ -679,6 +711,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .cancel-btn:disabled,
 .bury-btn:disabled,
 .suspend-btn:disabled,
+.known-btn:disabled,
 .source-btn:disabled,
 .delete-btn:disabled,
 .delete-confirm-btn:disabled,

@@ -752,6 +752,7 @@ function onCardBuried(cardId: number) {
   buryCard(cardId);
 }
 
+// Suspending and marking known both leave the queue the same way.
 function onCardSuspended(cardId: number) {
   cardEditing.value = false;
   skipCard(cardId);
@@ -1526,6 +1527,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-native="currentCard.animeTitleNative"
                 :theme-slot="currentCard.themeSlot"
                 :notes="currentCard.notes"
+                :status="currentCard.status"
                 :source-links="currentSourceLinks"
                 :box="currentCard.box"
                 :streak="currentCard.streak"
@@ -1560,6 +1562,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               @updated="onCardEdited"
               @buried="onCardBuried"
               @suspended="onCardSuspended"
+              @known="onCardSuspended"
               @deleted="onCardDeleted"
               @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"

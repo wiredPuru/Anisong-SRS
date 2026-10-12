@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime, artist, card, reviewLog, song } from "../db/schema.ts";
-import { listCards } from "./cards.ts";
+import type { CardStatus } from "./cardStatus.ts";
+import { listCardIds, listCards } from "./cards.ts";
 import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 
 vi.mock("../db/client.ts", async () => {
@@ -56,5 +57,25 @@ describe("card status", () => {
   it("reads suspended, beating known", () => {
     db.update(card).set({ known: true, suspended: true }).where(eq(card.id, id)).run();
     expect(statusOf(id).status).toBe("suspended");
+  });
+});
+
+describe("the Status library filter", () => {
+  it("lists only cards with that status, alone or with a search", () => {
+    const fresh = addCard("alpha", 1);
+    const reviewed = addCard("beta", 2);
+    const known = addCard("gamma", 3);
+    const suspended = addCard("delta", 4);
+    db.insert(reviewLog).values({ cardId: reviewed, result: "pass", boxBefore: 1, boxAfter: 1 }).run();
+    db.update(card).set({ known: true }).where(eq(card.id, known)).run();
+    db.update(card).set({ suspended: true }).where(eq(card.id, suspended)).run();
+
+    const idsFor = (status: CardStatus, q?: string) => listCardIds(q ?? "", { status });
+    expect(idsFor("new")).toEqual([fresh]);
+    expect(idsFor("learning")).toEqual([reviewed]);
+    expect(idsFor("known")).toEqual([known]);
+    expect(idsFor("suspended")).toEqual([suspended]);
+    expect(idsFor("known", "alpha")).toEqual([]);
+    expect(listCards(1, undefined, { status: "known" }).total).toBe(1);
   });
 });

@@ -2576,7 +2576,7 @@ be taken out of the Leitner queue, singly or in bulk. It amended
       "Hotkeys..." link that opens the section in a new tab, and a change there
       reaches an open Study tab with no reload.
 104. **Learning status (Known / Learning / New)** - added to `build-plan.md`
-    2026-10-11, in two sub-features; 104a is built, 104b is not. Every card shows a
+    2026-10-11, in two sub-features, both built. Every card shows a
     status chip: New (never reviewed), Learning (in rotation), Known (marked by
     the user), or Suspended (feature 89). Mark known keeps a card the user
     already knows, such as a bulk-imported playlist, out of the Leitner queue;
@@ -2597,10 +2597,16 @@ be taken out of the Leitner queue, singly or in bulk. It amended
       and `setCardsSuspended` each clear the other flag; known cards leave the
       box figures, mature %, and never-reviewed count. Party and Listen never
       read `suspended`, so they ignore `known` too.
-    - **104b. Status UI + bulk** - the status chip on `/cards` rows, the
-      inspector and Study's info; Mark known / unknown in Study's Edit card
-      panel, the `/cards` inspector and the bulk selection bar; a Status filter
-      on `/cards`; and "Mark all N matching known".
+    - **104b. Status UI + bulk** - done 2026-10-11. `CardStatusChip.vue` shows
+      the status on `/cards` rows, the inspector and Study's info panel (not
+      Preview or Listen). Mark known / unknown sits in the `/cards` inspector and
+      bulk selection bar; Study's Edit card panel has Mark known, which moves on.
+      A Status dropdown replaces the Suspended toggle (`CardListFilters.status`;
+      `status=` on `/api/cards` and `/api/cards/ids`, `suspended=1` kept as an
+      alias), and "Mark all N matching known" has an inline confirm. `POST
+      /api/cards/known` and `/suspend` now also return `statuses`, since
+      unsetting a flag lands on New or Learning depending on review history the
+      client lacks (`getCardStatuses`, `cardStatusLookup.ts`).
 
 ## Data model
 

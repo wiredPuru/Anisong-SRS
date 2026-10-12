@@ -203,7 +203,7 @@ export function useStudySession(
     await fetchNext();
   }
 
-  // After a card is suspended, the server stops serving it; just move on.
+  // After a card is suspended or marked known, the server stops serving it; just move on.
   async function skip(cardId: number) {
     recentCardIds.value = withoutCard(recentCardIds.value, cardId);
     await fetchNext();

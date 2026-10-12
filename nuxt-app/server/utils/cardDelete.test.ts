@@ -52,15 +52,16 @@ const NARROWING: StudyFilters = {
 describe("hasAnyCardsIdsFilter", () => {
   it("rejects a blank query with every toggle off", () => {
     expect(hasAnyCardsIdsFilter(null, {})).toBe(false);
-    expect(hasAnyCardsIdsFilter(null, { missingAnimeThemesMatch: false, suspendedOnly: false })).toBe(false);
+    expect(hasAnyCardsIdsFilter(null, { missingAnimeThemesMatch: false })).toBe(false);
   });
 
   it("accepts a blank query with the AnimeThemes toggle on", () => {
     expect(hasAnyCardsIdsFilter(null, { missingAnimeThemesMatch: true })).toBe(true);
   });
 
-  it("accepts a blank query with the Suspended toggle on", () => {
-    expect(hasAnyCardsIdsFilter(null, { suspendedOnly: true })).toBe(true);
+  it("accepts a blank query with a Status filter on", () => {
+    expect(hasAnyCardsIdsFilter(null, { status: "suspended" })).toBe(true);
+    expect(hasAnyCardsIdsFilter(null, { status: "new" })).toBe(true);
   });
 
   it("accepts a blank query with the Downloaded toggle or anime filters on", () => {
@@ -83,14 +84,24 @@ describe("hasAnyCardsIdsFilter", () => {
 
 describe("parseCardListFilters", () => {
   const read = (query: Record<string, unknown>) => parseCardListFilters(query) as { filters: unknown } | { error: string };
-  const off = { missingAnimeThemesMatch: false, suspendedOnly: false, downloadedOnly: false, studyFilters: null };
+  const off = { missingAnimeThemesMatch: false, downloadedOnly: false, studyFilters: null };
 
   it("reads each toggle only from the literal \"1\"", () => {
     expect(read({ missingAnimeThemes: "1", suspended: "1", downloaded: "1" })).toEqual({
-      filters: { missingAnimeThemesMatch: true, suspendedOnly: true, downloadedOnly: true, studyFilters: null },
+      filters: { missingAnimeThemesMatch: true, status: "suspended", downloadedOnly: true, studyFilters: null },
     });
     expect(read({ missingAnimeThemes: "true", suspended: ["1"], downloaded: "yes" })).toEqual({ filters: off });
     expect(read({})).toEqual({ filters: off });
+  });
+
+  it("reads status, with suspended=1 as an alias that status overrides", () => {
+    expect(read({ status: "known" })).toEqual({ filters: { ...off, status: "known" } });
+    expect(read({ status: "", suspended: "1" })).toEqual({ filters: { ...off, status: "suspended" } });
+    expect(read({ status: "new", suspended: "1" })).toEqual({ filters: { ...off, status: "new" } });
+  });
+
+  it("rejects a status that is not one of the four", () => {
+    expect(read({ status: "buried" })).toEqual({ error: "status must be new, learning, known, or suspended" });
   });
 
   it("parses the anime-level filters from the filters JSON", () => {

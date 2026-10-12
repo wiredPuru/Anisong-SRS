@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CARD_STATUSES, CARD_STATUS_LABELS, isCardStatus, type CardStatus } from "~/utils/cardStatus";
 import { describeLibraryFilter, EMPTY_LIBRARY_FILTER, libraryFilterActive, libraryQuery, type LibraryFilter } from "~/utils/libraryFilter";
 interface CardWithDetails {
   id: number;
@@ -125,16 +126,19 @@ applyMissingAnimeThemesParam(route.query.missingAnimeThemes);
 
 watch(() => route.query.missingAnimeThemes, applyMissingAnimeThemesParam);
 
-const suspendedOnly = ref(false);
+const statusFilter = ref<CardStatus | "">("");
 
-function applySuspendedParam(raw: unknown) {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  suspendedOnly.value = value === "1";
+// `?suspended=1` predates the Status filter and still seeds it.
+function applyStatusParam() {
+  const first = (raw: unknown) => (Array.isArray(raw) ? raw[0] : raw);
+  const status = first(route.query.status);
+  if (isCardStatus(status)) statusFilter.value = status;
+  else statusFilter.value = first(route.query.suspended) === "1" ? "suspended" : "";
 }
 
-applySuspendedParam(route.query.suspended);
+applyStatusParam();
 
-watch(() => route.query.suspended, applySuspendedParam);
+watch(() => [route.query.status, route.query.suspended], applyStatusParam);
 
 const cards = ref<CardWithDetails[]>([]);
 const initialPending = ref(true);
@@ -160,7 +164,7 @@ function matchQuery() {
   return {
     q: searchQuery.value || undefined,
     missingAnimeThemes: missingAnimeThemesMatch.value ? "1" : undefined,
-    suspended: suspendedOnly.value ? "1" : undefined,
+    status: statusFilter.value || undefined,
     ...libraryQuery(libraryFilter.value),
   };
 }
@@ -217,7 +221,7 @@ async function loadMore() {
 }
 
 function replaceCard(updated: CardWithDetails) {
-  if (suspendedOnly.value && !updated.suspended) {
+  if (statusFilter.value && updated.status !== statusFilter.value) {
     dropCardsFromList([updated.id]);
     return;
   }
@@ -231,14 +235,15 @@ const matchingFilterDescription = computed(() => {
   const parts: string[] = [];
   if (searchQuery.value) parts.push(`matching "${searchQuery.value}"`);
   if (missingAnimeThemesMatch.value) parts.push("with no AnimeThemes.moe match");
-  if (suspendedOnly.value) parts.push("that are suspended");
+  if (statusFilter.value) parts.push(`that are ${CARD_STATUS_LABELS[statusFilter.value].toLowerCase()}`);
   if (libraryActive.value) parts.push(`in the library filter (${libraryDescription.value.toLowerCase()})`);
   return parts.join(" ");
 });
 
-watch([searchQuery, missingAnimeThemesMatch, suspendedOnly, libraryFilter], () => {
+watch([searchQuery, missingAnimeThemesMatch, statusFilter, libraryFilter], () => {
   clearChecked();
   confirmingDeleteMatching.value = false;
+  confirmingKnownMatching.value = false;
   loadFirstPage();
 });
 
@@ -362,8 +367,8 @@ watch(checkedIds, (ids) => {
   if (ids.size === 0) confirmingBulkDelete.value = false;
 });
 
-// Removes rows that no longer belong in the list: deleted, or unsuspended while
-// the Suspended filter is on.
+// Removes rows that no longer belong in the list: deleted, or no longer in the
+// status the Status filter is showing.
 function dropCardsFromList(ids: readonly number[]) {
   const gone = new Set(ids);
   const before = cards.value.length;
@@ -439,39 +444,79 @@ async function addSelectedToDeck() {
   }
 }
 
-const bulkSuspending = ref(false);
-const bulkSuspendError = ref<string | null>(null);
+const bulkFlagging = ref(false);
+const bulkFlagError = ref<string | null>(null);
+
+type CardFlag = "suspended" | "known";
+
+const FLAG_ENDPOINT: Record<CardFlag, string> = { suspended: "/api/cards/suspend", known: "/api/cards/known" };
+const FLAG_FAILURE: Record<CardFlag, [string, string]> = {
+  suspended: ["Failed to suspend cards.", "Failed to unsuspend cards."],
+  known: ["Failed to mark cards as known.", "Failed to mark cards as unknown."],
+};
+
+// Applies a flag to one batch and reconciles the loaded rows. The server's
+// statuses decide each row, since unsetting a flag lands on New or Learning
+// depending on review history the client does not hold.
+async function applyFlag(flag: CardFlag, value: boolean, batch: number[]) {
+  const result = await $fetch<{ updated: number; notFound: number[]; statuses: Record<number, CardStatus> }>(
+    FLAG_ENDPOINT[flag],
+    { method: "POST", body: { ids: batch, [flag]: value } },
+  );
+  const missing = new Set(result.notFound);
+  const leaving = batch.filter((id) => {
+    const status = result.statuses[id];
+    return missing.has(id) || (statusFilter.value !== "" && status !== statusFilter.value);
+  });
+  cards.value = cards.value.map((c) => {
+    const status = result.statuses[c.id];
+    if (!status) return c;
+    return { ...c, status, suspended: status === "suspended", known: status === "known" };
+  });
+  dropCardsFromList(leaving);
+}
 
 // Same batching as bulk delete: rows already updated stay updated and leave the
 // selection, so a failure leaves only the unfinished cards selected to retry.
-async function setSelectedSuspended(suspended: boolean) {
-  bulkSuspending.value = true;
-  bulkSuspendError.value = null;
+async function setSelectedFlag(flag: CardFlag, value: boolean) {
+  bulkFlagging.value = true;
+  bulkFlagError.value = null;
+  const dropsRows = statusFilter.value !== "";
   try {
     for (const batch of chunkIds([...checkedIds.value], BULK_DELETE_MAX)) {
-      const result = await $fetch<{ updated: number; notFound: number[] }>("/api/cards/suspend", {
-        method: "POST",
-        body: { ids: batch, suspended },
-      });
-      const missing = new Set(result.notFound);
-      const done = batch.filter((id) => !missing.has(id));
-      if (suspendedOnly.value && !suspended) {
-        dropCardsFromList(batch);
-      } else {
-        const doneSet = new Set(done);
-        cards.value = cards.value.map((c) => (doneSet.has(c.id) ? { ...c, suspended } : c));
-        dropCardsFromList(result.notFound);
-      }
+      await applyFlag(flag, value, batch);
       const processed = new Set(batch);
       checkedIds.value = new Set([...checkedIds.value].filter((id) => !processed.has(id)));
     }
   } catch (err) {
-    bulkSuspendError.value = extractErrorMessage(err, suspended ? "Failed to suspend cards." : "Failed to unsuspend cards.");
+    bulkFlagError.value = extractErrorMessage(err, FLAG_FAILURE[flag][value ? 0 : 1]);
   } finally {
-    bulkSuspending.value = false;
+    bulkFlagging.value = false;
   }
   // As after a bulk delete: dropped rows shift later page offsets.
-  if (suspendedOnly.value && !suspended && totalCards.value > cards.value.length) await loadFirstPage();
+  if (dropsRows && totalCards.value > cards.value.length) await loadFirstPage();
+}
+
+const confirmingKnownMatching = ref(false);
+
+// Ids are fetched at Confirm time so cards infinite scroll never loaded are
+// included. The list reloads afterwards, since the filter may no longer match.
+async function markAllMatchingKnown() {
+  bulkFlagError.value = null;
+  bulkFlagging.value = true;
+  try {
+    const { ids } = await $fetch<{ ids: number[] }>("/api/cards/ids", { query: matchQuery() });
+    for (const batch of chunkIds(ids, BULK_DELETE_MAX)) {
+      await $fetch("/api/cards/known", { method: "POST", body: { ids: batch, known: true } });
+    }
+  } catch (err) {
+    bulkFlagError.value = extractErrorMessage(err, FLAG_FAILURE.known[0]);
+  } finally {
+    bulkFlagging.value = false;
+    confirmingKnownMatching.value = false;
+  }
+  clearChecked();
+  await loadFirstPage();
 }
 
 const confirmingDeleteMatching = ref(false);
@@ -558,15 +603,10 @@ watch(
         >
           No AnimeThemes match
         </button>
-        <button
-          type="button"
-          class="filter-toggle"
-          :class="{ active: suspendedOnly }"
-          :aria-pressed="suspendedOnly"
-          @click="suspendedOnly = !suspendedOnly"
-        >
-          Suspended
-        </button>
+        <select v-model="statusFilter" class="status-select" :class="{ active: statusFilter }" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option v-for="status in CARD_STATUSES" :key="status" :value="status">{{ CARD_STATUS_LABELS[status] }}</option>
+        </select>
         <span v-if="libraryActive" class="library-chip">
           Library filter: {{ libraryDescription }}
           <button type="button" class="library-chip-clear" aria-label="Clear library filter" @click="clearLibraryFilter">&times;</button>
@@ -639,7 +679,7 @@ watch(
       <div class="list-pane">
         <div v-if="initialPending" class="state">
           <MascotState pose="laptop">
-            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${suspendedOnly}|${libraryDescription}`" label="Loading your cards" />
+            <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${statusFilter}|${libraryDescription}`" label="Loading your cards" />
           </MascotState>
         </div>
         <div v-else-if="initialError" class="state state-error">
@@ -647,15 +687,41 @@ watch(
         </div>
         <template v-else>
           <div
-            v-if="(searchQuery || missingAnimeThemesMatch || suspendedOnly || libraryActive) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
+            v-if="(searchQuery || missingAnimeThemesMatch || statusFilter || libraryActive) && totalCards > 0 && !checkedIds.size && !bulkDeleteError"
             class="selection-bar"
           >
             <span class="selection-count">{{ totalCards }} matching</span>
             <button
-              v-if="!confirmingDeleteMatching"
+              v-if="!confirmingDeleteMatching && !confirmingKnownMatching && statusFilter !== 'known'"
+              type="button"
+              class="selection-clear-btn"
+              :disabled="bulkDeleting || bulkFlagging"
+              @click="confirmingKnownMatching = true"
+            >
+              Mark all {{ totalCards }} matching known
+            </button>
+            <template v-if="confirmingKnownMatching">
+              <span class="confirm-label">
+                Mark all {{ totalCards }} {{ totalCards === 1 ? "card" : "cards" }} {{ matchingFilterDescription }} as
+                known? They leave Study, and any that are suspended stop being suspended. Schedules are not changed.
+              </span>
+              <button type="button" class="confirm-btn" :disabled="bulkFlagging" @click="markAllMatchingKnown">
+                {{ bulkFlagging ? "Marking..." : "Confirm" }}
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkFlagging"
+                @click="confirmingKnownMatching = false"
+              >
+                Cancel
+              </button>
+            </template>
+            <button
+              v-else-if="!confirmingDeleteMatching"
               type="button"
               class="remove-btn"
-              :disabled="bulkDeleting"
+              :disabled="bulkDeleting || bulkFlagging"
               @click="confirmingDeleteMatching = true"
             >
               Delete all {{ totalCards }} matching
@@ -678,7 +744,7 @@ watch(
               </button>
             </template>
           </div>
-          <div v-if="checkedIds.size || bulkDeleteError || bulkSuspendError" class="selection-bar">
+          <div v-if="checkedIds.size || bulkDeleteError || bulkFlagError" class="selection-bar">
             <span class="selection-count">{{ checkedIds.size }} selected</span>
             <template v-if="!confirmingBulkDelete">
               <template v-if="manualDecks.length">
@@ -706,23 +772,39 @@ watch(
               <button
                 type="button"
                 class="selection-clear-btn"
-                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkSuspending"
-                @click="setSelectedSuspended(true)"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('suspended', true)"
               >
-                {{ bulkSuspending ? "Updating..." : "Suspend" }}
+                {{ bulkFlagging ? "Updating..." : "Suspend" }}
               </button>
               <button
                 type="button"
                 class="selection-clear-btn"
-                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkSuspending"
-                @click="setSelectedSuspended(false)"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('suspended', false)"
               >
                 Unsuspend
               </button>
               <button
                 type="button"
                 class="selection-clear-btn"
-                :disabled="bulkDeleting || addingToDeck || bulkSuspending"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('known', true)"
+              >
+                Mark known
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('known', false)"
+              >
+                Mark unknown
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="bulkDeleting || addingToDeck || bulkFlagging"
                 @click="clearChecked"
               >
                 Clear selection
@@ -759,7 +841,7 @@ watch(
               </button>
             </template>
             <p v-if="bulkDeleteError" class="edit-error selection-error">{{ bulkDeleteError }}</p>
-            <p v-if="bulkSuspendError" class="edit-error selection-error">{{ bulkSuspendError }}</p>
+            <p v-if="bulkFlagError" class="edit-error selection-error">{{ bulkFlagError }}</p>
             <p v-if="addToDeckError" class="edit-error selection-error">{{ addToDeckError }}</p>
             <p v-else-if="addToDeckNotice" class="selection-notice">{{ addToDeckNotice }}</p>
           </div>
@@ -778,8 +860,8 @@ watch(
           <div v-else-if="libraryActive" class="state">
             <MascotState pose="surprised">No cards match the library filter.</MascotState>
           </div>
-          <div v-else-if="suspendedOnly" class="state">
-            <MascotState pose="clap">No suspended cards.</MascotState>
+          <div v-else-if="statusFilter" class="state">
+            <MascotState pose="clap">No {{ CARD_STATUS_LABELS[statusFilter].toLowerCase() }} cards.</MascotState>
           </div>
           <div v-else-if="missingAnimeThemesMatch" class="state">
             <MascotState pose="clap">No cards without an AnimeThemes.moe match.</MascotState>
@@ -1205,6 +1287,7 @@ h1 {
   font-weight: 700;
 }
 
+.status-select,
 .deck-select {
   padding: 6px 12px;
   border-radius: var(--radius-pill);
@@ -1213,6 +1296,16 @@ h1 {
   color: var(--text);
   font-family: var(--font-sans);
   font-weight: 700;
+}
+
+.status-select {
+  flex: none;
+  font-size: 13px;
+}
+
+.status-select.active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .deck-select:disabled {

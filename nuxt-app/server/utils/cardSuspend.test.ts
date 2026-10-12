@@ -44,17 +44,25 @@ afterEach(() => {
 describe("setCardsSuspended", () => {
   it("suspends and unsuspends without touching the schedule", () => {
     const [first, second] = ids as [number, number, number];
-    expect(setCardsSuspended([first, second], true)).toEqual({ updated: 2, notFound: [] });
+    expect(setCardsSuspended([first, second], true)).toEqual({
+      updated: 2,
+      notFound: [],
+      statuses: { [first]: "suspended", [second]: "suspended" },
+    });
     expect(row(first)).toMatchObject({ suspended: true, box: 3, streak: 0, nextReviewAt: DUE_AT });
 
-    expect(setCardsSuspended([first], false)).toEqual({ updated: 1, notFound: [] });
+    expect(setCardsSuspended([first], false)).toEqual({ updated: 1, notFound: [], statuses: { [first]: "new" } });
     expect(row(first).suspended).toBe(false);
     expect(row(second).suspended).toBe(true);
   });
 
   it("reports ids that are not in the library", () => {
     const [first] = ids as [number, number, number];
-    expect(setCardsSuspended([first, 9999], true)).toEqual({ updated: 1, notFound: [9999] });
+    expect(setCardsSuspended([first, 9999], true)).toEqual({
+      updated: 1,
+      notFound: [9999],
+      statuses: { [first]: "suspended" },
+    });
   });
 });
 
@@ -63,9 +71,9 @@ describe("the Suspended library filter", () => {
     const [first, , third] = ids as [number, number, number];
     setCardsSuspended([first, third], true);
 
-    expect(listCardIds("", { suspendedOnly: true }).sort()).toEqual([first, third].sort());
-    expect(listCardIds("gamma", { suspendedOnly: true })).toEqual([third]);
-    expect(listCards(1, undefined, { suspendedOnly: true }).total).toBe(2);
+    expect(listCardIds("", { status: "suspended" }).sort()).toEqual([first, third].sort());
+    expect(listCardIds("gamma", { status: "suspended" })).toEqual([third]);
+    expect(listCards(1, undefined, { status: "suspended" }).total).toBe(2);
     expect(listCards(1).total).toBe(3);
   });
 });
