@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { decideDoorRequest, lanAddresses } from "./partyDoors.ts";
 
 describe("decideDoorRequest", () => {
+  it("keeps anime metadata refresh off every party door", () => {
+    for (const door of ["display", "control", "player"] as const) {
+      expect(decideDoorRequest(door, "/api/lookup/anime-metadata-refresh")).toEqual({ kind: "notFound" });
+    }
+  });
   it("sends each door's root to its own page", () => {
     expect(decideDoorRequest("display", "/")).toEqual({ kind: "redirect", location: "/party/display" });
     expect(decideDoorRequest("control", "/")).toEqual({ kind: "redirect", location: "/party/host" });

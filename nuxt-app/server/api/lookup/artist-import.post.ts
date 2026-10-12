@@ -94,6 +94,7 @@ export default defineEventHandler(async (event) => {
           titleNative: aniListAnime.titleNative,
           coverImageUrl: aniListAnime.coverImageUrl,
           details: aniListAnime.details,
+          aniListDetailsCheckedAt: aniListAnime.aniListDetailsCheckedAt,
         });
         saveAnimeCoverInBackground(animeRow.id);
 

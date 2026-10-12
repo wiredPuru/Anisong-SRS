@@ -1249,7 +1249,7 @@ cleaned-up checkbox version before generating the project overview.
 - [ ] 107. **Offline-first library** - use saved anime metadata first,
   provide an explicit offline mode that prevents external provider requests,
   and clearly distinguish available local content from online-only discovery.
-  - [ ] 107a. **Local-first metadata resolution** - resolve imported anime
+  - [x] 107a. **Local-first metadata resolution** - resolve imported anime
     from SQLite before querying providers; preserve stored metadata and
     provide an explicit online refresh.
   - [ ] 107b. **Offline mode** - persist a Settings toggle that prevents

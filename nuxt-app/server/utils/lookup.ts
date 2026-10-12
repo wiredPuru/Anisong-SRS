@@ -37,6 +37,7 @@ export function upsertAnime(data: {
   // Same omitted-means-untouched rule as coverImageUrl: only a live AniList
   // by-id lookup carries these.
   details?: AniListDetails;
+  aniListDetailsCheckedAt?: Date | null;
 }): Anime {
   const values: typeof anime.$inferInsert = {
     aniListId: data.aniListId,
@@ -58,7 +59,7 @@ export function upsertAnime(data: {
     set.coverImageUrl = data.coverImageUrl;
   }
   if (data.details) {
-    Object.assign(values, data.details, { aniListDetailsCheckedAt: new Date() });
+    Object.assign(values, data.details, { aniListDetailsCheckedAt: data.aniListDetailsCheckedAt === undefined ? new Date() : data.aniListDetailsCheckedAt });
     Object.assign(set, data.details, { aniListDetailsCheckedAt: values.aniListDetailsCheckedAt });
   }
 

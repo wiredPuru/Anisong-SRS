@@ -188,6 +188,16 @@ export async function fetchAnimeFromAniList(aniListId: number): Promise<AniListA
   }, true);
 }
 
+export async function fetchAnimeFromAniListFresh(aniListId: number): Promise<AniListAnime | null> {
+  if (!Number.isSafeInteger(aniListId) || aniListId <= 0) throw new Error("Anime ID must be a positive integer.");
+  const parse = (data: Record<string, unknown> | null) => {
+    const anime = parseAnime(data);
+    if (anime && (anime.aniListId !== aniListId || !anime.details)) throw new ProviderUnavailableError("AniList");
+    return anime;
+  };
+  return parse(await rawRequestAniList(BY_ID_QUERY, { id: aniListId }, true, parse));
+}
+
 const COMPLETED_LIST_QUERY = `
   query ($userName: String, $status: MediaListStatus) {
     MediaListCollection(userName: $userName, type: ANIME, status: $status) {

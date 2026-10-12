@@ -184,9 +184,9 @@ let observer: IntersectionObserver | null = null;
 const loadFirstPageRequests = createLatestRequest();
 onScopeDispose(loadFirstPageRequests.invalidate);
 
-async function loadFirstPage() {
+async function loadFirstPage(options: { quiet?: boolean } = {}) {
   const isCurrent = loadFirstPageRequests.start();
-  initialPending.value = true;
+  if (!options.quiet) initialPending.value = true;
   initialError.value = false;
   try {
     const res = await $fetch<{ cards: CardWithDetails[]; page: number; totalPages: number; total: number }>("/api/cards", {
@@ -197,7 +197,8 @@ async function loadFirstPage() {
     nextPage.value = 2;
     totalPages.value = res.totalPages;
     totalCards.value = res.total;
-  } catch {
+  } catch (error) {
+    if (isCurrent() && options.quiet) throw error;
     if (isCurrent()) initialError.value = true;
   } finally {
     if (isCurrent()) initialPending.value = false;
@@ -921,6 +922,7 @@ watch(
           :toggling-membership="togglingMembership"
           :membership-error="deckToggleError"
           @updated="replaceCard"
+          :reload-metadata="() => loadFirstPage({ quiet: true })"
           @deleted="dropCardsFromList([$event])"
           @toggle-deck="toggleDeckMembership"
         />

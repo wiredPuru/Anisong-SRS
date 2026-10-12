@@ -33,10 +33,34 @@ afterEach(() => {
 });
 
 describe("metadata resolver during AniList downtime", () => {
-  it("uses stored metadata without requesting the backup", async () => {
+  it("uses stored metadata without requesting either provider", async () => {
     const stored = upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Stored", titleEnglish: "English", titleNative: "日本語", coverImageUrl: "cover.jpg" });
-    expect(await createResolver().byAniListId(1)).toMatchObject(stored);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    fetch.mockRejectedValue(new Error("Providers must not be called"));
+    expect(await createResolver().byAniListId(1)).toMatchObject({ aniListId: stored.aniListId, titleRomaji: stored.titleRomaji, titleEnglish: stored.titleEnglish, titleNative: stored.titleNative, coverImageUrl: stored.coverImageUrl, animethemesId: stored.animethemesId });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(findAnimeByAniListId(1)).toEqual(stored);
+  });
+
+  it("returns checked filter details without refreshing their timestamp", async () => {
+    const details = { year: 2006, season: "SPRING" as const, format: "TV", averageScore: 78, popularity: 42, genres: ["Comedy"], tags: [{ name: "Iyashikei", rank: 80 }] };
+    const stored = upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Stored", titleEnglish: null, titleNative: null, details });
+    vi.advanceTimersByTime(60_000);
+    expect(await createResolver().byAniListId(1)).toMatchObject({ details, aniListDetailsCheckedAt: stored.aniListDetailsCheckedAt });
+    expect(findAnimeByAniListId(1)).toEqual(stored);
+    expect(fetch).not.toHaveBeenCalled();
+    const resolved = (await createResolver().byAniListId(1))!;
+    expect(upsertAnime({ ...resolved, animethemesId: resolved.animethemesId ?? null })).toEqual(stored);
+  });
+
+  it("does not present unchecked default details as fetched metadata", async () => {
+    upsertAnime({ aniListId: 1, animethemesId: null, titleRomaji: "Stored", titleEnglish: null, titleNative: null });
+    expect((await createResolver().byAniListId(1))?.details).toBeUndefined();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])("rejects invalid ID %s before provider access", async (id) => {
+    await expect(createResolver().byAniListId(id)).rejects.toThrow("positive integer");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("falls back for uncached anime and retains that choice in a long bulk import", async () => {
@@ -52,7 +76,7 @@ describe("metadata resolver during AniList downtime", () => {
 
   it("resolves MAL's exact mapping to the richer stored AniList row", async () => {
     const stored = upsertAnime({ aniListId: 1, animethemesId: 501, titleRomaji: "Stored", titleEnglish: "English", titleNative: "日本語", coverImageUrl: "cover.jpg" });
-    expect(await createResolver().byMalId(1)).toMatchObject(stored);
+    expect(await createResolver().byMalId(1)).toMatchObject({ aniListId: stored.aniListId, titleRomaji: stored.titleRomaji, titleEnglish: stored.titleEnglish, coverImageUrl: stored.coverImageUrl });
     expect(JSON.parse(fetch.mock.calls[1]![1].body).query).toContain("site: MAL");
   });
 

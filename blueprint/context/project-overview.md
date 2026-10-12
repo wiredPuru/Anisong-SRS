@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 7ef6be9a2d6a717f868c4fdfe85e617d70edad2e701d07ad2bb17074008054bd -->
+<!-- blueprint:source-hash b5222eec1330b7afe9d97899868c4fd711bf8c0eeb31ca130ca2a2e8c65fc5a2 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2654,13 +2654,15 @@ feature 105.
     inspector keep that same-tab link. Follows Hide Info like the artist link.
     No server change and no `project-plan.md` change.
 
-107. **Offline-first library** - approved 2026-10-12, not built. Saved anime
+107. **Offline-first library** - approved 2026-10-12, partially built. Saved anime
     metadata and local assets remain usable without external providers; new
     discovery and deliberate metadata refresh remain online operations. Uses
     the existing SQLite library, downloaded clips, and local cover support,
     not a catalog mirror or expanded data collection.
-    - **107a. Local-first metadata resolution** - use stored anime metadata
-      before provider lookups, preserve it, and offer explicit online refresh.
+    - **107a. Local-first metadata resolution** - built and verified 2026-10-12.
+      Uses stored anime metadata before provider lookups, preserves it, and
+      offers explicit online refresh. Archived in
+      `history/features/107a-local-first-anime-metadata-resolution.md`.
     - **107b. Offline mode** - a persisted Settings toggle suppresses external
       provider requests from both server and browser, including backfills,
       remote images, and media. Local app and party LAN requests still work.

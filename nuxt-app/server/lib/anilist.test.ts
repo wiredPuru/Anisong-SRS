@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiResponseCache } from "../utils/apiCache.ts";
 
 const media = { id: 1, title: { romaji: "Cowboy Bebop", english: null, native: "カウボーイビバップ" }, coverImage: { large: "cover.jpg" } };
 const fetch = vi.fn();
@@ -11,7 +12,42 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", fetch);
   client = await import("./anilist.ts");
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+describe("fresh AniList metadata requests", () => {
+  const completeMedia = { ...media, genres: [], tags: [], season: null, format: "TV", averageScore: null, popularity: null };
+
+  it("bypasses the response cache even while cached data is fresh", async () => {
+    const cached = vi.spyOn(apiResponseCache, "through").mockRejectedValue(new Error("Cache must not be read"));
+    fetch.mockResolvedValue(Response.json({ data: { Media: completeMedia } }));
+    expect(await client.fetchAnimeFromAniListFresh(1)).toMatchObject({ aniListId: 1, details: { format: "TV" } });
+    expect(cached).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not report cached success on an outage and honors the recovery cooldown", async () => {
+    const cached = vi.spyOn(apiResponseCache, "through").mockRejectedValue(new Error("Cache must not be read"));
+    fetch.mockResolvedValue(new Response("outage", { status: 429, headers: { "retry-after": "120" } }));
+    await expect(client.fetchAnimeFromAniListFresh(1)).rejects.toMatchObject({ statusCode: 503 });
+    await expect(client.fetchAnimeFromAniListFresh(1)).rejects.toMatchObject({ statusCode: 503 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(cached).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(120_000);
+    fetch.mockResolvedValue(Response.json({ data: { Media: completeMedia } }));
+    await expect(client.fetchAnimeFromAniListFresh(1)).resolves.toMatchObject({ aniListId: 1 });
+  });
+
+  it.each([media, { ...completeMedia, id: 2 }, { ...completeMedia, genres: "bad" }, { ...completeMedia, title: { romaji: "" } }])("rejects malformed or mismatched refresh metadata", async (invalid) => {
+    fetch.mockResolvedValue(Response.json({ data: { Media: invalid } }));
+    await expect(client.fetchAnimeFromAniListFresh(1)).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it("returns genuine not-found without falling back", async () => {
+    fetch.mockResolvedValue(Response.json({ data: { Media: null } }));
+    expect(await client.fetchAnimeFromAniListFresh(1)).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("AniList availability and recovery", () => {
   it("preserves successful metadata, empty searches and genuine not-found results", async () => {

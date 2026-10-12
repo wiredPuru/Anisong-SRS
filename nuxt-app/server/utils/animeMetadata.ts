@@ -2,6 +2,7 @@ import { fetchAnimeFromAniList, fetchAnimeFromAniListByMalId, searchAnimeOnAniLi
 import { fetchAnimeMetadataFromAnimeThemes, searchAnimeOnAnimeThemes } from "../lib/animethemes.ts";
 import { ProviderUnavailableError } from "../lib/graphql.ts";
 import { findAnimeByAniListId } from "./lookup.ts";
+import type { Anime } from "../db/schema.ts";
 
 // malId and coverImageUrl are optional because the fallback paths below return
 // a stored Anime row or AnimeThemes metadata, neither of which carries them.
@@ -9,6 +10,28 @@ export interface AnimeMetadata extends Omit<AniListAnime, "coverImageUrl" | "mal
   coverImageUrl?: string | null;
   malId?: number | null;
   animethemesId?: number | null;
+  aniListDetailsCheckedAt?: Date | null;
+}
+
+function storedAnimeMetadata(stored: Anime): AnimeMetadata {
+  return {
+    aniListId: stored.aniListId,
+    titleRomaji: stored.titleRomaji,
+    titleEnglish: stored.titleEnglish,
+    titleNative: stored.titleNative,
+    coverImageUrl: stored.coverImageUrl,
+    animethemesId: stored.animethemesId,
+    aniListDetailsCheckedAt: stored.aniListDetailsCheckedAt,
+    details: stored.aniListDetailsCheckedAt === null ? undefined : {
+      year: stored.year,
+      season: stored.season,
+      format: stored.format,
+      averageScore: stored.averageScore,
+      popularity: stored.popularity,
+      genres: stored.genres,
+      tags: stored.tags,
+    },
+  };
 }
 
 export class AnimeLookupUnavailableError extends ProviderUnavailableError {
@@ -24,6 +47,10 @@ export function createAnimeMetadataResolver() {
 
   async function resolve(id: number, site: "ANILIST" | "MAL"): Promise<AnimeMetadata | null> {
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Anime ID must be a positive integer.");
+    if (site === "ANILIST") {
+      const stored = findAnimeByAniListId(id);
+      if (stored) return storedAnimeMetadata(stored);
+    }
     if (!primaryUnavailable) {
       try {
         return await (site === "ANILIST" ? fetchAnimeFromAniList(id) : fetchAnimeFromAniListByMalId(id));
@@ -32,14 +59,11 @@ export function createAnimeMetadataResolver() {
         primaryUnavailable = true;
       }
     }
-    if (site === "ANILIST") {
-      const stored = findAnimeByAniListId(id);
-      if (stored) return stored;
-    }
     try {
       const fallback = await fetchAnimeMetadataFromAnimeThemes(id, site);
       if (!fallback) return null;
-      return findAnimeByAniListId(fallback.aniListId) ?? fallback;
+      const stored = findAnimeByAniListId(fallback.aniListId);
+      return stored ? storedAnimeMetadata(stored) : fallback;
     } catch (error) {
       if (!(error instanceof ProviderUnavailableError)) throw error;
       throw new AnimeLookupUnavailableError();

@@ -8,6 +8,8 @@ import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import { getClipSource, getIncludeInsertSongs, getThemesOnly } from "./mediaLibrary.ts";
 import { isMissingAnimeThemesMatch, resolveThemes } from "./themeSource.ts";
 import { saveAnimeCoverInBackground } from "./animeCoverSave.ts";
+import { fetchAnimeFromAniList } from "../lib/anilist.ts";
+import { ProviderUnavailableError } from "../lib/graphql.ts";
 
 export interface ImportedTheme {
   songId: number;
@@ -38,9 +40,18 @@ export async function importAnimeThemes(aniListId: number): Promise<ImportedAnim
   const aniListAnime = await metadata.byAniListId(aniListId);
   if (!aniListAnime) return null;
 
+  let malId = aniListAnime.malId ?? null;
+  if (aniListAnime.malId === undefined && aniListAnime.aniListDetailsCheckedAt !== undefined) {
+    try {
+      malId = (await fetchAnimeFromAniList(aniListId))?.malId ?? null;
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+    }
+  }
+
   const resolved = await resolveThemes({
     aniListId,
-    malId: aniListAnime.malId ?? null,
+    malId,
     includeInserts: getIncludeInsertSongs(),
   });
   const clipSource = getClipSource();
@@ -55,6 +66,7 @@ export async function importAnimeThemes(aniListId: number): Promise<ImportedAnim
     animethemesSlug: resolved.animethemesSlug,
     coverImageUrl: aniListAnime.coverImageUrl,
     details: aniListAnime.details,
+    aniListDetailsCheckedAt: aniListAnime.aniListDetailsCheckedAt,
   });
   saveAnimeCoverInBackground(animeRow.id);
 

@@ -49,6 +49,7 @@ const props = withDefaults(
     memberships: Record<number, number[]>;
     togglingMembership: Record<string, boolean>;
     membershipError: string | null;
+    reloadMetadata: () => Promise<void>;
     // The deck page being viewed; its own artist or anime is shown as plain
     // text, since linking to the page you are on is noise.
     currentDeck?: { type: "artist" | "anime" | "created"; id: number } | null;
@@ -312,6 +313,8 @@ async function toggleKnown(target: CardWithDetails) {
             card.animeTitleEnglish
           }}</NuxtLink>
         </div>
+
+        <CardAnimeMetadataRefresh :anime-id="card.animeId" :reload-metadata="reloadMetadata" />
 
         <div v-if="showSchedule" class="inspector-tiles">
           <div class="tile">

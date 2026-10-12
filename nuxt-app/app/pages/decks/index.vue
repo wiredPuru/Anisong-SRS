@@ -397,7 +397,7 @@ onScopeDispose(deckCardRequests.invalidate);
 
 // `quiet` keeps the list on screen while it reloads: the pending state unmounts
 // the whole detail body, which would close an open catalog modal mid-add.
-async function loadFirstDeckCardsPage(options: { quiet?: boolean } = {}) {
+async function loadFirstDeckCardsPage(options: { quiet?: boolean; throwOnError?: boolean } = {}) {
   const isCurrent = deckCardRequests.start();
   if (selectedId.value === null) return;
   if (!options.quiet) {
@@ -429,10 +429,11 @@ async function loadFirstDeckCardsPage(options: { quiet?: boolean } = {}) {
     deckCards.value = res.cards;
     cardsNextPage.value = 2;
     cardsTotalPages.value = res.totalPages;
-  } catch {
+  } catch (error) {
+    if (isCurrent() && options.throwOnError) throw error;
     if (isCurrent() && !options.quiet) cardsInitialError.value = true;
   } finally {
-    if (isCurrent() && !options.quiet) cardsInitialPending.value = false;
+    if (isCurrent()) cardsInitialPending.value = false;
   }
 }
 
@@ -1253,6 +1254,7 @@ function backToDecks() {
                 : undefined
             "
             @updated="replaceDeckCard"
+            :reload-metadata="() => loadFirstDeckCardsPage({ quiet: true, throwOnError: true })"
             @deleted="onCardDeleted"
             @toggle-deck="toggleDeckMembership"
           >
