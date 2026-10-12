@@ -17,6 +17,8 @@ const props = withDefaults(
     // on /study, where following one mid-session would abandon the queue, so
     // both render as today's plain text unless a caller opts in.
     animeHref?: string;
+    // Same as artistNewTab, for the anime title block.
+    animeNewTab?: boolean;
     artistHref?: string;
     // Opens the Artist link in a new tab, for callers (Study, Listen) whose
     // session a same-tab navigation would abandon.
@@ -49,6 +51,12 @@ const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-cha
 const NuxtLinkComponent = resolveComponent("NuxtLink");
 const animeTitleTag = computed(() => (props.animeHref ? NuxtLinkComponent : "div"));
 const artistNameTag = computed(() => (props.artistHref ? NuxtLinkComponent : "span"));
+const animeLinkAttrs = computed(() => {
+  if (!props.animeHref) return {};
+  return props.animeNewTab
+    ? { to: props.animeHref, target: "_blank", rel: "noopener" }
+    : { to: props.animeHref };
+});
 const artistLinkAttrs = computed(() => {
   if (!props.artistHref) return {};
   return props.artistNewTab
@@ -245,7 +253,7 @@ watch(
 
     <component
       :is="animeTitleTag"
-      v-bind="animeHref ? { to: animeHref } : {}"
+      v-bind="animeLinkAttrs"
       class="title-block"
       :class="{ 'deck-link': animeHref }"
     >

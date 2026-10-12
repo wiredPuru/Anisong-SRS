@@ -9,3 +9,10 @@ export function artistDeckPath(artistId: number): string {
 export function animeDeckPath(animeId: number): string {
   return `/decks?type=anime&id=${animeId}`;
 }
+
+// /cards seeds its search box from ?q=, which matches anime titles too, so a
+// trimmed query lets the user widen "Show S2" to the whole franchise.
+export function animeCardsSearchPath(title: string): string {
+  const query = title.trim();
+  return query ? `/cards?q=${encodeURIComponent(query)}` : "/cards";
+}

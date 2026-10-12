@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { animeDeckPath, artistDeckPath } from "./deckLinks.ts";
+import { animeCardsSearchPath, animeDeckPath, artistDeckPath } from "./deckLinks.ts";
 
 // Mirrors how /decks reads its own params (pages/decks/index.vue: activeType
 // defaults to "artist" for anything but "anime"/"created", selectedId is
@@ -38,5 +38,29 @@ describe("animeDeckPath", () => {
 describe("deck paths", () => {
   it("keeps the two deck types distinct for the same id", () => {
     expect(artistDeckPath(7)).not.toBe(animeDeckPath(7));
+  });
+});
+
+describe("animeCardsSearchPath", () => {
+  const q = (path: string) => new URLSearchParams(path.slice(path.indexOf("?") + 1)).get("q");
+
+  it("seeds /cards with the title", () => {
+    expect(animeCardsSearchPath("Higurashi no Naku Koro ni Kai")).toBe(
+      "/cards?q=Higurashi%20no%20Naku%20Koro%20ni%20Kai",
+    );
+  });
+
+  it("round-trips characters that would break a query string", () => {
+    for (const title of ["Fate/stay night & more", "Re:Zero #1", "ひぐらしのなく頃に"]) {
+      expect(q(animeCardsSearchPath(title))).toBe(title);
+    }
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(q(animeCardsSearchPath("  Clannad  "))).toBe("Clannad");
+  });
+
+  it("falls back to plain /cards for a blank title", () => {
+    expect(animeCardsSearchPath("   ")).toBe("/cards");
   });
 });

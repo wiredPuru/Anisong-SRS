@@ -1235,6 +1235,17 @@ cleaned-up checkbox version before generating the project overview.
     (`target="_blank"`, `noopener`), on `/study` and `/listen`. Still follows
     Hide Info on Study, so it never reveals an answer early.
 
+- [x] 106. **Anime title opens a Cards search** - clicking the anime title
+  on a card in Study or Listen opens a new tab at `/cards?q=<the anime's
+  romaji title>`, so the user lands on every card whose anime title matches
+  (the search box is pre-filled and editable). For "Higurashi no Naku Koro
+  ni Kai" they can trim the box to "Higurashi" and see the whole franchise
+  across seasons. Uses the existing `/cards?q=` param and search; no new
+  route or server change. Preview and the `/cards` inspector keep their
+  same-tab link to the anime deck page. Study keeps its session untouched
+  (new tab), and the link still follows Hide Info so it never reveals the
+  answer early.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

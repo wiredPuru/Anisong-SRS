@@ -352,6 +352,11 @@ card in Study or Listen opens, in a new tab, that artist's `/decks` page with an
 "Other songs by this artist" section running the existing artist catalog search.
 No `project-plan.md` change: it adds a link and a section to existing surfaces,
 like features 74 and 98.
+Feature 106 (anime title opens a Cards search) was added to `build-plan.md` on
+2026-10-12. Clicking the anime title on a card in Study or Listen opens, in a
+new tab, `/cards` with the search pre-filled with the anime's romaji title.
+No `project-plan.md` change: it adds a link to existing surfaces, like
+feature 105.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2638,6 +2643,16 @@ like features 74 and 98.
     - **105b. Open it from Study and Listen** - the artist in `StudyInfoPanel`
       becomes a `target="_blank"` link with `noopener` on `/study` and `/listen`,
       still following Hide Info on Study so it never reveals an answer early.
+
+106. **Anime title opens a Cards search** - added to `build-plan.md` 2026-10-12, done 2026-10-12.
+    Clicking the anime title in `StudyInfoPanel` on `/study` and
+    `/listen` opens `/cards?q=<romaji title>` in a new tab (`target="_blank"`,
+    `noopener`), so the user can trim the pre-filled search (for example to
+    "Higurashi") and see every season. Decided at intake: romaji, because it is
+    always present and matches the search; the title no longer links to the
+    anime deck page from Study and Listen, while Preview and the `/cards`
+    inspector keep that same-tab link. Follows Hide Info like the artist link.
+    No server change and no `project-plan.md` change.
 
 ## Data model
 
