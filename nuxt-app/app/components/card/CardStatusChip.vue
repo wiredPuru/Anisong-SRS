@@ -10,14 +10,13 @@ defineProps<{ status: CardStatus }>();
 
 <style scoped>
 .status-chip {
-  display: inline-block;
-  padding: 2px 8px;
+  align-self: flex-start;
+  padding: 3px 9px;
   border-radius: var(--radius-pill);
-  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
-  vertical-align: middle;
 }
 
 .status-new {
