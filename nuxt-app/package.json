@@ -12,6 +12,7 @@
     "party": "bun run launcher/party.ts",
     "package": "bun run scripts/package.ts",
     "measure": "bun run scripts/measure.ts",
+    "deck-from-list": "bun run scripts/deck-from-list.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "nuxt prepare",

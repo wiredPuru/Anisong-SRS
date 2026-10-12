@@ -243,6 +243,15 @@ checks do not make the Blueprint unusable.
       bun run measure /study --size 1400x640 --key e --select .player-frame
       bun run measure /study --css ".app-content{height:auto;min-height:100vh}"
 
+- Build a deck from a song list (with the app running): `bun run deck-from-list
+  <list.json> [--dry-run] [--base <url>]` - matches each entry through the
+  app's own song search, falling back to importing the AniList anime and
+  picking the theme, creates the cards, and adds them to the manual deck the
+  list names (created if missing). Unmatched entries are printed, never
+  guessed. Lists live in `scripts/deck-lists/`; each entry gives romanized
+  `songs`, `artists`, `anime` fragments, an optional `animeSearch` (native
+  titles work) and `slot` (`OP`/`ED`/`IN`).
+
 - Test: `bun run test` (Vitest, run once) - run in `nuxt-app/`
 - Test (watch): `bun run test:watch`
 
