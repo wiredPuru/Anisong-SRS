@@ -395,11 +395,15 @@ let cardsObserver: IntersectionObserver | null = null;
 const deckCardRequests = createLatestRequest();
 onScopeDispose(deckCardRequests.invalidate);
 
-async function loadFirstDeckCardsPage() {
+// `quiet` keeps the list on screen while it reloads: the pending state unmounts
+// the whole detail body, which would close an open catalog modal mid-add.
+async function loadFirstDeckCardsPage(options: { quiet?: boolean } = {}) {
   const isCurrent = deckCardRequests.start();
   if (selectedId.value === null) return;
-  cardsInitialPending.value = true;
-  cardsInitialError.value = false;
+  if (!options.quiet) {
+    cardsInitialPending.value = true;
+    cardsInitialError.value = false;
+  }
   try {
     const res = await $fetch<{
       deckLabel: string;
@@ -426,9 +430,9 @@ async function loadFirstDeckCardsPage() {
     cardsNextPage.value = 2;
     cardsTotalPages.value = res.totalPages;
   } catch {
-    if (isCurrent()) cardsInitialError.value = true;
+    if (isCurrent() && !options.quiet) cardsInitialError.value = true;
   } finally {
-    if (isCurrent()) cardsInitialPending.value = false;
+    if (isCurrent() && !options.quiet) cardsInitialPending.value = false;
   }
 }
 
@@ -447,7 +451,9 @@ async function loadMoreDeckCards() {
         },
       },
     );
-    deckCards.value.push(...res.cards);
+    // A card spliced in by previewCatalogCard may arrive again on a later page.
+    const loaded = new Set(deckCards.value.map((c) => c.id));
+    deckCards.value.push(...res.cards.filter((c) => !loaded.has(c.id)));
     cardsNextPage.value += 1;
     cardsTotalPages.value = res.totalPages;
   } finally {
@@ -476,6 +482,18 @@ const selectedCard = computed(() => deckCards.value.find((c) => c.id === selecte
 watch(selectedId, () => {
   selectedCardId.value = null;
 });
+
+// Only an artist deck lists an artist's other songs; anime and manual decks
+// are not about one artist, and an unusable name has nothing to search for.
+const catalogQuery = computed(() => (activeType.value === "artist" ? artistCatalogQuery(deckLabel.value) : null));
+
+// A song just added for this artist joins the derived deck but may sit beyond
+// the loaded page, so it is spliced to the front when missing, as /cards does
+// for a card handed over from elsewhere. The emitted row is the full server row.
+function previewCatalogCard(card: { id: number }) {
+  if (!deckCards.value.some((c) => c.id === card.id)) deckCards.value.unshift(card as DeckCard);
+  selectedCardId.value = card.id;
+}
 
 function selectCard(id: number) {
   selectedCardId.value = selectedCardId.value === id ? null : id;
@@ -1151,6 +1169,16 @@ function backToDecks() {
                 </ul>
                 <p v-else class="state">No matching cards or anime found for "{{ addCardQuery.trim() }}".</p>
               </template>
+            </div>
+
+            <div v-if="catalogQuery" class="catalog-block">
+              <h3>Other songs by {{ deckLabel }}</h3>
+              <CardAddArtistResults
+                :query="catalogQuery"
+                :has-default-download-folder="hasDefaultDownloadFolder"
+                @refresh="loadFirstDeckCardsPage({ quiet: true })"
+                @preview="previewCatalogCard"
+              />
             </div>
 
             <CardTable
@@ -1851,6 +1879,18 @@ h2 {
   border: 1px solid var(--border);
 }
 
+.catalog-block {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.catalog-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
 .export-block h3 {
   margin: 0 0 10px;
   font-size: 16px;

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 1ab60438a65302055950f382fb1b5d5804a4fd32b2ca9f8b81b306c3d099bcb9 -->
+<!-- blueprint:source-hash 04f801a1b90c22c37705c92e2f59ab851be166955cf96057b153e044cc1f4d03 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -346,6 +346,12 @@ Feature 104 (learning status, in two sub-features 104a-104b) was added to
 New / Learning / Known / Suspended status, so songs the user already knows can
 be taken out of the Leitner queue, singly or in bulk. It amended
 `project-plan.md` §3's Study session bullet and §4's Flashcards bullet.
+Feature 105 (artist link opens deck + catalog search, in two sub-features
+105a-105b) was added to `build-plan.md` on 2026-10-11. Clicking the artist on a
+card in Study or Listen opens, in a new tab, that artist's `/decks` page with an
+"Other songs by this artist" section running the existing artist catalog search.
+No `project-plan.md` change: it adds a link and a section to existing surfaces,
+like features 74 and 98.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2607,6 +2613,31 @@ be taken out of the Leitner queue, singly or in bulk. It amended
       /api/cards/known` and `/suspend` now also return `statuses`, since
       unsetting a flag lands on New or Learning depending on review history the
       client lacks (`getCardStatuses`, `cardStatusLookup.ts`).
+105. **Artist link opens deck + catalog search** - added to `build-plan.md`
+    2026-10-11, in two sub-features; 105a is built, 105b is not. Clicking the artist's name
+    on a card in Study or Listen opens a new tab at that artist's `/decks` page,
+    which gains an "Other songs by this artist" section below the card list: the
+    same animethemes/AnisongDB catalog search `/cards` runs for an artist
+    (`CardAddArtistResults`), with Add and Add all, so songs the library lacks can
+    be added without leaving the page. Preview and the `/cards` inspector keep
+    their same-tab artist link, and the Study session is untouched since nothing
+    navigates away. Decided at intake: new tab, deck page plus search section
+    (not a `/cards?q=` page, not two tabs), Study and Listen only. Artist decks
+    only; the search uses the artist's stored name, so a differently spelled
+    credit upstream may return nothing.
+    - **105a. Catalog section on the artist deck page** - done 2026-10-11. An
+      "Other songs by <artist>" block above an artist deck's card list reuses
+      `CardAddArtistResults` with the deck's stored name, hidden for anime and
+      manual decks and when `artistCatalogQuery` (`app/utils/artistCatalog.ts`)
+      returns null (blank, under 2 characters, or `Unknown Artist`). Moved above
+      the list from the spec's first placement, since the infinite list buries
+      it. The page's `refresh` reloads the first card page with `{ quiet: true }`,
+      because the pending state unmounts the detail body and would close the
+      catalog modal mid-add; `preview` splices a missing card to the front as
+      `/cards` does, and `loadMoreDeckCards` skips ids already loaded.
+    - **105b. Open it from Study and Listen** - the artist in `StudyInfoPanel`
+      becomes a `target="_blank"` link with `noopener` on `/study` and `/listen`,
+      still following Hide Info on Study so it never reveals an answer early.
 
 ## Data model
 
