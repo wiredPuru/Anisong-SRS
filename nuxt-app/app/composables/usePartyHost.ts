@@ -2,6 +2,7 @@ import type {
   PartyAnswer,
   PartyBanner,
   PartyCensor,
+  PartyCensorBox,
   PartyCensorKey,
   PartyEffects,
   PartyLightningMode,
@@ -56,6 +57,8 @@ export interface PartyHostState {
   queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
+  startFloor: number;
+  creditsGuard: { enabled: boolean; box: PartyCensorBox; style: PartyCensor["style"] };
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
@@ -96,12 +99,13 @@ export type PartyHostCommand =
   | { type: "reveal" }
   | { type: "clear" }
   | { type: "jump"; index: number }
-  | { type: "settings"; randomStart: boolean }
+  | { type: "settings"; randomStart?: boolean; startFloor?: number }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
   | { type: "censorRecord"; recording: boolean }
   | { type: "censorForget" }
   | { type: "censorStyle"; style: PartyCensor["style"] }
+  | { type: "creditsGuard"; guard: PartyHostState["creditsGuard"] }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }

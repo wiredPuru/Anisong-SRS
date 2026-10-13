@@ -344,6 +344,11 @@ describe("jump and random start", () => {
     expect(parsePartyCommand({ type: "jump", index: 1.5 })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "settings", randomStart: true })).toEqual({ type: "settings", randomStart: true });
     expect(parsePartyCommand({ type: "settings", randomStart: "on" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "settings", startFloor: 12.4 })).toEqual({ type: "settings", startFloor: 12 });
+    expect(parsePartyCommand({ type: "settings", startFloor: 500 })).toEqual({ type: "settings", startFloor: 60 });
+    expect(parsePartyCommand({ type: "settings", startFloor: -3 })).toEqual({ type: "settings", startFloor: 0 });
+    expect(parsePartyCommand({ type: "settings", startFloor: "10" })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "settings" })).toHaveProperty("error");
   });
 
   it("jumps within the queue only", () => {
@@ -1176,5 +1181,42 @@ describe("rules", () => {
     expect(parsePartyCommand({ type: "rules", text: "x" })).toEqual({ type: "rules", text: "x" });
     expect(parsePartyCommand({ type: "rules" })).toHaveProperty("error");
     expect(parsePartyCommand({ type: "rules", text: "x".repeat(2001) })).toHaveProperty("error");
+  });
+});
+
+describe("start floor", () => {
+  it("defaults to 10 seconds, changes by command, and survives End game", () => {
+    expect(initialPartyState().startFloor).toBe(10);
+    const set = applyPartyCommand(initialPartyState(), { type: "settings", startFloor: 25 });
+    expect(set.startFloor).toBe(25);
+    expect(set.randomStart).toBe(false);
+    expect(applyPartyCommand(set, { type: "settings", startFloor: 25 })).toBe(set);
+    const cleared = applyPartyCommand(applyPartyCommand(set, { type: "load", items: [] } as never), { type: "clear" });
+    expect(cleared.startFloor).toBe(25);
+  });
+});
+
+describe("credits guard", () => {
+  const guard = { enabled: true, box: { x: 0.1, y: 0.7, w: 0.4, h: 0.2 }, style: "blur" as const };
+
+  it("parses a guard command and rejects a bad one", () => {
+    expect(parsePartyCommand({ type: "creditsGuard", guard })).toEqual({ type: "creditsGuard", guard });
+    expect(parsePartyCommand({ type: "creditsGuard", guard: { ...guard, style: "pink" } })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "creditsGuard" })).toHaveProperty("error");
+  });
+
+  it("is off by default and reaches the display only while enabled", () => {
+    const off = initialPartyState();
+    expect(off.creditsGuard.enabled).toBe(false);
+    expect(toDisplayState(off).creditsGuard).toBeNull();
+    const on = applyPartyCommand(off, { type: "creditsGuard", guard });
+    expect(toDisplayState(on).creditsGuard).toEqual({ box: guard.box, style: "blur" });
+    expect(toHostState(on).creditsGuard).toEqual(guard);
+  });
+
+  it("survives End game and ignores an unchanged guard", () => {
+    const on = applyPartyCommand(initialPartyState(), { type: "creditsGuard", guard });
+    expect(applyPartyCommand(on, { type: "creditsGuard", guard })).toBe(on);
+    expect(applyPartyCommand(on, { type: "clear" }).creditsGuard).toEqual(guard);
   });
 });

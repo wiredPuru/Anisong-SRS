@@ -1,3 +1,4 @@
+import { clampStartFloor, DEFAULT_CREDITS_GUARD, DEFAULT_START_FLOOR, parseCreditsGuard, type PartyCreditsGuard } from "./partyGuard.ts";
 import { parsePartyCensor, recordCensorKey, type PartyCensor, type PartyCensorKey, type PartyCensorStyle } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
@@ -170,6 +171,10 @@ export interface PartyGameState {
   skipSeq: number;
   position: PartyPosition | null;
   randomStart: boolean;
+  // Seconds a random start never begins before, to keep clear of title cards.
+  startFloor: number;
+  // A box over every video clip, so title cards need no per-song censor.
+  creditsGuard: PartyCreditsGuard;
   startFraction: number;
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
@@ -246,7 +251,8 @@ export type PartyCommand =
   | { type: "reveal" }
   | { type: "clear" }
   | { type: "jump"; index: number }
-  | { type: "settings"; randomStart: boolean }
+  | { type: "settings"; randomStart?: boolean; startFloor?: number }
+  | { type: "creditsGuard"; guard: PartyCreditsGuard }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
   | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
   | { type: "censorStyle"; style: PartyCensorStyle }
@@ -302,6 +308,9 @@ export interface PartyDisplayState {
   seekSeq: number;
   skipSeq: number;
   startFraction: number;
+  startFloor: number;
+  // Null while the guard is off.
+  creditsGuard: Pick<PartyCreditsGuard, "box" | "style"> | null;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
   /** Anime titles to pick from; hidden once the answer is revealed. */
@@ -352,6 +361,8 @@ export interface PartyHostState {
   queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
   position: PartyPosition | null;
   randomStart: boolean;
+  startFloor: number;
+  creditsGuard: PartyCreditsGuard;
   effects: PartyEffects;
   nextEffects: PartyEffects | null;
   lightning: PartyLightning | null;
@@ -449,7 +460,7 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq" | "censorStyle" | "startFloor" | "creditsGuard"> = {
     scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
@@ -462,6 +473,8 @@ export function initialPartyState(
     autoAdvance: true,
     skipSeq: 0,
     censorStyle: "black",
+    startFloor: DEFAULT_START_FLOOR,
+    creditsGuard: DEFAULT_CREDITS_GUARD,
   },
 ): PartyGameState {
   return {
@@ -476,6 +489,8 @@ export function initialPartyState(
     skipSeq: kept.skipSeq,
     position: null,
     randomStart,
+    startFloor: kept.startFloor,
+    creditsGuard: kept.creditsGuard,
     startFraction: 0,
     effects,
     nextEffects: null,
@@ -589,9 +604,19 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return { type, index: index as number };
     }
     case "settings": {
-      const { randomStart } = body as { randomStart?: unknown };
-      if (typeof randomStart !== "boolean") return { error: "randomStart must be a boolean" };
-      return { type, randomStart };
+      const { randomStart, startFloor } = body as { randomStart?: unknown; startFloor?: unknown };
+      if (randomStart === undefined && startFloor === undefined) return { error: "settings needs randomStart or startFloor" };
+      if (randomStart !== undefined && typeof randomStart !== "boolean") return { error: "randomStart must be a boolean" };
+      if (startFloor !== undefined && (typeof startFloor !== "number" || !Number.isFinite(startFloor))) return { error: "startFloor must be a number of seconds" };
+      return {
+        type,
+        ...(randomStart === undefined ? {} : { randomStart }),
+        ...(startFloor === undefined ? {} : { startFloor: clampStartFloor(startFloor as number) }),
+      };
+    }
+    case "creditsGuard": {
+      const guard = parseCreditsGuard((body as { guard?: unknown }).guard);
+      return "error" in guard ? guard : { type, guard };
     }
     case "lightning": {
       const { config } = body as { config?: unknown };
@@ -1127,7 +1152,15 @@ export function applyPartyCommand(
       break;
     case "settings":
       // Applies from the next song: the current one has already started.
-      if (state.randomStart !== command.randomStart) next = { ...state, randomStart: command.randomStart };
+      next = {
+        ...state,
+        randomStart: command.randomStart ?? state.randomStart,
+        startFloor: command.startFloor ?? state.startFloor,
+      };
+      if (next.randomStart === state.randomStart && next.startFloor === state.startFloor) next = state;
+      break;
+    case "creditsGuard":
+      if (JSON.stringify(command.guard) !== JSON.stringify(state.creditsGuard)) next = { ...state, creditsGuard: command.guard };
       break;
     case "lightning":
       next = { ...state, lightning: command.config };
@@ -1307,6 +1340,8 @@ export function applyPartyCommand(
           autoAdvance: state.autoAdvance,
           skipSeq: state.skipSeq,
           censorStyle: state.censorStyle,
+          startFloor: state.startFloor,
+          creditsGuard: state.creditsGuard,
         });
       }
       break;
@@ -1394,6 +1429,8 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     seekSeq: state.seekSeq,
     skipSeq: state.skipSeq,
     startFraction: state.startFraction,
+    startFloor: state.startFloor,
+    creditsGuard: state.creditsGuard.enabled ? { box: state.creditsGuard.box, style: state.creditsGuard.style } : null,
     effects: state.effects,
     lightning: displayLightning(state, item),
     choices: state.phase === "revealed" ? null : state.choices,
@@ -1525,6 +1562,8 @@ export function toHostState(state: PartyGameState): PartyHostState {
     })),
     position: state.position,
     randomStart: state.randomStart,
+    startFloor: state.startFloor,
+    creditsGuard: state.creditsGuard,
     effects: state.effects,
     nextEffects: state.nextEffects,
     lightning: state.lightning,

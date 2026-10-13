@@ -98,6 +98,8 @@ export interface PartyDisplayState {
   seekSeq: number;
   skipSeq: number;
   startFraction: number;
+  startFloor: number;
+  creditsGuard: { box: PartyCensorBox; style: PartyCensor["style"] } | null;
   effects: PartyEffects;
   lightning: { mode: PartyLightningMode; guessSeconds: number; offset: number; hints: PartyHints } | null;
   choices: string[] | null;

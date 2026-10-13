@@ -212,6 +212,13 @@ export const partyCensor = sqliteTable("party_censor", {
     .default(sql`(unixepoch())`),
 });
 
+// The host's credits guard and start floor, kept between party sessions
+// (singleton row, id 1; settings is JSON so a new option needs no migration).
+export const partyGuard = sqliteTable("party_guard", {
+  id: integer("id").primaryKey(),
+  settings: text("settings").notNull().default("{}"),
+});
+
 // The host's rules text, kept between party sessions (singleton row, id 1).
 export const partyRules = sqliteTable("party_rules", {
   id: integer("id").primaryKey(),

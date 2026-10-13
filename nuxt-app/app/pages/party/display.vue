@@ -177,6 +177,8 @@ onBeforeUnmount(() => {
       :seek-to="state?.seekTo ?? null"
       :seek-seq="state?.seekSeq ?? 0"
       :start-fraction="state?.startFraction ?? 0"
+      :start-floor="state?.startFloor ?? 0"
+      :credits-guard="state?.creditsGuard ?? null"
       :effects="state?.effects ?? idleEffects"
       :revealed="state?.phase === 'revealed'"
       :volume="state?.songVolume ?? 1"
