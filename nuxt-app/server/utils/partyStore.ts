@@ -10,7 +10,6 @@ import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
-import { loadSavedGuard, storeSavedGuard } from "./partyGuardStore.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
 import { getOfflineMode } from "./mediaLibrary.ts";
@@ -44,15 +43,13 @@ import {
 let state: PartyGameState = initialPartyState();
 const listeners = new Set<(state: PartyGameState) => void>();
 
-// The saved rules and guard join the state on first use, once the database is ready.
+// The saved rules join the state on first use, once the database is ready.
 let rulesLoaded = false;
 function ensureRulesLoaded(): void {
   if (rulesLoaded) return;
   rulesLoaded = true;
   const saved = loadSavedRules();
   if (saved) state = applyPartyCommand(state, { type: "rules", text: saved });
-  const guard = loadSavedGuard();
-  state = applyPartyCommand(applyPartyCommand(state, { type: "settings", startFloor: guard.startFloor }), { type: "creditsGuard", guard: guard.creditsGuard });
 }
 
 export function getPartyState(): PartyGameState {
@@ -409,9 +406,6 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
   if (command.type === "changeSource") return { changed: changeCurrentSource() };
   if (command.type !== "load") {
     commit(applyPartyCommand(state, command));
-    if (command.type === "settings" || command.type === "creditsGuard") {
-      storeSavedGuard({ startFloor: state.startFloor, creditsGuard: state.creditsGuard });
-    }
     return {};
   }
   // Appending skips songs already queued, so the counts reported back describe

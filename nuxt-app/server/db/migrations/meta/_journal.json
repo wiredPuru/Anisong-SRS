@@ -260,13 +260,6 @@
       "when": 1791840707709,
       "tag": "0036_light_phalanx",
       "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "6",
-      "when": 1791853965994,
-      "tag": "0037_wandering_colonel_america",
-      "breakpoints": true
     }
   ]
 }

@@ -105,7 +105,6 @@ usePartyHotkeys(
 
         <section v-if="hasGame && state" class="panel" aria-label="Preview and censor">
           <PartyCensorPanel :state="state" @command="send" />
-          <PartyCreditsGuardPanel :state="state" @command="send" />
         </section>
 
         <section v-if="state" class="panel grow">

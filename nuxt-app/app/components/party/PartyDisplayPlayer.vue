@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { PartyCensor, PartyCensorBox, PartyCensorKey, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
+import type { PartyCensor, PartyCensorKey, PartyEffects, PartyHints, PartyLightningMode, PartyPositionReport } from "~/composables/usePartyDisplay";
 import { assignPartyVideoSlots } from "~/utils/partyVideoSlots";
 import { censorAt } from "~/utils/partyCensorBoxes";
-import { partyStartTime } from "~/utils/partyStart";
 
 const props = defineProps<{
   token: string;
@@ -13,8 +12,6 @@ const props = defineProps<{
   seekTo: number | null;
   seekSeq: number;
   startFraction: number;
-  startFloor: number;
-  creditsGuard: { box: PartyCensorBox; style: PartyCensor["style"] } | null;
   effects: PartyEffects;
   revealed: boolean;
   volume: number;
@@ -145,14 +142,7 @@ const glowCanvas = ref<HTMLCanvasElement | null>(null);
 // A saved track plays back by clip time; the host's live censor replaces it.
 const clipTime = ref(0);
 const activeCensor = computed(() => props.censor ?? censorAt(props.censorTrack, clipTime.value));
-// The credits guard covers every video clip; the song's own censor adds to it.
-const censorLayers = computed(() => {
-  if (props.kind !== "video" || failed.value) return [];
-  const layers: { style: PartyCensor["style"]; boxes: PartyCensorBox[] }[] = [];
-  if (props.creditsGuard) layers.push({ style: props.creditsGuard.style, boxes: [props.creditsGuard.box] });
-  if (activeCensor.value?.boxes.length) layers.push({ style: activeCensor.value.style, boxes: activeCensor.value.boxes });
-  return layers;
-});
+const censorBoxes = computed(() => (props.kind === "video" && !failed.value ? activeCensor.value?.boxes ?? [] : []));
 const currentAspect = computed(() => aspects.value[slots.value.indexOf(props.token)] ?? 16 / 9);
 const ambientOn = computed(
   () => props.ambient && props.kind === "video" && !failed.value && picture.value === "video" && !showVeil.value && !peekClip.value && !pixelSource.value && !bubbleSource.value,
@@ -171,7 +161,7 @@ function drawGlow() {
   // A black censor must not bleed into the glow. A blur censor leaves the
   // glow alone: it is already soft, so the sides keep their lighting.
   ctx.fillStyle = "#000";
-  const hideInGlow = censorLayers.value.filter((layer) => layer.style === "black").flatMap((layer) => layer.boxes);
+  const hideInGlow = activeCensor.value?.style === "black" ? censorBoxes.value : [];
   for (const box of hideInGlow) {
     ctx.fillRect(box.x * canvas.width, box.y * canvas.height, box.w * canvas.width, box.h * canvas.height);
   }
@@ -263,7 +253,9 @@ function startCurrent() {
   const element = media.value;
   if (!element) return;
   failed.value = false;
-  const randomStart = partyStartTime(props.startFraction, element.duration, RANDOM_START_TAIL_S, props.startFloor);
+  const randomStart = Number.isFinite(element.duration)
+    ? props.startFraction * Math.max(0, element.duration - RANDOM_START_TAIL_S)
+    : 0;
   element.currentTime = props.seekTo ?? (props.startAt || randomStart);
   startPosition.value = element.currentTime;
   elapsed.value = 0;
@@ -402,15 +394,14 @@ onBeforeUnmount(() => {
     <PartyBubbleCanvas v-if="bubbleSource" :source="bubbleSource" :seed="token" :style="visualStyle" />
     <PartyPixelCanvas v-if="pixelSource" :source="pixelSource" :block-size="pixelBlock" :style="visualStyle" />
     <div
-      v-for="(layer, layerIndex) in showVeil || showCover ? [] : censorLayers"
-      :key="layerIndex"
+      v-if="censorBoxes.length && !showVeil && !showCover"
       class="party-censor"
-      :class="`censor-${layer.style}`"
+      :class="`censor-${activeCensor?.style ?? 'black'}`"
       :style="{ '--clip-aspect': currentAspect }"
       aria-hidden="true"
     >
       <span
-        v-for="(box, i) in layer.boxes"
+        v-for="(box, i) in censorBoxes"
         :key="i"
         class="censor-box"
         :style="{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }"

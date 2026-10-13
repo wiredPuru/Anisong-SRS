@@ -248,18 +248,6 @@ function setSongVolume(volume: number) {
         Random start (from the next song)
       </label>
       <label class="np-toggle">
-        Never before
-        <input
-          class="np-floor"
-          type="number"
-          min="0"
-          max="60"
-          :value="state.startFloor"
-          @change="emit('command', { type: 'settings', startFloor: Number(($event.target as HTMLInputElement).value) || 0 })"
-        />
-        s
-      </label>
-      <label class="np-toggle">
         <input
           type="checkbox"
           :checked="state.autoAdvance"
@@ -666,12 +654,6 @@ function setSongVolume(volume: number) {
   flex: 1;
   min-width: 120px;
   accent-color: var(--accent);
-}
-
-.np-floor {
-  width: 4.5ch;
-  margin: 0 0.25rem;
-  text-align: center;
 }
 
 .np-volume-value {
