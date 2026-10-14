@@ -126,7 +126,16 @@ onMounted(focusIfPrimary);
     </ul>
     <p v-if="status" class="answer-status" role="status" aria-live="polite">{{ status }}</p>
     <div v-if="primary" class="primary-actions">
-      <button v-if="query.trim()" type="button" :disabled="disabled" @click="emit('answer')">Submit answer</button>
+      <!-- Hidden rather than removed while empty, so it keeps its room and the
+           buttons never reflow as the first letter is typed. -->
+      <button
+        type="button"
+        :class="{ idle: !query.trim() }"
+        :disabled="disabled || !query.trim()"
+        @click="emit('answer')"
+      >
+        Submit answer
+      </button>
       <button type="button" :disabled="disabled" @click="emit('giveUp')">Give up</button>
     </div>
   </div>
@@ -226,6 +235,15 @@ li.active {
   transform: none;
   background: none;
   font-size: 12px;
+  /* A fixed two lines whatever the hint says. The answer bar sizes the video
+     above it, so a hint that grows or shrinks while typing would resize the
+     video and shift the whole layout under the cursor. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.4;
+  height: calc(2 * 1.4em);
+  overflow: hidden;
 }
 
 .primary-actions { display: flex; gap: 8px; }
@@ -241,6 +259,7 @@ li.active {
 }
 
 .primary-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+.primary-actions button.idle { visibility: hidden; }
 
 /* Same narrow-layout fix as StudySongAnswer: the stack is pinned to the top of
    the clipped player frame, so an upward list would be hidden. */
