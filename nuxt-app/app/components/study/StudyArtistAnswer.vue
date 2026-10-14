@@ -126,11 +126,9 @@ onMounted(focusIfPrimary);
     </ul>
     <p v-if="status" class="answer-status" role="status" aria-live="polite">{{ status }}</p>
     <div v-if="primary" class="primary-actions">
-      <!-- Hidden rather than removed while empty, so it keeps its room and the
-           buttons never reflow as the first letter is typed. -->
       <button
         type="button"
-        :class="{ idle: !query.trim() }"
+        class="submit-btn"
         :disabled="disabled || !query.trim()"
         @click="emit('answer')"
       >
@@ -214,30 +212,36 @@ li.active {
   pointer-events: none;
 }
 
-/* Same shape as StudySongAnswer's primary box: the round's only answer. */
+/* The round's only answer: the input gets a full-width row, and the hint and
+   the buttons share a fixed-height row under it. Nothing in either row appears
+   or disappears while typing, because this bar sizes the video above it and
+   any height change would move the input under the cursor. */
 .artist-answer.primary {
-  flex-wrap: wrap;
-  padding: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label input input"
+    "status status actions";
+  align-items: center;
+  gap: 10px 12px;
+  padding: 14px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
 }
 
-.artist-answer.primary input { flex-basis: 60%; padding: 10px; font-size: 15px; }
-.artist-answer.primary .primary-actions { order: 2; }
+.artist-answer.primary label { grid-area: label; }
+.artist-answer.primary input { grid-area: input; padding: 10px 12px; font-size: 15px; }
+.artist-answer.primary .primary-actions { grid-area: actions; }
 
-/* The primary box always has a hint, and it is longer than the room beside the
-   input, so it takes its own line under the row instead of overlaying it. */
 .artist-answer.primary .answer-status {
+  grid-area: status;
   position: static;
-  order: 3;
-  flex-basis: 100%;
   padding: 0;
   transform: none;
   background: none;
   font-size: 12px;
-  /* A fixed two lines whatever the hint says. The answer bar sizes the video
-     above it, so a hint that grows or shrinks while typing would resize the
-     video and shift the whole layout under the cursor. */
+  /* Two lines whatever the hint says, so a short "Searching..." and the long
+     how-to hint take the same room. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -250,16 +254,24 @@ li.active {
 
 .primary-actions button {
   font: inherit;
-  padding: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 16px;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.primary-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
-.primary-actions button.idle { visibility: hidden; }
+.primary-actions .submit-btn {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.primary-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Same narrow-layout fix as StudySongAnswer: the stack is pinned to the top of
    the clipped player frame, so an upward list would be hidden. */
