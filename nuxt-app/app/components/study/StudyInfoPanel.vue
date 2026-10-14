@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { animeMetaLine, topAnimeTags, type AnimeMetaTag } from "../../utils/animeMeta";
 import type { CardStatus } from "../../utils/cardStatus";
 import type { SourceLink } from "../../utils/sourceLinks";
 
@@ -10,6 +11,9 @@ const props = withDefaults(
     animeTitleEnglish: string;
     animeTitleRomaji: string;
     animeTitleNative: string;
+    animeYear?: number | null;
+    animeStudios?: string[];
+    animeTags?: AnimeMetaTag[];
     // Optional so the Theme row is simply absent for any caller that doesn't
     // pass it, rather than this being a breaking addition.
     themeSlot?: string;
@@ -42,6 +46,9 @@ const props = withDefaults(
   }>(),
   { streakRequired: 2 },
 );
+
+const metaLine = computed(() => animeMetaLine(props.animeYear, props.animeStudios));
+const metaTags = computed(() => topAnimeTags(props.animeTags));
 
 const emit = defineEmits<{ "streak-required-saved": []; "streak-control-open-change": [boolean] }>();
 
@@ -262,6 +269,13 @@ watch(
       <span v-if="showJapanese && animeTitleNative !== animeTitleRomaji && animeJpIsHtml" class="jp" v-html="animeJpHtml" />
       <span v-else-if="showJapanese && animeTitleNative !== animeTitleRomaji" class="jp">{{ animeJpHtml }}</span>
     </component>
+
+    <div v-if="!immersive && (metaLine || metaTags.length)" class="anime-meta">
+      <span v-if="metaLine" class="meta-line">{{ metaLine }}</span>
+      <span v-if="metaTags.length" class="meta-tags">
+        <span v-for="tag in metaTags" :key="tag" class="meta-tag">{{ tag }}</span>
+      </span>
+    </div>
 
     <div class="divider" />
 
@@ -528,6 +542,33 @@ watch(
   font-size: 11px;
   color: var(--faint);
   font-weight: 600;
+}
+
+/* Deliberately quiet: context for the show, never competing with the title.
+   The panel's own gap would push it as far from the title as the divider, so
+   a negative margin tucks it under the title block it describes. */
+.anime-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-top: -10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.meta-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
 }
 
 .divider {

@@ -1527,6 +1527,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-english="currentCard.animeTitleEnglish"
                 :anime-title-romaji="currentCard.animeTitleRomaji"
                 :anime-title-native="currentCard.animeTitleNative"
+                :anime-year="currentCard.animeYear"
+                :anime-studios="currentCard.animeStudios"
+                :anime-tags="currentCard.animeTags"
                 :anime-href="animeCardsSearchPath(currentCard.animeTitleRomaji)"
                 anime-new-tab
                 :theme-slot="currentCard.themeSlot"
