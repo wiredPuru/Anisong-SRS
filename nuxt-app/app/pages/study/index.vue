@@ -1059,6 +1059,13 @@ function submitRoundNow() {
   else submitMainAnswer();
 }
 
+// Enter in an extra answer box sends the round as it stands, the same way an
+// Auto Reveal timeout does: an anime box without a picked match counts as blank.
+function submitRoundFromField() {
+  if (!typedAnswers.value || quizResult.value !== null || answerControlsDisabled.value) return;
+  submitRoundNow();
+}
+
 // Opening the card editor, a history Preview, the session log, or the filters
 // clears the typed anime box, so a typed countdown pauses while one is open
 // rather than running out and submitting a blank the moment it closes.
@@ -1662,12 +1669,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   :hide-artist="visibleAnswers.artist"
                   :disabled="answerControlsDisabled"
                   @update:answer="songAnswerText = $event"
+                  @submit-round="submitRoundFromField"
                 />
                 <StudyArtistAnswer
                   v-if="showArtistAnswer"
                   :key="`artist-${presentationKey}`"
                   :disabled="answerControlsDisabled"
                   @update:answer="artistAnswerText = $event"
+                  @submit-round="submitRoundFromField"
                 />
                 <StudyThemeSlotAnswer
                   v-if="showThemeSlotAnswer"

@@ -12,7 +12,7 @@ const props = defineProps<{
   // cannot hand it over.
   hideArtist?: boolean;
 }>();
-const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: [] }>();
+const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: []; submitRound: [] }>();
 const query = ref("");
 const input = ref<HTMLInputElement | null>(null);
 const playbackRequested = ref(false);
@@ -73,13 +73,15 @@ function onKeydown(event: KeyboardEvent) {
       : (active.value + (event.key === "ArrowDown" ? 1 : -1) + results.value.length) % results.value.length;
     nextTick(() => document.getElementById(`${listId}-${active.value}`)?.scrollIntoView({ block: "nearest" }));
   } else if (event.key === "Enter") {
-    // Outside primary mode this never submits the round - the anime box owns
-    // Submit/Give up, and Enter only takes the highlighted suggestion, so a
-    // player reaching for it mid song-guess cannot answer the anime question.
+    // A highlighted suggestion takes Enter first. Otherwise, outside primary
+    // mode, Enter submits the whole round as it stands, so the boxes can be
+    // filled in any order and the round sent from whichever one is last.
     event.preventDefault();
     const option = results.value[active.value];
     if (open.value && option) choose(option);
-    else if (props.primary && query.value.trim()) emit("answer");
+    else if (props.primary) {
+      if (query.value.trim()) emit("answer");
+    } else emit("submitRound");
   }
 }
 
