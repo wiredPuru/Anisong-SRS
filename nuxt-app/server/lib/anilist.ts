@@ -20,6 +20,7 @@ export interface AniListDetails {
   popularity: number | null;
   genres: string[];
   tags: AnimeTag[];
+  studios: string[];
 }
 
 export interface AniListAnime {
@@ -105,6 +106,7 @@ const DETAILS_FIELDS = `
       popularity
       genres
       tags { name rank }
+      studios(isMain: true) { nodes { name } }
 `;
 
 const BY_ID_QUERY = `
@@ -146,7 +148,16 @@ function toAniListDetails(media: Record<string, unknown>): AniListDetails | unde
     popularity: popularity ?? null,
     genres,
     tags: tags.map(({ name, rank }) => ({ name, rank })),
+    studios: toStudioNames(media.studios),
   };
+}
+
+// Display-only, so an odd studios shape degrades to none rather than failing
+// the import the way a bad filter field does.
+function toStudioNames(studios: unknown): string[] {
+  if (!isRecord(studios) || !Array.isArray(studios.nodes)) return [];
+  const names = studios.nodes.flatMap((node) => (isRecord(node) && typeof node.name === "string" && node.name.trim() ? [node.name.trim()] : []));
+  return [...new Set(names)];
 }
 
 function toAniListAnime(media: unknown): AniListAnime {

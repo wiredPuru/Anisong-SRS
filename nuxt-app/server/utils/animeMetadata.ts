@@ -31,6 +31,7 @@ function storedAnimeMetadata(stored: Anime): AnimeMetadata {
       popularity: stored.popularity,
       genres: stored.genres,
       tags: stored.tags,
+      studios: stored.studios,
     },
   };
 }

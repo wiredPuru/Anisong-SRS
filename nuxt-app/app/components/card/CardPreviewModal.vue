@@ -25,6 +25,10 @@ interface CardWithDetails {
   animeTitleRomaji: string;
   animeTitleNative: string;
   animeCoverImageUrl: string | null;
+  // Optional: /cards, /decks and /stats pass their own hand-kept card copies.
+  animeYear?: number | null;
+  animeStudios?: string[];
+  animeTags?: { name: string; rank: number }[];
 }
 
 interface ManualDeck {
@@ -347,6 +351,9 @@ watch(
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"
+          :anime-year="card.animeYear"
+          :anime-studios="card.animeStudios"
+          :anime-tags="card.animeTags"
           :theme-slot="card.themeSlot"
           :notes="card.notes"
           :source-links="sourceLinks"

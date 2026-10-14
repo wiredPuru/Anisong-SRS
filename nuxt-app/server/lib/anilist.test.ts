@@ -159,25 +159,27 @@ describe("AniList details", () => {
     popularity: 120000,
     genres: ["Comedy", "Slice of Life"],
     tags: [{ name: "Cute Girls Doing Cute Things", rank: 92, isMediaSpoiler: false }],
+    studios: { nodes: [{ name: "Kyoto Animation" }] },
   };
 
   it("parses details from both by-id queries and selects them in each", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }))
       .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details } } }));
-    const expected = { year: 2006, season: "SPRING", format: "TV", averageScore: 78, popularity: 120000, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }] };
+    const expected = { year: 2006, season: "SPRING", format: "TV", averageScore: 78, popularity: 120000, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 92 }], studios: ["Kyoto Animation"] };
     expect((await client.fetchAnimeFromAniList(1))?.details).toEqual(expected);
     expect((await client.fetchAnimeFromAniListByMalId(1))?.details).toEqual(expected);
     for (const call of fetch.mock.calls) {
       const query: string = JSON.parse(call[1].body).query;
       expect(query).toContain("tags { name rank }");
       expect(query).toMatch(/\bseason\b/);
+      expect(query).toContain("studios(isMain: true) { nodes { name } }");
     }
   });
 
   it("falls back to startDate.year and keeps unknown fields null", async () => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: { year: 1998 }, format: null, averageScore: null, popularity: null, genres: [], tags: [] } } }))
       .mockResolvedValueOnce(Response.json({ data: { Media: { ...media, seasonYear: null, startDate: null, format: null, averageScore: null, popularity: null, genres: [], tags: [] } } }));
-    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, season: null, format: null, averageScore: null, popularity: null, genres: [], tags: [] });
+    expect((await client.fetchAnimeFromAniList(1))?.details).toEqual({ year: 1998, season: null, format: null, averageScore: null, popularity: null, genres: [], tags: [], studios: [] });
     expect((await client.fetchAnimeFromAniList(1))?.details?.year).toBeNull();
   });
 
@@ -187,6 +189,15 @@ describe("AniList details", () => {
   ])("maps season %o to %o", async (season, expected) => {
     fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details, season } } }));
     expect((await client.fetchAnimeFromAniList(1))?.details?.season).toBe(expected);
+  });
+
+  it.each([
+    [{ nodes: [{ name: " Shaft " }, { name: "Shaft" }, { name: "" }, { id: 7 }, null] }, ["Shaft"]],
+    [{ nodes: [{ name: "A-1 Pictures" }, { name: "CloverWorks" }] }, ["A-1 Pictures", "CloverWorks"]],
+    [null, []], [undefined, []], [{ nodes: "Shaft" }, []],
+  ])("reads main studios %o as %o without failing the import", async (studios, expected) => {
+    fetch.mockResolvedValueOnce(Response.json({ data: { Media: { ...media, ...details, studios } } }));
+    expect((await client.fetchAnimeFromAniList(1))?.details?.studios).toEqual(expected);
   });
 
   it("leaves details undefined when a query did not select them", async () => {

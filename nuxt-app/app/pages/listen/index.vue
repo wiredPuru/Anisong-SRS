@@ -411,6 +411,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :anime-title-english="currentCard.animeTitleEnglish"
                 :anime-title-romaji="currentCard.animeTitleRomaji"
                 :anime-title-native="currentCard.animeTitleNative"
+                :anime-year="currentCard.animeYear"
+                :anime-studios="currentCard.animeStudios"
+                :anime-tags="currentCard.animeTags"
                 :anime-href="animeCardsSearchPath(currentCard.animeTitleRomaji)"
                 anime-new-tab
                 :theme-slot="currentCard.themeSlot"
@@ -436,6 +439,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :song-title="currentCard.songTitle"
             :artist-name="currentCard.artistName"
             :cover-image-url="currentCard.animeCoverImageUrl"
+            :anime-year="currentCard.animeYear"
+            :anime-studios="currentCard.animeStudios"
+            :anime-tags="currentCard.animeTags"
             :hidden="infoHidden"
             hidden-line="Click to reveal"
             revealable

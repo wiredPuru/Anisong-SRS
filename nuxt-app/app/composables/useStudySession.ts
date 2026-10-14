@@ -40,6 +40,9 @@ export interface CardWithDetails {
   animeTitleRomaji: string;
   animeTitleNative: string;
   animeCoverImageUrl: string | null;
+  animeYear: number | null;
+  animeStudios: string[];
+  animeTags: { name: string; rank: number }[];
 }
 
 function scopeQuery(scope: StudyScope): Record<string, string | number> {

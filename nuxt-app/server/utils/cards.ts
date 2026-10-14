@@ -1,6 +1,7 @@
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import type { AnimeTag } from "../lib/anilist.ts";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { animeCoverUrl } from "./animeCoverSql.ts";
@@ -47,6 +48,9 @@ export interface CardWithDetails {
   animeTitleRomaji: string;
   animeTitleNative: string;
   animeCoverImageUrl: string | null;
+  animeYear: number | null;
+  animeStudios: string[];
+  animeTags: AnimeTag[];
 }
 
 // box/streak/nextReviewAt describe whichever track was asked for, so the same
@@ -82,6 +86,9 @@ const cardSelection = (criterion: GradingCriterion) => ({
   animeTitleRomaji: anime.titleRomaji,
   animeTitleNative: anime.titleNative,
   animeCoverImageUrl: animeCoverUrl,
+  animeYear: anime.year,
+  animeStudios: anime.studios,
+  animeTags: anime.tags,
 });
 
 function cardQuery(criterion: GradingCriterion = DEFAULT_GRADING_CRITERION) {
