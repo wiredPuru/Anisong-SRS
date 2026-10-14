@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { animeMetaLine, topAnimeTags, type AnimeMetaTag } from "../../utils/animeMeta";
-
 const { hint } = useHotkeys();
 const props = defineProps<{
   themeSlot: string;
@@ -9,9 +7,6 @@ const props = defineProps<{
   songTitle: string;
   artistName: string;
   coverImageUrl: string | null;
-  animeYear?: number | null;
-  animeStudios?: string[];
-  animeTags?: AnimeMetaTag[];
   // Placeholders only while hidden, so no answer is in the DOM for a screen
   // reader or Migaku to read out early.
   hidden: boolean;
@@ -33,10 +28,6 @@ watch(() => props.coverImageUrl, () => (coverFailed.value = false));
 
 const native = computed(() =>
   props.animeTitleNative && props.animeTitleNative !== props.animeTitleEnglish ? props.animeTitleNative : null,
-);
-
-const meta = computed(() =>
-  [animeMetaLine(props.animeYear, props.animeStudios), topAnimeTags(props.animeTags).join(", ")].filter(Boolean).join(" · "),
 );
 </script>
 
@@ -84,7 +75,6 @@ const meta = computed(() =>
         <p class="np-title">{{ animeTitleEnglish }}</p>
         <p v-if="native" class="np-native" lang="ja">{{ native }}</p>
         <p class="np-sub">{{ songTitle }} &middot; {{ artistName }} &middot; {{ formatThemeSlotLabel(themeSlot) }}</p>
-        <p v-if="meta" class="np-meta" :title="meta">{{ meta }}</p>
       </template>
     </div>
     <div class="np-main">
@@ -219,14 +209,6 @@ const meta = computed(() =>
   margin-top: 4px;
   color: var(--muted);
   font-size: 14px;
-}
-
-/* Background on the show, kept quieter than the answer lines above it. */
-.np-meta {
-  margin-top: 3px;
-  color: var(--faint);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .np-countdown {

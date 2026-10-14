@@ -439,9 +439,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :song-title="currentCard.songTitle"
             :artist-name="currentCard.artistName"
             :cover-image-url="currentCard.animeCoverImageUrl"
-            :anime-year="currentCard.animeYear"
-            :anime-studios="currentCard.animeStudios"
-            :anime-tags="currentCard.animeTags"
             :hidden="infoHidden"
             hidden-line="Click to reveal"
             revealable
