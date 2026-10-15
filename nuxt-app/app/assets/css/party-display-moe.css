@@ -1,7 +1,7 @@
 /* Party display: "Y2K moe broadcast". The screen people watch together gets a
-   personality of its own, in the spirit of 2000s anime fan sites: a pastel sky
-   with sparkles, cream sticker panels with a thick pink outline and an offset
-   shadow, glossy candy-pill labels, and chunky rounded type. Only the display
+   personality of its own, in the spirit of 2000s anime fan sites, kept dark:
+   a plum-to-navy night sky with sparkles, dark sticker panels with a thick pink
+   outline and an offset shadow, glossy candy-pill labels, and chunky rounded type. Only the display
    page loads this file; the host panel and phones keep the app's Midnight look.
 
    Most pieces read the shared tokens, so redefining them on the display root
@@ -12,50 +12,49 @@
 .display.moe-theme {
   --moe-pink: #ff5fa8;
   --moe-pink-deep: #d93a86;
-  --moe-pink-soft: #ffd3e8;
+  --moe-pink-soft: #ff9ccb;
   --moe-sky: #74c4ff;
-  --moe-sky-soft: #d6eeff;
   --moe-lemon: #ffe36e;
   --moe-lilac: #c3b0ff;
-  --moe-cream: #fffaf4;
-  --moe-ink: #3b2342;
+  --moe-panel: #241539;
+  --moe-ink: #2a1435;
 
-  --bg: #fdeaf4;
-  --surface: var(--moe-cream);
-  --surface-raised: #fff2f8;
-  --surface-sunken: #fbe4ef;
-  --surface-float: var(--moe-cream);
-  --border: rgba(217, 58, 134, 0.28);
+  --bg: #160d2a;
+  --surface: var(--moe-panel);
+  --surface-raised: #2f1d4a;
+  --surface-sunken: #1b1030;
+  --surface-float: var(--moe-panel);
+  --border: rgba(255, 95, 168, 0.4);
   --outline: var(--moe-pink);
-  --text: var(--moe-ink);
-  --muted: #6c4a70;
-  --faint: #8d6c90;
+  --text: #ffffff;
+  --muted: #eadcf5;
+  --faint: #c9b4da;
   --accent: var(--moe-pink);
   --accent-strong: var(--moe-pink-deep);
   --accent-ink: #ffffff;
   --accent-glow: rgba(255, 95, 168, 0.25);
-  --accent-secondary: #2f8fe0;
-  --accent-secondary-ink: #ffffff;
-  --pass: #1f9d55;
-  --fail: #e0344b;
-  --warning: #c98a00;
-  --glass-surface: rgba(255, 250, 244, 0.95);
-  --glass-surface-panel: rgba(255, 250, 244, 0.95);
-  --glass-surface-display: rgba(255, 250, 244, 0.95);
+  --accent-secondary: var(--moe-sky);
+  --accent-secondary-ink: var(--moe-ink);
+  --pass: #5be59a;
+  --fail: #ff6b81;
+  --warning: #ffd24a;
+  --glass-surface: rgba(36, 21, 57, 0.94);
+  --glass-surface-panel: rgba(36, 21, 57, 0.94);
+  --glass-surface-display: rgba(36, 21, 57, 0.94);
   --glass-border: var(--moe-pink);
   --glass-blur: none;
   --radius: 20px;
   --radius-sm: 14px;
-  --shadow-soft: 5px 5px 0 rgba(217, 58, 134, 0.35);
+  --shadow-soft: 5px 5px 0 rgba(255, 95, 168, 0.3);
   --font-display: "Mochiy Pop One", "M PLUS Rounded 1c", system-ui, sans-serif;
   --font-sans: "M PLUS Rounded 1c", "Outfit", system-ui, sans-serif;
 
   color: var(--text);
   font-family: var(--font-sans);
   background:
-    radial-gradient(60% 50% at 15% 10%, rgba(255, 255, 255, 0.9), transparent 70%),
-    radial-gradient(50% 45% at 90% 85%, rgba(195, 176, 255, 0.55), transparent 70%),
-    linear-gradient(160deg, #ffd6ea 0%, #f6dcff 45%, #d3ecff 100%);
+    radial-gradient(55% 45% at 12% 8%, rgba(255, 95, 168, 0.32), transparent 70%),
+    radial-gradient(50% 45% at 92% 90%, rgba(116, 196, 255, 0.26), transparent 70%),
+    linear-gradient(160deg, #2b1243 0%, #1c1238 45%, #0e1836 100%);
 }
 
 /* The sky layer: a tiled sparkle pattern, a few twinkling stars, and in the
@@ -66,7 +65,7 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M18 8l2.2 7.8L28 18l-7.8 2.2L18 28l-2.2-7.8L8 18l7.8-2.2z' fill='%23ffffff' fill-opacity='.75'/%3E%3Ccircle cx='54' cy='52' r='2.4' fill='%23ff5fa8' fill-opacity='.35'/%3E%3Ccircle cx='52' cy='14' r='1.6' fill='%2374c4ff' fill-opacity='.45'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M18 8l2.2 7.8L28 18l-7.8 2.2L18 28l-2.2-7.8L8 18l7.8-2.2z' fill='%23ffffff' fill-opacity='.22'/%3E%3Ccircle cx='54' cy='52' r='2.4' fill='%23ff5fa8' fill-opacity='.45'/%3E%3Ccircle cx='52' cy='14' r='1.6' fill='%2374c4ff' fill-opacity='.5'/%3E%3C/svg%3E");
   background-size: 72px 72px;
 }
 
@@ -111,7 +110,7 @@
   overflow: hidden;
   border-block: 3px solid #ffffff;
   background: repeating-linear-gradient(-45deg, var(--moe-pink) 0 18px, #ff86bd 18px 36px);
-  box-shadow: 0 4px 0 rgba(217, 58, 134, 0.3);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
 }
 
 .moe-band-top {
@@ -208,14 +207,14 @@
   box-shadow: 0 0 0 3px #e6a400, 4px 5px 0 3px rgba(201, 138, 0, 0.35);
 }
 
-/* Sticker panels: cream with a thick pink outline and an offset shadow. */
+/* Sticker panels: dark plum with a thick pink outline and an offset shadow. */
 .display.moe-theme .reveal,
 .display.moe-theme .scoreboard,
 .display.moe-theme .display-join,
 .display.moe-theme .display-count {
   border-width: 4px;
   border-color: var(--moe-pink);
-  box-shadow: 6px 6px 0 rgba(217, 58, 134, 0.35);
+  box-shadow: 6px 6px 0 rgba(255, 95, 168, 0.3);
 }
 
 /* The reveal card gets a tab on its top edge, like a TV quiz caption. */
@@ -243,13 +242,12 @@
 }
 
 .display.moe-theme .reveal-title {
-  color: var(--moe-pink-deep);
-  -webkit-text-stroke: 0;
-  text-shadow: 3px 3px 0 var(--moe-pink-soft);
+  color: var(--moe-pink-soft);
+  text-shadow: 3px 3px 0 var(--moe-pink-deep);
 }
 
 .display.moe-theme .reveal-song-title {
-  color: #2f8fe0;
+  color: var(--moe-sky);
 }
 
 .display.moe-theme .reveal-cover {
@@ -266,16 +264,24 @@
 }
 
 .display.moe-theme .scoreboard-item:nth-child(odd) > .scoreboard-row {
-  background: var(--moe-pink-soft);
+  background: rgba(255, 95, 168, 0.18);
 }
 
 .display.moe-theme .scoreboard-item:nth-child(even) > .scoreboard-row {
-  background: var(--moe-sky-soft);
+  background: rgba(116, 196, 255, 0.16);
 }
 
-.display.moe-theme .scoreboard-row.leader {
+/* The leader's gold row takes dark ink so its name and score stay readable. */
+.display.moe-theme .scoreboard-item > .scoreboard-row.leader {
   background: linear-gradient(180deg, #fff3a8, var(--moe-lemon));
   box-shadow: 0 0 0 2px #f0b400;
+  color: var(--moe-ink);
+}
+
+.display.moe-theme .scoreboard-row.leader .scoreboard-name,
+.display.moe-theme .scoreboard-row.leader .scoreboard-rank,
+.display.moe-theme .scoreboard-row.leader .scoreboard-score {
+  color: var(--moe-ink);
 }
 
 .display.moe-theme .scoreboard-row.leader {
@@ -295,26 +301,26 @@
 
 .display.moe-theme .scoreboard-score {
   font-family: var(--font-display);
-  color: var(--moe-pink-deep);
+  color: var(--moe-pink-soft);
 }
 
 /* Lobby headings and the count chip read as outlined anime-title text. */
 .display.moe-theme .display-join-url {
-  color: var(--moe-pink-deep);
-  text-shadow: 2px 2px 0 var(--moe-pink-soft);
+  color: var(--moe-pink-soft);
+  text-shadow: 2px 2px 0 var(--moe-pink-deep);
 }
 
 .display.moe-theme .display-count {
-  background: linear-gradient(180deg, #ffffff, var(--moe-pink-soft));
-  color: var(--moe-pink-deep);
+  background: linear-gradient(180deg, #3a2358, var(--moe-panel));
+  color: var(--moe-pink-soft);
 }
 
 .display.moe-theme .display-button {
   border-width: 3px;
   border-color: var(--moe-pink);
-  background: var(--moe-cream);
-  color: var(--moe-pink-deep);
-  box-shadow: 3px 3px 0 rgba(217, 58, 134, 0.35);
+  background: var(--moe-panel);
+  color: var(--moe-pink-soft);
+  box-shadow: 3px 3px 0 rgba(255, 95, 168, 0.3);
 }
 
 .display.moe-theme .display-button.on {
