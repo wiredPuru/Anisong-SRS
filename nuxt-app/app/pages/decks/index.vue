@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { networkImageSrc } from "~/utils/networkImage";
 import { coverInitial, coverTint } from "~/utils/coverFallback";
 import type { GradingCategory, GradingCriterion } from "~/utils/criterionGrading";
 import type { CopyCardsResult } from "~/components/deck/DeckCopyCardsModal.vue";
@@ -225,12 +226,19 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-// A custom picture whose file has gone missing 404s; remembering the URL lets
-// the tile fall back to the monogram instead of an empty box.
+// A cover that fails to load (a deck picture whose file has gone missing, an
+// AniList cover that can't be reached) or that offline mode won't fetch falls
+// back to the monogram instead of an empty box.
 const brokenCovers = ref(new Set<string>());
+const { offlineMode } = useNetworkMode();
 
 function markCoverBroken(url: string | null) {
   if (url) brokenCovers.value.add(url);
+}
+
+function usableCover(url: string | null): string | null {
+  if (!url || brokenCovers.value.has(url)) return null;
+  return networkImageSrc(url, offlineMode.value) ? url : null;
 }
 
 const deckItems = computed<DeckItem[]>(() => {
@@ -251,7 +259,7 @@ const deckItems = computed<DeckItem[]>(() => {
       id: d.id,
       label: d.name,
       sublabel: `Created ${formatDate(d.createdAt)}`,
-      coverImageUrl: d.imageUrl && !brokenCovers.value.has(d.imageUrl) ? d.imageUrl : null,
+      coverImageUrl: usableCover(d.imageUrl),
       cardCount: d.cardCount,
       passRate: d.passRate,
       dueCount: null,
@@ -262,7 +270,7 @@ const deckItems = computed<DeckItem[]>(() => {
     id: d.id,
     label: d.titleEnglish,
     sublabel: d.titleRomaji,
-    coverImageUrl: d.coverImageUrl,
+    coverImageUrl: usableCover(d.coverImageUrl),
     cardCount: d.cardCount,
     passRate: d.passRate,
     dueCount: d.dueCount,
@@ -896,7 +904,7 @@ function backToDecks() {
             <div class="deck-tile-cover">
               <NetworkImage v-if="item.coverImageUrl" :src="item.coverImageUrl" alt="" @error="markCoverBroken(item.coverImageUrl)" />
               <div
-                v-else-if="activeType !== 'anime'"
+                v-else
                 class="deck-tile-monogram"
                 :style="{ '--tint': `var(${deckTint(item.id)})` }"
               >

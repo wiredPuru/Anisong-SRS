@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { needsMorePages } from "~/utils/browseAutoContinue";
 import { browseAnimeMeta, selectedForRun, MAX_BROWSE_IMPORT } from "~/utils/browseSelection";
 import { deckTargetProblem, NO_DECK_TARGET, resolveDeckTarget, type DeckTarget } from "~/utils/deckTarget";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
@@ -21,7 +22,11 @@ const downloadedOnly = ref(false);
 const matchCount = ref<number | null>(null);
 const matchLoading = ref(false);
 const matchError = ref<string | null>(null);
-const { results, hasNextPage, loading, loadingMore, loadError, loadFirst: fetchFirst, loadMore: fetchMore, invalidate } = useAniListBrowse(draft);
+const { results, page, hasNextPage, loading, loadingMore, loadError, loadFirst: fetchFirst, loadMore: fetchMore, invalidate } = useAniListBrowse(draft);
+// Shows already in the library can't be added, so they are left out of the list
+// entirely rather than shown greyed out.
+const shown = computed(() => results.value.filter((anime) => !anime.inLibrary));
+const hiddenInLibrary = computed(() => results.value.length - shown.value.length);
 const unticked = ref(new Set<number>());
 const sentinelRef = ref<HTMLElement | null>(null);
 
@@ -47,11 +52,34 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let observer: IntersectionObserver | null = null;
 
 async function loadFirst() {
-  if (await fetchFirst()) unticked.value = new Set();
+  if (!(await fetchFirst())) return;
+  unticked.value = new Set();
+  // A first page can be mostly shows already in the library; keep going until
+  // there is enough to scroll, within needsMorePages' page budget.
+  while (!loadError.value && needsMorePages(shown.value.length, hasNextPage.value, page.value)) {
+    const before = page.value;
+    await fetchMore();
+    if (page.value === before) break;
+  }
+  recheckSentinel();
 }
 
-function loadMore() {
-  if (!running.value) void fetchMore();
+async function loadMore() {
+  if (running.value || loading.value || loadingMore.value) return;
+  await fetchMore();
+  recheckSentinel();
+}
+
+// The observer only reports changes, so a sentinel still on screen after a page
+// lands (a short page, or one that was all library shows) would never fire
+// again. Observing it afresh makes the observer report its current state.
+function recheckSentinel() {
+  void nextTick(() => {
+    const el = sentinelRef.value;
+    if (!el || !observer) return;
+    observer.unobserve(el);
+    observer.observe(el);
+  });
 }
 
 // The library list route already answers "how many", so the count asks it for
@@ -139,7 +167,7 @@ function tickAll() {
 }
 
 function untickAll() {
-  unticked.value = new Set(results.value.map((anime) => anime.aniListId));
+  unticked.value = new Set(shown.value.map((anime) => anime.aniListId));
 }
 
 function summaryText(result: ImportBatchResult): string {
@@ -248,37 +276,50 @@ onUnmounted(() => {
 
           <div class="results-col">
             <div class="results-head">
-              <span v-if="!loading">{{ plural(results.length, "show") }}{{ hasNextPage ? "+" : "" }} loaded</span>
+              <span v-if="!loading">{{ shown.length }}{{ hasNextPage ? "+" : "" }} {{ shown.length === 1 ? "show" : "shows" }} you don't have yet</span>
               <span v-if="loading" class="results-loading">Searching AniList...</span>
-              <span v-if="results.length" class="tick-actions">
+              <span v-if="shown.length" class="tick-actions">
                 <button type="button" class="link-btn" :disabled="running" @click="tickAll">Tick all</button>
                 <button type="button" class="link-btn" :disabled="running" @click="untickAll">Untick all</button>
               </span>
             </div>
+            <p v-if="hiddenInLibrary && !loading" class="hidden-note">
+              {{ plural(hiddenInLibrary, "show") }} already in your library {{ hiddenInLibrary === 1 ? "is" : "are" }} hidden.
+            </p>
             <p v-if="loadError" class="inline-error">{{ loadError }}</p>
             <p v-else-if="!loading && !results.length" class="empty-note">No shows on AniList match these filters.</p>
-            <ul v-if="results.length" class="anime-list">
-              <li v-for="anime in results" :key="anime.aniListId">
-                <label class="anime-row" :class="{ unticked: unticked.has(anime.aniListId), 'in-library': anime.inLibrary }">
+            <p v-else-if="!loading && !loadingMore && !shown.length" class="empty-note">
+              {{ hasNextPage ? "Everything so far is already in your library. Load more to keep looking." : "Every show matching these filters is already in your library." }}
+            </p>
+            <ul v-if="shown.length" class="anime-list">
+              <li v-for="anime in shown" :key="anime.aniListId">
+                <label class="anime-row" :class="{ unticked: unticked.has(anime.aniListId) }">
                   <input
                     type="checkbox"
                     class="anime-check"
-                    :checked="!anime.inLibrary && !unticked.has(anime.aniListId)"
-                    :disabled="running || anime.inLibrary"
+                    :checked="!unticked.has(anime.aniListId)"
+                    :disabled="running"
                     @change="toggle(anime.aniListId)"
                   />
-                  <NetworkImage v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
-                  <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
+                  <CoverArt :src="anime.coverImageUrl" :label="anime.titleRomaji" :seed="anime.aniListId" class="anime-cover" />
                   <span class="anime-text">
                     <span class="anime-title">{{ anime.titleRomaji }}</span>
                     <span class="anime-meta">{{ browseAnimeMeta(anime) }}</span>
                   </span>
-                  <span v-if="anime.inLibrary" class="library-badge">In library &middot; {{ plural(anime.cardCount, "card") }}</span>
                 </label>
               </li>
             </ul>
             <div v-if="hasNextPage" ref="sentinelRef" class="sentinel" />
             <p v-if="loadingMore" class="results-loading">Loading more...</p>
+            <button
+              v-else-if="hasNextPage && !loading && !loadError"
+              type="button"
+              class="load-more-btn"
+              :disabled="running"
+              @click="loadMore"
+            >
+              Load more
+            </button>
           </div>
         </div>
 
@@ -556,10 +597,6 @@ h2 {
   object-fit: cover;
 }
 
-.anime-cover-empty {
-  background: var(--surface-raised);
-}
-
 .anime-text {
   display: flex;
   flex-direction: column;
@@ -653,24 +690,27 @@ h2 {
   }
 }
 
-.anime-row.in-library {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.library-badge {
-  margin-left: auto;
-  flex: none;
-  padding: 2px 10px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--pass);
-  color: var(--pass);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .sentinel {
   height: 1px;
+}
+
+.hidden-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.load-more-btn {
+  align-self: center;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .run-progress {
