@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import type { PartyPositionReport, PartySongClock } from "~/composables/usePartyDisplay";
+import "~/assets/css/party-display-moe.css";
 definePageMeta({ layout: "party" });
-useHead({ title: "GAQ Party" });
+const { canUseRemote } = useNetworkMode();
+// The display's chunky title face; without it the theme falls back to the
+// rounded body font already loaded app-wide.
+useHead(() => ({
+  title: "GAQ Party",
+  link: canUseRemote.value ? [{ rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" }] : [],
+}));
+
+// The lobby ticker repeats its phrase so one copy always fills the band while
+// the other scrolls in behind it.
+const TICKER = "♪ GAQ PARTY ☆ GUESS THE ANIME ☆ アニソン クイズ ☆ ";
+const tickerRun = Array.from({ length: 6 }, () => TICKER);
+
 
 const { state, connected, connect, reportPosition } = usePartyDisplay();
 
@@ -153,13 +166,25 @@ onBeforeUnmount(() => {
 
 <template>
   <main
-    class="display"
+    class="display moe-theme"
     :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
     @mousemove="onPointerMove"
     @pointerdown="onPointerDown"
     @click="onClick"
     @dblclick="onDoubleClick"
   >
+    <div class="moe-sky" aria-hidden="true">
+      <template v-if="!started || !state?.item">
+        <span v-for="index in 7" :key="index" class="moe-star">✦</span>
+        <div class="moe-band moe-band-top">
+          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
+        </div>
+        <div class="moe-band moe-band-bottom">
+          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
+        </div>
+      </template>
+    </div>
+
     <button v-if="!started" type="button" class="display-start" @click="start">
       <MascotKai pose="wave" size="hero" />
       <span class="kai-banner kai-banner-pass display-start-banner">Click to start</span>
