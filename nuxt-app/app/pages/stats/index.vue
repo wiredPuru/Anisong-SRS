@@ -1010,8 +1010,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most improved</span>
               <p v-if="!improvedDecks.length" class="trend-note">No deck has improved yet.</p>
               <div v-for="entry in improvedDecks" :key="`up-${entry.type}-${entry.id}`" class="mover-row">
-                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
-                <span v-else class="mover-cover mover-cover-empty" />
+                <CoverArt :src="entry.coverImageUrl" :label="entry.label" :seed="entry.id" class="mover-cover" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
                   <span class="mover-detail">
@@ -1026,8 +1025,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most declined</span>
               <p v-if="!declinedDecks.length" class="trend-note">No deck has declined yet.</p>
               <div v-for="entry in declinedDecks" :key="`down-${entry.type}-${entry.id}`" class="mover-row">
-                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
-                <span v-else class="mover-cover mover-cover-empty" />
+                <CoverArt :src="entry.coverImageUrl" :label="entry.label" :seed="entry.id" class="mover-cover" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
                   <span class="mover-detail">
@@ -1133,8 +1131,12 @@ function setType(type: StatsType) {
           class="trouble-row"
           @click="previewCard = entry.card"
         >
-          <NetworkImage v-if="entry.card.animeCoverImageUrl" :src="entry.card.animeCoverImageUrl" alt="" class="mover-cover" />
-          <span v-else class="mover-cover mover-cover-empty" />
+          <CoverArt
+            :src="entry.card.animeCoverImageUrl"
+            :label="entry.card.animeTitleRomaji"
+            :seed="entry.card.animeId"
+            class="mover-cover"
+          />
           <span class="mover-info">
             <span class="mover-label">{{ entry.card.songTitle }}</span>
             <span class="mover-detail">
@@ -2028,10 +2030,6 @@ function setType(type: StatsType) {
   border-radius: var(--radius-xs);
   background: var(--surface-raised);
   object-fit: cover;
-}
-
-.mover-cover-empty {
-  display: block;
 }
 
 .mover-info {

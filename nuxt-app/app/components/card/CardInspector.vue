@@ -294,7 +294,7 @@ async function toggleKnown(target: CardWithDetails) {
         @local-path-cleared="onLocalPathCleared"
       />
       <div v-else class="inspector-cover">
-        <NetworkImage v-if="card.animeCoverImageUrl" :src="card.animeCoverImageUrl" alt="" />
+        <CoverArt :src="card.animeCoverImageUrl" :label="card.animeTitleRomaji" :seed="card.animeId" class="inspector-cover-art" />
         <span class="inspector-slot">{{ formatThemeSlotLabel(card.themeSlot) }}</span>
         <button v-if="sourceBadges(card).length" type="button" class="inspector-play" @click="playRequested = true">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
@@ -501,10 +501,12 @@ async function toggleKnown(target: CardWithDetails) {
   overflow: hidden;
 }
 
-.inspector-cover img {
+.inspector-cover-art {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+}
+
+img.inspector-cover-art {
   opacity: 0.85;
 }
 

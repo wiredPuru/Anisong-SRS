@@ -90,8 +90,7 @@ const headerCheckState = computed(() =>
         :aria-pressed="selectedId === c.id"
         @click="emit('select', c.id)"
       >
-        <NetworkImage v-if="c.animeCoverImageUrl" :src="c.animeCoverImageUrl" alt="" class="cover-thumb" />
-        <span v-else class="cover-thumb cover-thumb-empty" />
+        <CoverArt :src="c.animeCoverImageUrl" :label="c.animeTitleRomaji" :seed="c.animeId" class="cover-thumb" />
         <span class="cell-song">
           <span class="song-title" :title="c.songTitle">
             {{ c.songTitle }}
@@ -230,11 +229,6 @@ const headerCheckState = computed(() =>
   border-radius: var(--radius-xs);
   object-fit: cover;
   box-shadow: 0 2px 6px color-mix(in srgb, var(--text) 18%, transparent);
-}
-
-.cover-thumb-empty {
-  display: block;
-  background: var(--surface-raised);
 }
 
 .cell-song {
