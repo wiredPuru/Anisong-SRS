@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { selectedDownloadKinds } from "../../utils/bulkDownloadKinds";
 import type { BulkStep } from "../../composables/useBulkMediaProgress";
 
 interface AniListResult {
@@ -181,33 +182,32 @@ function hasDownloadableAdded(): boolean {
   });
 }
 
-async function downloadAllMedia() {
-  if (!selectedAnime.value) return;
+const { kinds: downloadKinds } = useBulkDownloadKinds();
 
+// Only the kinds ticked beside Download all, so the button can say when the
+// choice leaves nothing to fetch.
+function downloadAllSteps(): BulkStep[] {
+  if (!selectedAnime.value) return [];
   const steps: BulkStep[] = [];
   for (const theme of selectedAnime.value.themes) {
     const card = addedCards[theme.songId];
     if (!card) continue;
-    if (canDownload(card, "video")) {
+    for (const kind of selectedDownloadKinds(downloadKinds.value)) {
+      if (!canDownload(card, kind)) continue;
       steps.push({
-        label: `${theme.songTitle} (video)`,
+        label: `${theme.songTitle} (${kind})`,
         run: async () => {
-          await downloadMedia(theme.songId, "video");
-          return !downloadError[theme.songId];
-        },
-      });
-    }
-    if (canDownload(card, "audio")) {
-      steps.push({
-        label: `${theme.songTitle} (audio)`,
-        run: async () => {
-          await downloadMedia(theme.songId, "audio");
+          await downloadMedia(theme.songId, kind);
           return !downloadError[theme.songId];
         },
       });
     }
   }
-  await downloadAllProgress.runSteps(steps);
+  return steps;
+}
+
+async function downloadAllMedia() {
+  await downloadAllProgress.runSteps(downloadAllSteps());
 }
 
 const addAllProgress = useBulkMediaProgress();
@@ -297,15 +297,25 @@ async function removeCard(songId: number) {
                   <button type="button" class="add-btn" :disabled="addAllProgress.running.value" @click="addAllThemes">
                     {{ addAllProgress.running.value ? "Adding..." : "Add all" }}
                   </button>
-                  <button
-                    v-if="props.hasDefaultDownloadFolder && hasDownloadableAdded()"
-                    type="button"
-                    class="download-btn"
-                    :disabled="downloadAllProgress.running.value"
-                    @click="downloadAllMedia"
-                  >
-                    {{ downloadAllProgress.running.value ? "Downloading..." : "Download all" }}
-                  </button>
+                  <template v-if="props.hasDefaultDownloadFolder && hasDownloadableAdded()">
+                    <button
+                      type="button"
+                      class="download-btn"
+                      :disabled="downloadAllProgress.running.value || !downloadAllSteps().length"
+                      @click="downloadAllMedia"
+                    >
+                      {{ downloadAllProgress.running.value ? "Downloading..." : "Download all" }}
+                    </button>
+                    <CardDownloadKindToggles :disabled="downloadAllProgress.running.value" />
+                    <button
+                      v-if="downloadAllProgress.running.value"
+                      type="button"
+                      class="download-btn"
+                      @click="downloadAllProgress.stop()"
+                    >
+                      Stop downloads
+                    </button>
+                  </template>
                 </div>
                 <p v-if="addAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
                   Adding {{ addAllProgress.progress.completed }} of {{ addAllProgress.progress.total }}<template v-if="addAllProgress.progress.current"> - {{ addAllProgress.progress.current }}</template>
@@ -315,6 +325,9 @@ async function removeCard(songId: number) {
                 </p>
                 <p v-if="downloadAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
                   Downloading {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.progress.total }}<template v-if="downloadAllProgress.progress.current"> - {{ downloadAllProgress.progress.current }}</template>
+                </p>
+                <p v-else-if="downloadAllProgress.summary.value?.stopped" class="bulk-summary">
+                  Stopped after {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.summary.value.total }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
                 </p>
                 <p v-else-if="downloadAllProgress.summary.value" class="bulk-summary">
                   Downloaded {{ downloadAllProgress.summary.value.total - downloadAllProgress.summary.value.failed }} of {{ downloadAllProgress.summary.value.total }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
@@ -488,6 +501,8 @@ async function removeCard(songId: number) {
 
 .bulk-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
   margin-top: 8px;
 }

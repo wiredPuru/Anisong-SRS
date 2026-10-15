@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { selectedDownloadKinds } from "../../utils/bulkDownloadKinds";
 import type { BulkStep } from "../../composables/useBulkMediaProgress";
 
 interface ArtistCandidate {
@@ -137,6 +138,8 @@ async function preloadAddedCards(songIds: number[], isCurrent: () => boolean) {
 }
 
 async function openArtist(candidate: ArtistCandidate) {
+  // A finished background run's leftover state belongs to the previous artist.
+  if (backgroundDownloads.value) resetModalState();
   const isCurrent = importRequests.start();
   selectedArtist.value = candidate;
   modalOpen.value = true;
@@ -227,36 +230,42 @@ function hasDownloadableAdded(): boolean {
   );
 }
 
-async function downloadAllMedia() {
-  if (!artistImport.value) return;
+const { kinds: downloadKinds } = useBulkDownloadKinds();
 
+// Only the kinds ticked beside Download all, so the button can say when the
+// choice leaves nothing to fetch.
+function downloadAllSteps(): BulkStep[] {
+  if (!artistImport.value) return [];
   const steps: BulkStep[] = [];
   for (const group of artistImport.value.animeGroups) {
     for (const theme of group.themes) {
       const card = addedCards[theme.songId];
       if (!card) continue;
-      if (canDownload(card, "video")) {
+      for (const kind of selectedDownloadKinds(downloadKinds.value)) {
+        if (!canDownload(card, kind)) continue;
         steps.push({
-          label: `${theme.songTitle} (video)`,
+          label: `${theme.songTitle} (${kind})`,
           run: async () => {
-            await downloadMedia(theme.songId, "video");
-            return !downloadError[theme.songId];
-          },
-        });
-      }
-      if (canDownload(card, "audio")) {
-        steps.push({
-          label: `${theme.songTitle} (audio)`,
-          run: async () => {
-            await downloadMedia(theme.songId, "audio");
+            await downloadMedia(theme.songId, kind);
             return !downloadError[theme.songId];
           },
         });
       }
     }
   }
-  await downloadAllProgress.runSteps(steps);
+  return steps;
 }
+
+async function downloadAllMedia() {
+  await downloadAllProgress.runSteps(downloadAllSteps());
+}
+
+// Closing the window mid-download keeps the downloads going: the state stays
+// alive behind a status line on the page until the run ends and is dismissed.
+const backgroundDownloads = computed(
+  () => !modalOpen.value && (downloadAllProgress.running.value || downloadAllProgress.summary.value !== null),
+);
+const backgroundArtistName = ref<string | null>(null);
 
 async function removeCard(songId: number) {
   const card = addedCards[songId];
@@ -293,8 +302,18 @@ function closeModal() {
   modalOpen.value = false;
 }
 
+function showDownloads() {
+  modalOpen.value = true;
+}
+
+function dismissDownloads() {
+  resetModalState();
+}
+
 watch(modalOpen, (open) => {
-  if (!open) resetModalState();
+  if (open) return;
+  if (downloadAllProgress.running.value) backgroundArtistName.value = selectedArtist.value?.name ?? null;
+  else resetModalState();
 });
 
 const { isTypingTarget } = useHotkeyGuard();
@@ -309,6 +328,23 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
+  <div v-if="backgroundDownloads" class="background-downloads" role="status" aria-live="polite">
+    <span v-if="downloadAllProgress.running.value">
+      Downloading {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.progress.total }} for {{ backgroundArtistName }}<template v-if="downloadAllProgress.progress.current"> - {{ downloadAllProgress.progress.current }}</template>
+    </span>
+    <span v-else-if="downloadAllProgress.summary.value?.stopped">
+      Stopped {{ backgroundArtistName }} downloads after {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.summary.value.total }}
+    </span>
+    <span v-else-if="downloadAllProgress.summary.value">
+      Downloaded {{ downloadAllProgress.summary.value.total - downloadAllProgress.summary.value.failed }} of {{ downloadAllProgress.summary.value.total }} for {{ backgroundArtistName }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
+    </span>
+    <span class="background-actions">
+      <button type="button" @click="showDownloads">Show</button>
+      <button v-if="downloadAllProgress.running.value" type="button" @click="downloadAllProgress.stop()">Stop</button>
+      <button v-else type="button" aria-label="Dismiss" @click="dismissDownloads">✕</button>
+    </span>
+  </div>
+
   <div v-if="props.query.trim().length >= 2" class="add-artist-group">
     <h2 class="group-title">Artists</h2>
     <div v-if="searching" class="state">
@@ -318,7 +354,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <template v-else-if="results">
       <ul v-if="results.length" class="result-list">
         <li v-for="result in results" :key="result.id" class="result-row">
-          <button type="button" class="result-toggle" @click="openArtist(result)">
+          <button
+            type="button"
+            class="result-toggle"
+            :disabled="backgroundDownloads && downloadAllProgress.running.value"
+            :title="backgroundDownloads && downloadAllProgress.running.value ? `Wait for ${backgroundArtistName}'s downloads to finish, or stop them` : undefined"
+            @click="openArtist(result)"
+          >
             <span class="result-title">{{ result.name }}</span>
           </button>
         </li>
@@ -353,15 +395,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <button type="button" class="add-btn" :disabled="addAllProgress.running.value" @click="addAllThemes">
               {{ addAllProgress.running.value ? "Adding..." : "Add all" }}
             </button>
-            <button
-              v-if="hasDefaultDownloadFolder && hasDownloadableAdded()"
-              type="button"
-              class="download-btn"
-              :disabled="downloadAllProgress.running.value"
-              @click="downloadAllMedia"
-            >
-              {{ downloadAllProgress.running.value ? "Downloading..." : "Download all" }}
-            </button>
+            <template v-if="hasDefaultDownloadFolder && hasDownloadableAdded()">
+              <button
+                type="button"
+                class="download-btn"
+                :disabled="downloadAllProgress.running.value || !downloadAllSteps().length"
+                @click="downloadAllMedia"
+              >
+                {{ downloadAllProgress.running.value ? "Downloading..." : "Download all" }}
+              </button>
+              <CardDownloadKindToggles :disabled="downloadAllProgress.running.value" />
+            </template>
           </div>
           <p v-if="addAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
             Adding {{ addAllProgress.progress.completed }} of {{ addAllProgress.progress.total }}<template v-if="addAllProgress.progress.current"> - {{ addAllProgress.progress.current }}</template>
@@ -369,8 +413,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <p v-else-if="addAllProgress.summary.value" class="bulk-summary">
             Added {{ addAllProgress.summary.value.total - addAllProgress.summary.value.failed }} of {{ addAllProgress.summary.value.total }}<template v-if="addAllProgress.summary.value.failed"> ({{ addAllProgress.summary.value.failed }} failed)</template>
           </p>
-          <p v-if="downloadAllProgress.running.value" class="bulk-progress" role="status" aria-live="polite">
-            Downloading {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.progress.total }}<template v-if="downloadAllProgress.progress.current"> - {{ downloadAllProgress.progress.current }}</template>
+          <div v-if="downloadAllProgress.running.value" class="bulk-progress-row">
+            <p class="bulk-progress" role="status" aria-live="polite">
+              Downloading {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.progress.total }}<template v-if="downloadAllProgress.progress.current"> - {{ downloadAllProgress.progress.current }}</template>
+              <span class="bulk-hint">Downloads keep going if you close this window.</span>
+            </p>
+            <button type="button" class="download-btn" @click="downloadAllProgress.stop()">Stop downloads</button>
+          </div>
+          <p v-else-if="downloadAllProgress.summary.value?.stopped" class="bulk-summary">
+            Stopped after {{ downloadAllProgress.progress.completed }} of {{ downloadAllProgress.summary.value.total }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
           </p>
           <p v-else-if="downloadAllProgress.summary.value" class="bulk-summary">
             Downloaded {{ downloadAllProgress.summary.value.total - downloadAllProgress.summary.value.failed }} of {{ downloadAllProgress.summary.value.total }}<template v-if="downloadAllProgress.summary.value.failed"> ({{ downloadAllProgress.summary.value.failed }} failed)</template>
@@ -588,9 +639,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .subtitle {
-  margin: -8px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .anime-groups {
@@ -601,7 +653,59 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .bulk-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+}
+
+.bulk-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bulk-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.background-downloads {
+  margin: 16px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.background-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+}
+
+.background-actions button {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.result-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .bulk-progress,
@@ -615,6 +719,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   margin: 0;
   font-size: 16px;
   font-weight: 800;
+  line-height: 1.3;
 }
 
 .theme-list {
