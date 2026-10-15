@@ -41,6 +41,7 @@ onUnmounted(() => document.documentElement.removeAttribute("data-ambient-backdro
 <template>
   <div v-if="active && lastPlayed" class="ambient-backdrop" aria-hidden="true">
     <NetworkImage :src="lastPlayed.image" alt="" class="backdrop-image" />
+    <div class="backdrop-tint" />
     <div class="backdrop-vignette" />
   </div>
 </template>
@@ -64,6 +65,12 @@ onUnmounted(() => document.documentElement.removeAttribute("data-ambient-backdro
   object-fit: cover;
   filter: var(--ambient-backdrop-filter);
   opacity: var(--ambient-backdrop-opacity);
+}
+
+.backdrop-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--ambient-backdrop-tint);
 }
 
 .backdrop-vignette {
