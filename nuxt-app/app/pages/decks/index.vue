@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { coverInitial, coverTint } from "~/utils/coverFallback";
 import type { GradingCategory, GradingCriterion } from "~/utils/criterionGrading";
 import type { CopyCardsResult } from "~/components/deck/DeckCopyCardsModal.vue";
 
@@ -282,15 +283,9 @@ function formatPassRate(passRate: number | null): string | null {
 // Artist/Created decks have no single cover image, unlike Anime decks
 // (Anime.coverImageUrl). These give their tile a stable, hashed accent tint
 // instead of the empty box that used to render there.
-const DECK_TINT_TOKENS = ["--accent", "--accent-secondary", "--pass", "--warning"];
-
-function deckTint(id: number): string {
-  return DECK_TINT_TOKENS[id % DECK_TINT_TOKENS.length]!;
-}
-
-function deckInitial(label: string): string {
-  return label.trim().charAt(0).toUpperCase() || "?";
-}
+// Shared with CoverArt, so a card with no cover matches its deck's tile.
+const deckTint = coverTint;
+const deckInitial = coverInitial;
 
 const selectedDeckCover = computed<string | null>(() => {
   if (selectedId.value === null) return null;

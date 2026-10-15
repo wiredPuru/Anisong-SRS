@@ -69,4 +69,27 @@ describe("useBulkMediaProgress", () => {
     expect(bulk.progress.current).toBeNull();
     expect(bulk.summary.value).toEqual({ total: 2, failed: 0 });
   });
+
+  it("stops after the step in flight when asked, and says so in the summary", async () => {
+    const bulk = useBulkMediaProgress();
+    const ran: string[] = [];
+    await bulk.runSteps([
+      { label: "A", run: async () => { ran.push("A"); return true; } },
+      { label: "B", run: async () => { ran.push("B"); bulk.stop(); return true; } },
+      { label: "C", run: async () => { ran.push("C"); return true; } },
+    ]);
+    expect(ran).toEqual(["A", "B"]);
+    expect(bulk.progress.completed).toBe(2);
+    expect(bulk.summary.value).toEqual({ total: 3, failed: 0, stopped: true });
+
+    await bulk.runSteps([{ label: "D", run: async () => true }]);
+    expect(bulk.summary.value).toEqual({ total: 1, failed: 0 });
+  });
+
+  it("ignores stop when nothing is running", async () => {
+    const bulk = useBulkMediaProgress();
+    bulk.stop();
+    await bulk.runSteps([{ label: "A", run: async () => true }]);
+    expect(bulk.summary.value).toEqual({ total: 1, failed: 0 });
+  });
 });

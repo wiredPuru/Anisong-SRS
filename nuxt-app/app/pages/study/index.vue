@@ -1052,10 +1052,18 @@ function suspendAutoReveal() {
 // submitted as soon as it unblocks.
 let autoSubmitPending = false;
 
-const typedAnswerRef = ref<{ submitCurrent: () => void } | null>(null);
+const typedAnswerRef = ref<{ submitCurrent: () => void; submitTyped: () => void } | null>(null);
 
 function submitRoundNow() {
   if (mainAnswer.value === "anime") typedAnswerRef.value?.submitCurrent();
+  else submitMainAnswer();
+}
+
+// Enter in an extra answer box sends the round as Enter in the anime box would:
+// a typed title that exactly matches a suggestion counts as picking it.
+function submitRoundFromField() {
+  if (!typedAnswers.value || quizResult.value !== null || answerControlsDisabled.value) return;
+  if (mainAnswer.value === "anime") typedAnswerRef.value?.submitTyped();
   else submitMainAnswer();
 }
 
@@ -1662,12 +1670,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   :hide-artist="visibleAnswers.artist"
                   :disabled="answerControlsDisabled"
                   @update:answer="songAnswerText = $event"
+                  @submit-round="submitRoundFromField"
                 />
                 <StudyArtistAnswer
                   v-if="showArtistAnswer"
                   :key="`artist-${presentationKey}`"
                   :disabled="answerControlsDisabled"
                   @update:answer="artistAnswerText = $event"
+                  @submit-round="submitRoundFromField"
                 />
                 <StudyThemeSlotAnswer
                   v-if="showThemeSlotAnswer"

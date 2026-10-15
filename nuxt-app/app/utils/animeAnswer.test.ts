@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateAnimeAnswer, shouldIgnoreAnswerKey } from "./animeAnswer";
+import { evaluateAnimeAnswer, findTypedAnimeMatch, shouldIgnoreAnswerKey } from "./animeAnswer";
 
 describe("evaluateAnimeAnswer", () => {
   it("grades the selected identity independently of its display title", () => {
@@ -44,5 +44,38 @@ describe("typed-answer key guard", () => {
 
   it("handles a normal key after composition ends", () => {
     expect(shouldIgnoreAnswerKey(false, false, false, false)).toBe(false);
+  });
+});
+
+describe("findTypedAnimeMatch", () => {
+  const options = [
+    { aniListId: 1, titleRomaji: "Canaan", titleEnglish: "Canaan", titleNative: "CANAAN" },
+    { aniListId: 2, titleRomaji: "Seikon no Qwaser", titleEnglish: "The Qwaser of Stigmata", titleNative: "聖痕のクェイサー" },
+    { aniListId: 3, titleRomaji: "Seikon no Qwaser II", titleEnglish: null, titleNative: null },
+  ];
+
+  it("matches any title, ignoring case, spacing and full-width characters", () => {
+    expect(findTypedAnimeMatch("the qwaser of stigmata", options)?.aniListId).toBe(2);
+    expect(findTypedAnimeMatch("Seikon noQwaser", options)?.aniListId).toBe(2);
+    expect(findTypedAnimeMatch("聖痕のクェイサー", options)?.aniListId).toBe(2);
+    expect(findTypedAnimeMatch("ＣＡＮＡＡＮ", options)?.aniListId).toBe(1);
+  });
+
+  it("needs the whole title, not a prefix", () => {
+    expect(findTypedAnimeMatch("Seikon", options)).toBeNull();
+    expect(findTypedAnimeMatch("Seikon no Qwaser II", options)?.aniListId).toBe(3);
+  });
+
+  it("takes the first match in ranking order", () => {
+    const remakes = [
+      { aniListId: 11061, titleRomaji: "HUNTER×HUNTER (2011)", titleEnglish: "Hunter x Hunter", titleNative: null },
+      { aniListId: 136, titleRomaji: "HUNTER×HUNTER", titleEnglish: "Hunter x Hunter", titleNative: null },
+    ];
+    expect(findTypedAnimeMatch("hunter x hunter", remakes)?.aniListId).toBe(11061);
+  });
+
+  it("finds nothing for blank text or no options", () => {
+    expect(findTypedAnimeMatch("  ", options)).toBeNull();
+    expect(findTypedAnimeMatch("Canaan", [])).toBeNull();
   });
 });

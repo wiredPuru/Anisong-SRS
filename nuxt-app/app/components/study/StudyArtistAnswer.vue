@@ -10,7 +10,7 @@ const props = defineProps<{
   disabled: boolean;
   primary?: boolean;
 }>();
-const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: [] }>();
+const emit = defineEmits<{ "update:answer": [string | null]; answer: []; giveUp: []; typingStarted: []; submitRound: [] }>();
 const query = ref("");
 const input = ref<HTMLInputElement | null>(null);
 const playbackRequested = ref(false);
@@ -54,8 +54,8 @@ function choose(option: ArtistAnswerOption) {
   publish();
 }
 
-// Outside primary mode Enter never submits: the main answer box owns
-// Submit/Give up, and Enter only takes the highlighted suggestion.
+// A highlighted suggestion takes Enter first. Otherwise, outside primary mode,
+// Enter submits the whole round as it stands, like StudySongAnswer.
 function onKeydown(event: KeyboardEvent) {
   if (shouldIgnoreAnswerKey(props.disabled, event.isComposing, composing.value, event.repeat)) return;
   if (props.primary && event.key === " " && !query.value) {
@@ -76,7 +76,8 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault();
     const option = results.value[active.value];
     if (open.value && option) choose(option);
-    else if (props.primary && query.value.trim()) emit("answer");
+    else if (props.primary) emit(query.value.trim() ? "answer" : "giveUp");
+    else emit("submitRound");
   }
 }
 

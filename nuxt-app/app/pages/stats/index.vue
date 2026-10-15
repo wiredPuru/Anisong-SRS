@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GradingCriterion } from "~/utils/criterionGrading";
 import type { ReviewHeatmap } from "~/utils/monthHeatmap";
+import { BREAKDOWN_SORTS, filterBreakdownRows, type BreakdownSort } from "~/utils/statsBreakdown";
 
 interface OverallStats {
   totalReviews: number;
@@ -611,6 +612,10 @@ async function confirmClear() {
   }
 }
 
+const breakdownQuery = ref("");
+const breakdownSort = ref<BreakdownSort>("reviews");
+const visibleRows = computed(() => filterBreakdownRows(rows.value, breakdownQuery.value, breakdownSort.value));
+
 const rows = computed<StatsRow[]>(() => {
   if (!data.value) return [];
   if (activeType.value === "artist") {
@@ -731,6 +736,17 @@ function setType(type: StatsType) {
         <span class="kpi-value" :class="{ 'kpi-value-accent': overall.streakDays > 0 }">
           {{ formatStreak(overall.streakDays) }}
         </span>
+      </div>
+    </div>
+
+    <StatsActivityHeatmap v-if="heatmap" :heatmap="heatmap" />
+    <div v-else class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Study activity</span>
+      </div>
+      <div v-if="heatmapError" class="state state-error">Couldn't load study activity. Try refreshing.</div>
+      <div v-else class="state">
+        <ActivityStatus label="Loading study activity" />
       </div>
     </div>
 
@@ -994,8 +1010,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most improved</span>
               <p v-if="!improvedDecks.length" class="trend-note">No deck has improved yet.</p>
               <div v-for="entry in improvedDecks" :key="`up-${entry.type}-${entry.id}`" class="mover-row">
-                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
-                <span v-else class="mover-cover mover-cover-empty" />
+                <CoverArt :src="entry.coverImageUrl" :label="entry.label" :seed="entry.id" class="mover-cover" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
                   <span class="mover-detail">
@@ -1010,8 +1025,7 @@ function setType(type: StatsType) {
               <span class="mover-heading">Most declined</span>
               <p v-if="!declinedDecks.length" class="trend-note">No deck has declined yet.</p>
               <div v-for="entry in declinedDecks" :key="`down-${entry.type}-${entry.id}`" class="mover-row">
-                <NetworkImage v-if="entry.coverImageUrl" :src="entry.coverImageUrl" alt="" class="mover-cover" />
-                <span v-else class="mover-cover mover-cover-empty" />
+                <CoverArt :src="entry.coverImageUrl" :label="entry.label" :seed="entry.id" class="mover-cover" />
                 <span class="mover-info">
                   <span class="mover-label">{{ entry.label }}</span>
                   <span class="mover-detail">
@@ -1025,17 +1039,6 @@ function setType(type: StatsType) {
           </div>
         </div>
       </template>
-    </div>
-
-    <StatsActivityHeatmap v-if="heatmap" :heatmap="heatmap" />
-    <div v-else class="chart-panel">
-      <div class="chart-header">
-        <span class="chart-title">Study activity</span>
-      </div>
-      <div v-if="heatmapError" class="state state-error">Couldn't load study activity. Try refreshing.</div>
-      <div v-else class="state">
-        <ActivityStatus label="Loading study activity" />
-      </div>
     </div>
 
     <div class="chart-panel">
@@ -1120,7 +1123,7 @@ function setType(type: StatsType) {
       </div>
       <div v-else-if="troubleError" class="state state-error">Couldn't load trouble cards. Try refreshing.</div>
       <p v-else-if="!troubleEntries.length" class="state">{{ troubleEmptyText }}</p>
-      <div v-else class="trouble-list">
+      <div v-else class="trouble-list scroll-list">
         <button
           v-for="entry in troubleEntries"
           :key="entry.card.id"
@@ -1128,8 +1131,12 @@ function setType(type: StatsType) {
           class="trouble-row"
           @click="previewCard = entry.card"
         >
-          <NetworkImage v-if="entry.card.animeCoverImageUrl" :src="entry.card.animeCoverImageUrl" alt="" class="mover-cover" />
-          <span v-else class="mover-cover mover-cover-empty" />
+          <CoverArt
+            :src="entry.card.animeCoverImageUrl"
+            :label="entry.card.animeTitleRomaji"
+            :seed="entry.card.animeId"
+            class="mover-cover"
+          />
           <span class="mover-info">
             <span class="mover-label">{{ entry.card.songTitle }}</span>
             <span class="mover-detail">
@@ -1147,6 +1154,18 @@ function setType(type: StatsType) {
     <div class="breakdown-panel">
       <div class="breakdown-header">
         <span class="chart-title">Breakdown</span>
+        <div class="breakdown-tools">
+          <input
+            v-model="breakdownQuery"
+            type="search"
+            class="breakdown-search"
+            :placeholder="activeType === 'artist' ? 'Search artists' : 'Search titles'"
+            :aria-label="activeType === 'artist' ? 'Search artists' : 'Search titles'"
+          />
+          <select v-model="breakdownSort" class="breakdown-sort" aria-label="Sort breakdown">
+            <option v-for="option in BREAKDOWN_SORTS" :key="option.key" :value="option.key">{{ option.label }}</option>
+          </select>
+        </div>
         <div class="toggle">
           <button
             type="button"
@@ -1174,8 +1193,12 @@ function setType(type: StatsType) {
       </div>
       <div v-else-if="error" class="state state-error">Couldn't load stats. Try refreshing.</div>
       <template v-else>
-        <div v-if="rows.length" class="breakdown-list">
-          <div v-for="row in rows" :key="row.id" class="breakdown-row">
+        <p v-if="rows.length" class="breakdown-showing">
+          <template v-if="breakdownQuery.trim()">{{ visibleRows.length }} of {{ rows.length }} match</template>
+          <template v-else>{{ rows.length }} {{ activeType === "artist" ? "artists" : "titles" }}</template>
+        </p>
+        <div v-if="visibleRows.length" class="breakdown-list scroll-list">
+          <div v-for="row in visibleRows" :key="row.id" class="breakdown-row">
             <div class="breakdown-row-top">
               <span class="breakdown-label">
                 {{ row.label }}
@@ -1198,6 +1221,7 @@ function setType(type: StatsType) {
             </div>
           </div>
         </div>
+        <p v-else-if="rows.length" class="state">Nothing matches "{{ breakdownQuery.trim() }}".</p>
         <p v-else class="state">No decks yet. <NuxtLink to="/cards">Add a card</NuxtLink> to start one.</p>
       </template>
     </div>
@@ -1752,6 +1776,7 @@ function setType(type: StatsType) {
 
 .breakdown-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1760,13 +1785,49 @@ function setType(type: StatsType) {
 .breakdown-list {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 8px;
 }
 
 .breakdown-row {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+/* Long lists scroll inside their panel instead of stretching the page. */
+.scroll-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+}
+
+.breakdown-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.breakdown-search,
+.breakdown-sort {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.breakdown-search {
+  width: min(220px, 40vw);
+}
+
+.breakdown-showing {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .breakdown-row-top {
@@ -1818,7 +1879,7 @@ function setType(type: StatsType) {
 }
 
 .breakdown-bar-track {
-  height: 6px;
+  height: 4px;
   border-radius: var(--radius-pill);
   background: var(--border);
   overflow: hidden;
@@ -1969,10 +2030,6 @@ function setType(type: StatsType) {
   border-radius: var(--radius-xs);
   background: var(--surface-raised);
   object-fit: cover;
-}
-
-.mover-cover-empty {
-  display: block;
 }
 
 .mover-info {
