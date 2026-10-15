@@ -1052,18 +1052,19 @@ function suspendAutoReveal() {
 // submitted as soon as it unblocks.
 let autoSubmitPending = false;
 
-const typedAnswerRef = ref<{ submitCurrent: () => void } | null>(null);
+const typedAnswerRef = ref<{ submitCurrent: () => void; submitTyped: () => void } | null>(null);
 
 function submitRoundNow() {
   if (mainAnswer.value === "anime") typedAnswerRef.value?.submitCurrent();
   else submitMainAnswer();
 }
 
-// Enter in an extra answer box sends the round as it stands, the same way an
-// Auto Reveal timeout does: an anime box without a picked match counts as blank.
+// Enter in an extra answer box sends the round as Enter in the anime box would:
+// a typed title that exactly matches a suggestion counts as picking it.
 function submitRoundFromField() {
   if (!typedAnswers.value || quizResult.value !== null || answerControlsDisabled.value) return;
-  submitRoundNow();
+  if (mainAnswer.value === "anime") typedAnswerRef.value?.submitTyped();
+  else submitMainAnswer();
 }
 
 // Opening the card editor, a history Preview, the session log, or the filters

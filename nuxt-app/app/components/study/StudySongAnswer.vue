@@ -79,9 +79,8 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault();
     const option = results.value[active.value];
     if (open.value && option) choose(option);
-    else if (props.primary) {
-      if (query.value.trim()) emit("answer");
-    } else emit("submitRound");
+    else if (props.primary) emit(query.value.trim() ? "answer" : "giveUp");
+    else emit("submitRound");
   }
 }
 

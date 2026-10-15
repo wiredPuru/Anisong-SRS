@@ -69,9 +69,23 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault();
     const option = results.value[active.value];
     if (open.value && option) choose(option);
-    else if (selected.value && props.available) emit("answer", selected.value);
-    else if (query.value.trim() && props.available) emit("giveUp");
+    else submitTyped();
   }
+}
+
+// Enter always sends the round: the picked match, else a suggestion whose full
+// title was typed exactly, else a blank anime answer.
+function submitTyped() {
+  if (!props.available) return;
+  if (selected.value) {
+    emit("answer", selected.value);
+    return;
+  }
+  const match = findTypedAnimeMatch(query.value, results.value);
+  if (match) {
+    choose(match);
+    emit("answer", match);
+  } else emit("giveUp");
 }
 
 function clearAnswer() {
@@ -89,7 +103,7 @@ function submitCurrent() {
   if (selected.value && props.available) emit("answer", selected.value);
   else emit("giveUp");
 }
-defineExpose({ submitCurrent });
+defineExpose({ submitCurrent, submitTyped });
 
 watch(() => [props.presentationKey, props.contextKey], ([presentationKey], [previousPresentationKey]) => {
   if (presentationKey !== previousPresentationKey) playbackRequested.value = false;
@@ -145,7 +159,7 @@ onMounted(() => {
       <template v-else-if="error">{{ error }}</template>
       <template v-else-if="selected">Selected: {{ label(selected) }}</template>
       <template v-else-if="open && query.trim().length >= 2 && !results.length">No anime found.</template>
-      <template v-else>Start typing or press Space to play. Select a match, or press Enter or the right arrow to give up.</template>
+      <template v-else>Start typing or press Space to play. Pick a match or type the full title, then press Enter to submit.</template>
     </p>
     <p v-if="!available" class="answer-unavailable">This card has no valid anime identity. Turn Typed Answers off to review it manually.</p>
     <button v-if="selected" class="submit-btn" type="button" :disabled="disabled || !available" @click="emit('answer', selected)">Submit answer</button>
