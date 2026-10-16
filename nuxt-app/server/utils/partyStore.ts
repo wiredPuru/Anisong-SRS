@@ -423,6 +423,20 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
   return { loaded: items.length, skipped };
 }
 
+/** After a card's clip is saved locally, its copies still waiting in the queue play the file. */
+export function playDownloadedCard(cardId: number): void {
+  const card = getCardsByIds([cardId])[0];
+  if (!card) return;
+  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), offlineMode: getOfflineMode() };
+  const clip = pickPartyClip(card, settings, localFileUsable);
+  if (clip?.source.type !== "local") return;
+  let next = state;
+  for (const item of state.queue.slice(state.index + 1)) {
+    if (item.cardId === cardId && item.clip.source.type === "remote") next = withLocalClip(next, item.token, clip);
+  }
+  if (next !== state) commit(next);
+}
+
 // Songs already waiting are moved rather than re-resolved, and the song on
 // screen is left alone, so the counts describe what actually happened.
 function placeCards(command: Extract<PartyCommand, { type: "load" }>, origin: "host" | "endless"): { loaded: number; moved: number; skipped: number } {

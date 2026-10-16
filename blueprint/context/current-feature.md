@@ -4,7 +4,7 @@
 
 **Type:** Fix
 
-**Status:** in progress
+**Status:** verified
 
 ## The problem
 
@@ -108,7 +108,7 @@ reaches the page.
   **Done when:** typing a search, pressing ArrowDown twice and Enter cues the
   second song row next, without touching the mouse, and the party hotkeys do
   not fire while typing.
-- [ ] **4. Download and library chips.** Shared download util, the host
+- [x] **4. Download and library chips.** Shared download util, the host
   route, `downloaded` / `inLibrary` flags on the host search routes
   (`card-search`, `deck-songs`, `anime-search`, `anime-themes`), the chips,
   and the Download button with its states. Tests for any new pure logic (the

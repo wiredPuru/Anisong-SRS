@@ -8,6 +8,7 @@ interface SongResult {
   songTitle: string;
   artistName: string;
   themeSlot: string;
+  downloaded: boolean;
 }
 
 interface CatalogResult {
@@ -40,6 +41,7 @@ interface ShowResult {
   aniListId: number;
   titleEnglish: string;
   titleRomaji: string;
+  inLibrary: boolean;
 }
 interface ShowTheme {
   songId: number;
@@ -49,6 +51,8 @@ interface ShowTheme {
   videoUrl: string | null;
   audioUrl: string | null;
   playable: boolean;
+  cardId: number | null;
+  downloaded: boolean;
 }
 
 type Position = "next" | "end";
@@ -164,6 +168,25 @@ async function addShowThemes(themes: ShowTheme[], position: Position, label: str
     await addCards(res.cardIds, position, label);
   } catch {
     note.value = "Couldn't add that.";
+  }
+}
+
+// Per card: "running" while saving, else the last error. A finished download
+// flips the row's own flag, wherever that song is listed.
+const downloads = ref<Record<number, string>>({});
+async function downloadCard(cardId: number) {
+  if (downloads.value[cardId] === "running") return;
+  downloads.value = { ...downloads.value, [cardId]: "running" };
+  try {
+    await $fetch("/api/party/host/download", { method: "POST", body: { cardId } });
+    for (const list of [songs.value, openSongs.value, showThemes.value]) {
+      for (const row of list) if (row.cardId === cardId) row.downloaded = true;
+    }
+    const { [cardId]: _done, ...rest } = downloads.value;
+    downloads.value = rest;
+  } catch (error) {
+    const message = (error as { data?: { statusMessage?: string } }).data?.statusMessage;
+    downloads.value = { ...downloads.value, [cardId]: message ?? "Couldn't download that." };
   }
 }
 
@@ -324,6 +347,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
               <button type="button" class="search-text search-open" :aria-expanded="openShow === show.aniListId" @click="toggleShow(show)">
                 <span class="search-anime">{{ openShow === show.aniListId ? "▾" : "▸" }} {{ show.titleEnglish }}</span>
                 <span class="search-song">{{ show.titleRomaji }} &middot; click for its songs</span>
+                <span v-if="show.inLibrary" class="search-chip">✓ In library</span>
               </button>
             </div>
             <ul v-if="openShow === show.aniListId" class="group-list nested">
@@ -345,6 +369,13 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
                   <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], 'next', theme.songTitle)">Cue next</button>
                   <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], 'end', theme.songTitle)">Add</button>
                 </span>
+                <PartyLibraryChips
+                  v-if="theme.cardId !== null"
+                  class="row-chips"
+                  :downloaded="theme.downloaded"
+                  :status="downloads[theme.cardId]"
+                  @download="downloadCard(theme.cardId)"
+                />
               </li>
             </ul>
           </li>
@@ -378,6 +409,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
                   <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'next', result.songTitle)">Cue next</button>
                   <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'end', result.songTitle)">Add</button>
                 </span>
+                <PartyLibraryChips class="row-chips" :downloaded="result.downloaded" :status="downloads[result.cardId]" @download="downloadCard(result.cardId)" />
               </li>
             </ul>
           </li>
@@ -400,6 +432,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
               <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'next', result.songTitle)">Cue next</button>
               <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'end', result.songTitle)">Add</button>
             </span>
+            <PartyLibraryChips class="row-chips" :downloaded="result.downloaded" :status="downloads[result.cardId]" @download="downloadCard(result.cardId)" />
           </li>
         </ul>
       </section>
@@ -494,8 +527,9 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
 
 .search-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
@@ -552,5 +586,21 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
 .search-queued {
   color: var(--faint);
   font-size: 13px;
+}
+
+.row-chips {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
+.search-chip {
+  align-self: flex-start;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 </style>

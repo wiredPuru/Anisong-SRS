@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
+import { hasLocalFile, partyDownloadKind, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { initialPartyState, type PartyGameState, type PartyQueueItem } from "./partyGame.ts";
 
 function item(cardId: number, token: string, remote = true): PartyQueueItem {
@@ -47,5 +47,42 @@ describe("withLocalClip", () => {
     expect(withLocalClip(s, "b", local)).toBe(s);
     expect(withLocalClip(s, "a", local)).toBe(s);
     expect(withLocalClip(s, "zzz", local)).toBe(s);
+  });
+});
+
+describe("partyDownloadKind", () => {
+  const amq = "https://naedist.animemusicquiz.com";
+  const themes = "https://v.animethemes.moe";
+  const card = (over: Partial<Parameters<typeof partyDownloadKind>[0]> = {}) => ({
+    localVideoPath: null,
+    localAudioPath: null,
+    animethemesVideoUrl: `${amq}/a.webm`,
+    animethemesAudioUrl: `${amq}/a.mp3`,
+    ...over,
+  });
+  const auto = { clipSource: "anisongdb", playbackMode: "auto" } as const;
+
+  it("saves the video the party would stream", () => {
+    expect(partyDownloadKind(card(), auto)).toBe("video");
+  });
+
+  it("saves audio under Audio only, or when the card has no video", () => {
+    expect(partyDownloadKind(card(), { ...auto, playbackMode: "audioOnly" })).toBe("audio");
+    expect(partyDownloadKind(card({ animethemesVideoUrl: null }), auto)).toBe("audio");
+  });
+
+  it("skips a stream the Clip source setting blocks", () => {
+    expect(partyDownloadKind(card({ animethemesVideoUrl: `${themes}/a.webm` }), auto)).toBe("audio");
+    expect(partyDownloadKind(card({ animethemesVideoUrl: `${themes}/a.webm`, animethemesAudioUrl: null }), auto)).toBeNull();
+  });
+
+  it("is null once any local file exists", () => {
+    expect(partyDownloadKind(card({ localAudioPath: "/l/a.mp3" }), auto)).toBeNull();
+    expect(hasLocalFile(card({ localVideoPath: "/l/a.webm" }))).toBe(true);
+    expect(hasLocalFile(card())).toBe(false);
+  });
+
+  it("ignores the Downloaded only queue option, which would hide every stream", () => {
+    expect(partyDownloadKind(card(), { ...auto, downloadedOnly: true })).toBe("video");
   });
 });
