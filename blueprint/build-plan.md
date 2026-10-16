@@ -1259,6 +1259,17 @@ cleaned-up checkbox version before generating the project overview.
     list refreshes, covers, and clips without blocking local library use;
     verify Study, Listen, and Party against downloaded content.
 
+- [ ] 108. **Host command bar** - Cmd+P (Ctrl+P on Windows/Linux) on
+  `/party/host` opens a searchable command palette, VS Code style, over
+  every host action and setting. Typing "pixelate" and pressing Enter
+  toggles pixelate and scrolls to its control with a brief highlight;
+  "add songs" switches to the New game tab and focuses the queue builder.
+  Arrow keys and the mouse pick a result, Esc closes it, and the matcher
+  forgives typos and partial words. Each result shows its current state
+  (On / Off) and its hotkey if it has one, and recent picks are listed
+  first when the bar opens empty (remembered in that browser). Host panel
+  only; no server or party state change.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
