@@ -210,8 +210,7 @@
 /* Sticker panels: dark plum with a thick pink outline and an offset shadow. */
 .display.moe-theme .reveal,
 .display.moe-theme .scoreboard,
-.display.moe-theme .display-join,
-.display.moe-theme .display-count {
+.display.moe-theme .display-join {
   border-width: 4px;
   border-color: var(--moe-pink);
   box-shadow: 6px 6px 0 rgba(255, 95, 168, 0.3);
@@ -284,11 +283,6 @@
 .display.moe-theme .display-join-url {
   color: var(--moe-pink-soft);
   text-shadow: 2px 2px 0 var(--moe-pink-deep);
-}
-
-.display.moe-theme .display-count {
-  background: linear-gradient(180deg, #3a2358, var(--moe-panel));
-  color: var(--moe-pink-soft);
 }
 
 .display.moe-theme .display-button {

@@ -213,9 +213,6 @@ onBeforeUnmount(() => {
     />
 
     <template v-if="started && state?.item">
-      <PartyLayoutFrame piece="count">
-        <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
-      </PartyLayoutFrame>
       <PartyLayoutFrame v-if="state.stake" piece="stake">
         <PartyStakeBadge :stake="state.stake" />
       </PartyLayoutFrame>
@@ -264,9 +261,6 @@ onBeforeUnmount(() => {
 
     <!-- Stand-ins for pieces with nothing on screen, only while arranging. -->
     <template v-if="started && arranging">
-      <PartyLayoutFrame v-if="!state?.item" piece="count">
-        <p class="display-count">{{ SAMPLE_COUNT.number }} / {{ SAMPLE_COUNT.total }}</p>
-      </PartyLayoutFrame>
       <PartyLayoutFrame v-if="!state?.answer" piece="reveal">
         <PartyRevealOverlay :answer="SAMPLE_ANSWER" />
       </PartyLayoutFrame>
@@ -474,15 +468,5 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--muted);
   font-size: clamp(14px, 1.6vw, 2.04vh);
-}
-
-.display-count {
-  margin: 0;
-  padding: 6px 16px;
-  border: 2px solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--glass-surface-panel);
-  font-family: var(--font-display);
-  font-size: clamp(14px, 1.4vw, 2.04vh);
 }
 </style>

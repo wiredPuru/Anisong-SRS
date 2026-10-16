@@ -45,7 +45,6 @@ export const SAMPLE_ROUND: PartyRoundPoint[] = [
   { id: -2, name: "Player two", points: 1 },
 ];
 export const SAMPLE_TIMER_SECONDS = 15;
-export const SAMPLE_COUNT = { number: 3, total: 20 };
 export const SAMPLE_JOIN: PartyJoinInfo = { code: "ABCD", urls: [] };
 export const SAMPLE_HINTS: NonNullable<PartyHints> = {
   kind: "clues",

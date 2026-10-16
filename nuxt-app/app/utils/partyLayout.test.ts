@@ -28,7 +28,7 @@ describe("parseLayout", () => {
         scoreboard: { x: 0.1, y: 0.8, scale: 1.5 },
         round: { x: 2, y: 0.5, scale: 1 },
         timer: { x: 0.5, y: 0.5, scale: 9 },
-        count: { x: "0.5", y: 0.5, scale: 1 },
+        join: { x: "0.5", y: 0.5, scale: 1 },
         mystery: { x: 0.5, y: 0.5, scale: 1 },
       },
     });
@@ -36,7 +36,7 @@ describe("parseLayout", () => {
     expect(layout.scoreboard).toEqual({ x: 0.1, y: 0.8, scale: 1.5 });
     expect(layout.round).toEqual(DEFAULT_LAYOUT.round);
     expect(layout.timer).toEqual(DEFAULT_LAYOUT.timer);
-    expect(layout.count).toEqual(DEFAULT_LAYOUT.count);
+    expect(layout.join).toEqual(DEFAULT_LAYOUT.join);
     expect(Object.keys(layout).sort()).toEqual([...PARTY_PIECES].sort());
   });
 
