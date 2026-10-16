@@ -3,7 +3,6 @@ export const PARTY_PIECES = [
   "reveal",
   "scoreboard",
   "round",
-  "timer",
   "join",
   "hints",
   "choices",
@@ -41,7 +40,6 @@ export const PIECE_ANCHORS: Record<PartyPieceId, PartyAnchor> = {
   reveal: { ax: 0.5, ay: 1 },
   scoreboard: { ax: 1, ay: 0 },
   round: { ax: 0, ay: 0 },
-  timer: { ax: 0, ay: 0 },
   join: { ax: 0, ay: 1 },
   hints: { ax: 0.5, ay: 0.5 },
   choices: { ax: 0.5, ay: 1 },
@@ -59,7 +57,6 @@ export const DEFAULT_LAYOUT: PartyLayout = {
   reveal: { x: 0.5, y: 0.96, scale: 1 },
   scoreboard: { x: 0.985, y: 0.09, scale: 1 },
   round: { x: 0.015, y: 0.16, scale: 1 },
-  timer: { x: 0.015, y: 0.02, scale: 1 },
   join: { x: 0.015, y: 0.98, scale: 1 },
   hints: { x: 0.5, y: 0.5, scale: 1 },
   choices: { x: 0.5, y: 0.97, scale: 1 },
@@ -107,7 +104,7 @@ const samePlacement = (a: PartyPlacement, b: PartyPlacement) => a.x === b.x && a
 /** Groups the host edits one at a time, so arranging stays manageable. */
 export const PIECE_CATEGORIES = [
   { id: "main", label: "Main", pieces: ["reveal", "scoreboard", "round"] },
-  { id: "game", label: "Game", pieces: ["timer", "stake", "hints", "join", "buzz", "banner", "skip"] },
+  { id: "game", label: "Game", pieces: ["stake", "hints", "join", "buzz", "banner", "skip"] },
   { id: "choices", label: "Multiple choice", pieces: ["choices"] },
   { id: "results", label: "Results", pieces: ["summaryTitle", "standings", "songList"] },
 ] as const satisfies readonly { id: string; label: string; pieces: readonly PartyPieceId[] }[];
@@ -117,7 +114,6 @@ export const PIECE_LABELS: Record<PartyPieceId, string> = {
   reveal: "Answer",
   scoreboard: "Scores and rules",
   round: "This round",
-  timer: "Timer",
   join: "Join chip",
   hints: "Hints",
   choices: "Answer options",

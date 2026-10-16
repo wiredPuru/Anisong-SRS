@@ -128,13 +128,6 @@ export interface PartyDisplayState {
   censorTrack: PartyCensorKey[] | null;
 }
 
-/** Time left in the song on screen, as last reported by the player. */
-export interface PartySongClock {
-  token: string;
-  left: number;
-  at: number;
-  playing: boolean;
-}
 export interface PartyPositionReport {
   token: string;
   currentTime: number;
