@@ -1,7 +1,7 @@
 # Feature: Host command bar
 
 **From build-plan:** feature 108
-**Status:** not started
+**Status:** in progress
 
 ## Goal
 
@@ -96,7 +96,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
 
 ## Build steps
 
-- [ ] **Step 1 - Fuzzy matcher** - `app/utils/fuzzyMatch.ts`. The pure
+- [x] **Step 1 - Fuzzy matcher** - `app/utils/fuzzyMatch.ts`. The pure
   function `fuzzyScore(query, title, keywords)` returns a number, or null for
   no match.
   - Matching normalizes with NFKC, lowercases, and splits on non-letters.
