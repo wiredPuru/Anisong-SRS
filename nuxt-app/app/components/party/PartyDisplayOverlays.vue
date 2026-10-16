@@ -66,7 +66,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
       <aside class="scoreboard" aria-label="Scoreboard">
         <PartyRulesCard v-if="rulesShown" :text="rulesShown" :divided="Boolean(board)" />
         <template v-if="board">
-          <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
           <ol class="scoreboard-list">
             <li v-for="(player, index) in board" :key="player.id" class="scoreboard-item" :class="{ team: player.memberRows }">
               <div class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0, 'team-row': player.memberRows }">
@@ -171,11 +170,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
   box-shadow: var(--shadow-soft);
-}
-
-.scoreboard-title {
-  align-self: flex-start;
-  font-size: clamp(16px, 1.6vw, 2.41vh);
 }
 
 .scoreboard-list {
