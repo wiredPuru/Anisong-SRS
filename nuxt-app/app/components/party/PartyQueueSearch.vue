@@ -8,6 +8,7 @@ interface SongResult {
   songTitle: string;
   artistName: string;
   themeSlot: string;
+  downloaded: boolean;
 }
 
 interface CatalogResult {
@@ -40,6 +41,7 @@ interface ShowResult {
   aniListId: number;
   titleEnglish: string;
   titleRomaji: string;
+  inLibrary: boolean;
 }
 interface ShowTheme {
   songId: number;
@@ -49,7 +51,11 @@ interface ShowTheme {
   videoUrl: string | null;
   audioUrl: string | null;
   playable: boolean;
+  cardId: number | null;
+  downloaded: boolean;
 }
+
+type Position = "next" | "end";
 
 const props = defineProps<{ state: PartyHostState }>();
 
@@ -148,7 +154,7 @@ async function toggleShow(show: ShowResult) {
   }
 }
 
-async function addShowThemes(themes: ShowTheme[], playNext: boolean, label: string) {
+async function addShowThemes(themes: ShowTheme[], position: Position, label: string) {
   const playable = themes.filter((theme) => theme.playable);
   if (!playable.length) {
     note.value = "None of those have a clip the Clip source setting allows.";
@@ -159,9 +165,28 @@ async function addShowThemes(themes: ShowTheme[], playNext: boolean, label: stri
       method: "POST",
       body: { themes: playable.map(({ songId, videoUrl, audioUrl }) => ({ songId, videoUrl, audioUrl })) },
     });
-    await addCards(res.cardIds, playNext, label);
+    await addCards(res.cardIds, position, label);
   } catch {
     note.value = "Couldn't add that.";
+  }
+}
+
+// Per card: "running" while saving, else the last error. A finished download
+// flips the row's own flag, wherever that song is listed.
+const downloads = ref<Record<number, string>>({});
+async function downloadCard(cardId: number) {
+  if (downloads.value[cardId] === "running") return;
+  downloads.value = { ...downloads.value, [cardId]: "running" };
+  try {
+    await $fetch("/api/party/host/download", { method: "POST", body: { cardId } });
+    for (const list of [songs.value, openSongs.value, showThemes.value]) {
+      for (const row of list) if (row.cardId === cardId) row.downloaded = true;
+    }
+    const { [cardId]: _done, ...rest } = downloads.value;
+    downloads.value = rest;
+  } catch (error) {
+    const message = (error as { data?: { statusMessage?: string } }).data?.statusMessage;
+    downloads.value = { ...downloads.value, [cardId]: message ?? "Couldn't download that." };
   }
 }
 
@@ -169,36 +194,96 @@ function onInput() {
   openKey.value = null;
   openShow.value = null;
   note.value = null;
+  activeKey.value = null;
   if (debounce) clearTimeout(debounce);
   debounce = setTimeout(search, 250);
 }
 
-const queuedIds = computed(() => new Set(props.state.queue.map((item) => item.cardId)));
+// Songs still to come can be moved; the one on screen stays where it is.
+const upcomingIds = computed(() => new Set(props.state.queue.slice(props.state.index + 1).map((item) => item.cardId)));
+const currentId = computed(() => props.state.queue[props.state.index]?.cardId ?? null);
 const hasResults = computed(() => shows.value.length > 0 || groups.value.length > 0 || songs.value.length > 0 || catalogSongs.value.length > 0);
 
-function sendCommand(body: object) {
-  return $fetch<{ loaded?: number }>("/api/party/host/command", { method: "POST", body });
+// Every row the arrow keys can land on, in screen order. A song row cues next
+// on Enter; a show or deck row only opens, so Enter never queues a whole list.
+interface NavRow {
+  key: string;
+  run: () => void;
+}
+const navRows = computed<NavRow[]>(() => {
+  const rows: NavRow[] = [];
+  for (const show of shows.value) {
+    rows.push({ key: `show:${show.aniListId}`, run: () => toggleShow(show) });
+    if (openShow.value !== show.aniListId) continue;
+    for (const theme of showThemes.value) {
+      if (theme.playable) rows.push({ key: `theme:${theme.songId}`, run: () => addShowThemes([theme], "next", theme.songTitle) });
+    }
+  }
+  for (const group of groups.value) {
+    for (const row of group.rows) {
+      rows.push({ key: `group:${group.type}:${row.id}`, run: () => toggleGroup(group.type, row) });
+      if (openKey.value !== `${group.type}:${row.id}`) continue;
+      for (const result of openSongs.value) {
+        if (currentId.value !== result.cardId) rows.push({ key: `deck:${result.cardId}`, run: () => addCards([result.cardId], "next", result.songTitle) });
+      }
+    }
+  }
+  for (const result of songs.value) {
+    if (currentId.value !== result.cardId) rows.push({ key: `song:${result.cardId}`, run: () => addCards([result.cardId], "next", result.songTitle) });
+  }
+  for (const result of catalogSongs.value) {
+    if (currentId.value !== -result.annSongId) rows.push({ key: `cat:${result.annSongId}`, run: () => addCatalog(result, "next") });
+  }
+  return rows;
+});
+
+const activeKey = ref<string | null>(null);
+const rowDomId = (key: string) => `queue-search-${key.replace(/[^a-z0-9-]/gi, "-")}`;
+const activeDomId = computed(() => (activeKey.value && navRows.value.some((row) => row.key === activeKey.value) ? rowDomId(activeKey.value) : undefined));
+
+function onKeydown(event: KeyboardEvent) {
+  const rows = navRows.value;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (!rows.length) return;
+    event.preventDefault();
+    const at = rows.findIndex((row) => row.key === activeKey.value);
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const next = at < 0 ? (step > 0 ? 0 : rows.length - 1) : (at + step + rows.length) % rows.length;
+    activeKey.value = rows[next]!.key;
+    nextTick(() => document.getElementById(rowDomId(activeKey.value!))?.scrollIntoView({ block: "nearest" }));
+  } else if (event.key === "Enter") {
+    const row = rows.find((candidate) => candidate.key === activeKey.value);
+    if (!row) return;
+    event.preventDefault();
+    row.run();
+  } else if (event.key === "Escape" && activeKey.value) {
+    event.preventDefault();
+    activeKey.value = null;
+  }
 }
 
-// Adds the cards to the end of the running queue; "next" then slides the new
-// ones in right after the song on screen, keeping their order.
-async function addCards(cardIds: number[], playNext: boolean, label: string) {
+function sendCommand(body: object) {
+  return $fetch<{ loaded?: number; moved?: number }>("/api/party/host/command", { method: "POST", body });
+}
+
+function placedNote(label: string, loaded: number, moved: number, position: Position): string {
+  const total = loaded + moved;
+  if (!total) return "Nothing to add: that's the song playing now, or it has no playable clip.";
+  const what = total === 1 ? `"${label}"` : `${total} songs from "${label}"`;
+  if (position === "next") return `${what} cued next.`;
+  if (!loaded) return `${what} moved to the end.`;
+  if (!moved) return `${what} added to the end.`;
+  return `${what} at the end (${moved} moved, ${loaded} added).`;
+}
+
+// The server places the songs in one step, moving any already waiting.
+async function addCards(cardIds: number[], position: Position, label: string) {
   if (busy.value || !cardIds.length) return;
   busy.value = true;
   note.value = null;
-  const oldLength = props.state.queue.length;
-  const after = props.state.index + 1;
   try {
-    const res = await sendCommand({ type: "load", cardIds, append: true });
-    const added = res.loaded ?? 0;
-    if (!added) {
-      note.value = "Nothing new to add: those songs are already queued or have no playable clip.";
-      return;
-    }
-    if (playNext && oldLength > after) {
-      for (let i = 0; i < added; i++) await sendCommand({ type: "queueMove", from: oldLength + i, to: after + i });
-    }
-    note.value = `${added} song${added === 1 ? "" : "s"} from "${label}" ${playNext ? "play next" : "added to the end"}.`;
+    const res = await sendCommand({ type: "load", cardIds, append: true, position });
+    note.value = placedNote(label, res.loaded ?? 0, res.moved ?? 0, position);
   } catch {
     note.value = "That didn't go through.";
   } finally {
@@ -206,20 +291,16 @@ async function addCards(cardIds: number[], playNext: boolean, label: string) {
   }
 }
 
-async function addCatalog(result: CatalogResult, playNext: boolean) {
+async function addCatalog(result: CatalogResult, position: Position) {
   if (busy.value) return;
   busy.value = true;
   note.value = null;
-  const oldLength = props.state.queue.length;
-  const after = props.state.index + 1;
   try {
-    const res = await $fetch<{ loaded: number }>("/api/party/host/catalog-add", { method: "POST", body: { annSongIds: [result.annSongId] } });
-    if (!res.loaded) {
-      note.value = "Couldn't add that: it's already queued or has no clip the Clip source setting allows.";
-      return;
-    }
-    if (playNext && oldLength > after) await sendCommand({ type: "queueMove", from: oldLength, to: after });
-    note.value = `"${result.songTitle}" ${playNext ? "plays next" : "added to the end"}.`;
+    const res = await $fetch<{ loaded: number; moved: number }>("/api/party/host/catalog-add", {
+      method: "POST",
+      body: { annSongIds: [result.annSongId], position },
+    });
+    note.value = placedNote(result.songTitle, res.loaded, res.moved, position);
   } catch {
     note.value = "That didn't go through.";
   } finally {
@@ -227,13 +308,13 @@ async function addCatalog(result: CatalogResult, playNext: boolean) {
   }
 }
 
-async function addGroup(type: DeckScopeType, row: { id: number; label: string }, playNext: boolean) {
+async function addGroup(type: DeckScopeType, row: { id: number; label: string }, position: Position) {
   try {
     const preview = await $fetch<{ cardIds: number[] }>("/api/party/host/queue-preview", {
       method: "POST",
       body: { scope: { type, id: row.id }, shuffle: false },
     });
-    await addCards(preview.cardIds, playNext, row.label);
+    await addCards(preview.cardIds, position, row.label);
   } catch {
     note.value = "Couldn't load that list.";
   }
@@ -249,8 +330,9 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       placeholder="Search by anime, artist, or song..."
       aria-label="Search anime, artists, or songs to add to the queue"
       autocomplete="off"
+      :aria-activedescendant="activeDomId"
       @input="onInput"
-      @keydown.stop
+      @keydown.stop="onKeydown"
     />
     <p v-if="note" class="search-note" role="status">{{ note }}</p>
     <p v-else-if="searching && !hasResults" class="search-note">Searching...</p>
@@ -261,10 +343,11 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
         <h3 class="group-heading">Shows</h3>
         <ul class="group-list">
           <li v-for="show in shows" :key="show.aniListId" class="search-item">
-            <div class="search-row">
+            <div class="search-row" :id="rowDomId(`show:${show.aniListId}`)" :class="{ active: activeKey === `show:${show.aniListId}` }">
               <button type="button" class="search-text search-open" :aria-expanded="openShow === show.aniListId" @click="toggleShow(show)">
                 <span class="search-anime">{{ openShow === show.aniListId ? "▾" : "▸" }} {{ show.titleEnglish }}</span>
                 <span class="search-song">{{ show.titleRomaji }} &middot; click for its songs</span>
+                <span v-if="show.inLibrary" class="search-chip">✓ In library</span>
               </button>
             </div>
             <ul v-if="openShow === show.aniListId" class="group-list nested">
@@ -273,19 +356,26 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
               <li v-if="showThemes.length > 1" class="search-row">
                 <span class="search-text"><span class="search-song">All {{ showThemes.length }} songs</span></span>
                 <span class="search-actions">
-                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, true, show.titleEnglish)">Play next</button>
-                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, false, show.titleEnglish)">Add all</button>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, 'next', show.titleEnglish)">Cue next</button>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, 'end', show.titleEnglish)">Add all</button>
                 </span>
               </li>
-              <li v-for="theme in showThemes" :key="theme.songId" class="search-row">
+              <li v-for="theme in showThemes" :key="theme.songId" class="search-row" :id="rowDomId(`theme:${theme.songId}`)" :class="{ active: activeKey === `theme:${theme.songId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ theme.songTitle }}</span>
                   <span class="search-song">{{ theme.artistName }} &middot; {{ formatThemeSlotLabel(theme.themeSlot) }}{{ theme.playable ? "" : " (no allowed clip)" }}</span>
                 </span>
                 <span class="search-actions">
-                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], true, theme.songTitle)">Play next</button>
-                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], false, theme.songTitle)">Add</button>
+                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], 'next', theme.songTitle)">Cue next</button>
+                  <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], 'end', theme.songTitle)">Add</button>
                 </span>
+                <PartyLibraryChips
+                  v-if="theme.cardId !== null"
+                  class="row-chips"
+                  :downloaded="theme.downloaded"
+                  :status="downloads[theme.cardId]"
+                  @download="downloadCard(theme.cardId)"
+                />
               </li>
             </ul>
           </li>
@@ -296,28 +386,30 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
         <h3 class="group-heading">{{ group.heading }}</h3>
         <ul class="group-list">
           <li v-for="row in group.rows" :key="row.id" class="search-item">
-            <div class="search-row">
+            <div class="search-row" :id="rowDomId(`group:${group.type}:${row.id}`)" :class="{ active: activeKey === `group:${group.type}:${row.id}` }">
               <button type="button" class="search-text search-open" :aria-expanded="openKey === `${group.type}:${row.id}`" @click="toggleGroup(group.type, row)">
                 <span class="search-anime">{{ openKey === `${group.type}:${row.id}` ? "▾" : "▸" }} {{ row.label }}</span>
                 <span class="search-song">{{ row.cardCount }} song{{ row.cardCount === 1 ? "" : "s" }} &middot; click to pick songs</span>
               </button>
               <span class="search-actions">
-                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, true)">Play next</button>
-                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, false)">Add all</button>
+                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, 'next')">Cue next</button>
+                <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, 'end')">Add all</button>
               </span>
             </div>
             <ul v-if="openKey === `${group.type}:${row.id}`" class="group-list nested">
               <li v-if="openLoading" class="search-row"><span class="search-song">Loading songs...</span></li>
-              <li v-for="result in openSongs" :key="result.cardId" class="search-row">
+              <li v-for="result in openSongs" :key="result.cardId" class="search-row" :id="rowDomId(`deck:${result.cardId}`)" :class="{ active: activeKey === `deck:${result.cardId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ result.songTitle }}</span>
                   <span class="search-song">{{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}</span>
                 </span>
-                <span v-if="queuedIds.has(result.cardId)" class="search-queued">In queue</span>
+                <span v-if="currentId === result.cardId" class="search-queued">Playing now</span>
                 <span v-else class="search-actions">
-                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], true, result.songTitle)">Play next</button>
-                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], false, result.songTitle)">Add</button>
+                  <span v-if="upcomingIds.has(result.cardId)" class="search-queued">In queue</span>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'next', result.songTitle)">Cue next</button>
+                  <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'end', result.songTitle)">Add</button>
                 </span>
+                <PartyLibraryChips class="row-chips" :downloaded="result.downloaded" :status="downloads[result.cardId]" @download="downloadCard(result.cardId)" />
               </li>
             </ul>
           </li>
@@ -327,18 +419,20 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       <section v-if="songs.length" class="search-group">
         <h3 class="group-heading">Songs</h3>
         <ul class="group-list">
-          <li v-for="result in songs" :key="result.cardId" class="search-row">
+          <li v-for="result in songs" :key="result.cardId" class="search-row" :id="rowDomId(`song:${result.cardId}`)" :class="{ active: activeKey === `song:${result.cardId}` }">
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
                 {{ result.animeTitle }} &middot; {{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
               </span>
             </span>
-            <span v-if="queuedIds.has(result.cardId)" class="search-queued">In queue</span>
+            <span v-if="currentId === result.cardId" class="search-queued">Playing now</span>
             <span v-else class="search-actions">
-              <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], true, result.songTitle)">Play next</button>
-              <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], false, result.songTitle)">Add</button>
+              <span v-if="upcomingIds.has(result.cardId)" class="search-queued">In queue</span>
+              <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'next', result.songTitle)">Cue next</button>
+              <button type="button" class="search-btn" :disabled="busy" @click="addCards([result.cardId], 'end', result.songTitle)">Add</button>
             </span>
+            <PartyLibraryChips class="row-chips" :downloaded="result.downloaded" :status="downloads[result.cardId]" @download="downloadCard(result.cardId)" />
           </li>
         </ul>
       </section>
@@ -346,17 +440,18 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       <section v-if="catalogSongs.length" class="search-group">
         <h3 class="group-heading">Not in your library</h3>
         <ul class="group-list">
-          <li v-for="result in catalogSongs" :key="result.annSongId" class="search-row">
+          <li v-for="result in catalogSongs" :key="result.annSongId" class="search-row" :id="rowDomId(`cat:${result.annSongId}`)" :class="{ active: activeKey === `cat:${result.annSongId}` }">
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
                 {{ result.animeTitle }} &middot; {{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
               </span>
             </span>
-            <span v-if="queuedIds.has(-result.annSongId)" class="search-queued">In queue</span>
+            <span v-if="currentId === -result.annSongId" class="search-queued">Playing now</span>
             <span v-else class="search-actions">
-              <button type="button" class="search-btn" :disabled="busy" @click="addCatalog(result, true)">Play next</button>
-              <button type="button" class="search-btn" :disabled="busy" @click="addCatalog(result, false)">Add</button>
+              <span v-if="upcomingIds.has(-result.annSongId)" class="search-queued">In queue</span>
+              <button type="button" class="search-btn" :disabled="busy" @click="addCatalog(result, 'next')">Cue next</button>
+              <button type="button" class="search-btn" :disabled="busy" @click="addCatalog(result, 'end')">Add</button>
             </span>
           </li>
         </ul>
@@ -432,10 +527,16 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
 
 .search-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.search-row.active {
+  background: var(--surface-raised);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .search-text {
@@ -462,6 +563,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
 
 .search-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -484,5 +586,21 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
 .search-queued {
   color: var(--faint);
   font-size: 13px;
+}
+
+.row-chips {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
+.search-chip {
+  align-self: flex-start;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 </style>

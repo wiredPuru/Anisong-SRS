@@ -925,6 +925,55 @@ describe("queue editing (feature 90c)", () => {
     expect(fresh).toMatchObject({ index: 0, playing: false });
   });
 
+  describe("placing songs into a running game", () => {
+    const fresh = (id: number, token: string) =>
+      toQueueItem(card({ id }), { kind: "video", source: { type: "remote", url: AMQ } }, token);
+    const place = (state: PartyGameState, cardIds: number[], position: "next" | "end" | undefined, extra: PartyQueueItem[] = []) =>
+      applyPartyCommand(state, { type: "load", cardIds, append: true, ...(position ? { position } : {}) }, { loaded: extra });
+
+    it("cues a new song right after the current one, or adds it at the bottom", () => {
+      expect(tokens(place(playing(), [9], "next", [fresh(9, "n9")]))).toEqual(["t1", "t2", "n9", "t3", "t4", "t5"]);
+      expect(tokens(place(playing(), [9], "end", [fresh(9, "n9")]))).toEqual(["t1", "t2", "t3", "t4", "t5", "n9"]);
+    });
+
+    it("moves a song already waiting instead of skipping it", () => {
+      const cued = place(playing(), [5], "next");
+      expect(tokens(cued)).toEqual(["t1", "t2", "t5", "t3", "t4"]);
+      expect(cued.queue[2]!.manual).toBe(true);
+      expect(cued).toMatchObject({ index: 1, playing: true, phase: "guessing" });
+      expect(tokens(place(playing(), [3], "end"))).toEqual(["t1", "t2", "t4", "t5", "t3"]);
+    });
+
+    it("leaves the song on screen alone", () => {
+      const state = playing();
+      expect(place(state, [2], "next", [fresh(2, "dup")])).toBe(state);
+      expect(tokens(place(state, [2, 4], "next"))).toEqual(["t1", "t2", "t4", "t3", "t5"]);
+    });
+
+    it("queues a fresh copy of a song already played", () => {
+      expect(tokens(place(playing(), [1], "next", [fresh(1, "again")]))).toEqual(["t1", "t2", "again", "t3", "t4", "t5"]);
+      expect(tokens(place(playing(), [1], "end", [fresh(1, "again")]))).toEqual(["t1", "t2", "t3", "t4", "t5", "again"]);
+    });
+
+    it("keeps several songs in the order given, mixing moved and new ones", () => {
+      expect(tokens(place(playing(), [5, 9, 3], "next", [fresh(9, "n9")]))).toEqual(["t1", "t2", "t5", "n9", "t3", "t4"]);
+      expect(tokens(place(playing(), [5, 9, 3], "end", [fresh(9, "n9")]))).toEqual(["t1", "t2", "t4", "t5", "n9", "t3"]);
+    });
+
+    it("adds at the bottom when no position is given, and changes nothing for a no-op move", () => {
+      expect(tokens(place(playing(), [9], undefined, [fresh(9, "n9")]))).toEqual(["t1", "t2", "t3", "t4", "t5", "n9"]);
+      const state = playing();
+      expect(place(state, [3], "next")).toBe(state);
+      expect(place(state, [5], "end")).toBe(state);
+    });
+
+    it("parses position and rejects anything else", () => {
+      expect(parsePartyCommand({ type: "load", cardIds: [1], append: true, position: "next" })).toMatchObject({ position: "next" });
+      expect(parsePartyCommand({ type: "load", cardIds: [1], append: true })).not.toHaveProperty("position");
+      expect(parsePartyCommand({ type: "load", cardIds: [1], append: true, position: "top" })).toHaveProperty("error");
+    });
+  });
+
   it("parses the queue commands and rejects bad indexes", () => {
     expect(parsePartyCommand({ type: "queueRemove", index: 2 })).toEqual({ type: "queueRemove", index: 2 });
     expect(parsePartyCommand({ type: "queueRemove", index: -1 })).toHaveProperty("error");

@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../../db/client.ts";
 import { anime, artist, card, song } from "../../../db/schema.ts";
 import { scopeFilter, type StudyScope } from "../../../utils/cards.ts";
+import { hasLocalFile } from "../../../utils/partyDownload.ts";
 
 const TYPES = new Set(["artist", "anime", "created"]);
 
@@ -20,6 +21,8 @@ export default defineEventHandler((event) => {
       songTitle: song.title,
       artistName: artist.name,
       themeSlot: song.themeSlot,
+      localVideoPath: card.localVideoPath,
+      localAudioPath: card.localAudioPath,
     })
     .from(card)
     .innerJoin(song, eq(card.songId, song.id))
@@ -29,5 +32,5 @@ export default defineEventHandler((event) => {
     .orderBy(asc(anime.titleRomaji), asc(song.themeSlot))
     .limit(200)
     .all();
-  return { results: rows };
+  return { results: rows.map(({ localVideoPath, localAudioPath, ...row }) => ({ ...row, downloaded: hasLocalFile({ localVideoPath, localAudioPath }) })) };
 });
