@@ -33,6 +33,8 @@ import {
   shouldRevealEarly,
   timerMayReveal,
   toQueueItem,
+  upcomingCardIds,
+  type PartyAddPosition,
   type PartyCommand,
   type PartyGameState,
   type PartyJoinInfo,
@@ -173,24 +175,28 @@ export function rememberCatalogSearch(results: AnisongSongResult[]): void {
 }
 
 /** Adds songs from the last catalog search to the queue; the count actually added. */
-export function addCatalogSongs(annSongIds: number[]): number {
+export function addCatalogSongs(annSongIds: number[], position: PartyAddPosition = "end"): { loaded: number; moved: number } {
   assertOnline();
-  const queued = new Set(state.queue.map((item) => item.cardId));
-  const items = annSongIds
-    .map((id) => lastCatalogSearch.get(id))
-    .map((song) => (song ? catalogItem(song) : null))
-    .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+  const upcoming = upcomingCardIds(state);
+  const currentId = state.queue[state.index]?.cardId;
+  const songs = annSongIds.map((id) => lastCatalogSearch.get(id)).filter((song) => song !== undefined);
+  const items = songs
+    .map(catalogItem)
+    .filter((item): item is PartyQueueItem => item !== null && item.cardId !== currentId && !upcoming.has(item.cardId))
     .map((item) => (state.index >= 0 ? { ...item, manual: true } : item))
     .slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length));
-  if (!items.length) return 0;
+  // A song can only be waiting if it was found before, so its id is known.
+  const moved = annSongIds.filter((id) => upcoming.has(-id)).length;
+  if (!items.length && !moved) return { loaded: 0, moved: 0 };
+  const cardIds = annSongIds.map((id) => -id);
   commit(
     applyPartyCommand(
       state,
-      { type: "load", cardIds: items.map((item) => item.cardId), shuffle: false, downloadedOnly: false, append: true },
+      { type: "load", cardIds, shuffle: false, downloadedOnly: false, append: true, position },
       { loaded: items },
     ),
   );
-  return items.length;
+  return { loaded: items.length, moved };
 }
 
 async function topUpCatalog(hasGame: boolean): Promise<void> {
@@ -372,7 +378,7 @@ function cancelPendingLift(): void {
   if (state.censorLifting) commit({ ...state, censorLifting: false });
 }
 
-export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; skipped?: number; changed?: boolean } {
+export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; moved?: number; skipped?: number; changed?: boolean } {
   ensureRulesLoaded();
   if (command.type === "rules") storeSavedRules(command.text);
   if (command.type === "choices" && command.enabled) {
@@ -410,17 +416,26 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     commit(applyPartyCommand(state, command));
     return {};
   }
-  // Appending skips songs already queued, so the counts reported back describe
-  // what was actually added.
-  const queued = command.append ? new Set(state.queue.map((item) => item.cardId)) : null;
-  const cardIds = queued
-    ? command.cardIds.filter((id) => !queued.has(id)).slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length))
-    : command.cardIds;
-  if (!cardIds.length) return { loaded: 0, skipped: 0 };
-  const { items, skipped } = resolveQueue(cardIds, command.downloadedOnly === true);
-  const manual = origin === "host" && command.append === true && state.index >= 0;
-  commit(applyPartyCommand(state, command, { loaded: manual ? items.map((item) => ({ ...item, manual })) : items }));
+  const hasGame = state.index >= 0 && state.index < state.queue.length;
+  if (command.append && hasGame) return placeCards(command, origin);
+  const { items, skipped } = resolveQueue(command.cardIds, command.downloadedOnly === true);
+  commit(applyPartyCommand(state, command, { loaded: items }));
   return { loaded: items.length, skipped };
+}
+
+// Songs already waiting are moved rather than re-resolved, and the song on
+// screen is left alone, so the counts describe what actually happened.
+function placeCards(command: Extract<PartyCommand, { type: "load" }>, origin: "host" | "endless"): { loaded: number; moved: number; skipped: number } {
+  const upcoming = upcomingCardIds(state);
+  const currentId = state.queue[state.index]?.cardId;
+  const wanted = command.cardIds.filter((id) => id !== currentId);
+  const fresh = wanted.filter((id) => !upcoming.has(id)).slice(0, Math.max(0, PARTY_LOAD_MAX - state.queue.length));
+  const moved = wanted.filter((id) => upcoming.has(id)).length;
+  if (!fresh.length && !moved) return { loaded: 0, moved: 0, skipped: 0 };
+  const { items, skipped } = fresh.length ? resolveQueue(fresh, command.downloadedOnly === true) : { items: [], skipped: 0 };
+  const manual = origin === "host";
+  commit(applyPartyCommand(state, command, { loaded: manual ? items.map((item) => ({ ...item, manual })) : items }));
+  return { loaded: items.length, moved, skipped };
 }
 
 // Moves the song on screen to its next playable clip (local file, stream, video,

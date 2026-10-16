@@ -236,8 +236,11 @@ export type PartyScoreCommand =
   | { type: "score"; op: "teamAdd"; name: string }
   | { type: "score"; op: "teamRemove"; id: number }
   | { type: "score"; op: "assign"; id: number; teamId: number | null };
+/** Where an append into a running game lands: right after the current song, or at the bottom. */
+export type PartyAddPosition = "next" | "end";
+
 export type PartyCommand =
-  | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean; append?: boolean }
+  | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean; append?: boolean; position?: PartyAddPosition }
   | { type: "queueRemove"; index: number }
   | { type: "queueMove"; from: number; to: number }
   | { type: "play" }
@@ -743,11 +746,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       return skip === true ? { type, seconds, skip } : { type, seconds };
     }
     case "load": {
-      const { cardIds, shuffle, downloadedOnly, append } = body as {
+      const { cardIds, shuffle, downloadedOnly, append, position } = body as {
         cardIds?: unknown;
         shuffle?: unknown;
         downloadedOnly?: unknown;
         append?: unknown;
+        position?: unknown;
       };
       if (!Array.isArray(cardIds) || cardIds.length === 0 || cardIds.length > PARTY_LOAD_MAX) {
         return { error: `cardIds must hold 1-${PARTY_LOAD_MAX} card ids` };
@@ -756,12 +760,14 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       if (shuffle !== undefined && typeof shuffle !== "boolean") return { error: "shuffle must be a boolean" };
       if (downloadedOnly !== undefined && typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
       if (append !== undefined && typeof append !== "boolean") return { error: "append must be a boolean" };
+      if (position !== undefined && position !== "next" && position !== "end") return { error: "position must be next or end" };
       return {
         type,
         cardIds: [...new Set(cardIds as number[])],
         shuffle: shuffle === true,
         downloadedOnly: downloadedOnly === true,
         append: append === true,
+        ...(position === "next" ? { position } : {}),
       };
     }
     case "autoAdvance": {
@@ -1027,6 +1033,50 @@ function applyInternal(state: PartyGameState, command: Exclude<PartyInternalComm
   return withPlayers(players.map((p) => (p.id === command.id ? { ...p, connected: command.connected } : p)));
 }
 
+/** Card ids already waiting after the song on screen. */
+export function upcomingCardIds(state: Pick<PartyGameState, "queue" | "index">): Set<number> {
+  return new Set(state.queue.slice(state.index + 1).map((item) => item.cardId));
+}
+
+/**
+ * The queue after placing `cardIds` into a running game, in their given order,
+ * either right after the song on screen or at the bottom. A song already
+ * waiting moves there; one not waiting comes from `loaded` (a fresh copy for a
+ * song already played); the song on screen is left alone. Null when nothing
+ * changes.
+ */
+export function placeInQueue(
+  state: Pick<PartyGameState, "queue" | "index">,
+  cardIds: number[],
+  loaded: PartyQueueItem[],
+  position: PartyAddPosition,
+): PartyQueueItem[] | null {
+  const played = state.queue.slice(0, state.index + 1);
+  let upcoming = state.queue.slice(state.index + 1);
+  const currentId = state.queue[state.index]?.cardId;
+  const fresh = new Map(loaded.map((item) => [item.cardId, item]));
+  let room = PARTY_LOAD_MAX - state.queue.length;
+  const placed: PartyQueueItem[] = [];
+  for (const id of new Set(cardIds)) {
+    if (id === currentId) continue;
+    const waiting = upcoming.find((item) => item.cardId === id);
+    if (waiting) {
+      upcoming = upcoming.filter((item) => item !== waiting);
+      placed.push({ ...waiting, manual: true });
+      continue;
+    }
+    const item = fresh.get(id);
+    if (item && room > 0) {
+      placed.push(item);
+      room--;
+    }
+  }
+  if (!placed.length) return null;
+  const queue = position === "next" ? [...played, ...placed, ...upcoming] : [...played, ...upcoming, ...placed];
+  const same = queue.length === state.queue.length && queue.every((item, i) => item.token === state.queue[i]!.token);
+  return same ? null : queue;
+}
+
 function shuffled<T>(items: T[], random: () => number): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -1093,15 +1143,14 @@ export function applyPartyCommand(
   switch (command.type) {
     case "load": {
       const loaded = options.loaded ?? [];
-      if (!loaded.length) return state;
-      const ordered = command.shuffle ? shuffled(loaded, random) : loaded;
       if (command.append && hasItem) {
-        // Adds to the end of the running game without touching the song on screen.
-        const queued = new Set(state.queue.map((item) => item.cardId));
-        const added = ordered.filter((item) => !queued.has(item.cardId)).slice(0, PARTY_LOAD_MAX - state.queue.length);
-        if (added.length) next = { ...state, queue: [...state.queue, ...added] };
+        const ids = command.shuffle ? shuffled(command.cardIds, random) : command.cardIds;
+        const queue = placeInQueue(state, ids, loaded, command.position ?? "end");
+        if (queue) next = { ...state, queue };
         break;
       }
+      if (!loaded.length) return state;
+      const ordered = command.shuffle ? shuffled(loaded, random) : loaded;
       next = atItem({ ...state, queue: ordered, playing: false, awards: {} }, 0, random);
       break;
     }

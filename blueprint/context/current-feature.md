@@ -4,7 +4,7 @@
 
 **Type:** Fix
 
-**Status:** not started
+**Status:** in progress
 
 ## The problem
 
@@ -89,7 +89,7 @@ reaches the page.
 
 ## Build steps
 
-- [ ] **1. Atomic placement on the server.** `position` on `load` and
+- [x] **1. Atomic placement on the server.** `position` on `load` and
   `catalog-add`, the move / fresh-copy rules above in the reducer and
   `runPartyCommand`, returning `{ loaded, moved }`. Tests in
   `server/utils/partyGame.test.ts` cover each table row for both positions,
