@@ -10,7 +10,10 @@ export default defineNuxtConfig({
   // which is why this is baked in rather than read at runtime.
   runtimeConfig: {
     public: {
-      appVersion: version
+      appVersion: version,
+      // Party pages link here, since gaq-party does not serve the main app's
+      // pages. The party launcher sets NUXT_PUBLIC_MAIN_APP_URL at run time.
+      mainAppUrl: 'http://127.0.0.1:3000'
     }
   },
   // Party pages render in the browser only, so no server-side fetch has to

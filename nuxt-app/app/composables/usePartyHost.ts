@@ -53,7 +53,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
+  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;

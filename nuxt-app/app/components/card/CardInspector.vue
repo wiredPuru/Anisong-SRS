@@ -305,11 +305,11 @@ async function toggleKnown(target: CardWithDetails) {
         <div class="inspector-titles">
           <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /></span>
           <span v-if="isCurrentDeck('artist', card.artistId)" class="inspector-meta">{{ card.artistName }}</span>
-          <NuxtLink v-else :to="artistDeckPath(card.artistId)" class="inspector-meta deck-link">{{
+          <NuxtLink v-else :to="artistDeckPath(card.artistId)" target="_blank" rel="noopener" class="inspector-meta deck-link">{{
             card.artistName
           }}</NuxtLink>
           <span v-if="isCurrentDeck('anime', card.animeId)" class="inspector-meta">{{ card.animeTitleEnglish }}</span>
-          <NuxtLink v-else :to="animeDeckPath(card.animeId)" class="inspector-meta deck-link">{{
+          <NuxtLink v-else :to="animeDeckPath(card.animeId)" target="_blank" rel="noopener" class="inspector-meta deck-link">{{
             card.animeTitleEnglish
           }}</NuxtLink>
         </div>

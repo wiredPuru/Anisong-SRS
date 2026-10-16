@@ -34,6 +34,7 @@ process.env.GAQ_PARTY = "1";
 process.env.GAQ_PARTY_DISPLAY_URL = displayUrl;
 process.env.GAQ_PARTY_CONTROL_URLS = [localControlUrl, ...lanControlUrls].join(",");
 process.env.GAQ_PARTY_PLAYER_URLS = lanPlayerUrls.join(",");
+if (process.env.GAQ_PARTY_MAIN_APP_URL) process.env.NUXT_PUBLIC_MAIN_APP_URL = process.env.GAQ_PARTY_MAIN_APP_URL;
 
 // The app behind the doors is the whole unauthenticated SRS, so it stays on
 // loopback; only the control and player doors below face the LAN.
