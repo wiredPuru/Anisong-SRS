@@ -358,7 +358,7 @@ new tab, `/cards` with the search pre-filled with the anime's romaji title.
 No `project-plan.md` change: it adds a link to existing surfaces, like
 feature 105.
 Feature 108 (host command bar) was added to `build-plan.md` on 2026-10-16.
-Cmd+P (Ctrl+P elsewhere) on `/party/host` opens a VS Code style command palette
+Shift+P on `/party/host` opens a VS Code style command palette
 that searches every host action, setting, and panel: a toggle such as Pixelate
 flips and scrolls to its control, and a panel such as Add songs is jumped to.
 No `project-plan.md` change: it is a control on feature 86/90's existing host
@@ -2679,8 +2679,8 @@ panel, like features 93 and 102.
     permissions are not part of this feature. Existing storage-policy
     compliance needs separate review; this plan does not claim permission.
 
-108. **Host command bar** - added to `build-plan.md` 2026-10-16. Cmd+P (Ctrl+P
-    on Windows/Linux) on `/party/host` opens a searchable command palette over
+108. **Host command bar** - added to `build-plan.md` 2026-10-16, done
+    2026-10-16. Shift+P (outside a text field) on `/party/host` opens a searchable command palette over
     every host action, setting, and panel, with typo-tolerant matching, arrow
     keys or the mouse to pick, and Esc to close. A toggle (Pixelate, Blur, Mute,
     Buzzer mode, ...) flips and then scrolls to its control with a brief
@@ -2690,8 +2690,8 @@ panel, like features 93 and 102.
     On/Off state and hotkey, and the last few picks are listed first when the
     bar opens empty, kept in that browser's `localStorage`. It sends only the
     commands the panel's own buttons and hotkeys already send: no server or
-    party state change, and it overrides the browser's Print shortcut on the
-    host page only. Decided at intake: toggle and jump together; scope is every
+    party state change. It first shipped on Cmd/Ctrl+P, then moved to Shift+P
+    the same day so the browser's Print shortcut is left alone. Decided at intake: toggle and jump together; scope is every
     hotkey action, the panels' on/off settings, and every panel as a jump
     target, with player names left for later.
 

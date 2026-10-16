@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildHostAction, hostActionById, type HostActionContext } from "./partyHostActions";
-import { NEEDS_GAME, PARTY_PALETTE_COMMANDS, paletteCommandById, type PartyPaletteCommand } from "./partyPalette";
+import { NEEDS_GAME, PARTY_PALETTE_COMMANDS, isPaletteShortcut, paletteCommandById, type PartyPaletteCommand } from "./partyPalette";
 import { sampleHostState } from "./testing/partyHostState";
 
 const idle = sampleHostState({ index: -1, queue: [] });
@@ -130,5 +130,29 @@ describe("run", () => {
     expect(command("autoAdvance").run?.(state, context())).toEqual({ type: "autoAdvance", enabled: true });
     expect(command("summary").run?.(state, context())).toEqual({ type: "summary", visible: true });
     expect(command("music").run?.(state, context())).toEqual({ type: "music", enabled: true, volume: 0.3 });
+  });
+});
+
+describe("isPaletteShortcut", () => {
+  const press = (key: string, mods: Partial<Record<"shiftKey" | "metaKey" | "ctrlKey" | "altKey", boolean>> = {}) =>
+    isPaletteShortcut({ key, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false, ...mods });
+
+  it("opens on Shift+P, whatever case the key reports", () => {
+    expect(press("P", { shiftKey: true })).toBe(true);
+    expect(press("p", { shiftKey: true })).toBe(true);
+  });
+
+  it("leaves plain P to Previous song and Cmd/Ctrl+P to Print", () => {
+    expect(press("p")).toBe(false);
+    expect(press("P")).toBe(false);
+    expect(press("p", { metaKey: true })).toBe(false);
+    expect(press("p", { ctrlKey: true })).toBe(false);
+    expect(press("P", { shiftKey: true, ctrlKey: true })).toBe(false);
+    expect(press("P", { shiftKey: true, altKey: true })).toBe(false);
+  });
+
+  it("ignores other shifted keys", () => {
+    expect(press("?", { shiftKey: true })).toBe(false);
+    expect(press("O", { shiftKey: true })).toBe(false);
   });
 });

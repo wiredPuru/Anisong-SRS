@@ -281,3 +281,9 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
   view and flashes. New game has no text field until a Manual deck source is
   picked, so that jump leaves focus where it was.
 - Under 600px the bar drops its group labels and its top offset.
+- **Shortcut changed after completion (2026-10-16):** the bar opens with
+  Shift+P instead of Cmd/Ctrl+P, which the browser keeps for Print. Shift+P
+  types a capital P in a text field, so it opens the bar only when no text
+  field has focus (the bar's own box included); Esc, a backdrop click, or a
+  pick closes it. `isPaletteShortcut` and `PALETTE_SHORTCUT_LABEL` live in
+  `partyPalette.ts`, and the header button and `?` help read "Shift+P".

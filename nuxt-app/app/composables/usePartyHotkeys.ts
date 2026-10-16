@@ -18,7 +18,7 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
   { keys: "1-4", action: "Round, Screen, Players, New game tabs" },
-  { keys: "Ctrl/⌘+P", action: "Command bar" },
+  { keys: "Shift+P", action: "Command bar" },
   { keys: "?", action: "This list" },
 ];
 
@@ -30,7 +30,7 @@ function storedPreviewLead(): number {
   }
 }
 
-function isTyping(target: EventTarget | null): boolean {
+export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;

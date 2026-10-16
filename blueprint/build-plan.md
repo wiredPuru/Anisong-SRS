@@ -1259,7 +1259,7 @@ cleaned-up checkbox version before generating the project overview.
     list refreshes, covers, and clips without blocking local library use;
     verify Study, Listen, and Party against downloaded content.
 
-- [x] 108. **Host command bar** - Cmd+P (Ctrl+P on Windows/Linux) on
+- [x] 108. **Host command bar** - Shift+P (outside a text field) on
   `/party/host` opens a searchable command palette, VS Code style, over
   every host action and setting. Typing "pixelate" and pressing Enter
   toggles pixelate and scrolls to its control with a brief highlight;

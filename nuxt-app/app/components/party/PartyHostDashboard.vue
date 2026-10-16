@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
-import type { PartyPaletteCommand } from "~/utils/partyPalette";
+import { PALETTE_SHORTCUT_LABEL, type PartyPaletteCommand } from "~/utils/partyPalette";
 defineProps<{ displayUrl: string; controlUrls: string[]; isLoopback: boolean }>();
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
@@ -60,7 +60,7 @@ const { actionContext } = usePartyHotkeys(
   },
 );
 
-// Cmd/Ctrl+P replaces the shortcuts list rather than opening under it.
+// Shift+P replaces the shortcuts list rather than opening under it.
 const commandBar = usePartyCommandBar(() => {
   helpOpen.value = false;
 });
@@ -113,7 +113,7 @@ function onPick(command: PartyPaletteCommand) {
       </span>
       <span class="dashboard-spacer" />
       <button type="button" class="link-btn" :aria-pressed="ambientOn" @click="toggleAmbient">Ambient: {{ ambientOn ? "on" : "off" }}</button>
-      <button type="button" class="link-btn" @click="commandBar.show()">Commands ({{ commandBar.shortcutLabel.value }})</button>
+      <button type="button" class="link-btn" @click="commandBar.show()">Commands ({{ PALETTE_SHORTCUT_LABEL }})</button>
       <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>

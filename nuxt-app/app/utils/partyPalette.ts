@@ -208,6 +208,13 @@ export const PARTY_PALETTE_COMMANDS: readonly PartyPaletteCommand[] = [
   jump("endless", "Endless playlist", ["endless", "infinite"], { tab: "game" }),
 ];
 
+export const PALETTE_SHORTCUT_LABEL = "Shift+P";
+
+/** Shift+P, with no other modifier; Cmd/Ctrl+P stays the browser's Print. */
+export function isPaletteShortcut(event: Pick<KeyboardEvent, "key" | "shiftKey" | "metaKey" | "ctrlKey" | "altKey">): boolean {
+  return event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "p";
+}
+
 export function paletteCommandById(id: string): PartyPaletteCommand | null {
   return PARTY_PALETTE_COMMANDS.find((command) => command.id === id) ?? null;
 }
