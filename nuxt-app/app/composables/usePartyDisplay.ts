@@ -42,6 +42,17 @@ export interface PartyAnswer {
   artistName: string;
   themeSlot: string;
   coverImageUrl: string | null;
+  facts: PartyAnswerFacts;
+}
+
+// Client copy of server/utils/partyAnswerFacts.ts's PartyAnswerFacts.
+export interface PartyAnswerFacts {
+  year: number | null;
+  season: string | null;
+  format: string | null;
+  studios: string[];
+  averageScore: number | null;
+  tags: string[];
 }
 
 export interface PartyTimer {

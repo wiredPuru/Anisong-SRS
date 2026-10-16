@@ -10,6 +10,14 @@ export const SAMPLE_ANSWER: PartyAnswer = {
   artistName: "Sample Artist",
   themeSlot: "OP1",
   coverImageUrl: null,
+  facts: {
+    year: 2020,
+    season: "SPRING",
+    format: "TV",
+    studios: ["Sample Studio"],
+    averageScore: 82,
+    tags: ["Music", "School Club", "Female Protagonist"],
+  },
 };
 export const SAMPLE_PLAYERS: PartyScoreRow[] = [
   { id: -1, name: "Player one", score: 5 },

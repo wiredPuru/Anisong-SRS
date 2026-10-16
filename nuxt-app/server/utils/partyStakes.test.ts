@@ -15,7 +15,7 @@ const clip = { kind: "video" as const, source: { type: "remote" as const, url: "
 const card = { id: 1, songId: 1, localVideoPath: null, localAudioPath: null, animethemesVideoUrl: null, animethemesAudioUrl: null,
   box: 1, streak: 0, nextReviewAt: new Date(), createdAt: new Date(), songTitle: "S", songTitleNative: "S", themeSlot: "OP1",
   artistId: 1, artistName: "A", animeId: 1, animeTitleEnglish: "Show", animeTitleRomaji: "Show", animeTitleNative: "Show",
-  animeCoverImageUrl: null } as never;
+  animeCoverImageUrl: null, animeYear: null, animeStudios: [], animeTags: [] } as never;
 
 function run(state: PartyGameState, ...commands: PartyCommand[]): PartyGameState {
   return commands.reduce((current, command) => applyPartyCommand(current, command), state);

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { PartyAnswer } from "~/composables/usePartyDisplay";
+import { revealFactLine } from "~/utils/partyRevealFacts";
 
 const props = defineProps<{ answer: PartyAnswer }>();
 
 const showRomaji = computed(() => props.answer.animeTitleRomaji !== props.answer.animeTitleEnglish);
 const hasSong = computed(() => Boolean(props.answer.songTitle || props.answer.artistName));
+const factLine = computed(() => revealFactLine(props.answer.facts));
+const tags = computed(() => props.answer.facts?.tags ?? []);
 const coverFailed = ref(false);
 watch(() => props.answer.coverImageUrl, () => {
   coverFailed.value = false;
@@ -27,6 +30,10 @@ watch(() => props.answer.coverImageUrl, () => {
       <p v-if="hasSong" class="reveal-song">
         <span v-if="answer.songTitle" class="reveal-song-title">{{ answer.songTitle }}</span>
         <span v-if="answer.artistName" class="reveal-artist">{{ answer.artistName }}</span>
+      </p>
+      <p v-if="factLine" class="reveal-facts">{{ factLine }}</p>
+      <p v-if="tags.length" class="reveal-tags">
+        <span v-for="tag in tags" :key="tag" class="reveal-tag">{{ tag }}</span>
       </p>
     </div>
   </section>
@@ -97,6 +104,29 @@ watch(() => props.answer.coverImageUrl, () => {
 
 .reveal-artist {
   color: var(--text);
+}
+
+/* The show's background, after the answer itself and quieter than it. */
+.reveal-facts {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: clamp(13px, 1.3vw, 2.04vh);
+  font-weight: 700;
+}
+
+.reveal-tags {
+  margin: 2px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reveal-tag {
+  padding: 0.15em 0.75em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: clamp(12px, 1.1vw, 1.76vh);
 }
 
 @keyframes reveal-in {

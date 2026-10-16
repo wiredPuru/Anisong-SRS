@@ -1,5 +1,6 @@
 import { parsePartyCensor, recordCensorKey, type PartyCensor, type PartyCensorKey, type PartyCensorStyle } from "./partyCensor.ts";
 import type { CardWithDetails } from "./cards.ts";
+import { EMPTY_ANSWER_FACTS, partyAnswerFacts, type PartyAnswerFacts } from "./partyAnswerFacts.ts";
 import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
 import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
@@ -67,6 +68,7 @@ export interface PartyAnswer {
   artistName: string;
   themeSlot: string;
   coverImageUrl: string | null;
+  facts: PartyAnswerFacts;
 }
 export interface PartyTimer {
   seconds: number;
@@ -568,6 +570,7 @@ export function toQueueItem(
       artistName: card.artistName,
       themeSlot: card.themeSlot,
       coverImageUrl: card.animeCoverImageUrl,
+      facts: partyAnswerFacts(details, card.animeStudios),
     },
   };
 }
@@ -1360,6 +1363,8 @@ export function maskAnswer(answer: PartyAnswer, fields: PartyRevealFields): Part
     artistName: fields.artist ? answer.artistName : "",
     themeSlot: fields.slot ? answer.themeSlot : "",
     coverImageUrl: fields.anime ? answer.coverImageUrl : null,
+    // Year, studio and tags point straight at the show, so they follow its title.
+    facts: fields.anime ? answer.facts : EMPTY_ANSWER_FACTS,
   };
 }
 
@@ -1409,7 +1414,8 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
     join: join && (!item || state.joinInfoVisible) ? join : null,
-    rules: state.rules.trim() || null,
+    // The rules ride on the scoreboard panel, so hiding it (S) hides them too.
+    rules: state.scoreboard.visible ? state.rules.trim() || null : null,
     buzz: { answering: playerName(state, state.buzz.playerId) },
     roundPoints: item ? listRoundPoints(state) : [],
     summary: state.summaryVisible ? buildSummary(state) : null,

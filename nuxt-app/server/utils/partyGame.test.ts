@@ -57,6 +57,9 @@ function card(overrides: Partial<CardWithDetails> = {}): CardWithDetails {
     animeTitleRomaji: "K-On!!",
     animeTitleNative: "けいおん！！",
     animeCoverImageUrl: "https://img.anili.st/k-on.jpg",
+    animeYear: 2010,
+    animeStudios: ["Kyoto Animation"],
+    animeTags: [],
     ...overrides,
   };
 }
@@ -1163,10 +1166,12 @@ describe("queue shuffle, censor delay and team rows", () => {
 
 describe("rules", () => {
   it("keeps the text, gives the display trimmed rules or nothing, and survives End game", () => {
-    let s = initialPartyState();
+    let s = applyPartyCommand(initialPartyState(), { type: "score", op: "show", visible: true });
     expect(toDisplayState(s).rules).toBeNull();
     s = applyPartyCommand(s, { type: "rules", text: "  Buzz first.\nNo cheating.  " });
     expect(toDisplayState(s).rules).toBe("Buzz first.\nNo cheating.");
+    // The rules sit on the scoreboard panel, so S hides both.
+    expect(toDisplayState(applyPartyCommand(s, { type: "score", op: "show", visible: false })).rules).toBeNull();
     expect(toHostState(s).rules).toBe("  Buzz first.\nNo cheating.  ");
     expect(applyPartyCommand(s, { type: "clear" }).rules).toBe(s.rules);
     expect(toDisplayState(applyPartyCommand(s, { type: "rules", text: "   " })).rules).toBeNull();
