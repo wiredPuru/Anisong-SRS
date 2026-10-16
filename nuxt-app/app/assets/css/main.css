@@ -261,6 +261,26 @@
   outline-offset: 2px;
 }
 
+/* The party host command bar's landing mark; only added when motion is allowed. */
+.palette-flash {
+  border-radius: var(--radius-sm);
+  animation: palette-flash 1.2s ease-out;
+}
+
+@keyframes palette-flash {
+  0%,
+  50% {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+    box-shadow: 0 0 0 8px var(--accent-glow);
+  }
+  100% {
+    outline: 3px solid transparent;
+    outline-offset: 4px;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
 a.deck-link:hover,
 a.deck-link:focus-visible {
   color: var(--accent-secondary);

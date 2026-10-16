@@ -1,7 +1,7 @@
 # Feature: Host command bar
 
 **From build-plan:** feature 108
-**Status:** in progress
+**Status:** verified
 
 ## Goal
 
@@ -111,7 +111,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
     "PIXELATE", "add songs" vs "add show" via keywords, out-of-order words, a
     3-letter typo rejected, empty and whitespace-only queries, and stable order
     on ties.
-- [ ] **Step 2 - Shared host actions** - move the command-building out of
+- [x] **Step 2 - Shared host actions** - move the command-building out of
   `usePartyHotkeys.ts` into the pure `app/utils/partyHostActions.ts`.
   - It exports `HOST_ACTIONS`: `{ id, label, keys, needsGame, build(state, ctx)
     }` for play/pause, reveal, next, previous, skip, mute, blur, pixelate,
@@ -125,7 +125,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
     sample state. Examples: pixelate 0 -> 24 -> 0, needs-game actions return
     null without a game, and the scoreboard toggles `visible`. The existing
     party tests still pass, and every hotkey works in the browser as before.
-- [ ] **Step 3 - Command registry + recents** - `app/utils/partyPalette.ts`.
+- [x] **Step 3 - Command registry + recents** - `app/utils/partyPalette.ts`.
   - `PartyPaletteCommand { id, title, group, keywords, kind:
     "toggle"|"action"|"jump", hotkey?, target?: PaletteTarget, tab?: HostTab,
     state?(host): boolean, available?(host): string | null, run?(host, ctx):
@@ -144,7 +144,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
     - Toggles report the right On/Off from a sample state.
     - "Start a game first" is returned only when there is no game.
     - Pixelate's `run` equals `HOST_ACTIONS` pixelate.
-- [ ] **Step 4 - Palette UI** - `components/party/PartyCommandBar.vue`.
+- [x] **Step 4 - Palette UI** - `components/party/PartyCommandBar.vue`.
   - It is a modal over the dashboard, top-centred, about 560px wide, using the
     party modal tokens.
   - It holds the input, a listbox, and row chips.
@@ -165,7 +165,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
     inside the Add songs search field. Typing "pix" lists Pixelate first with
     `X` and Off. Down/Up move the highlight, Esc closes the bar and restores
     focus, and no print dialog or `beforeprint` event fires.
-- [ ] **Step 5 - Run and jump** - wire `pick` in `PartyHostDashboard.vue`.
+- [x] **Step 5 - Run and jump** - wire `pick` in `PartyHostDashboard.vue`.
   - Run sends the `run` command through `send`, then pushes the id to recents.
   - Jump sets `tab` when the command names one, waits for `nextTick`, finds
     `[data-palette-target="<id>"]`, calls `scrollIntoView({ block: "center",
@@ -188,7 +188,7 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
     - "new game" switches to the New game tab.
     - "next" advances the song.
     - Recents list the last picks on the next open.
-- [ ] **Step 6 - Polish and verify** - add the empty state ("No commands
+- [x] **Step 6 - Polish and verify** - add the empty state ("No commands
   match"), a footer hint ("↑↓ to pick · Enter to run · Esc to close"), the
   `?` help row, and the narrow-width behaviour (the bar fills the width under
   600px with 16px gutters).

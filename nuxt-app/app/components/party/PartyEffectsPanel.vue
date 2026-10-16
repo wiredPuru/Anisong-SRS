@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
       {{ target === "current" ? "Changes show on the display right away. They last for this song only; the next song starts clear unless you armed Next song. Reveal always shows the answer clearly." : "Set these up, then arm them. They switch on as the next song starts, so nobody sees it clear first." }}
     </p>
 
-    <div v-for="row in STEPPED" :key="row.key" class="fx-stepper">
+    <div v-for="row in STEPPED" :key="row.key" class="fx-stepper" :data-palette-target="`effects-${row.key}`">
       <span class="fx-label">{{ row.label }}</span>
       <button type="button" class="fx-toggle" :class="{ on: draft[row.key] > 0 }" :aria-pressed="draft[row.key] > 0" @click="toggleStepped(row)">
         {{ draft[row.key] > 0 ? "On" : "Off" }}
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
       />
       <span class="fx-unit">seconds</span>
     </div>
-    <label class="fx-check">
+    <label class="fx-check" data-palette-target="effects-mute">
       <input type="checkbox" :checked="draft.muted" @change="update({ muted: ($event.target as HTMLInputElement).checked })" />
       Mute
     </label>

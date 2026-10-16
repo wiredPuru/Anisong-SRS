@@ -239,7 +239,7 @@ function setSongVolume(volume: number) {
     </label>
 
     <div class="np-options">
-      <label class="np-toggle">
+      <label class="np-toggle" data-palette-target="option-random-start">
         <input
           type="checkbox"
           :checked="state.randomStart"
@@ -247,7 +247,7 @@ function setSongVolume(volume: number) {
         />
         Random start (from the next song)
       </label>
-      <label class="np-toggle">
+      <label class="np-toggle" data-palette-target="option-auto-advance">
         <input
           type="checkbox"
           :checked="state.autoAdvance"
@@ -255,7 +255,7 @@ function setSongVolume(volume: number) {
         />
         Go to the next song when one ends
       </label>
-      <label class="np-toggle">
+      <label class="np-toggle" data-palette-target="option-buzzer">
         <input
           type="checkbox"
           :checked="state.buzzerEnabled"
