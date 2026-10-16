@@ -32,6 +32,7 @@ export interface PartyEffects {
   decaySeconds: number;
   muted: boolean;
   picture: PartyPicture;
+  random?: boolean;
 }
 
 export interface PartyAnswer {

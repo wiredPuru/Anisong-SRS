@@ -524,6 +524,11 @@ export function pickPartyChoice(playerId: number, index: number): boolean {
   return state.choicePicks[playerId] === index;
 }
 
+/** Carries a card edit into the running queue so the host list shows it. */
+export function applyPartyCardEdit(edit: { cardId: number; songTitle: string; themeSlot: string; artistName: string }): void {
+  commit(applyPartyCommand(state, { type: "cardEdited", ...edit }));
+}
+
 export function findPartyItemByToken(token: string): PartyQueueItem | null {
   return state.queue.find((item) => item.token === token) ?? null;
 }

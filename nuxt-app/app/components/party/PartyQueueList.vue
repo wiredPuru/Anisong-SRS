@@ -9,26 +9,79 @@ const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCo
 // Only songs still to come can move or go; the current one moves on with Next.
 const isUpcoming = (index: number) => index > props.state.index;
 
-// The board only ever shows five songs: the one before, the current one, the
-// next, and two more. Finished songs sit in the played log, the rest wait unseen.
+// One scroll box holds the whole queue. Rows render in chunks around the
+// current song and grow as the host scrolls, so a 2000-song queue stays fast.
 // An endless queue shows only the one before, the current one and the next,
 // plus any song the host added by hand.
-const WINDOW_SIZE = 5;
+const CHUNK = 20;
 const endless = computed(() => props.state.endless !== null);
-const windowStart = computed(() => Math.max(0, props.state.index - 1));
-const windowEnd = computed(() =>
-  Math.min(props.state.queue.length, endless.value ? props.state.index + 2 : windowStart.value + WINDOW_SIZE),
-);
+const from = ref(0);
+const to = ref(0);
+const listEl = ref<HTMLElement | null>(null);
+
+function resetRange() {
+  from.value = Math.max(0, props.state.index - CHUNK);
+  to.value = Math.min(props.state.queue.length, props.state.index + CHUNK);
+}
+resetRange();
+
 const rows = computed(() => {
-  const shown = props.state.queue.slice(windowStart.value, windowEnd.value).map((item, offset) => ({ item, index: windowStart.value + offset }));
-  if (!endless.value) return shown;
-  const added = props.state.queue
-    .map((item, index) => ({ item, index }))
-    .filter(({ item, index }) => index >= windowEnd.value && item.manual);
-  return [...shown, ...added];
+  const queue = props.state.queue;
+  if (endless.value) {
+    const start = Math.max(0, props.state.index - 1);
+    const end = Math.min(queue.length, props.state.index + 2);
+    const shown = queue.slice(start, end).map((item, offset) => ({ item, index: start + offset }));
+    const added = queue.map((item, index) => ({ item, index })).filter(({ item, index }) => index >= end && item.manual);
+    return [...shown, ...added];
+  }
+  const end = Math.max(to.value, Math.min(queue.length, from.value));
+  return queue.slice(from.value, end).map((item, offset) => ({ item, index: from.value + offset }));
 });
-const logOpen = ref(false);
-const finishedRows = computed(() => finished.value.map((item, index) => ({ item, index })).reverse());
+
+function scrollToCurrent() {
+  const list = listEl.value;
+  const row = list?.querySelector<HTMLElement>('[aria-current="true"]')?.closest<HTMLElement>(".queue-row");
+  if (list && row) list.scrollTop = Math.max(0, row.offsetTop - list.offsetTop - row.offsetHeight);
+}
+
+async function onScroll() {
+  const list = listEl.value;
+  if (!list || endless.value) return;
+  if (list.scrollTop < 40 && from.value > 0) {
+    const before = list.scrollHeight;
+    from.value = Math.max(0, from.value - CHUNK);
+    await nextTick();
+    list.scrollTop += list.scrollHeight - before;
+  } else if (list.scrollHeight - list.scrollTop - list.clientHeight < 40 && to.value < props.state.queue.length) {
+    to.value = Math.min(props.state.queue.length, to.value + CHUNK);
+  }
+}
+
+watch(
+  () => props.state.index,
+  async () => {
+    if (props.state.index < from.value || props.state.index >= to.value) resetRange();
+    await nextTick();
+    scrollToCurrent();
+  },
+);
+watch(() => props.state.queue.length, () => {
+  if (to.value > props.state.queue.length) to.value = props.state.queue.length;
+});
+onMounted(() => nextTick(scrollToCurrent));
+
+// Clicking a song opens its menu; it never plays on its own.
+const openIndex = ref<number | null>(null);
+function toggleMenu(index: number) {
+  openIndex.value = openIndex.value === index ? null : index;
+}
+const editCardId = ref<number | null>(null);
+
+function playNow(index: number) {
+  openIndex.value = null;
+  emit("jump", index);
+}
+
 // Everything finished so far, oldest first; the current song counts once revealed.
 const finished = computed(() => props.state.queue.slice(0, props.state.index + (props.state.phase === "revealed" ? 1 : 0)));
 
@@ -40,7 +93,6 @@ function exportLog() {
   link.click();
   URL.revokeObjectURL(url);
 }
-const waiting = computed(() => (endless.value ? 0 : props.state.queue.length - windowEnd.value));
 
 const upNext = computed(() => {
   const index = props.state.index + 1;
@@ -48,23 +100,14 @@ const upNext = computed(() => {
   return item ? { index, item } : null;
 });
 
-// One-tap presets for the next song, armed the same way as Effects > Next song.
-const NO_EFFECTS: PartyEffects = { blur: 0, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" };
-const FULL_BLUR = 40;
 const armed = computed(() => props.state.nextEffects);
-const QUICK = [
-  { id: "blur", label: "Full blur", on: (e: PartyEffects) => e.blur >= FULL_BLUR, toggle: (e: PartyEffects, on: boolean) => ({ ...e, blur: on ? 0 : FULL_BLUR }) },
-  { id: "pixelate", label: "Pixelate", on: (e: PartyEffects) => e.pixelate > 0, toggle: (e: PartyEffects, on: boolean) => ({ ...e, pixelate: on ? 0 : 32 }) },
-  { id: "muted", label: "Mute", on: (e: PartyEffects) => e.muted, toggle: (e: PartyEffects, on: boolean) => ({ ...e, muted: !on }) },
-  { id: "music", label: "Music player", on: (e: PartyEffects) => e.picture === "music", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "music" }) },
-  { id: "bubbles", label: "Bubbles", on: (e: PartyEffects) => e.picture === "bubbles", toggle: (e: PartyEffects, on: boolean) => ({ ...e, picture: on ? "video" : "bubbles" }) },
-] as const satisfies readonly { id: string; label: string; on: (e: PartyEffects) => boolean; toggle: (e: PartyEffects, on: boolean) => PartyEffects }[];
 
-function toggleQuick(option: (typeof QUICK)[number]) {
-  const base = armed.value ?? NO_EFFECTS;
-  const effects = option.toggle(base, option.on(base));
-  const plain = JSON.stringify(effects) === JSON.stringify(NO_EFFECTS);
-  emit("command", { type: "effects", target: "next", effects: plain ? null : effects });
+function armNext(effects: PartyEffects | null) {
+  emit("command", { type: "effects", target: "next", effects });
+}
+
+function setSongEffects(index: number, effects: PartyEffects | null) {
+  emit("command", { type: "queueEffects", index, effects });
 }
 
 // Drag a song still to come onto another upcoming row to put it there.
@@ -103,6 +146,7 @@ function endDrag() {
   <section class="queue" aria-labelledby="queue-title">
     <div class="queue-head">
       <h2 id="queue-title" class="queue-title">Queue</h2>
+      <button v-if="finished.length" type="button" class="reroll-btn" @click="exportLog">Export played CSV</button>
       <button v-if="state.queue.length - state.index > 2" type="button" class="reroll-btn" title="Shuffle the songs still to come" @click="emit('command', { type: 'queueShuffle' })">
         &#8644; Shuffle upcoming
       </button>
@@ -118,42 +162,11 @@ function endDrag() {
         <span class="up-next-song">{{ upNext.item.answer.songTitle }} &middot; {{ formatThemeSlotLabel(upNext.item.answer.themeSlot) }}</span>
       </span>
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
-        &#8635; Pick another
+        &#8635; Reroll
       </button>
-      <div class="up-next-fx" role="group" aria-label="Effects for the next song">
-        <button
-          v-for="option in QUICK"
-          :key="option.id"
-          type="button"
-          class="fx-chip"
-          :class="{ on: armed && option.on(armed) }"
-          :aria-pressed="Boolean(armed && option.on(armed))"
-          @click="toggleQuick(option)"
-        >
-          {{ option.label }}
-        </button>
-        <button v-if="armed" type="button" class="fx-chip fx-clear" @click="emit('command', { type: 'effects', target: 'next', effects: null })">Clear</button>
-      </div>
+      <PartyEffectToggles :effects="armed" label="Effects for the next song" @change="armNext" />
     </div>
-    <div v-if="finished.length" class="played-log">
-      <div class="played-head">
-        <button type="button" class="played-toggle" :aria-expanded="logOpen" @click="logOpen = !logOpen">
-          <span class="played-chevron" :class="{ open: logOpen }" aria-hidden="true">&#9656;</span>
-          Played ({{ finished.length }})
-        </button>
-        <button type="button" class="played-export" @click="exportLog">Export CSV</button>
-      </div>
-      <ol v-if="logOpen" class="played-list">
-        <li v-for="entry in finishedRows" :key="`${entry.index}-${entry.item.cardId}`" class="played-row">
-          <button type="button" class="played-item" @click="emit('jump', entry.index)">
-            <span class="queue-num">{{ entry.index + 1 }}</span>
-            {{ entry.item.answer.animeTitleEnglish }} &middot; {{ entry.item.answer.songTitle }}
-          </button>
-          <PartyMainAppLink :path="animeCardsSearchPath(entry.item.answer.animeTitleRomaji)" :label="entry.item.answer.animeTitleEnglish" />
-        </li>
-      </ol>
-    </div>
-    <ol class="queue-list">
+    <ol ref="listEl" class="queue-list" @scroll.passive="onScroll">
       <li
         v-for="{ item, index } in rows"
         :key="`${index}-${item.cardId}`"
@@ -175,7 +188,8 @@ function endDrag() {
           class="queue-item"
           :class="{ 'is-current': index === state.index, 'is-done': index < state.index }"
           :aria-current="index === state.index ? 'true' : undefined"
-          @click="emit('jump', index)"
+          :aria-expanded="openIndex === index"
+          @click="toggleMenu(index)"
         >
           <span class="queue-num">{{ index + 1 }}</span>
           <span class="queue-text">
@@ -187,33 +201,6 @@ function endDrag() {
         <span v-if="isUpcoming(index)" class="queue-edit">
           <button
             type="button"
-            class="qbtn"
-            :disabled="index <= state.index + 1"
-            :aria-label="`Move ${item.answer.animeTitleEnglish} up`"
-            @click="emit('command', { type: 'queueMove', from: index, to: index - 1 })"
-          >
-            &#8593;
-          </button>
-          <button
-            type="button"
-            class="qbtn"
-            :disabled="index >= state.queue.length - 1"
-            :aria-label="`Move ${item.answer.animeTitleEnglish} down`"
-            @click="emit('command', { type: 'queueMove', from: index, to: index + 1 })"
-          >
-            &#8595;
-          </button>
-          <button
-            type="button"
-            class="qbtn"
-            :aria-label="`Pick a different song instead of ${item.answer.animeTitleEnglish}`"
-            title="Pick another song"
-            @click="emit('command', { type: 'queueReroll', index })"
-          >
-            &#8635;
-          </button>
-          <button
-            type="button"
             class="qbtn qbtn-remove"
             :aria-label="`Remove ${item.answer.animeTitleEnglish} from the queue`"
             @click="emit('command', { type: 'queueRemove', index })"
@@ -221,9 +208,15 @@ function endDrag() {
             &#10005;
           </button>
         </span>
+        <div v-if="openIndex === index" class="queue-menu">
+          <button type="button" class="reroll-btn" @click="playNow(index)">&#9654; Play now</button>
+          <button v-if="isUpcoming(index)" type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index })">&#8635; Reroll</button>
+          <button v-if="item.cardId > 0" type="button" class="reroll-btn" @click="editCardId = item.cardId">&#9998; Edit card</button>
+          <PartyEffectToggles v-if="isUpcoming(index)" :effects="item.effects" label="Effects for this song" @change="setSongEffects(index, $event)" />
+        </div>
       </li>
     </ol>
-    <p v-if="waiting > 0" class="queue-waiting">+ {{ waiting }} more song{{ waiting === 1 ? "" : "s" }} queued after these</p>
+  <PartyCardEditModal v-if="editCardId !== null" :card-id="editCardId" @close="editCardId = null" />
   </section>
 </template>
 
@@ -252,88 +245,24 @@ function endDrag() {
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 360px;
+  max-height: 290px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
-.played-log {
-  font-size: 13px;
-}
 
-.played-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 
-.played-toggle,
-.played-export {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
 
-.played-export {
-  padding: 2px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-}
 
-.played-chevron {
-  display: inline-block;
-  transition: transform 0.15s;
-}
 
-.played-chevron.open {
-  transform: rotate(90deg);
-}
 
-.played-list {
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
-  max-height: 160px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
 
-.played-row {
-  display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid var(--border);
-}
 
-.played-item {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.queue-waiting {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
 
 .queue-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   border-bottom: 1px solid var(--border);
 }
@@ -347,35 +276,6 @@ function endDrag() {
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.up-next-fx {
-  flex-basis: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.fx-chip {
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.fx-chip.on {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.fx-clear {
-  border-style: dashed;
 }
 
 .up-next-text {
@@ -467,10 +367,6 @@ function endDrag() {
   cursor: pointer;
 }
 
-.qbtn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
 
 .qbtn-remove {
   color: var(--fail);
@@ -526,5 +422,12 @@ function endDrag() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.queue-menu {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 14px 10px;
 }
 </style>

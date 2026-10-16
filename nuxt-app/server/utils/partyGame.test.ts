@@ -889,6 +889,56 @@ describe("per-song awards (feature 90c)", () => {
   });
 });
 
+describe("card edits reach the queue", () => {
+  it("updates every queued copy of the card", () => {
+    const state = loaded(3);
+    const cardId = state.queue[1]!.cardId;
+    const next = applyPartyCommand(state, { type: "cardEdited", cardId, songTitle: "New", themeSlot: "ED2", artistName: "Who" });
+    expect(next.queue[1]!.answer).toMatchObject({ songTitle: "New", themeSlot: "ED2", artistName: "Who" });
+    expect(next.queue[0]).toBe(state.queue[0]);
+    expect(applyPartyCommand(state, { type: "cardEdited", cardId: 9999, songTitle: "x", themeSlot: "OP1", artistName: "y" })).toBe(state);
+  });
+});
+
+describe("per-song effects from the queue menu", () => {
+  const blurred = { blur: 40, pixelate: 0, decay: false, decaySeconds: 20, muted: false, picture: "video" as const };
+  const started = () => applyPartyCommand(loaded(4), { type: "jump", index: 1 });
+
+  it("sets and clears an override on upcoming songs only", () => {
+    const state = started();
+    const set = applyPartyCommand(state, { type: "queueEffects", index: 2, effects: blurred });
+    expect(set.queue[2]!.effects).toEqual(blurred);
+    expect(toHostState(set).queue[2]!.effects).toEqual(blurred);
+    expect(applyPartyCommand(set, { type: "queueEffects", index: 2, effects: null }).queue[2]).not.toHaveProperty("effects");
+    expect(applyPartyCommand(state, { type: "queueEffects", index: 1, effects: blurred })).toBe(state);
+    expect(applyPartyCommand(state, { type: "queueEffects", index: 9, effects: blurred })).toBe(state);
+  });
+
+  it("applies the override when the song starts, ahead of the armed next effects", () => {
+    let state = applyPartyCommand(started(), { type: "queueEffects", index: 2, effects: blurred });
+    state = applyPartyCommand(state, { type: "effects", target: "next", effects: { ...blurred, blur: 0, muted: true } });
+    const moved = applyPartyCommand(state, { type: "next" });
+    expect(moved.effects).toEqual(blurred);
+    expect(moved.nextEffects).toBeNull();
+  });
+
+  it("resolves random to one effect per song", () => {
+    const randomFx = { ...blurred, blur: 0, muted: true, random: true };
+    const picks = [0, 0.4, 0.9].map((roll) =>
+      applyPartyCommand(applyPartyCommand(started(), { type: "queueEffects", index: 2, effects: randomFx }), { type: "next" }, { random: () => roll }).effects,
+    );
+    expect(picks.map((fx) => fx.blur > 0 || fx.pixelate > 0 || fx.picture === "bubbles")).toEqual([true, true, true]);
+    expect(picks.every((fx) => fx.muted && fx.random === undefined)).toBe(true);
+    expect(new Set(picks.map((fx) => `${fx.blur}-${fx.pixelate}-${fx.picture}`)).size).toBe(3);
+  });
+
+  it("parses the command", () => {
+    expect(parsePartyCommand({ type: "queueEffects", index: 2, effects: null })).toEqual({ type: "queueEffects", index: 2, effects: null });
+    expect(parsePartyCommand({ type: "queueEffects", index: -1, effects: null })).toHaveProperty("error");
+    expect(parsePartyCommand({ type: "queueEffects", index: 2, effects: { ...blurred, random: true } })).toMatchObject({ effects: { random: true } });
+  });
+});
+
 describe("queue editing (feature 90c)", () => {
   const tokens = (state: PartyGameState) => state.queue.map((item) => item.token);
   function playing(count = 5) {

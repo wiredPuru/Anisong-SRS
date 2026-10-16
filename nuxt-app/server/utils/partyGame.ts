@@ -54,6 +54,8 @@ export interface PartyEffects {
   decaySeconds: number;
   muted: boolean;
   picture: PartyPicture;
+  // Resolved to one of blur, pixelate or bubbles when the song starts.
+  random?: boolean;
 }
 export type PartyClipSource = { type: "local"; path: string } | { type: "remote"; url: string };
 export interface PartyClip {
@@ -148,6 +150,8 @@ export interface PartyQueueItem {
   details: PartyAnimeDetails;
   // Added by the host into a running game, so an endless queue still lists it.
   manual?: boolean;
+  // Set for this song alone from the queue menu; wins over nextEffects.
+  effects?: PartyEffects;
 }
 export interface PartyPosition {
   token: string;
@@ -246,6 +250,7 @@ export type PartyCommand =
   | { type: "load"; cardIds: number[]; shuffle?: boolean; downloadedOnly?: boolean; append?: boolean; position?: PartyAddPosition }
   | { type: "queueRemove"; index: number }
   | { type: "queueMove"; from: number; to: number }
+  | { type: "queueEffects"; index: number; effects: PartyEffects | null }
   | { type: "play" }
   | { type: "pause" }
   | { type: "seek"; seconds: number; skip?: boolean }
@@ -292,7 +297,9 @@ export type PartyInternalCommand =
   | { type: "buzz"; playerId: number }
   | { type: "choicePick"; playerId: number; index: number }
   // A song's saved censor track, loaded as the song comes up.
-  | { type: "censorSaved"; token: string; track: PartyCensorKey[] };
+  | { type: "censorSaved"; token: string; track: PartyCensorKey[] }
+  // The host fixed a card's title, slot or artist; queued copies follow.
+  | { type: "cardEdited"; cardId: number; songTitle: string; themeSlot: string; artistName: string };
 export interface PartyJoinInfo {
   urls: string[];
 }
@@ -357,7 +364,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
+  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual?: boolean; effects: PartyEffects | null; answer: PartyAnswer }[];
   position: PartyPosition | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -408,6 +415,7 @@ export const NO_EFFECTS: PartyEffects = {
 };
 const PICTURES: readonly PartyPicture[] = ["video", "bubbles", "music"];
 const BLUR_MAX = 40;
+const RANDOM_PIXELATE = 32;
 const PIXELATE_MIN = 4;
 const PIXELATE_MAX = 64;
 const DECAY_MIN_S = 5;
@@ -433,7 +441,7 @@ export function parsePartyLightning(raw: unknown): PartyLightning | { error: str
 /** Numbers are clamped into range; a wrong type or an unknown picture is an error. */
 export function parsePartyEffects(raw: unknown): PartyEffects | { error: string } {
   if (typeof raw !== "object" || raw === null) return { error: "effects must be an object" };
-  const { blur, pixelate, decay, decaySeconds, muted, picture } = raw as Record<string, unknown>;
+  const { blur, pixelate, decay, decaySeconds, muted, picture, random } = raw as Record<string, unknown>;
   const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
   if (!isNumber(blur) || !isNumber(pixelate) || !isNumber(decaySeconds)) {
     return { error: "blur, pixelate, and decaySeconds must be numbers" };
@@ -447,6 +455,7 @@ export function parsePartyEffects(raw: unknown): PartyEffects | { error: string 
     decaySeconds: Math.round(clamp(decaySeconds, DECAY_MIN_S, DECAY_MAX_S)),
     muted,
     picture: picture as PartyPicture,
+    ...(random === true ? { random: true } : {}),
   };
 }
 
@@ -789,6 +798,13 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       const { index } = body as { index?: unknown };
       return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
     }
+    case "queueEffects": {
+      const { index, effects } = body as { index?: unknown; effects?: unknown };
+      if (!Number.isInteger(index) || (index as number) < 0) return { error: "index must be a whole number of 0 or more" };
+      if (effects === null) return { type, index: index as number, effects: null };
+      const parsed = parsePartyEffects(effects);
+      return "error" in parsed ? parsed : { type, index: index as number, effects: parsed };
+    }
     case "queueMove": {
       const { from, to } = body as { from?: unknown; to?: unknown };
       const valid = (value: unknown) => Number.isInteger(value) && (value as number) >= 0;
@@ -1090,6 +1106,16 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return copy;
 }
 
+// Random picks one of blur, pixelate or bubbles; mute and music are left as set.
+function resolveRandomEffect(effects: PartyEffects, random: () => number): PartyEffects {
+  if (!effects.random) return effects;
+  const { random: _flag, ...rest } = effects;
+  const pick = Math.min(2, Math.floor(random() * 3));
+  if (pick === 0) return { ...rest, blur: BLUR_MAX, pixelate: 0, picture: "video" };
+  if (pick === 1) return { ...rest, blur: 0, pixelate: RANDOM_PIXELATE, picture: "video" };
+  return { ...rest, blur: 0, pixelate: 0, picture: "bubbles" };
+}
+
 // A move keeps a playing game playing, so Next is one tap rather than Next
 // then Play; a paused game stays paused.
 function atItem(state: PartyGameState, index: number, random: () => number): PartyGameState {
@@ -1102,7 +1128,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
     position: null,
     // A lightning round always plays a random slice of each song.
     startFraction: state.randomStart || state.lightning ? random() : 0,
-    effects: state.nextEffects ?? NO_EFFECTS,
+    effects: resolveRandomEffect(state.queue[index]?.effects ?? state.nextEffects ?? NO_EFFECTS, random),
     nextEffects: null,
     live: null,
     choices: null,
@@ -1134,6 +1160,12 @@ export function applyPartyCommand(
   if (command.type === "censorSaved") {
     if (currentPartyItem(state)?.token !== command.token || state.censorTouched || !command.track.length) return state;
     return { ...state, censorTrack: command.track, censorRemember: true, version: state.version + 1 };
+  }
+  if (command.type === "cardEdited") {
+    const { cardId, songTitle, themeSlot, artistName } = command;
+    if (!state.queue.some((item) => item.cardId === cardId)) return state;
+    const queue = state.queue.map((item) => (item.cardId === cardId ? { ...item, answer: { ...item.answer, songTitle, themeSlot, artistName } } : item));
+    return { ...state, queue, version: state.version + 1 };
   }
   if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz" || command.type === "choicePick") {
     const next = applyInternal(state, command);
@@ -1284,6 +1316,14 @@ export function applyPartyCommand(
         const removed = state.queue[command.index]!;
         const { [removed.token]: _dropped, ...awards } = state.awards;
         next = { ...state, queue: state.queue.filter((_, i) => i !== command.index), awards };
+      }
+      break;
+    case "queueEffects":
+      if (hasItem && command.index > state.index && command.index < state.queue.length) {
+        const queue = [...state.queue];
+        const { effects: _old, ...item } = queue[command.index]!;
+        queue[command.index] = command.effects ? { ...item, effects: command.effects } : item;
+        next = { ...state, queue };
       }
       break;
     case "queueMove":
@@ -1581,6 +1621,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
       kind: item.clip.kind,
       origin: item.clip.source.type === "local" ? "local" : "stream",
       manual: item.manual === true,
+      effects: item.effects ?? null,
       answer: item.answer,
     })),
     position: state.position,

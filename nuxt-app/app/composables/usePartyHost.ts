@@ -53,7 +53,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; answer: PartyAnswer }[];
+  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; effects: PartyEffects | null; answer: PartyAnswer }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -133,6 +133,7 @@ export type PartyHostCommand =
   | { type: "award"; playerId: number; awarded: boolean }
   | { type: "queueRemove"; index: number }
   | { type: "queueMove"; from: number; to: number }
+  | { type: "queueEffects"; index: number; effects: PartyEffects | null }
   | { type: "summary"; visible: boolean };
 
 const RETRY_MIN_MS = 1000;
