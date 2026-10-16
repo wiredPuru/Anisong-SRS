@@ -188,7 +188,10 @@ function placedNote(label: string, loaded: number, moved: number, position: Posi
   const total = loaded + moved;
   if (!total) return "Nothing to add: that's the song playing now, or it has no playable clip.";
   const what = total === 1 ? `"${label}"` : `${total} songs from "${label}"`;
-  return position === "next" ? `${what} cued next.` : `${what} added to the end.`;
+  if (position === "next") return `${what} cued next.`;
+  if (!loaded) return `${what} moved to the end.`;
+  if (!moved) return `${what} added to the end.`;
+  return `${what} at the end (${moved} moved, ${loaded} added).`;
 }
 
 // The server places the songs in one step, moving any already waiting.

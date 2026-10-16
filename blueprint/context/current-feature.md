@@ -96,7 +96,7 @@ reaches the page.
   multi-song order, the current song being skipped, and `position` absent
   behaving as today.
   **Done when:** `bun run test` passes with those cases.
-- [ ] **2. Cue next in the search UI.** Rename the buttons, send `position`
+- [x] **2. Cue next in the search UI.** Rename the buttons, send `position`
   instead of the `queueMove` loop, show In queue / Playing now as above, and
   word the status note from `loaded` and `moved` ("cued next", "moved to the
   end", ...).
