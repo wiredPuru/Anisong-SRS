@@ -103,7 +103,7 @@ reaches the page.
   **Done when:** in a running deck game, Cue next on a song already later in
   the queue makes it the next song in the queue list, and Add moves it to the
   bottom; the same works on an endless queue and for a not-in-library song.
-- [ ] **3. Arrow-key navigation.** Highlight, wrap, scroll into view, Enter
+- [x] **3. Arrow-key navigation.** Highlight, wrap, scroll into view, Enter
   cues a song next or toggles a show/deck row, Escape clears.
   **Done when:** typing a search, pressing ArrowDown twice and Enter cues the
   second song row next, without touching the mouse, and the party hotkeys do

@@ -171,6 +171,7 @@ function onInput() {
   openKey.value = null;
   openShow.value = null;
   note.value = null;
+  activeKey.value = null;
   if (debounce) clearTimeout(debounce);
   debounce = setTimeout(search, 250);
 }
@@ -179,6 +180,64 @@ function onInput() {
 const upcomingIds = computed(() => new Set(props.state.queue.slice(props.state.index + 1).map((item) => item.cardId)));
 const currentId = computed(() => props.state.queue[props.state.index]?.cardId ?? null);
 const hasResults = computed(() => shows.value.length > 0 || groups.value.length > 0 || songs.value.length > 0 || catalogSongs.value.length > 0);
+
+// Every row the arrow keys can land on, in screen order. A song row cues next
+// on Enter; a show or deck row only opens, so Enter never queues a whole list.
+interface NavRow {
+  key: string;
+  run: () => void;
+}
+const navRows = computed<NavRow[]>(() => {
+  const rows: NavRow[] = [];
+  for (const show of shows.value) {
+    rows.push({ key: `show:${show.aniListId}`, run: () => toggleShow(show) });
+    if (openShow.value !== show.aniListId) continue;
+    for (const theme of showThemes.value) {
+      if (theme.playable) rows.push({ key: `theme:${theme.songId}`, run: () => addShowThemes([theme], "next", theme.songTitle) });
+    }
+  }
+  for (const group of groups.value) {
+    for (const row of group.rows) {
+      rows.push({ key: `group:${group.type}:${row.id}`, run: () => toggleGroup(group.type, row) });
+      if (openKey.value !== `${group.type}:${row.id}`) continue;
+      for (const result of openSongs.value) {
+        if (currentId.value !== result.cardId) rows.push({ key: `deck:${result.cardId}`, run: () => addCards([result.cardId], "next", result.songTitle) });
+      }
+    }
+  }
+  for (const result of songs.value) {
+    if (currentId.value !== result.cardId) rows.push({ key: `song:${result.cardId}`, run: () => addCards([result.cardId], "next", result.songTitle) });
+  }
+  for (const result of catalogSongs.value) {
+    if (currentId.value !== -result.annSongId) rows.push({ key: `cat:${result.annSongId}`, run: () => addCatalog(result, "next") });
+  }
+  return rows;
+});
+
+const activeKey = ref<string | null>(null);
+const rowDomId = (key: string) => `queue-search-${key.replace(/[^a-z0-9-]/gi, "-")}`;
+const activeDomId = computed(() => (activeKey.value && navRows.value.some((row) => row.key === activeKey.value) ? rowDomId(activeKey.value) : undefined));
+
+function onKeydown(event: KeyboardEvent) {
+  const rows = navRows.value;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (!rows.length) return;
+    event.preventDefault();
+    const at = rows.findIndex((row) => row.key === activeKey.value);
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const next = at < 0 ? (step > 0 ? 0 : rows.length - 1) : (at + step + rows.length) % rows.length;
+    activeKey.value = rows[next]!.key;
+    nextTick(() => document.getElementById(rowDomId(activeKey.value!))?.scrollIntoView({ block: "nearest" }));
+  } else if (event.key === "Enter") {
+    const row = rows.find((candidate) => candidate.key === activeKey.value);
+    if (!row) return;
+    event.preventDefault();
+    row.run();
+  } else if (event.key === "Escape" && activeKey.value) {
+    event.preventDefault();
+    activeKey.value = null;
+  }
+}
 
 function sendCommand(body: object) {
   return $fetch<{ loaded?: number; moved?: number }>("/api/party/host/command", { method: "POST", body });
@@ -248,8 +307,9 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       placeholder="Search by anime, artist, or song..."
       aria-label="Search anime, artists, or songs to add to the queue"
       autocomplete="off"
+      :aria-activedescendant="activeDomId"
       @input="onInput"
-      @keydown.stop
+      @keydown.stop="onKeydown"
     />
     <p v-if="note" class="search-note" role="status">{{ note }}</p>
     <p v-else-if="searching && !hasResults" class="search-note">Searching...</p>
@@ -260,7 +320,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
         <h3 class="group-heading">Shows</h3>
         <ul class="group-list">
           <li v-for="show in shows" :key="show.aniListId" class="search-item">
-            <div class="search-row">
+            <div class="search-row" :id="rowDomId(`show:${show.aniListId}`)" :class="{ active: activeKey === `show:${show.aniListId}` }">
               <button type="button" class="search-text search-open" :aria-expanded="openShow === show.aniListId" @click="toggleShow(show)">
                 <span class="search-anime">{{ openShow === show.aniListId ? "▾" : "▸" }} {{ show.titleEnglish }}</span>
                 <span class="search-song">{{ show.titleRomaji }} &middot; click for its songs</span>
@@ -276,7 +336,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
                   <button type="button" class="search-btn" :disabled="busy" @click="addShowThemes(showThemes, 'end', show.titleEnglish)">Add all</button>
                 </span>
               </li>
-              <li v-for="theme in showThemes" :key="theme.songId" class="search-row">
+              <li v-for="theme in showThemes" :key="theme.songId" class="search-row" :id="rowDomId(`theme:${theme.songId}`)" :class="{ active: activeKey === `theme:${theme.songId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ theme.songTitle }}</span>
                   <span class="search-song">{{ theme.artistName }} &middot; {{ formatThemeSlotLabel(theme.themeSlot) }}{{ theme.playable ? "" : " (no allowed clip)" }}</span>
@@ -295,7 +355,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
         <h3 class="group-heading">{{ group.heading }}</h3>
         <ul class="group-list">
           <li v-for="row in group.rows" :key="row.id" class="search-item">
-            <div class="search-row">
+            <div class="search-row" :id="rowDomId(`group:${group.type}:${row.id}`)" :class="{ active: activeKey === `group:${group.type}:${row.id}` }">
               <button type="button" class="search-text search-open" :aria-expanded="openKey === `${group.type}:${row.id}`" @click="toggleGroup(group.type, row)">
                 <span class="search-anime">{{ openKey === `${group.type}:${row.id}` ? "▾" : "▸" }} {{ row.label }}</span>
                 <span class="search-song">{{ row.cardCount }} song{{ row.cardCount === 1 ? "" : "s" }} &middot; click to pick songs</span>
@@ -307,7 +367,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
             </div>
             <ul v-if="openKey === `${group.type}:${row.id}`" class="group-list nested">
               <li v-if="openLoading" class="search-row"><span class="search-song">Loading songs...</span></li>
-              <li v-for="result in openSongs" :key="result.cardId" class="search-row">
+              <li v-for="result in openSongs" :key="result.cardId" class="search-row" :id="rowDomId(`deck:${result.cardId}`)" :class="{ active: activeKey === `deck:${result.cardId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ result.songTitle }}</span>
                   <span class="search-song">{{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}</span>
@@ -327,7 +387,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       <section v-if="songs.length" class="search-group">
         <h3 class="group-heading">Songs</h3>
         <ul class="group-list">
-          <li v-for="result in songs" :key="result.cardId" class="search-row">
+          <li v-for="result in songs" :key="result.cardId" class="search-row" :id="rowDomId(`song:${result.cardId}`)" :class="{ active: activeKey === `song:${result.cardId}` }">
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
@@ -347,7 +407,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
       <section v-if="catalogSongs.length" class="search-group">
         <h3 class="group-heading">Not in your library</h3>
         <ul class="group-list">
-          <li v-for="result in catalogSongs" :key="result.annSongId" class="search-row">
+          <li v-for="result in catalogSongs" :key="result.annSongId" class="search-row" :id="rowDomId(`cat:${result.annSongId}`)" :class="{ active: activeKey === `cat:${result.annSongId}` }">
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
@@ -438,6 +498,11 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
   gap: 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.search-row.active {
+  background: var(--surface-raised);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .search-text {
