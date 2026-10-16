@@ -4,7 +4,7 @@
 
 **Type:** Fix
 
-**Status:** not started
+**Status:** in progress
 
 ## The problem
 
@@ -79,7 +79,7 @@ running the party.
 
 ## Build steps
 
-1. [ ] **Preview + inspector open new tabs.** `CardPreviewModal` passes
+1. [x] **Preview + inspector open new tabs.** `CardPreviewModal` passes
    `artist-new-tab` and `anime-new-tab` to `StudyInfoPanel`. `CardInspector`'s
    two `NuxtLink`s get `target="_blank" rel="noopener"`.
    **Done when:** clicking the artist or anime in Preview (from `/cards` and

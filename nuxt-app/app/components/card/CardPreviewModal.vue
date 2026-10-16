@@ -347,7 +347,9 @@ watch(
           :song-title-native="card.songTitleNative"
           :artist-name="card.artistName"
           :artist-href="artistDeckPath(card.artistId)"
+          artist-new-tab
           :anime-href="animeDeckPath(card.animeId)"
+          anime-new-tab
           :anime-title-english="card.animeTitleEnglish"
           :anime-title-romaji="card.animeTitleRomaji"
           :anime-title-native="card.animeTitleNative"
