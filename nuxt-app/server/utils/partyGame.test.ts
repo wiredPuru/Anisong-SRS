@@ -308,6 +308,7 @@ describe("toDisplayState", () => {
     expect(json).not.toContain("animemusicquiz");
     expect(json).not.toContain("K-On");
     expect(json).not.toContain("cardId");
+    expect(json).not.toContain("artistId");
   });
 
   it("lists the next two tokens to buffer, and nothing else about them", () => {
@@ -337,6 +338,18 @@ describe("toHostState", () => {
     expect(host.queue[0]).toMatchObject({ cardId: 1, kind: "video" });
     expect(host.queue[0]!.answer.songTitle).toBe("GO! GO! MANIAC");
     expect(JSON.stringify(host)).not.toContain("animemusicquiz");
+  });
+
+  it("carries each song's artist id, and null for one with none", () => {
+    const state = loaded(2);
+    const { artistId: _, ...catalogSong } = state.queue[1]!;
+    const host = toHostState({ ...state, queue: [state.queue[0]!, catalogSong] });
+    expect(host.queue.map((entry) => entry.artistId)).toEqual([3, null]);
+  });
+
+  it("keeps the artist id off the display, even after the reveal", () => {
+    const revealed = applyPartyCommand(loaded(), { type: "reveal" });
+    expect(JSON.stringify(toDisplayState(revealed))).not.toContain("artistId");
   });
 });
 

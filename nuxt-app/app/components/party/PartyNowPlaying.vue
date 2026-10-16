@@ -106,12 +106,20 @@ function setSongVolume(volume: number) {
     <div v-if="current" class="np-answer">
       <NetworkImage v-if="current.answer.coverImageUrl" class="np-cover" :src="current.answer.coverImageUrl" alt="" />
       <div class="np-text">
-        <p class="np-title">{{ current.answer.animeTitleEnglish }}</p>
+        <p class="np-title">
+          <PartyMainAppLink :path="animeCardsSearchPath(current.answer.animeTitleRomaji)" :label="current.answer.animeTitleEnglish">
+            {{ current.answer.animeTitleEnglish }}
+          </PartyMainAppLink>
+        </p>
         <p v-if="current.answer.animeTitleRomaji !== current.answer.animeTitleEnglish" class="np-sub">
           {{ current.answer.animeTitleRomaji }}
         </p>
         <p class="np-song">
-          {{ current.answer.songTitle }} <span class="np-artist">{{ current.answer.artistName }}</span>
+          {{ current.answer.songTitle }} <PartyMainAppLink
+            class="np-artist"
+            :path="artistLinkPath(current.artistId, current.answer.artistName)"
+            :label="current.answer.artistName"
+          >{{ current.answer.artistName }}</PartyMainAppLink>
         </p>
         <p class="np-slot">{{ formatThemeSlotLabel(current.answer.themeSlot) }} · {{ current.kind === "audio" ? "Audio" : "Video" }}</p>
       </div>

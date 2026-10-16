@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PartyHostState } from "~/composables/usePartyHost";
+import { animeCardsSearchPath, artistDeckPath } from "~/utils/deckLinks";
 import { deckRowLabel, type DeckRowNames, type DeckScopeType } from "~/utils/scopePick";
 
 interface SongResult {
@@ -27,7 +28,7 @@ interface GroupResult extends DeckRowNames {
 interface Group {
   type: DeckScopeType;
   heading: string;
-  rows: { id: number; label: string; cardCount: number }[];
+  rows: { id: number; label: string; cardCount: number; linkPath: string | null }[];
 }
 
 const GROUPS: { type: DeckScopeType; heading: string }[] = [
@@ -36,6 +37,14 @@ const GROUPS: { type: DeckScopeType; heading: string }[] = [
   { type: "created", heading: "Your decks" },
 ];
 const GROUP_LIMIT = 5;
+
+// Where a group row opens in the main app. A created deck is a party list
+// here, not a title or an artist, so it gets no link.
+function groupLinkPath(type: DeckScopeType, deck: GroupResult): string | null {
+  if (type === "artist") return artistDeckPath(deck.id);
+  if (type === "anime") return animeCardsSearchPath(deck.titleRomaji || deckRowLabel(type, deck));
+  return null;
+}
 
 interface ShowResult {
   aniListId: number;
@@ -90,7 +99,7 @@ async function search() {
           const rows = res.decks
             .filter((deck) => deck.cardCount > 0)
             .slice(0, GROUP_LIMIT)
-            .map((deck) => ({ id: deck.id, label: deckRowLabel(type, deck), cardCount: deck.cardCount }));
+            .map((deck) => ({ id: deck.id, label: deckRowLabel(type, deck), cardCount: deck.cardCount, linkPath: groupLinkPath(type, deck) }));
           return { type, heading, rows };
         }),
       ),
@@ -349,6 +358,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
                 <span class="search-song">{{ show.titleRomaji }} &middot; click for its songs</span>
                 <span v-if="show.inLibrary" class="search-chip">✓ In library</span>
               </button>
+              <PartyMainAppLink :path="animeCardsSearchPath(show.titleRomaji)" :label="show.titleEnglish" />
             </div>
             <ul v-if="openShow === show.aniListId" class="group-list nested">
               <li v-if="showLoading" class="search-row"><span class="search-song">Looking up songs...</span></li>
@@ -363,7 +373,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
               <li v-for="theme in showThemes" :key="theme.songId" class="search-row" :id="rowDomId(`theme:${theme.songId}`)" :class="{ active: activeKey === `theme:${theme.songId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ theme.songTitle }}</span>
-                  <span class="search-song">{{ theme.artistName }} &middot; {{ formatThemeSlotLabel(theme.themeSlot) }}{{ theme.playable ? "" : " (no allowed clip)" }}</span>
+                  <span class="search-song"><PartyMainAppLink :path="artistLinkPath(null, theme.artistName)" :label="theme.artistName">{{ theme.artistName }}</PartyMainAppLink> &middot; {{ formatThemeSlotLabel(theme.themeSlot) }}{{ theme.playable ? "" : " (no allowed clip)" }}</span>
                 </span>
                 <span class="search-actions">
                   <button type="button" class="search-btn" :disabled="busy || !theme.playable" @click="addShowThemes([theme], 'next', theme.songTitle)">Cue next</button>
@@ -391,6 +401,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
                 <span class="search-anime">{{ openKey === `${group.type}:${row.id}` ? "▾" : "▸" }} {{ row.label }}</span>
                 <span class="search-song">{{ row.cardCount }} song{{ row.cardCount === 1 ? "" : "s" }} &middot; click to pick songs</span>
               </button>
+              <PartyMainAppLink v-if="row.linkPath" :path="row.linkPath" :label="row.label" />
               <span class="search-actions">
                 <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, 'next')">Cue next</button>
                 <button type="button" class="search-btn" :disabled="busy" @click="addGroup(group.type, row, 'end')">Add all</button>
@@ -401,7 +412,7 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
               <li v-for="result in openSongs" :key="result.cardId" class="search-row" :id="rowDomId(`deck:${result.cardId}`)" :class="{ active: activeKey === `deck:${result.cardId}` }">
                 <span class="search-text">
                   <span class="search-anime">{{ result.songTitle }}</span>
-                  <span class="search-song">{{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}</span>
+                  <span class="search-song"><PartyMainAppLink :path="artistLinkPath(null, result.artistName)" :label="result.artistName">{{ result.artistName }}</PartyMainAppLink> &middot; {{ formatThemeSlotLabel(result.themeSlot) }}</span>
                 </span>
                 <span v-if="currentId === result.cardId" class="search-queued">Playing now</span>
                 <span v-else class="search-actions">
@@ -423,7 +434,10 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
-                {{ result.animeTitle }} &middot; {{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
+                <PartyMainAppLink :path="animeCardsSearchPath(result.animeTitle)" :label="result.animeTitle">{{ result.animeTitle }}</PartyMainAppLink>
+                &middot;
+                <PartyMainAppLink :path="artistLinkPath(null, result.artistName)" :label="result.artistName">{{ result.artistName }}</PartyMainAppLink>
+                &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
               </span>
             </span>
             <span v-if="currentId === result.cardId" class="search-queued">Playing now</span>
@@ -444,7 +458,10 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
             <span class="search-text">
               <span class="search-anime">{{ result.songTitle }}</span>
               <span class="search-song">
-                {{ result.animeTitle }} &middot; {{ result.artistName }} &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
+                <PartyMainAppLink :path="animeCardsSearchPath(result.animeTitle)" :label="result.animeTitle">{{ result.animeTitle }}</PartyMainAppLink>
+                &middot;
+                <PartyMainAppLink :path="artistLinkPath(null, result.artistName)" :label="result.artistName">{{ result.artistName }}</PartyMainAppLink>
+                &middot; {{ formatThemeSlotLabel(result.themeSlot) }}
               </span>
             </span>
             <span v-if="currentId === -result.annSongId" class="search-queued">Playing now</span>

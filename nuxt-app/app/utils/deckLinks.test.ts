@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { animeCardsSearchPath, animeDeckPath, artistDeckPath } from "./deckLinks.ts";
+import { animeCardsSearchPath, animeDeckPath, artistDeckPath, artistLinkPath, mainAppHref } from "./deckLinks.ts";
 
 // Mirrors how /decks reads its own params (pages/decks/index.vue: activeType
 // defaults to "artist" for anything but "anime"/"created", selectedId is
@@ -62,5 +62,30 @@ describe("animeCardsSearchPath", () => {
 
   it("falls back to plain /cards for a blank title", () => {
     expect(animeCardsSearchPath("   ")).toBe("/cards");
+  });
+});
+
+describe("mainAppHref", () => {
+  it("joins the main app's base and a path", () => {
+    expect(mainAppHref("http://127.0.0.1:3000", "/cards?q=K-On")).toBe("http://127.0.0.1:3000/cards?q=K-On");
+  });
+
+  it("copes with trailing slashes on the base", () => {
+    expect(mainAppHref("http://127.0.0.1:3100/", "/decks?type=artist&id=3")).toBe("http://127.0.0.1:3100/decks?type=artist&id=3");
+    expect(mainAppHref("http://127.0.0.1:3100//", "/cards")).toBe("http://127.0.0.1:3100/cards");
+  });
+
+  it("adds the slash a bare path is missing", () => {
+    expect(mainAppHref("http://127.0.0.1:3000", "cards")).toBe("http://127.0.0.1:3000/cards");
+  });
+});
+
+describe("artistLinkPath", () => {
+  it("opens the artist's deck when there is a library artist", () => {
+    expect(artistLinkPath(42, "Ho-Kago Tea Time")).toBe("/decks?type=artist&id=42");
+  });
+
+  it("searches /cards by name for an artist with no library row", () => {
+    expect(artistLinkPath(null, "Ho-Kago Tea Time")).toBe("/cards?q=Ho-Kago%20Tea%20Time");
   });
 });

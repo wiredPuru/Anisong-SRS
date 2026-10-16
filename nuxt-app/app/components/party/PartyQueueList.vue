@@ -110,7 +110,11 @@ function endDrag() {
     <div v-if="upNext" class="up-next">
       <span class="up-next-text">
         <span class="up-next-label">Up next</span>
-        <span class="up-next-title">{{ upNext.item.answer.animeTitleEnglish }}</span>
+        <PartyMainAppLink
+          class="up-next-title"
+          :path="animeCardsSearchPath(upNext.item.answer.animeTitleRomaji)"
+          :label="upNext.item.answer.animeTitleEnglish"
+        >{{ upNext.item.answer.animeTitleEnglish }}</PartyMainAppLink>
         <span class="up-next-song">{{ upNext.item.answer.songTitle }} &middot; {{ formatThemeSlotLabel(upNext.item.answer.themeSlot) }}</span>
       </span>
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
@@ -140,11 +144,12 @@ function endDrag() {
         <button type="button" class="played-export" @click="exportLog">Export CSV</button>
       </div>
       <ol v-if="logOpen" class="played-list">
-        <li v-for="entry in finishedRows" :key="`${entry.index}-${entry.item.cardId}`">
+        <li v-for="entry in finishedRows" :key="`${entry.index}-${entry.item.cardId}`" class="played-row">
           <button type="button" class="played-item" @click="emit('jump', entry.index)">
             <span class="queue-num">{{ entry.index + 1 }}</span>
             {{ entry.item.answer.animeTitleEnglish }} &middot; {{ entry.item.answer.songTitle }}
           </button>
+          <PartyMainAppLink :path="animeCardsSearchPath(entry.item.answer.animeTitleRomaji)" :label="entry.item.answer.animeTitleEnglish" />
         </li>
       </ol>
     </div>
@@ -178,6 +183,7 @@ function endDrag() {
             <span class="queue-song">{{ item.answer.songTitle }} · {{ formatThemeSlotLabel(item.answer.themeSlot) }}</span>
           </span>
         </button>
+        <PartyMainAppLink :path="animeCardsSearchPath(item.answer.animeTitleRomaji)" :label="item.answer.animeTitleEnglish" />
         <span v-if="isUpcoming(index)" class="queue-edit">
           <button
             type="button"
@@ -298,14 +304,21 @@ function endDrag() {
   border-radius: var(--radius-sm);
 }
 
+.played-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+
 .played-item {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   padding: 6px 10px;
   border: 0;
-  border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
   font: inherit;

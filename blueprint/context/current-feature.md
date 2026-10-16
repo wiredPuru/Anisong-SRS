@@ -4,7 +4,7 @@
 
 **Type:** Fix
 
-**Status:** in progress
+**Status:** verified
 
 ## The problem
 
@@ -85,7 +85,7 @@ running the party.
    **Done when:** clicking the artist or anime in Preview (from `/cards` and
    `/decks`) and in the inspector on both pages opens the deck page in a new tab
    and leaves the original tab as it was.
-2. [ ] **Party plumbing.** Add `mainAppUrl` to `runtimeConfig.public`, the
+2. [x] **Party plumbing.** Add `mainAppUrl` to `runtimeConfig.public`, the
    `GAQ_PARTY_MAIN_APP_URL` mapping in `launcher/party.ts`, and `mainAppHref`
    with a test (trailing slash, path joining). Add `artistId` to
    `PartyQueueItem` (`toQueueItem`) and to the host queue entries (`toHostState`
@@ -94,7 +94,7 @@ running the party.
    Document the env var in `AGENTS.md`'s party mode command.
    **Done when:** `bun run test` passes with the new tests, and `GET
    /api/party/host/state` shows `artistId` on each queue entry.
-3. [ ] **Party host links.** Add `PartyMainAppLink.vue` and use it in
+3. [x] **Party host links.** Add `PartyMainAppLink.vue` and use it in
    `PartyNowPlaying` (title and artist), `PartyQueueList` (Up next, the queue
    rows, the Played log), and `PartyQueueSearch` (show results, anime and
    artist group rows, the songs inside an opened group, the song results, and

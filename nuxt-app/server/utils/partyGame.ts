@@ -139,6 +139,9 @@ export interface PartyRoundPoint {
 export interface PartyQueueItem {
   token: string;
   cardId: number;
+  // Host-only, for linking to the main app. Absent on catalog songs, which no
+  // library artist row backs.
+  artistId?: number;
   clip: PartyClip;
   answer: PartyAnswer;
   // Only ever shown as lightning hints, and only as far as play time allows.
@@ -354,7 +357,7 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
+  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; answer: PartyAnswer }[];
   position: PartyPosition | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -563,6 +566,7 @@ export function toQueueItem(
   return {
     token,
     cardId: card.id,
+    artistId: card.artistId,
     clip,
     details,
     answer: {
@@ -1573,6 +1577,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     playing: state.playing,
     queue: state.queue.map((item) => ({
       cardId: item.cardId,
+      artistId: item.artistId ?? null,
       kind: item.clip.kind,
       origin: item.clip.source.type === "local" ? "local" : "stream",
       manual: item.manual === true,
