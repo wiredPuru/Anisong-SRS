@@ -10,6 +10,14 @@ export const SAMPLE_ANSWER: PartyAnswer = {
   artistName: "Sample Artist",
   themeSlot: "OP1",
   coverImageUrl: null,
+  facts: {
+    year: 2020,
+    season: "SPRING",
+    format: "TV",
+    studios: ["Sample Studio"],
+    averageScore: 82,
+    tags: ["Music", "School Club", "Female Protagonist"],
+  },
 };
 export const SAMPLE_PLAYERS: PartyScoreRow[] = [
   { id: -1, name: "Player one", score: 5 },
@@ -36,8 +44,6 @@ export const SAMPLE_ROUND: PartyRoundPoint[] = [
   { id: -1, name: "Player one", points: 2 },
   { id: -2, name: "Player two", points: 1 },
 ];
-export const SAMPLE_TIMER_SECONDS = 15;
-export const SAMPLE_COUNT = { number: 3, total: 20 };
 export const SAMPLE_JOIN: PartyJoinInfo = { code: "ABCD", urls: [] };
 export const SAMPLE_HINTS: NonNullable<PartyHints> = {
   kind: "clues",

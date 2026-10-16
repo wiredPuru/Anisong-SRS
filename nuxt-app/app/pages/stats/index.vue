@@ -2028,7 +2028,6 @@ function setType(type: StatsType) {
   width: 34px;
   height: 48px;
   border-radius: var(--radius-xs);
-  background: var(--surface-raised);
   object-fit: cover;
 }
 

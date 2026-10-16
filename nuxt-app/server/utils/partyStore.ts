@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
+import { EMPTY_ANSWER_FACTS } from "./partyAnswerFacts.ts";
 import { fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
 import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode } from "./mediaLibrary.ts";
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
@@ -149,6 +150,7 @@ function catalogItem(song: CatalogSong): PartyQueueItem | null {
       artistName: song.artistName,
       themeSlot: song.themeSlot,
       coverImageUrl: null,
+      facts: EMPTY_ANSWER_FACTS,
     },
   };
 }

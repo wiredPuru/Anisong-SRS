@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { coverInitial, coverTint } from "~/utils/coverFallback";
+import { networkImageSrc } from "~/utils/networkImage";
 
 const props = defineProps<{
   src: string | null | undefined;
@@ -8,12 +9,16 @@ const props = defineProps<{
   seed: number;
 }>();
 
+const { offlineMode } = useNetworkMode();
 const failed = ref(false);
 watch(() => props.src, () => (failed.value = false));
+// NetworkImage renders nothing for a remote cover in offline mode, without an
+// error event, so that case falls back here too.
+const usable = computed(() => !failed.value && !!networkImageSrc(props.src, offlineMode.value));
 </script>
 
 <template>
-  <NetworkImage v-if="src && !failed" :src="src" alt="" class="cover-art" @error="failed = true" />
+  <NetworkImage v-if="usable" :src="src" alt="" class="cover-art" @error="failed = true" />
   <span v-else class="cover-art cover-art-fallback" :style="{ '--tint': `var(${coverTint(seed)})` }" aria-hidden="true">
     <span class="cover-art-letter">{{ coverInitial(label) }}</span>
   </span>

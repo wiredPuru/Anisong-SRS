@@ -1,0 +1,299 @@
+/* Party display: "Y2K moe broadcast". The screen people watch together gets a
+   personality of its own, in the spirit of 2000s anime fan sites, kept dark:
+   a plum-to-navy night sky with sparkles, dark sticker panels with a thick pink
+   outline and an offset shadow, glossy candy-pill labels, and chunky rounded type. Only the display
+   page loads this file; the host panel and phones keep the app's Midnight look.
+
+   Most pieces read the shared tokens, so redefining them on the display root
+   restyles everything at once. The selectors below the tokens add the few
+   flourishes tokens can't, written as `.display.moe-theme ...` so they outrank
+   each component's own scoped rule of the same shape. */
+
+.display.moe-theme {
+  --moe-pink: #ff5fa8;
+  --moe-pink-deep: #d93a86;
+  --moe-pink-soft: #ff9ccb;
+  --moe-sky: #74c4ff;
+  --moe-lemon: #ffe36e;
+  --moe-lilac: #c3b0ff;
+  --moe-panel: #241539;
+  --moe-ink: #2a1435;
+
+  --bg: #160d2a;
+  --surface: var(--moe-panel);
+  --surface-raised: #2f1d4a;
+  --surface-sunken: #1b1030;
+  --surface-float: var(--moe-panel);
+  --border: rgba(255, 95, 168, 0.4);
+  --outline: var(--moe-pink);
+  --text: #ffffff;
+  --muted: #eadcf5;
+  --faint: #c9b4da;
+  --accent: var(--moe-pink);
+  --accent-strong: var(--moe-pink-deep);
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(255, 95, 168, 0.25);
+  --accent-secondary: var(--moe-sky);
+  --accent-secondary-ink: var(--moe-ink);
+  --pass: #5be59a;
+  --fail: #ff6b81;
+  --warning: #ffd24a;
+  --glass-surface: rgba(36, 21, 57, 0.94);
+  --glass-surface-panel: rgba(36, 21, 57, 0.94);
+  --glass-surface-display: rgba(36, 21, 57, 0.94);
+  --glass-border: var(--moe-pink);
+  --glass-blur: none;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --shadow-soft: 5px 5px 0 rgba(255, 95, 168, 0.3);
+  --font-display: "Mochiy Pop One", "M PLUS Rounded 1c", system-ui, sans-serif;
+  --font-sans: "M PLUS Rounded 1c", "Outfit", system-ui, sans-serif;
+
+  color: var(--text);
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(55% 45% at 12% 8%, rgba(255, 95, 168, 0.32), transparent 70%),
+    radial-gradient(50% 45% at 92% 90%, rgba(116, 196, 255, 0.26), transparent 70%),
+    linear-gradient(160deg, #2b1243 0%, #1c1238 45%, #0e1836 100%);
+}
+
+/* The sky layer: a tiled sparkle pattern, a few twinkling stars, and in the
+   lobby the striped bands with their scrolling ticker. Never catches the pointer. */
+.moe-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M18 8l2.2 7.8L28 18l-7.8 2.2L18 28l-2.2-7.8L8 18l7.8-2.2z' fill='%23ffffff' fill-opacity='.22'/%3E%3Ccircle cx='54' cy='52' r='2.4' fill='%23ff5fa8' fill-opacity='.45'/%3E%3Ccircle cx='52' cy='14' r='1.6' fill='%2374c4ff' fill-opacity='.5'/%3E%3C/svg%3E");
+  background-size: 72px 72px;
+}
+
+.moe-star {
+  position: absolute;
+  color: #ffffff;
+  font-size: clamp(18px, 2.4vw, 3.4vh);
+  text-shadow: 0 0 12px rgba(255, 95, 168, 0.8);
+  animation: moe-twinkle 2.6s ease-in-out infinite;
+}
+
+.moe-star:nth-child(1) { top: 14%; left: 8%; }
+.moe-star:nth-child(2) { top: 22%; left: 88%; }
+.moe-star:nth-child(3) { top: 68%; left: 6%; }
+.moe-star:nth-child(4) { top: 78%; left: 92%; }
+.moe-star:nth-child(5) { top: 40%; left: 95%; }
+.moe-star:nth-child(6) { top: 86%; left: 40%; }
+.moe-star:nth-child(7) { top: 10%; left: 55%; }
+
+.moe-star:nth-child(2n) {
+  color: var(--moe-lemon);
+  animation-delay: -1.1s;
+}
+
+.moe-star:nth-child(3n) {
+  color: var(--moe-sky);
+  animation-delay: -1.9s;
+}
+
+@keyframes moe-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.8) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+
+.moe-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: clamp(30px, 4.4vh, 52px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-block: 3px solid #ffffff;
+  background: repeating-linear-gradient(-45deg, var(--moe-pink) 0 18px, #ff86bd 18px 36px);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.moe-band-top {
+  top: clamp(18px, 3vh, 36px);
+  transform: rotate(-1.5deg) scaleX(1.05);
+}
+
+.moe-band-bottom {
+  bottom: clamp(18px, 3vh, 36px);
+  transform: rotate(1.5deg) scaleX(1.05);
+}
+
+.moe-ticker {
+  display: flex;
+  flex: none;
+  white-space: nowrap;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: clamp(14px, 2vh, 24px);
+  letter-spacing: 0.08em;
+  text-shadow: 2px 2px 0 var(--moe-pink-deep);
+  animation: moe-ticker 28s linear infinite;
+}
+
+.moe-band-bottom .moe-ticker {
+  animation-direction: reverse;
+}
+
+.moe-ticker span {
+  padding-right: 2em;
+}
+
+@keyframes moe-ticker {
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moe-star,
+  .moe-ticker {
+    animation: none;
+  }
+}
+
+/* Lobby content sits above the sky layer. */
+.display.moe-theme .display-start,
+.display.moe-theme .display-waiting {
+  position: relative;
+  z-index: 1;
+}
+
+/* Candy-pill labels: a glossy pink pill with outlined white text, the kind of
+   button every 2000s fan site had. Pass and neutral keep their own hue. */
+.display.moe-theme .kai-banner {
+  --kai-banner-fill: linear-gradient(180deg, #ff8ec3 0%, var(--moe-pink) 52%, var(--moe-pink-deep) 100%);
+  --moe-banner-edge: var(--moe-pink-deep);
+  position: relative;
+  overflow: hidden;
+  /* The gloss sits between the fill and the text, never over the lettering. */
+  isolation: isolate;
+  padding: 0.38em 1.1em 0.42em;
+  border: 3px solid #ffffff;
+  background: var(--kai-banner-fill);
+  color: #ffffff;
+  /* An outline in em so it stays solid on the huge banners too. */
+  text-shadow:
+    0.05em 0 0 var(--moe-banner-edge), -0.05em 0 0 var(--moe-banner-edge),
+    0 0.05em 0 var(--moe-banner-edge), 0 -0.05em 0 var(--moe-banner-edge),
+    0.04em 0.04em 0 var(--moe-banner-edge), -0.04em -0.04em 0 var(--moe-banner-edge),
+    0.04em -0.04em 0 var(--moe-banner-edge), -0.04em 0.04em 0 var(--moe-banner-edge),
+    0.05em 0.09em 0 var(--moe-banner-edge);
+  box-shadow: 0 0 0 3px var(--moe-pink), 4px 5px 0 3px rgba(217, 58, 134, 0.35);
+}
+
+.display.moe-theme .kai-banner::after {
+  content: "";
+  position: absolute;
+  inset: 3px 8px 52% 8px;
+  border-radius: 999px;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+}
+
+.display.moe-theme .kai-banner-pass {
+  --kai-banner-fill: linear-gradient(180deg, #8fdcff 0%, #46a8f5 52%, #2a7fd0 100%);
+  --moe-banner-edge: #1a5a99;
+  box-shadow: 0 0 0 3px #2f8fe0, 4px 5px 0 3px rgba(47, 143, 224, 0.35);
+}
+
+.display.moe-theme .kai-banner-neutral {
+  --kai-banner-fill: linear-gradient(180deg, #ffe98f 0%, #ffd23f 52%, #f0b400 100%);
+  color: var(--moe-ink);
+  text-shadow: 0.04em 0.06em 0 rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 3px #e6a400, 4px 5px 0 3px rgba(201, 138, 0, 0.35);
+}
+
+/* Sticker panels: dark plum with a thick pink outline and an offset shadow. */
+.display.moe-theme .reveal,
+.display.moe-theme .scoreboard,
+.display.moe-theme .display-join {
+  border-width: 4px;
+  border-color: var(--moe-pink);
+  box-shadow: 6px 6px 0 rgba(255, 95, 168, 0.3);
+}
+
+.display.moe-theme .reveal-title {
+  color: var(--moe-pink-soft);
+  text-shadow: 3px 3px 0 var(--moe-pink-deep);
+}
+
+.display.moe-theme .reveal-song-title {
+  color: var(--moe-sky);
+}
+
+.display.moe-theme .reveal-cover {
+  border-width: 3px;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px var(--moe-pink);
+  transform: rotate(-2deg);
+}
+
+/* Scoreboard rows alternate pastel stripes; the leader wears a star. */
+.display.moe-theme .scoreboard-row {
+  border-radius: 999px;
+  padding-inline: 0.7em;
+}
+
+.display.moe-theme .scoreboard-item:nth-child(odd) > .scoreboard-row {
+  background: rgba(255, 95, 168, 0.18);
+}
+
+.display.moe-theme .scoreboard-item:nth-child(even) > .scoreboard-row {
+  background: rgba(116, 196, 255, 0.16);
+}
+
+/* The leader's gold row takes dark ink so its name and score stay readable. */
+.display.moe-theme .scoreboard-item > .scoreboard-row.leader {
+  background: linear-gradient(180deg, #fff3a8, var(--moe-lemon));
+  box-shadow: 0 0 0 2px #f0b400;
+  color: var(--moe-ink);
+}
+
+.display.moe-theme .scoreboard-row.leader .scoreboard-name,
+.display.moe-theme .scoreboard-row.leader .scoreboard-rank,
+.display.moe-theme .scoreboard-row.leader .scoreboard-score {
+  color: var(--moe-ink);
+}
+
+.display.moe-theme .scoreboard-row.leader {
+  position: relative;
+}
+
+.display.moe-theme .scoreboard-row.leader::before {
+  content: "★";
+  position: absolute;
+  top: -0.55em;
+  left: -0.3em;
+  color: #f0b400;
+  font-size: 1.1em;
+  text-shadow: 0 0 0 #ffffff, 1px 1px 0 #ffffff, -1px -1px 0 #ffffff;
+  transform: rotate(-12deg);
+}
+
+.display.moe-theme .scoreboard-score {
+  font-family: var(--font-display);
+  color: var(--moe-pink-soft);
+}
+
+/* Lobby headings and the count chip read as outlined anime-title text. */
+.display.moe-theme .display-join-url {
+  color: var(--moe-pink-soft);
+  text-shadow: 2px 2px 0 var(--moe-pink-deep);
+}
+
+.display.moe-theme .display-button {
+  border-width: 3px;
+  border-color: var(--moe-pink);
+  background: var(--moe-panel);
+  color: var(--moe-pink-soft);
+  box-shadow: 3px 3px 0 rgba(255, 95, 168, 0.3);
+}
+
+.display.moe-theme .display-button.on {
+  background: var(--moe-pink);
+  color: #ffffff;
+}

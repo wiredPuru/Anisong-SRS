@@ -27,7 +27,7 @@ const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
         <li v-for="url in info.urls" :key="url"><code>{{ shortUrl(url) }}</code></li>
       </ul>
       <p v-else class="hint">No network address found. Players need to be on the same network as this computer.</p>
-      <label class="check">
+      <label class="check" data-palette-target="join-info">
         <input
           type="checkbox"
           :checked="state.joinInfoVisible"

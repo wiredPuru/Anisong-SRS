@@ -27,16 +27,16 @@ describe("parseLayout", () => {
       pieces: {
         scoreboard: { x: 0.1, y: 0.8, scale: 1.5 },
         round: { x: 2, y: 0.5, scale: 1 },
-        timer: { x: 0.5, y: 0.5, scale: 9 },
-        count: { x: "0.5", y: 0.5, scale: 1 },
+        stake: { x: 0.5, y: 0.5, scale: 9 },
+        join: { x: "0.5", y: 0.5, scale: 1 },
         mystery: { x: 0.5, y: 0.5, scale: 1 },
       },
     });
     const layout = parseLayout(raw);
     expect(layout.scoreboard).toEqual({ x: 0.1, y: 0.8, scale: 1.5 });
     expect(layout.round).toEqual(DEFAULT_LAYOUT.round);
-    expect(layout.timer).toEqual(DEFAULT_LAYOUT.timer);
-    expect(layout.count).toEqual(DEFAULT_LAYOUT.count);
+    expect(layout.stake).toEqual(DEFAULT_LAYOUT.stake);
+    expect(layout.join).toEqual(DEFAULT_LAYOUT.join);
     expect(Object.keys(layout).sort()).toEqual([...PARTY_PIECES].sort());
   });
 
@@ -106,9 +106,9 @@ describe("layout settings", () => {
   });
 
   it("keeps known hidden pieces and a valid choice style only", () => {
-    const raw = JSON.stringify({ v: 1, pieces: {}, hidden: ["timer", "mystery", "choices"], choiceStyle: "row" });
-    expect(parseLayoutSettings(raw)).toEqual({ hidden: ["timer", "choices"], choiceStyle: "row" });
-    expect(parseLayoutSettings('{"hidden":"timer","choiceStyle":"diagonal"}')).toEqual(DEFAULT_SETTINGS);
+    const raw = JSON.stringify({ v: 1, pieces: {}, hidden: ["stake", "mystery", "choices"], choiceStyle: "row" });
+    expect(parseLayoutSettings(raw)).toEqual({ hidden: ["choices", "stake"], choiceStyle: "row" });
+    expect(parseLayoutSettings('{"hidden":"stake","choiceStyle":"diagonal"}')).toEqual(DEFAULT_SETTINGS);
   });
 
   it("round-trips, writing nothing extra for the defaults", () => {
@@ -121,6 +121,6 @@ describe("layout settings", () => {
     const listed = PIECE_CATEGORIES.flatMap((category) => [...category.pieces]);
     expect([...listed].sort()).toEqual([...PARTY_PIECES].sort());
     expect(categoryOf("choices")).toBe("choices");
-    expect(categoryOf("timer")).toBe("game");
+    expect(categoryOf("stake")).toBe("game");
   });
 });

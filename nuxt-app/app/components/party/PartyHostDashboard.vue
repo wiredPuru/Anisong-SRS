@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
+import { PALETTE_SHORTCUT_LABEL, type PartyPaletteCommand } from "~/utils/partyPalette";
 defineProps<{ displayUrl: string; controlUrls: string[]; isLoopback: boolean }>();
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
@@ -47,7 +48,7 @@ function toggleAmbient() {
 }
 
 const helpOpen = ref(false);
-usePartyHotkeys(
+const { actionContext } = usePartyHotkeys(
   state,
   send,
   () => {
@@ -58,6 +59,44 @@ usePartyHotkeys(
     if (target) tab.value = target.id;
   },
 );
+
+// Shift+P replaces the shortcuts list rather than opening under it.
+const commandBar = usePartyCommandBar(() => {
+  helpOpen.value = false;
+});
+const paletteLocal = computed(() => ({ ambientOn: ambientOn.value }));
+
+const FLASH_MS = 1200;
+const FIELD_SELECTOR = "input:not([type=checkbox]):not([type=radio]):not([type=range]):not(:disabled), textarea:not(:disabled)";
+
+async function jumpTo(command: PartyPaletteCommand) {
+  if (command.tab) tab.value = command.tab;
+  await nextTick();
+  const target = document.querySelector<HTMLElement>(`[data-palette-target="${command.target}"]`);
+  // A panel that only shows during a game may not be on the page; the pick just closes.
+  if (!target) return;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+  if (!reduced) {
+    target.classList.remove("palette-flash");
+    void target.offsetWidth;
+    target.classList.add("palette-flash");
+    window.setTimeout(() => target.classList.remove("palette-flash"), FLASH_MS);
+  }
+  if (command.kind === "jump") target.querySelector<HTMLElement>(FIELD_SELECTOR)?.focus({ preventScroll: true });
+}
+
+function onPick(command: PartyPaletteCommand) {
+  commandBar.remember(command.id);
+  commandBar.close();
+  if (command.local === "help") helpOpen.value = true;
+  else if (command.local === "ambient") toggleAmbient();
+  else if (command.run && state.value) {
+    const sent = command.run(state.value, actionContext());
+    if (sent) send(sent);
+  }
+  if (command.target && command.kind !== "action") void jumpTo(command);
+}
 </script>
 
 <template>
@@ -74,24 +113,25 @@ usePartyHotkeys(
       </span>
       <span class="dashboard-spacer" />
       <button type="button" class="link-btn" :aria-pressed="ambientOn" @click="toggleAmbient">Ambient: {{ ambientOn ? "on" : "off" }}</button>
+      <button type="button" class="link-btn" @click="commandBar.show()">Commands ({{ PALETTE_SHORTCUT_LABEL }})</button>
       <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>
 
     <div class="dashboard-grid">
       <div class="column queue-column">
-        <section v-if="state" class="panel">
+        <section v-if="state" class="panel" data-palette-target="add-songs">
           <h2 class="panel-title">Add songs</h2>
           <PartyQueueSearch :state="state" />
         </section>
-        <section v-if="hasGame && state" class="panel grow">
+        <section v-if="hasGame && state" class="panel grow" data-palette-target="queue">
           <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
         </section>
         <p v-else-if="state" class="panel panel-note">The queue shows here once a game starts.</p>
       </div>
 
       <div class="column main-column">
-        <section class="panel" aria-label="Now playing">
+        <section class="panel" aria-label="Now playing" data-palette-target="now-playing">
           <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
           <template v-else-if="hasGame && state">
             <PartyNowPlaying :state="state" @command="send" />
@@ -103,13 +143,13 @@ usePartyHotkeys(
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
 
-        <section v-if="hasGame && state" class="panel" aria-label="Preview and censor">
+        <section v-if="hasGame && state" class="panel" aria-label="Preview and censor" data-palette-target="censor">
           <PartyCensorPanel :state="state" @command="send" />
         </section>
 
         <section v-if="state" class="panel grow">
-          <PartyScoreboardPanel :state="state" @command="send" />
-          <PartyRulesPanel :state="state" @command="send" />
+          <PartyScoreboardPanel :state="state" data-palette-target="scoreboard" @command="send" />
+          <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />
         </section>
       </div>
 
@@ -131,17 +171,17 @@ usePartyHotkeys(
 
         <div class="tab-body">
           <template v-if="tab === 'round' && state">
-            <section class="panel"><PartyLightningPanel :state="state" @command="send" /></section>
-            <section class="panel"><PartyLivePanel :state="state" @command="send" /></section>
+            <section class="panel" data-palette-target="lightning"><PartyLightningPanel :state="state" @command="send" /></section>
+            <section class="panel" data-palette-target="live"><PartyLivePanel :state="state" @command="send" /></section>
           </template>
           <template v-else-if="tab === 'screen' && state">
-            <section class="panel"><PartyEffectsPanel :state="state" @command="send" /></section>
-            <section class="panel"><PartyRevealPanel :state="state" @command="send" /></section>
-            <section class="panel"><PartyShowPanel :state="state" @command="send" /></section>
+            <section class="panel" data-palette-target="effects"><PartyEffectsPanel :state="state" @command="send" /></section>
+            <section class="panel" data-palette-target="reveal-fields"><PartyRevealPanel :state="state" @command="send" /></section>
+            <section class="panel" data-palette-target="show"><PartyShowPanel :state="state" @command="send" /></section>
           </template>
           <template v-else-if="tab === 'players' && state">
-            <section class="panel"><PartyJoinPanel :state="state" @command="send" /></section>
-            <section class="panel connect">
+            <section class="panel" data-palette-target="join"><PartyJoinPanel :state="state" @command="send" /></section>
+            <section class="panel connect" data-palette-target="connect">
               <h2 class="panel-title">Connect a display or phone</h2>
               <dl class="links">
                 <dt>Display screen (open it on the computer running GAQ Party)</dt>
@@ -155,15 +195,23 @@ usePartyHotkeys(
             </section>
           </template>
           <!-- Kept mounted so a half-built game survives a look at another tab. -->
-          <section v-show="tab === 'game'" class="panel">
+          <section v-show="tab === 'game'" class="panel" data-palette-target="new-game">
             <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
           </section>
-          <section v-if="tab === 'game' && state" class="panel"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
+          <section v-if="tab === 'game' && state" class="panel" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
         </div>
       </div>
     </div>
 
     <PartyHotkeyHelp v-if="helpOpen" @close="helpOpen = false" />
+    <PartyCommandBar
+      v-if="commandBar.open.value"
+      :state="state"
+      :local="paletteLocal"
+      :recent="commandBar.recent.value"
+      @pick="onPick"
+      @close="commandBar.close()"
+    />
   </div>
 </template>
 

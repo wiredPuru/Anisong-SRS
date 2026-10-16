@@ -1,6 +1,6 @@
 import type { PartyHostCommand, PartyHostState } from "./usePartyHost";
-import { FULL_FRAME } from "~/utils/partyCensorBoxes";
-import { DEFAULT_HIDING_PICTURE, togglePicture } from "~/utils/partyPicture";
+import { DEFAULT_HIDING_PICTURE } from "~/utils/partyPicture";
+import { buildHostAction, hostActionForKey, type HostActionContext } from "~/utils/partyHostActions";
 import { parsePreviewLead } from "~/utils/partyPreview";
 
 export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
@@ -18,10 +18,9 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
   { keys: "1-4", action: "Round, Screen, Players, New game tabs" },
+  { keys: "Shift+P", action: "Command bar" },
   { keys: "?", action: "This list" },
 ];
-
-const TIMER_HOTKEY_SECONDS = 15;
 
 function storedPreviewLead(): number {
   try {
@@ -31,7 +30,7 @@ function storedPreviewLead(): number {
   }
 }
 
-function isTyping(target: EventTarget | null): boolean {
+export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
@@ -47,8 +46,13 @@ export function usePartyHotkeys(
   toggleHelp: () => void,
   selectTab: (index: number) => void = () => {},
 ) {
-  // The hiding picture V brings back; it follows whatever the host last had up.
-  let lastHidingPicture = DEFAULT_HIDING_PICTURE;
+  const context: HostActionContext = { lastHidingPicture: DEFAULT_HIDING_PICTURE, previewLead: 0 };
+
+  /** The context hotkeys build with, shared so the command bar's V follows the same hiding picture. */
+  function actionContext(): HostActionContext {
+    context.previewLead = storedPreviewLead();
+    return context;
+  }
 
   function onKeydown(event: KeyboardEvent) {
     if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing || isTyping(event.target)) return;
@@ -62,32 +66,9 @@ export function usePartyHotkeys(
       event.preventDefault();
       return;
     }
-    const current = state.value;
-    if (!current) return;
-    const hasGame = current.index >= 0 && current.queue.length > 0;
-    const key = event.key.toLowerCase();
-
-    let command: PartyHostCommand | null = null;
-    if (key === " " && hasGame) command = { type: current.playing ? "pause" : "play" };
-    else if (key === "r" && hasGame) command = { type: "reveal" };
-    else if ((key === "n" || key === "arrowright") && hasGame) command = { type: "next" };
-    else if ((key === "p" || key === "arrowleft") && hasGame) command = { type: "previous" };
-    else if (key === "e" && hasGame) {
-      const seconds = skipTarget(current.position?.duration);
-      if (seconds !== null) command = { type: "seek", seconds, skip: true };
-    } else if (key === "m") command = { type: "effects", target: "current", effects: { ...current.effects, muted: !current.effects.muted } };
-    else if (key === "b" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, blur: current.effects.blur > 0 ? 0 : 14 } };
-    else if (key === "x" && hasGame) command = { type: "effects", target: "current", effects: { ...current.effects, pixelate: current.effects.pixelate > 0 ? 0 : 24 } };
-    else if (key === "v" && hasGame) {
-      const toggled = togglePicture(current.effects.picture, lastHidingPicture);
-      lastHidingPicture = toggled.lastHiding;
-      command = { type: "effects", target: "current", effects: { ...current.effects, picture: toggled.picture } };
-    } else if (key === "c" && hasGame) {
-      command = current.censor
-        ? { type: "censor", censor: null, delay: storedPreviewLead() }
-        : { type: "censor", censor: { boxes: [FULL_FRAME], style: current.censorStyle, muted: false } };
-    } else if (key === "t" && hasGame) command = { type: "timer", seconds: TIMER_HOTKEY_SECONDS, autoReveal: true };
-    else if (key === "s") command = { type: "score", op: "show", visible: !current.scoreboard.visible };
+    const action = hostActionForKey(event.key);
+    if (!action) return;
+    const command = buildHostAction(action, state.value, actionContext());
     if (!command) return;
 
     event.preventDefault();
@@ -96,4 +77,6 @@ export function usePartyHotkeys(
 
   onMounted(() => window.addEventListener("keydown", onKeydown));
   onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
+
+  return { actionContext };
 }

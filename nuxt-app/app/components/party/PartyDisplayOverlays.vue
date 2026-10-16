@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import type { PartyBanner, PartyJoinInfo, PartyScoreRow, PartySongClock, PartyTimer } from "~/composables/usePartyDisplay";
+import type { PartyBanner, PartyJoinInfo, PartyScoreRow } from "~/composables/usePartyDisplay";
 
 const props = defineProps<{
-  timer: PartyTimer | null;
-  // Time left in the song, shown when no host timer is running.
-  songClock?: PartySongClock | null;
-  guessing: boolean;
   scoreboard: PartyScoreRow[] | null;
   rules: string | null;
   banner: PartyBanner | null;
@@ -34,18 +30,7 @@ onBeforeUnmount(() => {
   if (ticker) clearInterval(ticker);
 });
 
-const hostSecondsLeft = computed(() => (props.timer ? Math.max(0, Math.ceil((props.timer.endsAt - now.value) / 1000)) : null));
-const songSecondsLeft = computed(() => {
-  const clock = props.songClock;
-  if (!clock) return null;
-  const left = clock.playing ? clock.left - (now.value - clock.at) / 1000 : clock.left;
-  return Math.max(0, Math.ceil(left));
-});
-const usingHostTimer = computed(() => props.guessing && hostSecondsLeft.value !== null);
-const secondsLeft = computed(() => (usingHostTimer.value ? hostSecondsLeft.value : songSecondsLeft.value));
-const showTimer = computed(() => secondsLeft.value !== null && (usingHostTimer.value || secondsLeft.value > 0));
 const { isHidden } = usePartyLayout();
-const formatClock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 const buzzName = computed(() => props.answering ?? (props.arranging ? SAMPLE_BUZZER : null));
 const bannerText = computed(() => (showBanner.value && props.banner ? props.banner.text : props.arranging ? SAMPLE_BANNER : null));
 const showBanner = computed(() => Boolean(props.banner && now.value - props.banner.shownAt < BANNER_MS));
@@ -53,20 +38,10 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
 
 <template>
   <div class="overlays">
-    <PartyLayoutFrame v-if="showTimer || arranging" piece="timer">
-      <div class="timer" :class="{ done: showTimer && secondsLeft === 0, urgent: usingHostTimer && secondsLeft !== null && secondsLeft <= 3, song: showTimer && !usingHostTimer }">
-        <span v-if="!showTimer">{{ SAMPLE_TIMER_SECONDS }}</span>
-        <span v-else-if="secondsLeft && !usingHostTimer">{{ formatClock(secondsLeft) }}</span>
-        <span v-else-if="secondsLeft">{{ secondsLeft }}</span>
-        <span v-else class="timer-done">Time's up!</span>
-      </div>
-    </PartyLayoutFrame>
-
     <PartyLayoutFrame v-if="board || rulesShown" piece="scoreboard">
       <aside class="scoreboard" aria-label="Scoreboard">
         <PartyRulesCard v-if="rulesShown" :text="rulesShown" :divided="Boolean(board)" />
         <template v-if="board">
-          <p class="kai-banner kai-banner-neutral scoreboard-title">Scores</p>
           <ol class="scoreboard-list">
             <li v-for="(player, index) in board" :key="player.id" class="scoreboard-item" :class="{ team: player.memberRows }">
               <div class="scoreboard-row" :class="{ leader: index === 0 && player.score > 0, 'team-row': player.memberRows }">
@@ -129,38 +104,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   color: var(--accent);
 }
 
-.timer {
-  min-width: 2.2em;
-  padding: 0.15em 0.5em;
-  border: 3px solid var(--outline);
-  border-radius: var(--radius);
-  background: var(--glass-surface-panel);
-  font-family: var(--font-display);
-  font-size: clamp(32px, 5vw, 8.15vh);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The song's own time left reads quieter than a host countdown. */
-.timer.song {
-  font-size: clamp(24px, 3.5vw, 5.7vh);
-  opacity: 0.85;
-}
-
-.timer.urgent {
-  border-color: var(--fail);
-  color: var(--fail);
-}
-
-.timer.done {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.timer-done {
-  font-size: 0.6em;
-}
-
 .scoreboard {
   width: min(33.3vh, 40vw);
   display: flex;
@@ -171,11 +114,6 @@ const showBanner = computed(() => Boolean(props.banner && now.value - props.bann
   border-radius: var(--radius);
   background: var(--glass-surface-panel);
   box-shadow: var(--shadow-soft);
-}
-
-.scoreboard-title {
-  align-self: flex-start;
-  font-size: clamp(16px, 1.6vw, 2.41vh);
 }
 
 .scoreboard-list {

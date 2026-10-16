@@ -360,8 +360,7 @@ onUnmounted(() => {
                   :disabled="submitting"
                   @change="toggleAnime(anime.id)"
                 />
-                <NetworkImage v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
-                <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
+                <CoverArt :src="anime.coverImageUrl" :label="anime.titleRomaji" :seed="anime.id" class="anime-cover" />
                 <span class="anime-text">
                   <span class="anime-title">{{ anime.titleRomaji }}</span>
                   <span class="anime-meta">{{ animeMeta(anime) }}</span>
@@ -400,8 +399,7 @@ onUnmounted(() => {
                       :disabled="submitting"
                       @change="toggleAniList(anime.aniListId)"
                     />
-                    <NetworkImage v-if="anime.coverImageUrl" :src="anime.coverImageUrl" alt="" class="anime-cover" loading="lazy" />
-                    <span v-else class="anime-cover anime-cover-empty" aria-hidden="true" />
+                    <CoverArt :src="anime.coverImageUrl" :label="anime.titleRomaji" :seed="anime.aniListId" class="anime-cover" />
                     <span class="anime-text">
                       <span class="anime-title">{{ anime.titleRomaji }}</span>
                       <span class="anime-meta">{{ browseAnimeMeta(anime) }}</span>
@@ -649,10 +647,6 @@ h2 {
   flex-shrink: 0;
   border-radius: var(--radius-xs);
   object-fit: cover;
-}
-
-.anime-cover-empty {
-  background: var(--surface-raised);
 }
 
 .anime-text {

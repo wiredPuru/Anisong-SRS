@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import type { PartyPositionReport, PartySongClock } from "~/composables/usePartyDisplay";
+import type { PartyPositionReport } from "~/composables/usePartyDisplay";
+import "~/assets/css/party-display-moe.css";
 definePageMeta({ layout: "party" });
-useHead({ title: "GAQ Party" });
+const { canUseRemote } = useNetworkMode();
+// The display's chunky title face; without it the theme falls back to the
+// rounded body font already loaded app-wide.
+useHead(() => ({
+  title: "GAQ Party",
+  link: canUseRemote.value ? [{ rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" }] : [],
+}));
+
+// The lobby ticker repeats its phrase so one copy always fills the band while
+// the other scrolls in behind it.
+const TICKER = "♪ GAQ PARTY ☆ GUESS THE ANIME ☆ アニソン クイズ ☆ ";
+const tickerRun = Array.from({ length: 6 }, () => TICKER);
+
 
 const { state, connected, connect, reportPosition } = usePartyDisplay();
 
-// The song's own time left, so the timer piece has something to count down
-// whenever the host has not started a timer of their own.
-const songClock = ref<PartySongClock | null>(null);
 function onPosition(report: PartyPositionReport) {
   reportPosition(report);
-  songClock.value = report.duration
-    ? { token: report.token, left: Math.max(0, report.duration - report.currentTime), at: Date.now(), playing: report.playing }
-    : null;
 }
-const currentSongClock = computed(() => (songClock.value && songClock.value.token === state.value?.item?.token ? songClock.value : null));
 
 // Browsers block audio until the page is clicked once, so the screen waits
 // for that click before following the host at all.
@@ -153,13 +159,25 @@ onBeforeUnmount(() => {
 
 <template>
   <main
-    class="display"
+    class="display moe-theme"
     :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
     @mousemove="onPointerMove"
     @pointerdown="onPointerDown"
     @click="onClick"
     @dblclick="onDoubleClick"
   >
+    <div class="moe-sky" aria-hidden="true">
+      <template v-if="!started || !state?.item">
+        <span v-for="index in 7" :key="index" class="moe-star">✦</span>
+        <div class="moe-band moe-band-top">
+          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
+        </div>
+        <div class="moe-band moe-band-bottom">
+          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
+        </div>
+      </template>
+    </div>
+
     <button v-if="!started" type="button" class="display-start" @click="start">
       <MascotKai pose="wave" size="hero" />
       <span class="kai-banner kai-banner-pass display-start-banner">Click to start</span>
@@ -188,9 +206,6 @@ onBeforeUnmount(() => {
     />
 
     <template v-if="started && state?.item">
-      <PartyLayoutFrame piece="count">
-        <p class="display-count">{{ state.item.number }} / {{ state.item.total }}</p>
-      </PartyLayoutFrame>
       <PartyLayoutFrame v-if="state.stake" piece="stake">
         <PartyStakeBadge :stake="state.stake" />
       </PartyLayoutFrame>
@@ -225,9 +240,6 @@ onBeforeUnmount(() => {
         <PartyRoundPoints :rows="roundRows" />
       </PartyLayoutFrame>
       <PartyDisplayOverlays
-        :timer="state.timer"
-        :song-clock="state.item ? currentSongClock : null"
-        :guessing="state.phase === 'guessing'"
         :scoreboard="scores?.scoreboard ?? null"
         :rules="state.rules"
         :banner="state.banner"
@@ -239,9 +251,6 @@ onBeforeUnmount(() => {
 
     <!-- Stand-ins for pieces with nothing on screen, only while arranging. -->
     <template v-if="started && arranging">
-      <PartyLayoutFrame v-if="!state?.item" piece="count">
-        <p class="display-count">{{ SAMPLE_COUNT.number }} / {{ SAMPLE_COUNT.total }}</p>
-      </PartyLayoutFrame>
       <PartyLayoutFrame v-if="!state?.answer" piece="reveal">
         <PartyRevealOverlay :answer="SAMPLE_ANSWER" />
       </PartyLayoutFrame>
@@ -449,15 +458,5 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--muted);
   font-size: clamp(14px, 1.6vw, 2.04vh);
-}
-
-.display-count {
-  margin: 0;
-  padding: 6px 16px;
-  border: 2px solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--glass-surface-panel);
-  font-family: var(--font-display);
-  font-size: clamp(14px, 1.4vw, 2.04vh);
 }
 </style>

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash b5222eec1330b7afe9d97899868c4fd711bf8c0eeb31ca130ca2a2e8c65fc5a2 -->
+<!-- blueprint:source-hash f66e0a8286e076fe7234ee8a357b0c97ac7e8bc87a9cb4be2363bfc2703a88a7 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -357,6 +357,12 @@ Feature 106 (anime title opens a Cards search) was added to `build-plan.md` on
 new tab, `/cards` with the search pre-filled with the anime's romaji title.
 No `project-plan.md` change: it adds a link to existing surfaces, like
 feature 105.
+Feature 108 (host command bar) was added to `build-plan.md` on 2026-10-16.
+Shift+P on `/party/host` opens a VS Code style command palette
+that searches every host action, setting, and panel: a toggle such as Pixelate
+flips and scrolls to its control, and a panel such as Add songs is jumped to.
+No `project-plan.md` change: it is a control on feature 86/90's existing host
+panel, like features 93 and 102.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2663,7 +2669,7 @@ feature 105.
       Uses stored anime metadata before provider lookups, preserves it, and
       offers explicit online refresh. Archived in
       `history/features/107a-local-first-anime-metadata-resolution.md`.
-    - **107b. Offline mode** - a persisted Settings toggle suppresses external
+    - **107b. Offline mode** - done. A persisted Settings toggle suppresses external
       provider requests from both server and browser, including backfills,
       remote images, and media. Local app and party LAN requests still work.
     - **107c. Offline UX and verification** - explain unavailable discovery,
@@ -2672,6 +2678,22 @@ feature 105.
     Backup/restore, internal-identity migration, catalog mirroring, and provider
     permissions are not part of this feature. Existing storage-policy
     compliance needs separate review; this plan does not claim permission.
+
+108. **Host command bar** - added to `build-plan.md` 2026-10-16, done
+    2026-10-16. Shift+P (outside a text field) on `/party/host` opens a searchable command palette over
+    every host action, setting, and panel, with typo-tolerant matching, arrow
+    keys or the mouse to pick, and Esc to close. A toggle (Pixelate, Blur, Mute,
+    Buzzer mode, ...) flips and then scrolls to its control with a brief
+    highlight; a one-shot action (Next song, Reveal, Skip to end) runs and
+    closes; a panel ("add songs", "scoreboard", "lightning") switches tab if
+    needed and scrolls there, focusing its first field. Results show their
+    On/Off state and hotkey, and the last few picks are listed first when the
+    bar opens empty, kept in that browser's `localStorage`. It sends only the
+    commands the panel's own buttons and hotkeys already send: no server or
+    party state change. It first shipped on Cmd/Ctrl+P, then moved to Shift+P
+    the same day so the browser's Print shortcut is left alone. Decided at intake: toggle and jump together; scope is every
+    hotkey action, the panels' on/off settings, and every panel as a jump
+    target, with player names left for later.
 
 ## Data model
 

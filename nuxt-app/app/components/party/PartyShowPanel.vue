@@ -85,7 +85,7 @@ function setMusic(patch: { enabled?: boolean; volume?: number }) {
 
     <div class="show-block">
       <p class="block-label">Lobby music</p>
-      <div class="row">
+      <div class="row" data-palette-target="music">
         <label class="check">
           <input type="checkbox" :checked="state.music.enabled" @change="setMusic({ enabled: ($event.target as HTMLInputElement).checked })" />
           Play between songs
