@@ -1313,7 +1313,7 @@ cleaned-up checkbox version before generating the project overview.
     /api/kanji/story`, an editable story box in the detail view, and a marker
     on tiles and chips that have a story.
 
-- [ ] 111. **Kanji Study** - add kanji from the Japanese breakdown (109/110)
+- [x] 111. **Kanji Study** - add kanji from the Japanese breakdown (109/110)
   to a personal kanji deck and study them with the same Leitner boxes as
   cards, in a fun mode where the anime clips keep playing in the background.
   Shown only while Settings > Japanese breakdown is on. Kanji-only, with its
@@ -1323,7 +1323,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 111b. Add from the breakdown - an "Add to Kanji Study" button on kanji
     tiles, part chips and the detail view (with an "Added" state), plus a
     "Kanji Study" rail entry, both hidden when the breakdown setting is off.
-  - [ ] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a
+  - [x] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a
     background of random library clips, self-graded Pass/Fail.
 
 ## Plan maintenance

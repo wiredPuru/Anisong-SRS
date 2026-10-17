@@ -2752,7 +2752,7 @@ panel, like features 93 and 102.
       and a dot on every tile and part chip that has a story.
 
 111. **Kanji Study** - added to `build-plan.md` 2026-10-17, in three
-    sub-features, none built. Kanji from the Japanese breakdown (109/110) can be
+    sub-features, all built. Kanji from the Japanese breakdown (109/110) can be
     added to a personal kanji deck and studied with the same Leitner boxes as
     cards, as a fun mode with random library clips playing in the background.
     Everything is hidden while Settings > Japanese breakdown is off. Kanji have
@@ -2773,8 +2773,14 @@ panel, like features 93 and 102.
       and a bare stroke shape gets no button), and a "Kanji" rail link to `/kanji`,
       all gated on Settings > Japanese breakdown (`useJapaneseBreakdownSetting`).
       `/kanji` has no page until 111c.
-    - **111c. Kanji Study page** - `/kanji`: due kanji flashcards over background
-      clips.
+    - **111c. Kanji Study page** - done 2026-10-17. `/kanji` shows the next due
+      kanji, Reveal (Space or Enter) then keyword, readings, strokes, RTK frame,
+      parts, box and the user's story, and Missed or Got it (Left or Right Arrow)
+      through `POST /api/kanji/cards/review`, with "N left" and a session tally.
+      Beside it, random library clips (`POST /api/listen/queue`, shuffled,
+      filtered by Clip source) play in `StudyMediaPlayer` and advance on end or
+      Skip clip. Gated on Settings > Japanese breakdown. Hotkeys are fixed, not
+      in the rebindable registry.
 
 ## Data model
 
@@ -2952,7 +2958,7 @@ Feature 110b (built, migration `0041`). A personal mnemonic per character, indep
 
 ### KanjiCard
 
-Feature 111a (planned). One Leitner track per added character, independent of
+Feature 111a (built, migration `0040`). One Leitner track per added character, independent of
 `Card`, `CardTrack` and `ReviewLog`.
 
 - `char` (text, PK) - a single kanji present in the bundled dictionary
