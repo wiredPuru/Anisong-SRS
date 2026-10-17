@@ -229,6 +229,28 @@ export function setThemesOnly(enabled: boolean): { error: string } | { themesOnl
   return { themesOnly: enabled };
 }
 
+export function getPlayableOfflineOnly(): boolean {
+  const row = db
+    .select({ playableOfflineOnly: mediaLibrarySettings.playableOfflineOnly })
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.playableOfflineOnly ?? false;
+}
+
+export function setPlayableOfflineOnly(enabled: unknown): { error: string } | { playableOfflineOnly: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "enabled is required and must be a boolean" };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, playableOfflineOnly: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { playableOfflineOnly: enabled } })
+    .run();
+
+  return { playableOfflineOnly: enabled };
+}
+
 export function getIncludeInsertSongs(): boolean {
   const row = db
     .select()

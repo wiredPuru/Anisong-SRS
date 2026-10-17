@@ -267,6 +267,13 @@
       "when": 1792000435123,
       "tag": "0037_anime_studios",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792274888271,
+      "tag": "0038_groovy_echo",
+      "breakpoints": true
     }
   ]
 }

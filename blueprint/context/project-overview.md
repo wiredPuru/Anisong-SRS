@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash e3983d149b9a4615dfad128c8672aa7137ab5826757a7387ec346e2966af8099 -->
+<!-- blueprint:source-hash 92010c83936ad65530254e13c0ac663832ada61d11e95547a7dc8b9e6d869e0b -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2660,7 +2660,7 @@ panel, like features 93 and 102.
     inspector keep that same-tab link. Follows Hide Info like the artist link.
     No server change and no `project-plan.md` change.
 
-107. **Offline-first library** - approved 2026-10-12, partially built. Saved anime
+107. **Offline-first library** - approved 2026-10-12, built in full 2026-10-17. Saved anime
     metadata and local assets remain usable without external providers; new
     discovery and deliberate metadata refresh remain online operations. Uses
     the existing SQLite library, downloaded clips, and local cover support,
@@ -2672,10 +2672,10 @@ panel, like features 93 and 102.
     - **107b. Offline mode** - done. A persisted Settings toggle suppresses external
       provider requests from both server and browser, including backfills,
       remote images, and media. Local app and party LAN requests still work.
-    - **107c. Offline notices** - every online-only surface (discovery, list
+    - **107c. Offline notices** - done 2026-10-17. Every online-only surface (discovery, list
       imports, browse, artist catalog, Settings backfills, update checks,
       Party catalog) says it needs online mode instead of erroring.
-    - **107d. Offline play** - Study, Listen, and Party explain undownloaded
+    - **107d. Offline play** - done 2026-10-17. Study, Listen, and Party explain undownloaded
       clips; an opt-in "Playable offline only" choice, shown only offline;
       library-only typed-answer suggestions offline; verified end to end.
       Split from 107c on 2026-10-17.
@@ -2907,6 +2907,10 @@ Singleton row (`id` always `1`).
   clip files may be streamed or downloaded from.
 - `includeInsertSongs` (boolean, not null, default `false`) - added in
   feature 85a. Whether imports keep AnisongDB insert songs.
+- `playableOfflineOnly` (boolean, not null, default `false`) - added in
+  feature 107d (migration `0038`). Only effective while `offlineMode` is on:
+  Study, Listen and Party then leave out cards with no usable local file and no
+  complete cached clip.
 - `themesOnly` (boolean, not null, default `false`) - added by the
   `themes-only-mode` fix (2026-09-21). Off: any AnisongDB song can be added
   and studied. On: Study and due counts only serve cards whose

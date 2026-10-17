@@ -1,5 +1,6 @@
 import { getCardsByIds } from "../../utils/cards.ts";
 import { orderCardsByIds } from "../../utils/listenQueue.ts";
+import { offlineHiddenCount } from "../../utils/offlinePlayable.ts";
 import { listPartyCardIds, parsePartySource, pickPartyQueue } from "../../utils/partySources.ts";
 
 export default defineEventHandler(async (event) => {
@@ -8,5 +9,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: source.error });
   }
   const { cardIds, total } = pickPartyQueue(listPartyCardIds(source.scope, source.filters), source.shuffle);
-  return { cards: orderCardsByIds(cardIds, getCardsByIds(cardIds)), total };
+  return { cards: orderCardsByIds(cardIds, getCardsByIds(cardIds)), total, offlineHidden: offlineHiddenCount() };
 });

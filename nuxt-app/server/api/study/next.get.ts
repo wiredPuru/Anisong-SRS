@@ -7,6 +7,7 @@ import {
   getWithheldNewCount,
 } from "../../utils/cards.ts";
 import { getAnimeLabel, getArtistLabel, getManualDeckLabel, resolveScopeCriterion } from "../../utils/decks.ts";
+import { offlineHiddenCount } from "../../utils/offlinePlayable.ts";
 import { parseGradingCriterion } from "../../utils/gradingCriterion.ts";
 import { parseStudyFilters } from "../../utils/studyFilters.ts";
 import { parseBuriedCardIds, parsePreferredCardId, parseRecentCardIds } from "../../utils/studyRecent.ts";
@@ -79,6 +80,7 @@ export default defineEventHandler((event) => {
     card: nextCard ?? practiceCard ?? null,
     practice: practiceCard !== undefined,
     criterion,
+    offlineHidden: offlineHiddenCount(),
     newCardsToday: getNewCardsTodayInfo(criterion),
     dueCount: getDueCardCount(scope, includeNewBeyondLimit, criterion, filters, buriedIds),
     withheldNewCount: getWithheldNewCount(scope, criterion, filters),

@@ -9,6 +9,7 @@ const { data, pending, error, refresh } = await useFetch<{
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
   offlineMode: boolean;
+  playableOfflineOnly: boolean;
   themesOnly: boolean;
   includeInsertSongs: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
@@ -288,6 +289,7 @@ async function importDeck() {
           <div class="section-panels">
             <template v-if="activeSection === 'library'">
               <SettingsOfflineModeControl :enabled="data.offlineMode" />
+              <SettingsPlayableOfflineControl v-if="data.offlineMode" :enabled="data.playableOfflineOnly" @saved="refresh" />
               <div class="panel panel-full">
                 <div class="panel-header">
                   <span class="panel-title">Local folders</span>

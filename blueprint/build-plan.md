@@ -1246,7 +1246,7 @@ cleaned-up checkbox version before generating the project overview.
   (new tab), and the link still follows Hide Info so it never reveals the
   answer early.
 
-- [ ] 107. **Offline-first library** - use saved anime metadata first,
+- [x] 107. **Offline-first library** - use saved anime metadata first,
   provide an explicit offline mode that prevents external provider requests,
   and clearly distinguish available local content from online-only discovery.
   - [x] 107a. **Local-first metadata resolution** - resolve imported anime
@@ -1260,7 +1260,7 @@ cleaned-up checkbox version before generating the project overview.
     backfills and refreshes, update checks, and Party catalog search) says
     it needs online mode, with a link to Settings, instead of firing a
     request and showing a generic error. Local library use is never blocked.
-  - [ ] 107d. **Offline play** - Study, Listen, and Party explain a clip that
+  - [x] 107d. **Offline play** - Study, Listen, and Party explain a clip that
     is not downloaded; an opt-in "Playable offline only" choice, shown only
     while offline, leaves cards with no local file or complete cached clip
     out of Study and Listen, with a count; typed-answer suggestions come

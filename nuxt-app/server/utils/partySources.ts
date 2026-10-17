@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { anime, artist, card, song } from "../db/schema.ts";
 import { scopeFilter, type StudyScope } from "./cards.ts";
 import type { EndlessCandidate } from "./partyEndless.ts";
+import { offlinePlayableCondition } from "./offlinePlayable.ts";
 import { PARTY_LOAD_MAX } from "./partyGame.ts";
 import { parseStudyFilters, studyFilterCondition, type StudyFilters } from "./studyFilters.ts";
 import { orderByMix, typeOfSlot } from "./themeMix.ts";
@@ -69,7 +70,7 @@ export function listPartyCards(
     .innerJoin(song, eq(card.songId, song.id))
     .innerJoin(artist, eq(song.artistId, artist.id))
     .innerJoin(anime, eq(song.animeId, anime.id))
-    .where(and(scopeFilter(scope), studyFilterCondition(filters), downloaded))
+    .where(and(scopeFilter(scope), studyFilterCondition(filters), downloaded, offlinePlayableCondition()))
     .orderBy(asc(anime.titleRomaji), asc(song.themeSlot))
     .all();
 }

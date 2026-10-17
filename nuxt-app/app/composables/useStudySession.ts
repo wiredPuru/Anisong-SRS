@@ -69,6 +69,7 @@ export function useStudySession(
   const presentationKey = ref(0);
   const newCardsToday = ref<NewCardsToday | null>(null);
   const dueCount = ref(0);
+  const offlineHidden = ref(0);
   // How many never-reviewed cards the daily cap is holding back right now.
   // Drives whether Study offers "Study new cards" at all.
   const withheldNewCount = ref(0);
@@ -110,6 +111,7 @@ export function useStudySession(
         newCardsToday: NewCardsToday;
         practice?: boolean;
         dueCount: number;
+        offlineHidden?: number;
         withheldNewCount: number;
         upcoming: CardWithDetails[];
       }>("/api/study/next", {
@@ -132,6 +134,7 @@ export function useStudySession(
       sessionComplete.value = result.card === null;
       newCardsToday.value = result.newCardsToday;
       dueCount.value = result.dueCount;
+      offlineHidden.value = result.offlineHidden ?? 0;
       withheldNewCount.value = result.withheldNewCount;
       if (result.card) presentationKey.value += 1;
 
@@ -269,6 +272,7 @@ export function useStudySession(
     presentationKey,
     newCardsToday,
     dueCount,
+    offlineHidden,
     withheldNewCount,
     criterion,
     infinite,

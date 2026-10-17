@@ -7,6 +7,7 @@ import { countAnimeCoversNotLocal } from "../utils/coverSaveLocal.ts";
 import {
   getAutoDownload,
   getOfflineMode,
+  getPlayableOfflineOnly,
   getThemesOnly,
   getIncludeInsertSongs,
   getBoxOneStreakRequired,
@@ -30,6 +31,7 @@ export default defineEventHandler(() => {
     playbackMode: getPlaybackMode(),
     autoDownload: getAutoDownload(),
     offlineMode: getOfflineMode(),
+    playableOfflineOnly: getPlayableOfflineOnly(),
     themesOnly: getThemesOnly(),
     includeInsertSongs: getIncludeInsertSongs(),
     clipSource: getClipSource(),

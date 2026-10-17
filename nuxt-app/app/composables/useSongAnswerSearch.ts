@@ -1,3 +1,4 @@
+import { answerSearchRoute } from "../utils/answerSearchRoute";
 import { useAnswerSearch } from "./useAnswerSearch";
 
 // Hand-mirrors SongAnswerOption in server/utils/songAnswerOptions.ts, per the
@@ -11,12 +12,16 @@ export interface SongAnswerOption {
 
 type Search = (query: string) => Promise<SongAnswerOption[]>;
 
-export function useSongAnswerSearch(search: Search = async (q) => {
-  const response = await $fetch<{ results: SongAnswerOption[] }>("/api/lookup/song-answer-search", { query: { q } });
-  return response.results;
-}) {
+export function useSongAnswerSearch(search?: Search) {
+  // Only the default route needs the network mode; an injected search stays free of Nuxt.
+  const offlineMode = search ? null : useNetworkMode().offlineMode;
+  const run: Search = search ?? (async (q) => {
+    const route = answerSearchRoute("song", offlineMode!.value, "/api/lookup/song-answer-search", q);
+    const response = await $fetch<{ results: SongAnswerOption[] }>(route.path, { query: route.query });
+    return response.results;
+  });
   return useAnswerSearch<SongAnswerOption>({
-    search,
+    search: run,
     key: (option) => option.key || null,
     errorMessage: "Song search is unavailable. Try typing again.",
   });

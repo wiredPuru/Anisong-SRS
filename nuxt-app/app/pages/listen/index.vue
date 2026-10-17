@@ -77,6 +77,7 @@ const {
   error,
   skippedCount,
   capped,
+  offlineHidden,
   presentationKey,
   next,
   previous,
@@ -266,7 +267,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     <div v-else-if="total === 0" class="state">
       <MascotKai pose="surprised" class="state-mascot" />
       <strong class="state-title">No songs match</strong>
-      <span v-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song has" : "songs have" }} no playable clip with your Clip source setting.</span>
+      <span v-if="offlineHidden"><OfflineHiddenNote :count="offlineHidden" />. Turn off Playable offline only in Settings to bring them back.</span>
+      <span v-else-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song has" : "songs have" }} no playable clip with your Clip source setting.</span>
       <span v-else-if="activeFilterCount">Nothing in this playlist matches your filters.</span>
       <span v-else>There is nothing to play here yet.</span>
       <div v-if="activeFilterCount" class="state-actions">
@@ -356,7 +358,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <span class="tooltip">Details &middot; D</span>
           </button>
         </div>
-        <p v-if="skippedCount || capped" class="header-note">
+        <p v-if="skippedCount || capped || offlineHidden" class="header-note">
+          <OfflineHiddenNote :count="offlineHidden" />
           <template v-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song was" : "songs were" }} left out: no playable clip with your Clip source setting.</template>
           <template v-if="capped"> Showing the first {{ total + skippedCount }} songs.</template>
         </p>

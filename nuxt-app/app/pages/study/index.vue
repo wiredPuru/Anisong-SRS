@@ -140,6 +140,7 @@ const {
   presentationKey,
   newCardsToday,
   dueCount,
+  offlineHidden,
   withheldNewCount,
   criterion,
   infinite,
@@ -1314,6 +1315,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <span><strong>{{ quizScore.bestCombo }}x</strong> best combo</span>
         </div>
       </div>
+      <p v-if="offlineHidden > 0" class="offline-hidden-line"><OfflineHiddenNote :count="offlineHidden" />. Turn off Playable offline only in Settings to bring them back.</p>
       <button type="button" class="study-new-btn" @click="infinite = true">
         Keep going (infinite mode)
         <span class="tooltip">Keep practicing this deck past what is due. Practice answers never change your schedule or stats.</span>
@@ -1356,6 +1358,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <span class="counts">
             <template v-if="practice">Infinite practice</template>
             <template v-else>{{ dueCount }} left</template>
+            <template v-if="offlineHidden > 0"> &middot; <OfflineHiddenNote :count="offlineHidden" /></template>
           </span>
           <div v-if="newCardsToday" ref="newCardLimitPopoverRef" class="new-card-chip-wrap">
             <span class="sep" aria-hidden="true">&middot;</span>

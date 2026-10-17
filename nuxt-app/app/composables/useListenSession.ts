@@ -7,6 +7,7 @@ const PREFETCH_AHEAD = 2;
 interface ListenQueueResponse {
   cards: CardWithDetails[];
   total: number;
+  offlineHidden?: number;
 }
 
 // A playlist over a scope: no grading and no schedule, so unlike
@@ -26,6 +27,7 @@ export function useListenSession(
   const error = ref<string | null>(null);
   const skippedCount = ref(0);
   const capped = ref(false);
+  const offlineHidden = ref(0);
   // Bumped on every song shown, even a repeat of the same card, so the player
   // always gets a fresh mount.
   const presentationKey = ref(0);
@@ -49,6 +51,7 @@ export function useListenSession(
       cards.value = playable;
       skippedCount.value = result.cards.length - playable.length;
       capped.value = result.total > result.cards.length;
+      offlineHidden.value = result.offlineHidden ?? 0;
       index.value = 0;
       finished.value = false;
       presentationKey.value += 1;
@@ -122,6 +125,7 @@ export function useListenSession(
     error,
     skippedCount,
     capped,
+    offlineHidden,
     presentationKey,
     next,
     previous,

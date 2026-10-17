@@ -18,3 +18,11 @@ export function networkMediaKind(options: {
   if (prefersAudio && options.hasAudio) return "audio";
   return options.hasVideo ? "video" : "audio";
 }
+
+export const OFFLINE_CLIP_MESSAGE = "This clip isn't downloaded, and Offline mode is on.";
+
+// Offline, the stream route only ever serves a complete cached copy, so a
+// stream URL that fails to load is a clip that isn't saved here.
+export function isOfflineUncachedFailure(offlineMode: NetworkMode, failedSrc: string | null | undefined): boolean {
+  return offlineMode === true && Boolean(failedSrc) && new URL(failedSrc!, "http://localhost").pathname === "/api/media/stream";
+}

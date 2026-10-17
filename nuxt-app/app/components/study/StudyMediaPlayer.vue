@@ -2,7 +2,7 @@
 import type { CardWithDetails } from "~/composables/useStudySession";
 import type { HotkeyScope } from "~/utils/hotkeys";
 import { networkImageSrc } from "~/utils/networkImage";
-import { networkMediaKind } from "~/utils/networkPlayback";
+import { isOfflineUncachedFailure, networkMediaKind, OFFLINE_CLIP_MESSAGE } from "~/utils/networkPlayback";
 
 const props = defineProps<{
   card: Pick<
@@ -108,6 +108,8 @@ const hasAudioSource = computed(() => Boolean(localAudioPath.value) || remoteAud
 // per-card (reset below), so the choice never carries to the next card -
 // only the Audio Only setting switches playback for a whole session.
 const failedKind = ref<"video" | "audio" | null>(null);
+// The failure is a stream the cache cannot serve offline, so downloading cannot help.
+const failedOffline = ref(false);
 const audioFallbackChosen = ref(false);
 watch(
   () => props.card.id,
@@ -459,7 +461,10 @@ function onError(event: Event) {
   settleBuffering();
   const kind = mediaKind.value;
   failedKind.value = kind;
-  errorMessage.value = kind === "video" ? "Video failed to load." : "Couldn't load this clip.";
+  failedOffline.value = isOfflineUncachedFailure(offlineMode.value, el.currentSrc || el.getAttribute("src"));
+  errorMessage.value = failedOffline.value
+    ? OFFLINE_CLIP_MESSAGE
+    : kind === "video" ? "Video failed to load." : "Couldn't load this clip.";
 }
 
 // The browser reaching a playable state retracts whatever failure is on
@@ -475,6 +480,7 @@ function markPlayable() {
 function clearFailure() {
   errorMessage.value = null;
   failedKind.value = null;
+  failedOffline.value = false;
 }
 
 // Clears a stale error the moment the media source actually changes - covers
@@ -632,7 +638,8 @@ function playIfPaused() {
     const quiet = quietPlay;
     quietPlay = false;
     if (quiet && error?.name === "NotAllowedError") return;
-    errorMessage.value = "Couldn't play this clip.";
+    failedOffline.value = isOfflineUncachedFailure(offlineMode.value, el.currentSrc || el.getAttribute("src"));
+    errorMessage.value = failedOffline.value ? OFFLINE_CLIP_MESSAGE : "Couldn't play this clip.";
     // Without a kind the veil below renders its message and no actions at
     // all, which is the dead end this fix exists to remove.
     failedKind.value = mediaKind.value;
@@ -1210,7 +1217,7 @@ onUnmounted(() => stopDrag?.());
         <!-- Only the kind that actually failed is offered here. Rendering both
              is what put "Download audio" under a video failure whose audio was
              never the problem. -->
-        <div v-if="failedKind && !failedKindBlocked && hasAnyDownloadableSource(card)" class="download-section">
+        <div v-if="failedKind && !failedKindBlocked && !failedOffline && hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
             <template v-if="canDownload(card, failedKind)">
               <DownloadProgress
@@ -1239,6 +1246,12 @@ onUnmounted(() => stopDrag?.());
             Set a <NuxtLink to="/settings">default download folder</NuxtLink> to enable downloads.
           </p>
           <p v-if="downloadError[card.id]" class="download-error">{{ downloadError[card.id] }}</p>
+        </div>
+        <div v-else-if="failedOffline" class="download-section">
+          <p class="clip-blocked-hint">
+            Turn off <NuxtLink to="/settings?section=library">Offline mode</NuxtLink> to stream it, or download this
+            card's clips while online.
+          </p>
         </div>
         <div v-else-if="failedKindBlocked" class="download-section">
           <p class="clip-blocked-hint">

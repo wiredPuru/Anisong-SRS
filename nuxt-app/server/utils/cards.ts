@@ -6,6 +6,7 @@ import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { animeCoverUrl } from "./animeCoverSql.ts";
 import { cardStatusExpr, type CardStatus } from "./cardStatus.ts";
+import { offlinePlayableCondition } from "./offlinePlayable.ts";
 import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
 import { trackBoxExpr, trackDueCondition, trackNextReviewAtExpr, trackStreakExpr } from "./cardTrack.ts";
 import { DEFAULT_GRADING_CRITERION, type GradingCriterion } from "./gradingCriterion.ts";
@@ -342,7 +343,12 @@ function dueCardCondition(
   criterion: GradingCriterion = DEFAULT_GRADING_CRITERION,
   filters: StudyFilters | null = null,
 ) {
-  return and(baseDueCondition(includeNewBeyondLimit, criterion), scopeFilter(scope), studyFilterCondition(filters));
+  return and(
+    baseDueCondition(includeNewBeyondLimit, criterion),
+    scopeFilter(scope),
+    studyFilterCondition(filters),
+    offlinePlayableCondition(),
+  );
 }
 
 // Cards buried for the rest of a Study session (feature 87) never come up,
@@ -502,6 +508,7 @@ export function getPracticeCard(
     eq(card.suspended, false),
     eq(card.known, false),
     getThemesOnly() ? inArray(card.songId, db.select({ id: song.id }).from(song).where(isNotNull(song.animethemesThemeId))) : undefined,
+    offlinePlayableCondition(),
   );
   const pool = db
     .select({ id: card.id, lastReviewedAt: lastReviewed })

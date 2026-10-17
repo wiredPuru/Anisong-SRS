@@ -40,6 +40,7 @@ const downloadedOnly = ref(false);
 
 const previewTotal = ref<number | null>(null);
 const libraryTotal = ref<number | null>(null);
+const offlineHidden = ref(0);
 const previewError = ref<string | null>(null);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
@@ -126,13 +127,14 @@ async function refreshPreview() {
     return;
   }
   try {
-    const result = await $fetch<{ total: number; libraryTotal: number }>("/api/party/host/queue-preview", {
+    const result = await $fetch<{ total: number; libraryTotal: number; offlineHidden?: number }>("/api/party/host/queue-preview", {
       method: "POST",
       body: requestBody(false),
     });
     if (request === previewRequest) {
       previewTotal.value = result.total;
       libraryTotal.value = result.libraryTotal;
+      offlineHidden.value = result.offlineHidden ?? 0;
     }
   } catch (err) {
     if (request !== previewRequest) return;
@@ -248,6 +250,7 @@ function applyFilters(next: StudyFilters) {
     <p v-else-if="!scope" class="builder-note">Pick a {{ SOURCE_LABELS[sourceType].toLowerCase() }} to play.</p>
     <p v-else-if="previewTotal !== null" class="builder-note">
       {{ previewTotal }} song{{ previewTotal === 1 ? "" : "s" }} match<template v-if="libraryTotal !== null"> (your library has {{ libraryTotal }} card{{ libraryTotal === 1 ? "" : "s" }})</template><template v-if="previewTotal > 2000">; a game holds the first 2000{{ shuffle ? " of a shuffle" : "" }}</template>.
+      <OfflineHiddenNote :count="offlineHidden" />
     </p>
 
     <p v-if="loadError" class="builder-error" role="alert">{{ loadError }}</p>

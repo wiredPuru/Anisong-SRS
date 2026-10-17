@@ -1,3 +1,4 @@
+import { answerSearchRoute } from "../utils/answerSearchRoute";
 import { useAnswerSearch } from "./useAnswerSearch";
 
 // Hand-mirrors ArtistAnswerOption in server/utils/artistAnswerOptions.ts. Keep
@@ -9,12 +10,16 @@ export interface ArtistAnswerOption {
 
 type Search = (query: string) => Promise<ArtistAnswerOption[]>;
 
-export function useArtistAnswerSearch(search: Search = async (q) => {
-  const response = await $fetch<{ results: ArtistAnswerOption[] }>("/api/lookup/artist-answer-search", { query: { q } });
-  return response.results;
-}) {
+export function useArtistAnswerSearch(search?: Search) {
+  // Only the default route needs the network mode; an injected search stays free of Nuxt.
+  const offlineMode = search ? null : useNetworkMode().offlineMode;
+  const run: Search = search ?? (async (q) => {
+    const route = answerSearchRoute("artist", offlineMode!.value, "/api/lookup/artist-answer-search", q);
+    const response = await $fetch<{ results: ArtistAnswerOption[] }>(route.path, { query: route.query });
+    return response.results;
+  });
   return useAnswerSearch<ArtistAnswerOption>({
-    search,
+    search: run,
     key: (option) => option.key || null,
     errorMessage: "Artist search is unavailable. Try typing again.",
   });

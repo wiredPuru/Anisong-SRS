@@ -35,13 +35,13 @@ describe("offline mode migration", () => {
 
       const db = drizzle(sqlite);
       migrate(db, { migrationsFolder });
-      expect(sqlite.prepare("SELECT * FROM media_library_settings").get()).toEqual({ ...previous, offline_mode: 0 });
+      expect(sqlite.prepare("SELECT * FROM media_library_settings").get()).toEqual({ ...previous, offline_mode: 0, playable_offline_only: 0 });
       db.update(mediaLibrarySettings).set({ offlineMode: true }).where(eq(mediaLibrarySettings.id, 1)).run();
       sqlite.close();
       sqlite = new Database(databasePath);
       const reopened = drizzle(sqlite);
       migrate(reopened, { migrationsFolder });
-      expect(sqlite.prepare("SELECT * FROM media_library_settings").get()).toEqual({ ...previous, offline_mode: 1 });
+      expect(sqlite.prepare("SELECT * FROM media_library_settings").get()).toEqual({ ...previous, offline_mode: 1, playable_offline_only: 0 });
       expect(reopened.select({ offlineMode: mediaLibrarySettings.offlineMode }).from(mediaLibrarySettings).get())
         .toEqual({ offlineMode: true });
     } finally {

@@ -162,6 +162,15 @@ export function cachedFilePathIfPresent(url: string): string | null {
   return destPath;
 }
 
+// Presence check that, unlike cachedFilePathIfPresent, leaves the file's access
+// time alone, so scanning the library never changes what quota eviction drops.
+export function isStreamCached(url: string): boolean {
+  if (!parseAllowedStreamUrl(url)) return false;
+  ensureCacheDir();
+  const destPath = cachedPathFor(url);
+  return existsSync(destPath) && statSync(destPath).isFile();
+}
+
 // Best-effort, like local file cleanup on card delete: a file mid-stream that
 // the OS refuses to unlink just waits for quota eviction instead.
 export function removeCachedStream(url: string): boolean {
