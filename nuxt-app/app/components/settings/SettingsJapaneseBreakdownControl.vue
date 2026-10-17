@@ -9,7 +9,7 @@ async function setEnabled(next: boolean) {
   error.value = null;
   isSaving.value = true;
   try {
-    await $fetch("/api/media-library/japanese-breakdown-only", { method: "POST", body: { enabled: next } });
+    await $fetch("/api/media-library/japanese-breakdown", { method: "POST", body: { enabled: next } });
     emit("saved");
   } catch (err) {
     error.value = extractErrorMessage(err, "Couldn't save Japanese breakdown. Try again.");
