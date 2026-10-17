@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode";
 import { networkImageSrc } from "~/utils/networkImage";
 import { coverInitial, coverTint } from "~/utils/coverFallback";
 import type { GradingCategory, GradingCriterion } from "~/utils/criterionGrading";
@@ -701,6 +702,7 @@ const addCardResults = ref<DeckCard[]>([]);
 const addAnimeResults = ref<AniListResult[] | null>(null);
 const addCardPending = ref(false);
 const addCardError = ref<string | null>(null);
+const addAnimeOffline = ref(false);
 const addingCardId = ref<number | null>(null);
 const addAnimeModalTarget = ref<AniListResult | null>(null);
 
@@ -711,6 +713,7 @@ async function runAddCardSearch() {
   const q = addCardQuery.value.trim();
   const generation = ++addCardSearchGeneration;
   addCardError.value = null;
+  addAnimeOffline.value = false;
 
   if (q.length < 2) {
     addCardResults.value = [];
@@ -733,13 +736,16 @@ async function runAddCardSearch() {
     return;
   }
 
-  if (addCardResults.value.length === 0) {
+  if (addCardResults.value.length === 0 && offlineMode.value === true) {
+    addAnimeOffline.value = true;
+  } else if (addCardResults.value.length === 0) {
     try {
       const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
       if (generation === addCardSearchGeneration) addAnimeResults.value = res.results;
     } catch (err) {
       if (generation === addCardSearchGeneration) {
-        addCardError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
+        if (isOfflineModeError(err)) addAnimeOffline.value = true;
+        else addCardError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
       }
     }
   }
@@ -751,6 +757,7 @@ function onAddCardInput() {
   addCardPending.value = false;
   addCardResults.value = [];
   addAnimeResults.value = null;
+  addAnimeOffline.value = false;
   if (addCardDebounce) clearTimeout(addCardDebounce);
   addCardDebounce = setTimeout(runAddCardSearch, 250);
 }
@@ -1153,6 +1160,7 @@ function backToDecks() {
                   <span v-else class="added-badge">Added</span>
                 </li>
               </ul>
+              <OfflineNotice v-else-if="addAnimeOffline" message="Adding a new anime needs online mode." />
               <template v-else-if="addAnimeResults">
                 <p class="add-card-group-label">Add a new anime</p>
                 <ul v-if="addAnimeResults.length" class="add-card-results">

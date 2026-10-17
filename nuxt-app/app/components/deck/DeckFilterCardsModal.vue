@@ -59,6 +59,8 @@ const anilistRequested = ref(false);
 const anilistSectionRef = ref<HTMLElement | null>(null);
 const sentinelRef = ref<HTMLElement | null>(null);
 const browse = useAniListBrowse(draft);
+const { offlineMode } = useNetworkMode();
+const anilistOffline = computed(() => offlineMode.value === true || browse.offline.value);
 const unowned = computed(() => browse.results.value.filter((anime) => !anime.inLibrary));
 // Unticked rather than ticked, as for the library list, so a show that turns up
 // on a later page or after a refresh arrives ticked.
@@ -83,7 +85,7 @@ async function fillUnowned() {
 }
 
 async function searchAniList() {
-  if (problem.value) return;
+  if (problem.value || offlineMode.value === true) return;
   anilistRequested.value = true;
   if (await browse.loadFirst()) await fillUnowned();
 }
@@ -337,7 +339,7 @@ onUnmounted(() => {
             </span>
             <span v-if="previewLoading" class="results-loading">Loading...</span>
             <span v-if="preview?.anime.length || !anilistRequested" class="tick-actions">
-              <button v-if="!anilistRequested" type="button" class="link-btn" :disabled="Boolean(problem)" @click="showAniListSection">
+              <button v-if="!anilistRequested && !anilistOffline" type="button" class="link-btn" :disabled="Boolean(problem)" @click="showAniListSection">
                 Search AniList for more
               </button>
               <template v-if="preview?.anime.length">
@@ -371,7 +373,8 @@ onUnmounted(() => {
 
           <section ref="anilistSectionRef" class="anilist-section">
             <h3 class="section-title">Not in your library yet</h3>
-            <template v-if="!anilistRequested">
+            <OfflineNotice v-if="anilistOffline" message="Finding shows on AniList needs online mode." />
+            <template v-else-if="!anilistRequested">
               <p class="empty-note">Find shows on AniList that match these filters and that you have no cards for.</p>
               <button type="button" class="search-btn" :disabled="Boolean(problem)" @click="searchAniList">Search AniList</button>
             </template>

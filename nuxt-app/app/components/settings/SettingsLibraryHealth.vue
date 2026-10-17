@@ -172,6 +172,8 @@ const hasOutsideLibrary = computed(() =>
   scan.value?.issues.some((row) => row.health.localIssues.some((i) => i.problem === "outsideLibrary")) ?? false);
 const hasMissing = computed(() =>
   scan.value?.issues.some((row) => row.health.localIssues.some((i) => i.problem === "missing")) ?? false);
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -253,9 +255,10 @@ const hasMissing = computed(() =>
                 >
                   Clear {{ kind }} path
                 </button>
-                <button v-if="row.health.resource" type="button" class="fix-btn" @click="resource(row)">
+                <button v-if="row.health.resource" type="button" class="fix-btn" :disabled="offline" @click="resource(row)">
                   Re-source
                 </button>
+                <OfflineNotice v-if="row.health.resource && offline" message="Re-sourcing needs online mode." :settings-href="null" />
                 <template v-if="confirmingDelete[row.card.id]">
                   <span class="health-confirm">Delete this card from the library?</span>
                   <button type="button" class="fix-btn fix-btn-danger" @click="deleteCard(row)">Delete</button>

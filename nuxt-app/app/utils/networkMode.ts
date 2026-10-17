@@ -18,3 +18,15 @@ export function parseNetworkMode(value: unknown): NetworkMode {
 export function networkModeChanged(previous: NetworkMode, next: NetworkMode): boolean {
   return previous !== null && next !== null && previous !== next;
 }
+
+function hasOfflineCode(value: unknown): boolean {
+  return typeof value === "object" && value !== null && (value as { code?: unknown }).code === "OFFLINE_MODE";
+}
+
+// An H3 error carries the code on `data`; $fetch wraps the response body, so it sits one level deeper there.
+export function isOfflineModeError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const data = (err as { data?: unknown }).data;
+  if (hasOfflineCode(data)) return true;
+  return typeof data === "object" && data !== null && hasOfflineCode((data as { data?: unknown }).data);
+}

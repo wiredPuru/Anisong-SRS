@@ -50,6 +50,8 @@ async function fillLinks() {
     isRunning.value = false;
   }
 }
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -73,9 +75,10 @@ async function fillLinks() {
       :progress="activity.progress.value"
       :revision="activity.revision.value"
     />
-    <button v-else type="button" class="links-btn" :disabled="!props.missingCount" @click="fillLinks">
+    <button v-else type="button" class="links-btn" :disabled="!props.missingCount || offline" @click="fillLinks">
       Fill AnimeThemes.moe links
     </button>
+    <OfflineNotice v-if="offline" :settings-href="null" message="Needs online mode." />
 
     <p v-if="summary" class="links-summary">{{ summary }}</p>
     <p v-if="error" class="control-error">{{ error }}</p>

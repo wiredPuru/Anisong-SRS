@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PartyHostState } from "~/composables/usePartyHost";
+import { isOfflineModeError } from "~/utils/networkMode";
 import { animeCardsSearchPath, artistDeckPath } from "~/utils/deckLinks";
 import { deckRowLabel, type DeckRowNames, type DeckScopeType } from "~/utils/scopePick";
 
@@ -74,6 +75,8 @@ const shows = ref<ShowResult[]>([]);
 const songs = ref<SongResult[]>([]);
 const catalogSongs = ref<CatalogResult[]>([]);
 const searching = ref(false);
+const { offlineMode } = useNetworkMode();
+const onlineOnlyHidden = ref(false);
 const note = ref<string | null>(null);
 const busy = ref(false);
 const requests = createLatestRequest();
@@ -87,10 +90,20 @@ async function search() {
     shows.value = [];
     songs.value = [];
     catalogSongs.value = [];
+    onlineOnlyHidden.value = false;
     searching.value = false;
     return;
   }
   searching.value = true;
+  // Library groups still search; the catalog and AniList shows need online mode.
+  onlineOnlyHidden.value = offlineMode.value === true;
+  const onlineOnly = <T extends { results: unknown[] }>(path: string): Promise<T> =>
+    onlineOnlyHidden.value
+      ? Promise.resolve({ results: [] } as unknown as T)
+      : $fetch<T>(path, { query: { q: text } }).catch((err: unknown) => {
+        if (isOfflineModeError(err)) onlineOnlyHidden.value = true;
+        return { results: [] } as unknown as T;
+      });
   try {
     const [found, songRes, catalogRes, showRes] = await Promise.all([
       Promise.all(
@@ -104,8 +117,8 @@ async function search() {
         }),
       ),
       $fetch<{ results: SongResult[] }>("/api/party/host/card-search", { query: { q: text } }).catch(() => ({ results: [] })),
-      $fetch<{ results: CatalogResult[] }>("/api/party/host/catalog-search", { query: { q: text } }).catch(() => ({ results: [] })),
-      $fetch<{ results: ShowResult[] }>("/api/party/host/anime-search", { query: { q: text } }).catch(() => ({ results: [] })),
+      onlineOnly<{ results: CatalogResult[] }>("/api/party/host/catalog-search"),
+      onlineOnly<{ results: ShowResult[] }>("/api/party/host/anime-search"),
     ]);
     if (!isCurrent()) return;
     groups.value = found.filter((group) => group.rows.length);
@@ -346,6 +359,12 @@ async function addGroup(type: DeckScopeType, row: { id: number; label: string },
     <p v-if="note" class="search-note" role="status">{{ note }}</p>
     <p v-else-if="searching && !hasResults" class="search-note">Searching...</p>
     <p v-else-if="query.trim().length >= 2 && !searching && !hasResults" class="search-note">Nothing matches that.</p>
+
+    <OfflineNotice v-if="onlineOnlyHidden && query.trim().length >= 2" message="Songs outside your library and AniList shows need online mode." :settings-href="null">
+      <template #action>
+        <PartyMainAppLink path="/settings?section=library" label="Settings">Open Settings</PartyMainAppLink>
+      </template>
+    </OfflineNotice>
 
     <div v-if="hasResults" class="search-results">
       <section v-if="shows.length" class="search-group">

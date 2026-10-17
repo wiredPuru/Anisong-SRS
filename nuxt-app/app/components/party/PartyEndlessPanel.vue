@@ -14,7 +14,9 @@ const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string }[] =
 
 const difficulty = ref<PartyEndlessDifficulty>(props.state.endless?.difficulty ?? "easy");
 const downloadedOnly = ref(props.state.endless?.downloadedOnly ?? false);
+const { offlineMode } = useNetworkMode();
 const outsideLibrary = ref(props.state.endless?.outsideLibrary ?? false);
+const outsideBlocked = computed(() => offlineMode.value === true);
 const running = computed(() => props.state.endless !== null);
 const hint = computed(() => LEVELS.find((level) => level.value === difficulty.value)?.hint ?? "");
 
@@ -92,9 +94,10 @@ function setOutside(value: boolean) {
     </p>
 
     <label class="endless-check">
-      <input type="checkbox" :checked="outsideLibrary" @change="setOutside(($event.target as HTMLInputElement).checked)" />
+      <input type="checkbox" :checked="outsideLibrary" :disabled="outsideBlocked && !outsideLibrary" @change="setOutside(($event.target as HTMLInputElement).checked)" />
       Songs outside my cards and decks
     </label>
+    <p v-if="outsideBlocked" class="endless-hint">Songs outside your library need online mode.</p>
     <p class="endless-hint">
       {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty, filters and the downloaded-only option don't apply." : "Only songs you have cards for." }}
     </p>

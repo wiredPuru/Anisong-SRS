@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode";
+
 interface CardWithDetails {
   id: number;
   songId: number;
@@ -58,11 +60,15 @@ const externalArtists = ref<ArtistCandidate[] | null>(null);
 const externalArtistsPending = ref(false);
 const externalArtistsError = ref<string | null>(null);
 
+const { offlineMode } = useNetworkMode();
+const offlineNotice = ref(false);
+
 const hasResults = computed(() => results.value.cards.length > 0);
 const hasExternalResults = computed(() => Boolean(externalAnime.value && externalAnime.value.length));
 const hasExternalArtistResults = computed(() => Boolean(externalArtists.value && externalArtists.value.length));
 const showNoResults = computed(
   () =>
+    !offlineNotice.value &&
     !searchPending.value &&
     !searchError.value &&
     !externalPending.value &&
@@ -93,7 +99,9 @@ async function runAnimeSearch(q: string, gen: number) {
     const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
     if (gen === searchGeneration) externalAnime.value = res.results;
   } catch (err) {
-    if (gen === searchGeneration) externalError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
+    if (gen !== searchGeneration) return;
+    if (isOfflineModeError(err)) offlineNotice.value = true;
+    else externalError.value = extractErrorMessage(err, "Anime search failed. Please try again.");
   } finally {
     if (gen === searchGeneration) externalPending.value = false;
   }
@@ -104,7 +112,9 @@ async function runArtistSearch(q: string, gen: number) {
     const res = await $fetch<{ results: ArtistCandidate[] }>("/api/lookup/artist-search", { query: { q } });
     if (gen === searchGeneration) externalArtists.value = res.results;
   } catch (err) {
-    if (gen === searchGeneration) externalArtistsError.value = extractErrorMessage(err, "Artist search failed. Please try again.");
+    if (gen !== searchGeneration) return;
+    if (isOfflineModeError(err)) offlineNotice.value = true;
+    else externalArtistsError.value = extractErrorMessage(err, "Artist search failed. Please try again.");
   } finally {
     if (gen === searchGeneration) externalArtistsPending.value = false;
   }
@@ -115,6 +125,7 @@ async function runSearch() {
   const gen = ++searchGeneration;
   externalError.value = null;
   externalArtistsError.value = null;
+  offlineNotice.value = false;
 
   if (q.length < 2) {
     results.value = emptyResults();
@@ -129,11 +140,17 @@ async function runSearch() {
 
   searchPending.value = true;
   searchError.value = false;
-  externalPending.value = true;
   externalAnime.value = null;
-  externalArtistsPending.value = true;
   externalArtists.value = null;
 
+  if (offlineMode.value === true) {
+    offlineNotice.value = true;
+    await runLocalSearch(q, gen);
+    return;
+  }
+
+  externalPending.value = true;
+  externalArtistsPending.value = true;
   await Promise.all([runLocalSearch(q, gen), runAnimeSearch(q, gen), runArtistSearch(q, gen)]);
 }
 
@@ -142,6 +159,7 @@ function onSearchInput() {
   results.value = emptyResults();
   externalAnime.value = null;
   externalArtists.value = null;
+  offlineNotice.value = false;
   searchPending.value = false;
   externalPending.value = false;
   externalArtistsPending.value = false;
@@ -171,6 +189,7 @@ function resetSearch() {
   externalError.value = null;
   externalArtistsError.value = null;
   searchQuery.value = "";
+  offlineNotice.value = false;
   searchPending.value = false;
   results.value = emptyResults();
   externalAnime.value = null;
@@ -242,6 +261,8 @@ onUnmounted(() => {
           <span class="search-result-sub">{{ c.artistName }}</span>
         </button>
       </div>
+
+      <OfflineNotice v-if="offlineNotice" message="Anime and artist search need online mode." />
 
       <p v-if="externalArtistsPending" class="search-status">
 

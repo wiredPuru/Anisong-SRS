@@ -60,6 +60,8 @@ async function moveSources() {
     isRunning.value = false;
   }
 }
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -88,9 +90,10 @@ async function moveSources() {
         :progress="activity.progress.value"
         :revision="activity.revision.value"
       />
-      <button v-else type="button" class="card-source-btn" :disabled="!props.count" @click="moveSources">
+      <button v-else type="button" class="card-source-btn" :disabled="!props.count || offline" @click="moveSources">
         Move cards to the faster source
       </button>
+    <OfflineNotice v-if="offline" :settings-href="null" message="Needs online mode." />
 
       <p v-if="summary" class="card-source-summary">{{ summary }}</p>
       <p v-if="error" class="control-error">{{ error }}</p>

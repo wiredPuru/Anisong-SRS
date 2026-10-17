@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { catalogFilterOptions, DEFAULT_THEME_MIX, mixShares, type CatalogOptionsReply } from "~/utils/studyFilters";
+import { isOfflineModeError } from "~/utils/networkMode";
 import { importAnimeBatch, type ImportBatchProgress, type ImportBatchResult, type ImportOneResult } from "~/utils/importAnimeBatch";
 import type { StudyFilters, StudyListSite, StudySeason, StudyThemeType, TagOption } from "~/utils/studyFilters";
 
@@ -135,7 +136,14 @@ function removeTag(name: string) {
   draft.value.tagsExclude = draft.value.tagsExclude.filter((entry) => entry !== name);
 }
 
+const { offlineMode } = useNetworkMode();
+const listRefused = ref(false);
+// Fetching or refreshing a list is online-only; a list already saved in the filters keeps applying.
+const listOffline = computed(() => offlineMode.value === true || listRefused.value);
+
 async function fetchList(site: StudyListSite, username: string) {
+  if (offlineMode.value === true) return;
+  listRefused.value = false;
   listLoading.value = true;
   listError.value = null;
   listNote.value = null;
@@ -146,7 +154,8 @@ async function fetchList(site: StudyListSite, username: string) {
     draft.value.listSource = { site, username, fetchedAt: new Date().toISOString() };
     listNote.value = `${result.matched} of the ${result.listSize} anime on that Completed list ${result.matched === 1 ? "is" : "are"} in your library.`;
   } catch (err) {
-    listError.value = extractErrorMessage(err, `Could not load that ${LIST_SITE_LABELS[site]} list.`);
+    if (isOfflineModeError(err)) listRefused.value = true;
+    else listError.value = extractErrorMessage(err, `Could not load that ${LIST_SITE_LABELS[site]} list.`);
   } finally {
     listLoading.value = false;
   }
@@ -255,7 +264,7 @@ const listCheckedOn = computed(() => {
           <button
             type="button"
             class="text-btn"
-            :disabled="listLoading || importing"
+            :disabled="listLoading || importing || listOffline"
             @click="fetchList(draft.listSource.site, draft.listSource.username)"
           >
             Refresh
@@ -263,7 +272,8 @@ const listCheckedOn = computed(() => {
           <button type="button" class="text-btn" :disabled="listLoading || importing" @click="removeList">Remove</button>
         </div>
         <p class="empty-hint">Checked {{ listCheckedOn }}. Anime added to your library since then join after Refresh.</p>
-        <div v-if="importable && (missingIds.length || importing)" class="import-rest">
+        <OfflineNotice v-if="listOffline" message="Refreshing or importing a list needs online mode." />
+        <div v-if="importable && !listOffline && (missingIds.length || importing)" class="import-rest">
           <template v-if="importing">
             <p class="import-line" role="status">
               Importing {{ (importProgress?.done ?? 0) + 1 }} of {{ importProgress?.total ?? missingIds.length }}<span v-if="importProgress?.current"> &middot; {{ importProgress.current }}</span>
@@ -284,6 +294,7 @@ const listCheckedOn = computed(() => {
         </div>
         <p v-if="importSummary" class="empty-hint">{{ summaryText(importSummary) }}</p>
       </template>
+      <OfflineNotice v-else-if="listOffline" message="Loading an anime list needs online mode." />
       <form v-else class="list-row" @submit.prevent="useList">
         <select v-model="listSite" class="list-site" aria-label="List site">
           <option value="anilist">AniList</option>

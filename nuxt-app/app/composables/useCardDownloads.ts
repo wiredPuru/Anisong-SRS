@@ -1,4 +1,7 @@
 import { reactive } from "vue";
+import { isOfflineModeError } from "../utils/networkMode";
+
+export const OFFLINE_DOWNLOAD_MESSAGE = "Not cached yet - downloading needs online mode.";
 
 export interface DownloadableCard {
   localVideoPath: string | null;
@@ -82,6 +85,7 @@ export function useCardDownloads() {
 
       if (!response.ok || !response.body) {
         const data = await response.json().catch(() => null);
+        if (isOfflineModeError(data)) throw new Error(OFFLINE_DOWNLOAD_MESSAGE);
         throw new Error(data?.statusMessage ?? "Failed to download the file.");
       }
 
@@ -105,7 +109,7 @@ export function useCardDownloads() {
           } else if (event.type === "done") {
             result = event.card as T;
           } else if (event.type === "error") {
-            errorMessage = event.message;
+            errorMessage = event.code === "OFFLINE_MODE" ? OFFLINE_DOWNLOAD_MESSAGE : event.message;
           }
         }
       }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { networkModeChanged, networkModeEndpoint, parseNetworkMode } from "./networkMode.ts";
+import { isOfflineModeError, networkModeChanged, networkModeEndpoint, parseNetworkMode } from "./networkMode.ts";
 
 describe("browser network bootstrap", () => {
   it.each([
@@ -22,5 +22,23 @@ describe("browser network bootstrap", () => {
     expect(networkModeChanged(false, false)).toBe(false);
     expect(networkModeChanged(null, false)).toBe(false);
     expect(networkModeChanged(false, null)).toBe(false);
+  });
+});
+
+describe("isOfflineModeError", () => {
+  it("reads the code from an H3 error", () => {
+    expect(isOfflineModeError({ statusCode: 409, data: { code: "OFFLINE_MODE" } })).toBe(true);
+  });
+  it("reads the code from a $fetch error's nested body", () => {
+    expect(isOfflineModeError({ statusCode: 409, data: { statusCode: 409, data: { code: "OFFLINE_MODE" } } })).toBe(true);
+  });
+  it.each([
+    { statusCode: 409, data: { statusMessage: "Conflict" } },
+    { statusCode: 409 },
+    new TypeError("Failed to fetch"),
+    { data: { code: "OTHER" } },
+    null, undefined, "OFFLINE_MODE", 409,
+  ])("is false for %j", (value) => {
+    expect(isOfflineModeError(value)).toBe(false);
   });
 });

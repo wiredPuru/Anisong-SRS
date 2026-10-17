@@ -69,6 +69,8 @@ async function saveLocally() {
     isSaving.value = false;
   }
 }
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -84,7 +86,7 @@ async function saveLocally() {
     <p v-else class="cover-art-count cover-art-count-clear">Every anime has cover art.</p>
 
     <ActivityStatus v-if="isFetching" label="Fetching cover art from AniList" request-key="cover-backfill" />
-    <button v-else type="button" class="cover-art-btn" :disabled="!props.missingCount || isSaving" @click="fetchMissing">
+    <button v-else type="button" class="cover-art-btn" :disabled="!props.missingCount || isSaving || offline" @click="fetchMissing">
       Fetch missing cover art
     </button>
 
@@ -97,10 +99,11 @@ async function saveLocally() {
     <p v-else class="cover-art-count cover-art-count-clear">Every cover is saved on this computer.</p>
 
     <ActivityStatus v-if="isSaving" label="Saving covers to this computer" request-key="cover-save-local" />
-    <button v-else type="button" class="cover-art-btn" :disabled="!props.notLocalCount || isFetching" @click="saveLocally">
+    <button v-else type="button" class="cover-art-btn" :disabled="!props.notLocalCount || isFetching || offline" @click="saveLocally">
       Save covers locally
     </button>
 
+    <OfflineNotice v-if="offline" :settings-href="null" message="Fetching and saving covers needs online mode." />
     <p v-if="saveSummary" class="cover-art-summary">{{ saveSummary }}</p>
     <p v-if="error" class="control-error">{{ error }}</p>
   </div>

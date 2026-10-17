@@ -39,6 +39,7 @@ interface ManualDeck {
 const importPanelOpen = ref(false);
 const importAniListUsername = ref("");
 const importMalUsername = ref("");
+const { offlineMode } = useNetworkMode();
 const listImport = useCompletedListImport();
 const { loading: importLoading, results: importResults } = listImport;
 const importBlankHint = ref(false);
@@ -67,6 +68,7 @@ const importSummary = computed(() => {
 });
 
 async function runImport() {
+  if (offlineMode.value === true) return;
   const aniList = importAniListUsername.value.trim();
   const mal = importMalUsername.value.trim();
   importBlankHint.value = !aniList && !mal;
@@ -625,7 +627,8 @@ watch(
     </header>
 
     <div v-if="showImportPanel" class="import-panel">
-      <div v-if="importPanelOpen" class="import-form">
+      <OfflineNotice v-if="importPanelOpen && offlineMode === true" message="Importing a list needs online mode." />
+      <div v-else-if="importPanelOpen" class="import-form">
         <input v-model="importAniListUsername" type="text" placeholder="AniList username" class="import-input" />
         <input v-model="importMalUsername" type="text" placeholder="MyAnimeList username" class="import-input" />
         <button type="button" class="import-btn" :disabled="importLoading" @click="runImport">

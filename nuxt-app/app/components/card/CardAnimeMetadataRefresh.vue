@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode";
+
 interface AnimeMetadataRefreshResult {
   animeId: number;
   aniListId: number;
@@ -13,6 +15,9 @@ const props = defineProps<{
 const pending = ref(false);
 const error = ref<string | null>(null);
 const success = ref(false);
+const { offlineMode } = useNetworkMode();
+const refused = ref(false);
+const offline = computed(() => offlineMode.value === true || refused.value);
 const requests = createLatestRequest();
 onScopeDispose(requests.invalidate);
 
@@ -21,10 +26,11 @@ watch(() => props.animeId, () => {
   pending.value = false;
   error.value = null;
   success.value = false;
+  refused.value = false;
 });
 
 async function refresh() {
-  if (pending.value) return;
+  if (pending.value || offline.value) return;
   const isCurrent = requests.start();
   const animeId = props.animeId;
   pending.value = true;
@@ -40,7 +46,9 @@ async function refresh() {
     await props.reloadMetadata();
     if (isCurrent()) success.value = true;
   } catch (failure) {
-    if (isCurrent()) {
+    if (isCurrent() && isOfflineModeError(failure)) {
+      refused.value = true;
+    } else if (isCurrent()) {
       error.value = saved
         ? "Metadata refreshed, but the library could not be reloaded. Reload this page."
         : extractErrorMessage(failure, "Failed to refresh anime metadata. Please try again later.");
@@ -56,12 +64,13 @@ async function refresh() {
     <button
       type="button"
       class="refresh-btn"
-      :disabled="pending"
+      :disabled="pending || offline"
       title="Refresh titles and filter details from AniList for every card of this anime. Local covers and media stay unchanged."
       @click="refresh"
     >
       {{ pending ? "Refreshing anime metadata..." : "Refresh anime metadata" }}
     </button>
+    <OfflineNotice v-if="offline" message="Refreshing metadata needs online mode." />
     <p v-if="success" class="refresh-summary" role="status">Anime metadata refreshed for all its cards.</p>
     <p v-if="error" class="refresh-error" role="alert">{{ error }}</p>
   </div>

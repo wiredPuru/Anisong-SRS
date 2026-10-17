@@ -1255,7 +1255,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 107b. **Offline mode** - persist a Settings toggle that prevents
     server and browser requests to external providers, including automatic
     backfills, remote images, and media; local playback remains available.
-  - [ ] 107c. **Offline notices** - every online-only surface (card and
+  - [x] 107c. **Offline notices** - every online-only surface (card and
     anime discovery, list imports, AniList browse, artist catalog, Settings
     backfills and refreshes, update checks, and Party catalog search) says
     it needs online mode, with a link to Settings, instead of firing a

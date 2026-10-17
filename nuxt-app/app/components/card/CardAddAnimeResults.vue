@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode";
+
 import { selectedDownloadKinds } from "../../utils/bulkDownloadKinds";
 import type { BulkStep } from "../../composables/useBulkMediaProgress";
 
@@ -68,6 +70,8 @@ const emit = defineEmits<{
 const results = ref<AniListResult[] | null>(null);
 const searching = ref(false);
 const searchError = ref<string | null>(null);
+const { offlineMode } = useNetworkMode();
+const offline = ref(false);
 let generation = 0;
 
 const expandedAniListId = ref<number | null>(null);
@@ -99,12 +103,20 @@ async function runSearch(query: string) {
   if (q.length < 2) {
     results.value = null;
     searchError.value = null;
+    offline.value = false;
+    searching.value = false;
+    return;
+  }
+
+  searchError.value = null;
+  offline.value = offlineMode.value === true;
+  if (offline.value) {
+    results.value = null;
     searching.value = false;
     return;
   }
 
   searching.value = true;
-  searchError.value = null;
 
   try {
     const res = await $fetch<{ results: AniListResult[] }>("/api/lookup/anilist-search", { query: { q } });
@@ -112,13 +124,14 @@ async function runSearch(query: string) {
     results.value = res.results;
   } catch (err) {
     if (gen !== generation) return;
-    searchError.value = extractErrorMessage(err, "Anime search failed.");
+    if (isOfflineModeError(err)) offline.value = true;
+    else searchError.value = extractErrorMessage(err, "Anime search failed.");
   } finally {
     if (gen === generation) searching.value = false;
   }
 }
 
-watch(() => props.query, runSearch, { immediate: true });
+watch([() => props.query, offlineMode], () => runSearch(props.query), { immediate: true });
 
 async function preloadAddedCards(songIds: number[], isCurrent: () => boolean) {
   if (!songIds.length) return;
@@ -274,6 +287,7 @@ async function removeCard(songId: number) {
     <div v-if="searching" class="state">
       <ActivityStatus :request-key="props.query" label="Searching for anime" />
     </div>
+    <OfflineNotice v-else-if="offline" message="Anime search needs online mode." />
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="result-list">

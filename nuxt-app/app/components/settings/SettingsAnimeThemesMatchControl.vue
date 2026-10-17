@@ -48,6 +48,8 @@ async function checkSongs() {
     isRunning.value = false;
   }
 }
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -72,9 +74,10 @@ async function checkSongs() {
       :progress="activity.progress.value"
       :revision="activity.revision.value"
     />
-    <button v-else type="button" class="match-btn" :disabled="!props.uncheckedCount" @click="checkSongs">
+    <button v-else type="button" class="match-btn" :disabled="!props.uncheckedCount || offline" @click="checkSongs">
       Check against AnimeThemes.moe
     </button>
+    <OfflineNotice v-if="offline" :settings-href="null" message="Needs online mode." />
 
     <p v-if="summary" class="match-summary">{{ summary }}</p>
     <p v-if="error" class="control-error">{{ error }}</p>

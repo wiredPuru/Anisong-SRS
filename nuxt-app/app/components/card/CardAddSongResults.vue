@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode";
+
 interface SongSearchResult {
   resultKey: string;
   animethemesThemeId: number | null;
@@ -50,6 +52,8 @@ const emit = defineEmits<{
 const results = ref<SongSearchResult[] | null>(null);
 const searching = ref(false);
 const searchError = ref<string | null>(null);
+const { offlineMode } = useNetworkMode();
+const offline = ref(false);
 let generation = 0;
 
 const addedCards = reactive<Record<number, CardWithDetails>>({});
@@ -75,12 +79,20 @@ async function runSearch(query: string) {
   if (q.length < 2) {
     results.value = null;
     searchError.value = null;
+    offline.value = false;
+    searching.value = false;
+    return;
+  }
+
+  searchError.value = null;
+  offline.value = offlineMode.value === true;
+  if (offline.value) {
+    results.value = null;
     searching.value = false;
     return;
   }
 
   searching.value = true;
-  searchError.value = null;
 
   try {
     const res = await $fetch<{ results: SongSearchResult[] }>("/api/lookup/song-search", { query: { q } });
@@ -88,13 +100,14 @@ async function runSearch(query: string) {
     results.value = res.results;
   } catch (err) {
     if (gen !== generation) return;
-    searchError.value = extractErrorMessage(err, "Song search failed.");
+    if (isOfflineModeError(err)) offline.value = true;
+    else searchError.value = extractErrorMessage(err, "Song search failed.");
   } finally {
     if (gen === generation) searching.value = false;
   }
 }
 
-watch(() => props.query, runSearch, { immediate: true });
+watch([() => props.query, offlineMode], () => runSearch(props.query), { immediate: true });
 
 function resolvedSongId(resultKey: string): number | undefined {
   return resultSongId[resultKey];
@@ -183,6 +196,7 @@ async function removeCard(resultKey: string) {
     <div v-if="searching" class="state">
       <ActivityStatus :request-key="props.query" label="Searching for songs" />
     </div>
+    <OfflineNotice v-else-if="offline" message="Song search needs online mode." />
     <p v-else-if="searchError" class="inline-error">{{ searchError }}</p>
     <template v-else-if="results">
       <ul v-if="results.length" class="theme-list">

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isOfflineModeError } from "~/utils/networkMode"
+
 interface AniListResult {
 	aniListId: number
 	titleRomaji: string
@@ -58,6 +60,7 @@ const importing = ref(false)
 const importRequests = createLatestRequest()
 onScopeDispose(importRequests.invalidate)
 const importError = ref<string | null>(null)
+const importOffline = ref(false)
 
 const adding = reactive<Record<number, boolean>>({})
 const addError = reactive<Record<number, string | null>>({})
@@ -100,6 +103,7 @@ async function runImport(aniListId: number) {
 	const isCurrent = importRequests.start()
 	importResult.value = null
 	importError.value = null
+	importOffline.value = false
 	importing.value = true
 	try {
 		const result = await $fetch<ImportResult>('/api/lookup/import', {
@@ -108,8 +112,10 @@ async function runImport(aniListId: number) {
 		})
 		if (isCurrent()) importResult.value = result
 	} catch (err) {
-		if (isCurrent())
-			importError.value = extractErrorMessage(err, 'Import failed.')
+		if (isCurrent()) {
+			if (isOfflineModeError(err)) importOffline.value = true
+			else importError.value = extractErrorMessage(err, 'Import failed.')
+		}
 	} finally {
 		if (isCurrent()) importing.value = false
 	}
@@ -236,7 +242,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 					:request-key="target?.aniListId"
 				/>
 			</div>
-			<p v-if="importError" class="inline-error">{{ importError }}</p>
+			<OfflineNotice v-if="importOffline" message="Fetching this anime's themes needs online mode." />
+			<p v-else-if="importError" class="inline-error">{{ importError }}</p>
 
 			<ul v-if="importResult" class="theme-list">
 				<li v-if="!importResult.themes.length" class="state">

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadPhase, formatDownloadProgress, useCardDownloads } from "./useCardDownloads";
+import { downloadPhase, formatDownloadProgress, OFFLINE_DOWNLOAD_MESSAGE, useCardDownloads } from "./useCardDownloads";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -150,5 +150,29 @@ describe("useCardDownloads.downloadMedia", () => {
     expect(result).toEqual({ id: 3 });
     expect(downloadError[3]).toBeNull();
     expect(downloadProgress[key]).toBeUndefined();
+  });
+});
+
+describe("useCardDownloads offline refusal", () => {
+  it("explains a refusal sent before the stream starts", async () => {
+    const body = { statusCode: 409, statusMessage: "Offline mode is enabled.", data: { code: "OFFLINE_MODE" } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 409 })));
+    const { downloadMedia, downloadError } = useCardDownloads();
+    expect(await downloadMedia(1, 1, "video")).toBeNull();
+    expect(downloadError[1]).toBe(OFFLINE_DOWNLOAD_MESSAGE);
+  });
+
+  it("explains a refusal sent as a stream error event", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse([{ type: "error", message: "Offline mode is enabled.", code: "OFFLINE_MODE" }])));
+    const { downloadMedia, downloadError } = useCardDownloads();
+    expect(await downloadMedia(2, 2, "audio")).toBeNull();
+    expect(downloadError[2]).toBe(OFFLINE_DOWNLOAD_MESSAGE);
+  });
+
+  it("keeps other failures' own message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamResponse([{ type: "error", message: "Disk full" }])));
+    const { downloadMedia, downloadError } = useCardDownloads();
+    await downloadMedia(3, 3, "video");
+    expect(downloadError[3]).toBe("Disk full");
   });
 });

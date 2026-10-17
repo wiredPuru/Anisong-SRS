@@ -257,7 +257,7 @@ async function importDeck() {
             <button
               type="button"
               class="add-btn version-check-btn"
-              :disabled="updatePending"
+              :disabled="updatePending || updateStatus?.offlineMode === true"
               @click="checkForUpdate(true)"
             >
               Check again

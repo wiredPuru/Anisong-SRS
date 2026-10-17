@@ -22,11 +22,13 @@ const downloadedOnly = ref(false);
 const matchCount = ref<number | null>(null);
 const matchLoading = ref(false);
 const matchError = ref<string | null>(null);
-const { results, page, hasNextPage, loading, loadingMore, loadError, loadFirst: fetchFirst, loadMore: fetchMore, invalidate } = useAniListBrowse(draft);
+const { results, page, hasNextPage, loading, loadingMore, loadError, offline: browseOffline, loadFirst: fetchFirst, loadMore: fetchMore, invalidate } = useAniListBrowse(draft);
 // Shows already in the library can't be added, so they are left out of the list
 // entirely rather than shown greyed out.
 const shown = computed(() => results.value.filter((anime) => !anime.inLibrary));
 const hiddenInLibrary = computed(() => results.value.length - shown.value.length);
+const { offlineMode } = useNetworkMode();
+const addOffline = computed(() => offlineMode.value === true || browseOffline.value);
 const unticked = ref(new Set<number>());
 const sentinelRef = ref<HTMLElement | null>(null);
 
@@ -52,6 +54,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let observer: IntersectionObserver | null = null;
 
 async function loadFirst() {
+  if (offlineMode.value === true) return;
   if (!(await fetchFirst())) return;
   unticked.value = new Set();
   // A first page can be mostly shows already in the library; keep going until
@@ -144,7 +147,9 @@ watch(() => props.open, (open) => {
   stopRun.value = false;
   runError.value = null;
   deckTarget.value = NO_DECK_TARGET;
-  void loadFirst();
+  // Offline, the only mode that can work is searching the library.
+  if (offlineMode.value === true) mode.value = "library";
+  else void loadFirst();
 });
 
 watch(sentinelRef, (el, previous) => {
@@ -267,7 +272,8 @@ onUnmounted(() => {
         </template>
       </p>
 
-      <template v-if="mode === 'add'">
+      <OfflineNotice v-if="mode === 'add' && addOffline" message="Adding from AniList needs online mode. Search my library still works." />
+      <template v-else-if="mode === 'add'">
         <div class="columns">
           <div class="filters-col">
             <StudyFilterForm v-model="draft" catalog />

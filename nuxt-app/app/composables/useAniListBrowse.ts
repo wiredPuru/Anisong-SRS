@@ -1,5 +1,6 @@
 import { type BrowseAnime, mergePage } from "~/utils/browseSelection";
 import { createLatestRequest } from "~/utils/latestRequest";
+import { isOfflineModeError } from "~/utils/networkMode";
 import type { StudyFilters } from "~/utils/studyFilters";
 
 interface BrowseReply {
@@ -17,6 +18,8 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
   const loading = ref(false);
   const loadingMore = ref(false);
   const loadError = ref<string | null>(null);
+  // The server refused because Offline mode is on; shown as a notice, not an error.
+  const offline = ref(false);
   const requests = createLatestRequest();
 
   async function fetchPage(nextPage: number): Promise<BrowseReply | null> {
@@ -28,7 +31,10 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
       });
       return isCurrent() ? reply : null;
     } catch (err) {
-      if (isCurrent()) loadError.value = extractErrorMessage(err, "Could not search AniList.");
+      if (isCurrent()) {
+        if (isOfflineModeError(err)) offline.value = true;
+        else loadError.value = extractErrorMessage(err, "Could not search AniList.");
+      }
       return null;
     }
   }
@@ -40,6 +46,7 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
     loading.value = true;
     loadingMore.value = false;
     loadError.value = null;
+    offline.value = false;
     const reply = await fetchPage(1);
     if (reply) {
       results.value = reply.results;
@@ -48,7 +55,7 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
       loading.value = false;
       return true;
     }
-    if (loadError.value) loading.value = false;
+    if (loadError.value || offline.value) loading.value = false;
     return false;
   }
 
@@ -61,7 +68,7 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
       page.value += 1;
       hasNextPage.value = reply.hasNextPage;
       loadingMore.value = false;
-    } else if (loadError.value) {
+    } else if (loadError.value || offline.value) {
       loadingMore.value = false;
     }
   }
@@ -79,7 +86,8 @@ export function useAniListBrowse(filters: Ref<StudyFilters>) {
     loading.value = false;
     loadingMore.value = false;
     loadError.value = null;
+    offline.value = false;
   }
 
-  return { results, page, hasNextPage, loading, loadingMore, loadError, loadFirst, loadMore, invalidate, reset };
+  return { results, page, hasNextPage, loading, loadingMore, loadError, offline, loadFirst, loadMore, invalidate, reset };
 }

@@ -35,6 +35,8 @@ async function fetchMissing() {
     isFetching.value = false;
   }
 }
+const { offlineMode } = useNetworkMode();
+const offline = computed(() => offlineMode.value === true);
 </script>
 
 <template>
@@ -50,9 +52,10 @@ async function fetchMissing() {
     <p v-else class="details-count details-count-clear">Every anime has details.</p>
 
     <ActivityStatus v-if="isFetching" label="Fetching anime details from AniList" request-key="anime-details-backfill" />
-    <button v-else type="button" class="details-btn" :disabled="!props.missingCount" @click="fetchMissing">
+    <button v-else type="button" class="details-btn" :disabled="!props.missingCount || offline" @click="fetchMissing">
       Fetch missing details
     </button>
+    <OfflineNotice v-if="offline" :settings-href="null" message="Needs online mode." />
 
     <p v-if="summary" class="details-summary">{{ summary }}</p>
     <p v-if="error" class="control-error">{{ error }}</p>
