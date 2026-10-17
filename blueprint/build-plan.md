@@ -1299,7 +1299,7 @@ cleaned-up checkbox version before generating the project overview.
     configurable hotkey, Hide Info rules, and the Settings toggle that enables it.
   - [x] 109c. About attribution and Listen parity.
 
-- [ ] 110. **Kanji parts viewer and stories** - in the Japanese breakdown
+- [x] 110. **Kanji parts viewer and stories** - in the Japanese breakdown
   panel (109), every kanji tile and every part chip is clickable and opens an
   inline detail view with a back stack: the character large, its keyword and
   alternates, readings, strokes, RTK frame, and its own clickable parts, so
@@ -1309,7 +1309,7 @@ cleaned-up checkbox version before generating the project overview.
   panel; no schedule, score or card change.
   - [x] 110a. Clickable parts + detail view - tiles and chips open the detail
     view with a back stack, on Study and Listen. No storage, no server change.
-  - [ ] 110b. Personal stories - a `kanji_story` table, `GET`/`PUT`/`DELETE
+  - [x] 110b. Personal stories - a `kanji_story` table, `GET`/`PUT`/`DELETE
     /api/kanji/story`, an editable story box in the detail view, and a marker
     on tiles and chips that have a story.
 

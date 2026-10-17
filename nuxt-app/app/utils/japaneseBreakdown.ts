@@ -76,3 +76,19 @@ export function openKanji(stack: readonly string[], char: string): string[] {
 export function backKanji(stack: readonly string[]): string[] {
   return stack.slice(0, -1);
 }
+
+// Mirrors the server's limit in server/utils/kanjiStories.ts.
+export const MAX_KANJI_STORY_LENGTH = 2000;
+
+export interface StoryDraftState {
+  dirty: boolean;
+  tooLong: boolean;
+  canSave: boolean;
+}
+
+export function storyDraftState(saved: string | null, draft: string): StoryDraftState {
+  const text = draft.trim();
+  const dirty = text !== (saved ?? "");
+  const tooLong = text.length > MAX_KANJI_STORY_LENGTH;
+  return { dirty, tooLong, canSave: dirty && text !== "" && !tooLong };
+}

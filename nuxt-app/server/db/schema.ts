@@ -234,3 +234,12 @@ export const kanjiCard = sqliteTable("kanji_card", {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+// A personal mnemonic per character (feature 110b), independent of cards.
+export const kanjiStory = sqliteTable("kanji_story", {
+  char: text("char").primaryKey(),
+  text: text("text").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

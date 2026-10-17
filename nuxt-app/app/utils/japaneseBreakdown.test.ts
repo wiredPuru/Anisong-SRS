@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backKanji, formatKunReading, formatRtkFrame, formatStrokes, hasKanji, openKanji, parseScript, titleSections } from "./japaneseBreakdown.ts";
+import { backKanji, formatKunReading, formatRtkFrame, formatStrokes, hasKanji, openKanji, parseScript, storyDraftState, titleSections, MAX_KANJI_STORY_LENGTH } from "./japaneseBreakdown.ts";
 
 describe("parseScript", () => {
   it("accepts the three scripts and falls back to normal", () => {
@@ -68,5 +68,26 @@ describe("kanji drill stack", () => {
     openKanji(stack, "鬼");
     backKanji(stack);
     expect(stack).toEqual(["魔"]);
+  });
+});
+
+describe("storyDraftState", () => {
+  it("is not dirty when the draft matches the saved story, ignoring outer whitespace", () => {
+    expect(storyDraftState("a demon", "  a demon ")).toEqual({ dirty: false, tooLong: false, canSave: false });
+    expect(storyDraftState(null, "")).toEqual({ dirty: false, tooLong: false, canSave: false });
+  });
+
+  it("can save a new or changed non-empty draft", () => {
+    expect(storyDraftState(null, "a demon").canSave).toBe(true);
+    expect(storyDraftState("a demon", "a big demon").canSave).toBe(true);
+  });
+
+  it("cannot save a cleared draft, since Remove is the way to clear", () => {
+    expect(storyDraftState("a demon", "   ")).toEqual({ dirty: true, tooLong: false, canSave: false });
+  });
+
+  it("cannot save a draft over the limit", () => {
+    expect(storyDraftState(null, "x".repeat(MAX_KANJI_STORY_LENGTH + 1)).canSave).toBe(false);
+    expect(storyDraftState(null, "x".repeat(MAX_KANJI_STORY_LENGTH)).canSave).toBe(true);
   });
 });

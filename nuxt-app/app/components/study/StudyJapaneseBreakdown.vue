@@ -35,6 +35,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const requests = createLatestRequest();
 const drill = ref<string[]>([]);
+const storyChars = ref<Set<string>>(new Set());
 const drilled = computed(() => drill.value[drill.value.length - 1] ?? null);
 
 // A new card, or the answer being hidden again, starts from the titles.
@@ -42,7 +43,23 @@ watch(() => [props.animeTitleNative, props.songTitleNative, props.blurred], () =
   drill.value = [];
 });
 
+async function loadStoryChars() {
+  try {
+    storyChars.value = new Set((await $fetch<{ chars: string[] }>("/api/kanji/story/chars")).chars);
+  } catch {
+    // Markers are a convenience; the breakdown works without them.
+  }
+}
+
+function onStoryChanged(char: string, hasStory: boolean) {
+  const next = new Set(storyChars.value);
+  if (hasStory) next.add(char);
+  else next.delete(char);
+  storyChars.value = next;
+}
+
 onMounted(() => {
+  loadStoryChars();
   try {
     script.value = parseScript(localStorage.getItem(JAPANESE_SCRIPT_STORAGE_KEY));
   } catch {
@@ -117,6 +134,8 @@ function rowsFor(text: string): KanjiReply {
       v-if="drilled"
       :char="drilled"
       :depth="drill.length"
+      :story-chars="storyChars"
+      @story-changed="onStoryChanged"
       @open="drill = openKanji(drill, $event)"
       @back="drill = backKanji(drill)"
     />
@@ -134,7 +153,7 @@ function rowsFor(text: string): KanjiReply {
       <p v-else-if="kanjiByTitle[section.text] && !hasKanji(section.text)" class="jb-note">No kanji in this title.</p>
       <ul v-else class="jb-grid">
         <li v-for="entry in rowsFor(section.text).kanji" :key="entry.char" class="jb-tile">
-          <button type="button" class="jb-char" lang="ja" :aria-label="`Open ${entry.char}`" @click="drill = openKanji(drill, entry.char)">{{ entry.char }}</button>
+          <button type="button" class="jb-char" :class="{ 'has-story': storyChars.has(entry.char) }" lang="ja" :aria-label="`Open ${entry.char}${storyChars.has(entry.char) ? ' (has your story)' : ''}`" @click="drill = openKanji(drill, entry.char)">{{ entry.char }}</button>
           <div class="jb-body">
             <p class="jb-keyword">
               {{ entry.keyword || "(no English meaning)" }}
@@ -146,6 +165,8 @@ function rowsFor(text: string): KanjiReply {
                 :key="part"
                 type="button"
                 class="jb-part"
+                :class="{ 'has-story': storyChars.has(part) }"
+                :aria-label="storyChars.has(part) ? `${part} (has your story)` : undefined"
                 lang="ja"
                 @click="drill = openKanji(drill, part)"
               >
@@ -289,6 +310,23 @@ function rowsFor(text: string): KanjiReply {
 
 button.jb-char {
   cursor: pointer;
+}
+
+.jb-char.has-story,
+.jb-part.has-story {
+  position: relative;
+}
+
+.jb-char.has-story::after,
+.jb-part.has-story::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 button.jb-char:hover {

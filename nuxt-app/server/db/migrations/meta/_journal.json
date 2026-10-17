@@ -288,6 +288,13 @@
       "when": 1792278038288,
       "tag": "0040_glorious_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1792278389559,
+      "tag": "0041_wakeful_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

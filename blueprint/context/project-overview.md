@@ -2734,7 +2734,7 @@ panel, like features 93 and 102.
       and KRADFILE (EDRDG, CC BY-SA 4.0).
 
 110. **Kanji parts viewer and stories** - added to `build-plan.md` 2026-10-17, in
-    two sub-features, 110a built, 110b not. In the Japanese breakdown panel (feature
+    two sub-features, both built. In the Japanese breakdown panel (feature
     109) every kanji tile and part chip becomes clickable and opens an inline
     detail view with a back stack: keyword, alternates, readings, strokes, RTK
     frame, and its own clickable parts (drill 魔 into 鬼 and back). 247 of the
@@ -2746,9 +2746,10 @@ panel, like features 93 and 102.
     (Kanji stories bullet).
     - **110a. Clickable parts + detail view** - done 2026-10-17. Tiles and chips open the detail
       view, on Study and Listen. No storage, no server change.
-    - **110b. Personal stories** - `kanji_story` table, `GET`/`PUT`/`DELETE
-      /api/kanji/story`, an editable story box, and a marker on tiles and chips
-      that have a story.
+    - **110b. Personal stories** - done 2026-10-17. `kanji_story` table (migration
+      `0041`), `GET`/`PUT`/`DELETE /api/kanji/story` plus `GET /api/kanji/story/chars`,
+      a Your story editor in the detail view (1-2000 characters, Remove to clear),
+      and a dot on every tile and part chip that has a story.
 
 111. **Kanji Study** - added to `build-plan.md` 2026-10-17, in three
     sub-features, none built. Kanji from the Japanese breakdown (109/110) can be
@@ -2939,7 +2940,7 @@ prunes a track whose deck no longer uses it.
 
 ### KanjiStory
 
-Feature 110b (planned). A personal mnemonic per character, independent of cards.
+Feature 110b (built, migration `0041`). A personal mnemonic per character, independent of cards.
 
 - `char` (text, PK) - a single kanji or part
 - `text` (text, not null)
