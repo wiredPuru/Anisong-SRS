@@ -86,6 +86,11 @@ game, behind a password.
   analyzer. Applies to both anime titles and song titles - song titles gain a
   native-Japanese variant sourced from lookup, alongside the anime title's
   existing English/Romaji/Native fields.
+- **Japanese breakdown** - an optional (Settings toggle, off by default) second
+  flip card on Study and Listen, opened with J, that breaks the native song and
+  anime titles into kanji with an RTK-style keyword, component parts, readings
+  and stroke count, and can show the text as Normal, all hiragana or all
+  katakana. It never reveals an answer early and changes no review state.
 - **Playback** - "play song" plays audio only and requires a guess; "show
   video" plays from the start of the clip if a video exists.
 - **Review stats** - guess-rate tracking, sliceable by artist and by anime
@@ -160,6 +165,9 @@ game, behind a password.
   key and no cookie.
 - Japanese morphological analyzer (e.g. kuroshiro/kuromoji) for furigana
   generation.
+- KANJIDIC2 and KRADFILE (Electronic Dictionary Research and Development
+  Group, CC BY-SA), bundled locally for feature 109's kanji keywords, readings
+  and component parts. Not Heisig's RTK keyword list, which is copyrighted.
 - Local filesystem access (Node `fs`) for the user-configured media library.
 
 ## 6. Monetize - How will this make money?

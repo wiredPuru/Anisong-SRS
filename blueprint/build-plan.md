@@ -1255,9 +1255,17 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 107b. **Offline mode** - persist a Settings toggle that prevents
     server and browser requests to external providers, including automatic
     backfills, remote images, and media; local playback remains available.
-  - [ ] 107c. **Offline UX and verification** - explain unavailable discovery,
-    list refreshes, covers, and clips without blocking local library use;
-    verify Study, Listen, and Party against downloaded content.
+  - [ ] 107c. **Offline notices** - every online-only surface (card and
+    anime discovery, list imports, AniList browse, artist catalog, Settings
+    backfills and refreshes, update checks, and Party catalog search) says
+    it needs online mode, with a link to Settings, instead of firing a
+    request and showing a generic error. Local library use is never blocked.
+  - [ ] 107d. **Offline play** - Study, Listen, and Party explain a clip that
+    is not downloaded; an opt-in "Playable offline only" choice, shown only
+    while offline, leaves cards with no local file or complete cached clip
+    out of Study and Listen, with a count; typed-answer suggestions come
+    from the local library while offline, with grading unchanged; verified
+    end to end against downloaded content.
 
 - [x] 108. **Host command bar** - Shift+P (outside a text field) on
   `/party/host` opens a searchable command palette, VS Code style, over
@@ -1269,6 +1277,27 @@ cleaned-up checkbox version before generating the project overview.
   (On / Off) and its hotkey if it has one, and recent picks are listed
   first when the bar opens empty (remembered in that browser). Host panel
   only; no server or party state change.
+
+- [ ] 109. **Japanese breakdown panel** - a second flip card for learning
+  the kanji in a card's native titles. A persistent Settings toggle (default
+  off) enables it. On Study and Listen, J flips the picture over to it, the
+  way D flips to Details (D is unchanged, and opening one closes the other).
+  The panel covers the song's and the anime's native Japanese titles. Each
+  kanji gets an RTK-style entry: a primary English keyword, its component
+  parts, on/kun readings and stroke count. The data is KANJIDIC2 (meanings,
+  readings, strokes) and KRADFILE (parts), bundled locally, so it works
+  offline (feature 107) and adds no provider calls. These are free
+  approximations of RTK, not Heisig's copyrighted keyword list. A
+  Normal | All Hiragana | All Katakana switch re-renders the title text
+  (kanji and kana converted via the existing kuroshiro/kuromoji furigana
+  stack), remembered in the browser. The panel follows Hide Info and stays
+  hidden until a typed answer is revealed, so it never gives the answer
+  away. Presentation only: no schedule, score or stored-card change.
+  - [ ] 109a. Kanji data and server - bundled KANJIDIC2/KRADFILE lookup,
+    `GET /api/kanji`, tests. No UI.
+  - [ ] 109b. Breakdown panel and J flip - the card UI, script switch,
+    configurable hotkey, Hide Info rules.
+  - [ ] 109c. Settings toggle, About attribution, Listen parity.
 
 ## Plan maintenance
 

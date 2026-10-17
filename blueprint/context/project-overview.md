@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash f66e0a8286e076fe7234ee8a357b0c97ac7e8bc87a9cb4be2363bfc2703a88a7 -->
+<!-- blueprint:source-hash e3983d149b9a4615dfad128c8672aa7137ab5826757a7387ec346e2966af8099 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2672,9 +2672,13 @@ panel, like features 93 and 102.
     - **107b. Offline mode** - done. A persisted Settings toggle suppresses external
       provider requests from both server and browser, including backfills,
       remote images, and media. Local app and party LAN requests still work.
-    - **107c. Offline UX and verification** - explain unavailable discovery,
-      list refreshes, covers, and clips; prove Study, Listen, and Party work
-      with downloaded content.
+    - **107c. Offline notices** - every online-only surface (discovery, list
+      imports, browse, artist catalog, Settings backfills, update checks,
+      Party catalog) says it needs online mode instead of erroring.
+    - **107d. Offline play** - Study, Listen, and Party explain undownloaded
+      clips; an opt-in "Playable offline only" choice, shown only offline;
+      library-only typed-answer suggestions offline; verified end to end.
+      Split from 107c on 2026-10-17.
     Backup/restore, internal-identity migration, catalog mirroring, and provider
     permissions are not part of this feature. Existing storage-policy
     compliance needs separate review; this plan does not claim permission.
@@ -2694,6 +2698,25 @@ panel, like features 93 and 102.
     the same day so the browser's Print shortcut is left alone. Decided at intake: toggle and jump together; scope is every
     hotkey action, the panels' on/off settings, and every panel as a jump
     target, with player names left for later.
+
+109. **Japanese breakdown panel** - added to `build-plan.md` 2026-10-17, not
+    built, in three sub-features. A second flip card for learning the kanji in
+    a card's native titles, behind a persistent Settings toggle (default off).
+    On Study and Listen, J flips the picture to it as D flips to Details
+    (unchanged; opening one closes the other). It covers the song's and the
+    anime's native titles; each kanji gets a primary English keyword,
+    component parts, on/kun readings and stroke count, from KANJIDIC2 and
+    KRADFILE bundled locally (works offline, no provider calls). These are free
+    approximations, not Heisig's copyrighted RTK keywords. A Normal | All
+    Hiragana | All Katakana switch re-renders the text via the existing
+    kuroshiro/kuromoji stack, remembered in the browser. It follows Hide Info
+    and stays hidden until a typed answer is revealed. Presentation only.
+    Amended `project-plan.md` §3 (Japanese breakdown bullet) and §5 (data
+    sources and CC BY-SA attribution). Specced after 107c.
+    - **109a. Kanji data and server** - bundled lookup, `GET /api/kanji`, tests.
+    - **109b. Breakdown panel and J flip** - card UI, script switch,
+      configurable hotkey, Hide Info rules.
+    - **109c. Settings toggle, About attribution, Listen parity.**
 
 ## Data model
 
@@ -3021,6 +3044,8 @@ already pure and takes box/streak as arguments, so it is reused unchanged.
   `400` for both a missing user and a private list.
 - **Japanese morphological analyzer** (e.g. kuroshiro/kuromoji) - added in
   feature 6c for furigana generation
+- **KANJIDIC2 + KRADFILE** (EDRDG, CC BY-SA) - planned for feature 109,
+  bundled locally for kanji keywords, readings and component parts.
 - **Node `fs`** - reads the user-configured local media library and writes
   files downloaded by feature 8, and removes files feature 17 cleans up
 - **Vitest** - added 2026-09-04 alongside feature 54. Run with
