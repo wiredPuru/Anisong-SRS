@@ -1320,7 +1320,7 @@ cleaned-up checkbox version before generating the project overview.
   own schedule, so no card, review log or stats change.
   - [x] 111a. Kanji deck + scheduling - `kanji_card` table, add/remove/list/
     next/review routes, reusing `computeNextBoxState`. No UI.
-  - [ ] 111b. Add from the breakdown - an "Add to Kanji Study" button on kanji
+  - [x] 111b. Add from the breakdown - an "Add to Kanji Study" button on kanji
     tiles, part chips and the detail view (with an "Added" state), plus a
     "Kanji Study" rail entry, both hidden when the breakdown setting is off.
   - [ ] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a

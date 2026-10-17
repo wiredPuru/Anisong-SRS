@@ -2,6 +2,7 @@
 const props = defineProps<{ enabled: boolean }>();
 const emit = defineEmits<{ saved: [] }>();
 
+const { refresh: refreshRail } = useJapaneseBreakdownSetting();
 const isSaving = ref(false);
 const error = ref<string | null>(null);
 
@@ -11,6 +12,7 @@ async function setEnabled(next: boolean) {
   try {
     await $fetch("/api/media-library/japanese-breakdown", { method: "POST", body: { enabled: next } });
     emit("saved");
+    refreshRail();
   } catch (err) {
     error.value = extractErrorMessage(err, "Couldn't save Japanese breakdown. Try again.");
   } finally {

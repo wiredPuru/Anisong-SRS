@@ -5,20 +5,27 @@ interface NavLink {
   icon: string;
 }
 
-const links: NavLink[] = [
+const baseLinks: NavLink[] = [
   { to: "/", label: "Home", icon: "◈" },
   { to: "/study", label: "Study", icon: "▶" },
   { to: "/listen", label: "Listen", icon: "♪" },
+  { to: "/kanji", label: "Kanji", icon: "漢" },
   { to: "/cards", label: "Cards", icon: "▤" },
   { to: "/decks", label: "Decks", icon: "◫" },
   { to: "/stats", label: "Stats", icon: "◲" },
   { to: "/settings", label: "Settings", icon: "⚙" },
 ];
 
+const { enabled: japaneseBreakdown, refresh: refreshJapaneseBreakdown } = useJapaneseBreakdownSetting();
+const links = computed(() => baseLinks.filter((link) => link.to !== "/kanji" || japaneseBreakdown.value));
+
 const route = useRoute();
 
 const { status: updateStatus, check: checkForUpdate } = useUpdateCheck();
-onMounted(() => checkForUpdate());
+onMounted(() => {
+  checkForUpdate();
+  refreshJapaneseBreakdown();
+});
 
 function isActive(to: string): boolean {
   if (to === "/") return route.path === "/";

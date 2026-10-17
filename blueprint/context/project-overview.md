@@ -2767,8 +2767,12 @@ panel, like features 93 and 102.
     (a story is shown on reveal if one exists).
     - **111a. Kanji deck + scheduling** - done 2026-10-17. `kanji_card` table, add/remove/list/
       next/review routes. No UI.
-    - **111b. Add from the breakdown** - "Add to Kanji Study" on tiles, part
-      chips and the detail view with an Added state, plus a rail entry.
+    - **111b. Add from the breakdown** - done 2026-10-17. An "Add to Kanji Study"
+      button (Added when in the deck, click removes) on breakdown tiles and the
+      detail view, an in-deck border on part chips (a part is added by opening it,
+      and a bare stroke shape gets no button), and a "Kanji" rail link to `/kanji`,
+      all gated on Settings > Japanese breakdown (`useJapaneseBreakdownSetting`).
+      `/kanji` has no page until 111c.
     - **111c. Kanji Study page** - `/kanji`: due kanji flashcards over background
       clips.
 

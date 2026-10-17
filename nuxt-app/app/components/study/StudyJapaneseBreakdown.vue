@@ -35,6 +35,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const requests = createLatestRequest();
 const drill = ref<string[]>([]);
+const kanjiDeck = useKanjiDeck();
 const storyChars = ref<Set<string>>(new Set());
 const drilled = computed(() => drill.value[drill.value.length - 1] ?? null);
 
@@ -49,6 +50,11 @@ async function loadStoryChars() {
   } catch {
     // Markers are a convenience; the breakdown works without them.
   }
+}
+
+function partLabel(part: string): string | undefined {
+  const notes = [storyChars.value.has(part) && "has your story", kanjiDeck.chars.value.has(part) && "in Kanji Study"].filter(Boolean);
+  return notes.length ? `${part} (${notes.join(", ")})` : undefined;
 }
 
 function onStoryChanged(char: string, hasStory: boolean) {
@@ -165,8 +171,8 @@ function rowsFor(text: string): KanjiReply {
                 :key="part"
                 type="button"
                 class="jb-part"
-                :class="{ 'has-story': storyChars.has(part) }"
-                :aria-label="storyChars.has(part) ? `${part} (has your story)` : undefined"
+                :class="{ 'has-story': storyChars.has(part), 'in-deck': kanjiDeck.chars.value.has(part) }"
+                :aria-label="partLabel(part)"
                 lang="ja"
                 @click="drill = openKanji(drill, part)"
               >
@@ -181,6 +187,7 @@ function rowsFor(text: string): KanjiReply {
               {{ formatStrokes(entry.strokes) }}
               <template v-if="formatRtkFrame(entry.rtk)"> &middot; {{ formatRtkFrame(entry.rtk) }}</template>
             </p>
+            <StudyKanjiDeckButton :char="entry.char" />
           </div>
         </li>
         <li v-for="char in rowsFor(section.text).unknown" :key="`unknown-${char}`" class="jb-tile jb-unknown">
@@ -372,6 +379,10 @@ button.jb-char:hover {
   color: inherit;
   font-size: 14px;
   cursor: pointer;
+}
+
+.jb-part.in-deck {
+  border-color: var(--pass);
 }
 
 .jb-part:hover {

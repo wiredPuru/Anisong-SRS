@@ -21,6 +21,7 @@ const emit = defineEmits<{
   storyChanged: [char: string, hasStory: boolean];
 }>();
 
+const kanjiDeck = useKanjiDeck();
 const entry = ref<KanjiEntry | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -117,6 +118,11 @@ async function removeStory() {
   }
 }
 
+function partLabel(part: string): string | undefined {
+  const notes = [props.storyChars.has(part) && "has your story", kanjiDeck.chars.value.has(part) && "in Kanji Study"].filter(Boolean);
+  return notes.length ? `${part} (${notes.join(", ")})` : undefined;
+}
+
 watch(() => props.char, () => {
   load();
   loadStory();
@@ -156,6 +162,7 @@ onScopeDispose(() => {
             {{ formatStrokes(entry.strokes) }}
             <template v-if="formatRtkFrame(entry.rtk)"> &middot; {{ formatRtkFrame(entry.rtk) }}</template>
           </p>
+          <StudyKanjiDeckButton :char="char" />
         </template>
       </div>
     </div>
@@ -168,8 +175,8 @@ onScopeDispose(() => {
           :key="part"
           type="button"
           class="kd-part"
-          :class="{ 'has-story': storyChars.has(part) }"
-          :aria-label="storyChars.has(part) ? `${part} (has your story)` : undefined"
+          :class="{ 'has-story': storyChars.has(part), 'in-deck': kanjiDeck.chars.value.has(part) }"
+          :aria-label="partLabel(part)"
           lang="ja"
           @click="emit('open', part)"
         >
@@ -319,6 +326,10 @@ onScopeDispose(() => {
   height: 8px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+.kd-part.in-deck {
+  border-color: var(--pass);
 }
 
 .kd-part:hover {
