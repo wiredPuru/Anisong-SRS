@@ -1295,9 +1295,9 @@ cleaned-up checkbox version before generating the project overview.
   away. Presentation only: no schedule, score or stored-card change.
   - [x] 109a. Kanji data and server - bundled KANJIDIC2/KRADFILE lookup,
     `GET /api/kanji`, tests. No UI.
-  - [ ] 109b. Breakdown panel and J flip - the card UI, script switch,
-    configurable hotkey, Hide Info rules.
-  - [ ] 109c. Settings toggle, About attribution, Listen parity.
+  - [x] 109b. Breakdown panel and J flip - the card UI, script switch,
+    configurable hotkey, Hide Info rules, and the Settings toggle that enables it.
+  - [ ] 109c. About attribution and Listen parity.
 
 ## Plan maintenance
 

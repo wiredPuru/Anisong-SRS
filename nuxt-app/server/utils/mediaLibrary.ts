@@ -229,6 +229,28 @@ export function setThemesOnly(enabled: boolean): { error: string } | { themesOnl
   return { themesOnly: enabled };
 }
 
+export function getJapaneseBreakdown(): boolean {
+  const row = db
+    .select({ japaneseBreakdown: mediaLibrarySettings.japaneseBreakdown })
+    .from(mediaLibrarySettings)
+    .where(eq(mediaLibrarySettings.id, SETTINGS_ID))
+    .get();
+  return row?.japaneseBreakdown ?? false;
+}
+
+export function setJapaneseBreakdown(enabled: unknown): { error: string } | { japaneseBreakdown: boolean } {
+  if (typeof enabled !== "boolean") {
+    return { error: "enabled is required and must be a boolean" };
+  }
+
+  db.insert(mediaLibrarySettings)
+    .values({ id: SETTINGS_ID, japaneseBreakdown: enabled })
+    .onConflictDoUpdate({ target: mediaLibrarySettings.id, set: { japaneseBreakdown: enabled } })
+    .run();
+
+  return { japaneseBreakdown: enabled };
+}
+
 export function getPlayableOfflineOnly(): boolean {
   const row = db
     .select({ playableOfflineOnly: mediaLibrarySettings.playableOfflineOnly })

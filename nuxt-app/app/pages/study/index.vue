@@ -82,6 +82,7 @@ const { data: studySettings, refresh: refreshStudySettings } = await useFetch<{
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  japaneseBreakdown: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
 }>("/api/media-library");
 
@@ -89,6 +90,7 @@ const hasDefaultDownloadFolder = computed(() => Boolean(studySettings.value?.def
 const persistedAudioOnly = computed(() => studySettings.value?.playbackMode === "audioOnly");
 const autoDownload = computed(() => studySettings.value?.autoDownload ?? false);
 const clipSource = computed(() => studySettings.value?.clipSource ?? "anisongdb");
+const japaneseBreakdown = computed(() => studySettings.value?.japaneseBreakdown ?? false);
 
 // A session-only override of the persisted Playback mode setting, toggled
 // from the display-toggles row below. `null` means "follow /settings".
@@ -316,9 +318,24 @@ watch(showDetails, (open) => {
     // Not remembered without storage; the drawer still opens and closes.
   }
 });
+// J flips to the Japanese breakdown, a second card behind the same picture.
+// Only one of the two is open at a time, and it only exists when its Settings
+// toggle is on.
+const showJapanese = ref(false);
+const japaneseOpen = computed(() => showJapanese.value && japaneseBreakdown.value);
+watch(showDetails, (open) => {
+  if (open) showJapanese.value = false;
+});
+watch(showJapanese, (open) => {
+  if (open) showDetails.value = false;
+});
+function toggleJapanese() {
+  if (japaneseBreakdown.value) showJapanese.value = !showJapanese.value;
+}
 // A new song always opens on the picture, even if the last one was flipped.
 watch(presentationKey, () => {
   showDetails.value = false;
+  showJapanese.value = false;
 });
 // A graded round, typed or manual, right or wrong, shows the details until the next song.
 watch(roundResult, (shown) => {
@@ -1237,6 +1254,7 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   previousCard: openPreviousCard,
   sessionLog: () => { showSessionLog.value = !showSessionLog.value; },
   flipCard: () => { showDetails.value = !showDetails.value; },
+  flipJapanese: toggleJapanese,
   editCard: toggleEditFromKey,
 };
 
@@ -1267,6 +1285,7 @@ function onKeydown(event: KeyboardEvent) {
       hotkeys.claimSpace(event);
       showDetails.value = !showDetails.value;
     }
+    if (action === "flipJapanese" && !event.repeat) toggleJapanese();
     return;
   }
   if (typedAnswers.value && (action === "hideInfo" || action === "hideCover")) return;
@@ -1472,9 +1491,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
             <span class="tooltip">Details &middot; D</span>
           </button>
+          <button
+            v-if="japaneseBreakdown"
+            type="button"
+            class="icon-btn"
+            :class="{ active: japaneseOpen }"
+            aria-label="Japanese breakdown"
+            :aria-pressed="japaneseOpen"
+            @click="toggleJapanese"
+          >
+            <span class="jp-glyph" lang="ja" aria-hidden="true">漢</span>
+            <span class="tooltip">Japanese breakdown<template v-if="hotkeyHint('flipJapanese')"> &middot; {{ hotkeyHint("flipJapanese") }}</template></span>
+          </button>
         </div>
       </header>
-      <div class="stage" :class="{ flipped: showDetails }" :style="stageStyle">
+      <div class="stage" :class="{ flipped: showDetails || japaneseOpen }" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture" :class="{ 'combo-shake': comboShake }">
           <StudyMediaPlayer
             ref="mediaPlayerRef"
@@ -1606,9 +1637,22 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   <span v-if="hotkeyHint('sessionLog')"><kbd>{{ hotkeyHint("sessionLog") }}</kbd> session log</span>
                   <span v-if="hotkeyHint('editCard')"><kbd>{{ hotkeyHint("editCard") }}</kbd> edit card</span>
                   <span v-if="hotkeyHint('flipCard')"><kbd>{{ hotkeyHint("flipCard") }}</kbd> flip card</span>
+                  <span v-if="japaneseBreakdown && hotkeyHint('flipJapanese')"><kbd>{{ hotkeyHint("flipJapanese") }}</kbd> Japanese breakdown</span>
                 </template>
               </p>
             </template>
+          </StudyDetailsCard>
+          <StudyDetailsCard
+            v-if="japaneseBreakdown"
+            :open="japaneseOpen"
+            :cover-image-url="detailsHidden ? null : currentCard.animeCoverImageUrl"
+            :hidden="detailsHidden"
+          >
+            <StudyJapaneseBreakdown
+              :anime-title-native="currentCard.animeTitleNative"
+              :song-title-native="currentCard.songTitleNative"
+              :blurred="detailsHidden"
+            />
           </StudyDetailsCard>
         </div>
         <div class="np-wrap">
@@ -1624,10 +1668,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :hidden-line="typedAnswers ? `Guess the ${mainAnswer}` : 'Click to reveal'"
             :revealable="!typedAnswers && !answerControlsDisabled"
             :countdown-seconds="autoRevealCountdownActive ? autoRevealDisplaySeconds : null"
-            :on-details="showDetails"
+            :on-details="showDetails || japaneseOpen"
             :result="quizResult?.result ?? manualResult?.result ?? null"
             @reveal="revealAndFlip"
-            @watch-video="showDetails = false"
+            @watch-video="showDetails = false; showJapanese = false"
           >
             <div v-if="typedAnswers && !quizResult" ref="answerStackRef" class="answer-stack">
               <p v-if="criterionCopy" class="criterion-prompt">Graded on: {{ criterionCopy.chip }}</p>
@@ -2349,5 +2393,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-family: inherit;
   text-align: center;
   color: var(--muted);
+}
+
+.jp-glyph {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
 }
 </style>

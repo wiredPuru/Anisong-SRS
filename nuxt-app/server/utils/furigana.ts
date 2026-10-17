@@ -2,7 +2,8 @@ import { pathToFileURL } from "node:url";
 import kuroshiroModule from "kuroshiro";
 import KuromojiAnalyzer from "kuroshiro-analyzer-kuromoji";
 
-const Kuroshiro = kuroshiroModule.default;
+// The built server hands over { default }; Vitest's interop hands over the class itself.
+const Kuroshiro = kuroshiroModule.default ?? (kuroshiroModule as unknown as typeof kuroshiroModule.default);
 type Kuroshiro = InstanceType<typeof Kuroshiro>;
 
 interface KuromojiToken {
@@ -94,4 +95,25 @@ function escapeHtml(text: string): string {
 export async function toFuriganaHtml(text: string): Promise<string> {
   const kuroshiro = await getKuroshiro();
   return kuroshiro.convert(escapeHtml(text), { mode: "furigana", to: "hiragana" });
+}
+
+export type KanaTarget = "hiragana" | "katakana";
+
+export function isKanaTarget(value: unknown): value is KanaTarget {
+  return value === "hiragana" || value === "katakana";
+}
+
+// Whole-title conversion, kanji included: "歌" becomes "うた" or "ウタ".
+export async function toKanaText(text: string, to: KanaTarget): Promise<string> {
+  const kuroshiro = await getKuroshiro();
+  return shiftKana(await kuroshiro.convert(text, { mode: "normal", to }), to);
+}
+
+// Kuroshiro leaves kana of the other script untouched when a title has no kanji
+// to read, so the remaining kana are shifted here. The long-vowel mark and the
+// middle dot belong to both scripts and stay.
+export function shiftKana(text: string, to: KanaTarget): string {
+  const pattern = to === "hiragana" ? /[\u30A1-\u30F6]/g : /[\u3041-\u3096]/g;
+  const offset = to === "hiragana" ? -0x60 : 0x60;
+  return text.replace(pattern, (char) => String.fromCharCode(char.charCodeAt(0) + offset));
 }

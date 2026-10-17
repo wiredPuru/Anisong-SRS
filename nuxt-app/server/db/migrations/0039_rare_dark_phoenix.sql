@@ -1,0 +1,1 @@
+ALTER TABLE `media_library_settings` ADD `japanese_breakdown` integer DEFAULT false NOT NULL;

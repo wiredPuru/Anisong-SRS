@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 033b76df47458e12738b0a29b8ff79002a30712819ee8408038ca21d85acd59e -->
+<!-- blueprint:source-hash a76f67c5c34f58b251c69c1ecbf05a215e0858996561b1ed86fc155f3a80ab88 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2700,7 +2700,7 @@ panel, like features 93 and 102.
     target, with player names left for later.
 
 109. **Japanese breakdown panel** - added to `build-plan.md` 2026-10-17, in
-    three sub-features; 109a is built. A second flip card for learning the kanji in
+    three sub-features; 109a and 109b are built. A second flip card for learning the kanji in
     a card's native titles, behind a persistent Settings toggle (default off).
     On Study and Listen, J flips the picture to it as D flips to Details
     (unchanged; opening one closes the other). It covers the song's and the
@@ -2720,9 +2720,15 @@ panel, like features 93 and 102.
       kun, strokes, grade, jlpt, freq, and `rtk`, the Heisig frame number as a
       pointer into the user's own book). CC BY-SA notice in
       `server/data/KANJI-LICENCE.txt`.
-    - **109b. Breakdown panel and J flip** - card UI, script switch,
-      configurable hotkey, Hide Info rules.
-    - **109c. Settings toggle, About attribution, Listen parity.**
+    - **109b. Breakdown panel and J flip** - done 2026-10-17. On Study, J (the
+      rebindable `flipJapanese` action) flips to `StudyJapaneseBreakdown`, a second
+      `StudyDetailsCard` showing each native title's kanji with keyword, parts,
+      readings, strokes and RTK frame, plus a Normal | All hiragana | All katakana
+      switch (`GET /api/japanese-script`, kuroshiro, remembered in
+      `localStorage` `gaqSrs:japaneseScript`). Blurred and inert while the answer
+      is hidden. Enabled by the new `japaneseBreakdown` setting (migration `0039`,
+      Settings > Playback), which moved here from 109c.
+    - **109c. About attribution and Listen parity.**
 
 ## Data model
 
@@ -2913,6 +2919,8 @@ Singleton row (`id` always `1`).
   clip files may be streamed or downloaded from.
 - `includeInsertSongs` (boolean, not null, default `false`) - added in
   feature 85a. Whether imports keep AnisongDB insert songs.
+- `japaneseBreakdown` (boolean, not null, default `false`) - added in feature
+  109b (migration `0039`). Turns on Study's Japanese breakdown card.
 - `playableOfflineOnly` (boolean, not null, default `false`) - added in
   feature 107d (migration `0038`). Only effective while `offlineMode` is on:
   Study, Listen and Party then leave out cards with no usable local file and no

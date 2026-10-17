@@ -149,6 +149,7 @@ export const mediaLibrarySettings = sqliteTable("media_library_settings", {
   streamCacheMaxBytes: integer("stream_cache_max_bytes").notNull().default(1_073_741_824),
   playbackMode: text("playback_mode").$type<"auto" | "audioOnly">().notNull().default("auto"),
   autoDownload: integer("auto_download", { mode: "boolean" }).notNull().default(false),
+  japaneseBreakdown: integer("japanese_breakdown", { mode: "boolean" }).notNull().default(false),
   offlineMode: integer("offline_mode", { mode: "boolean" }).notNull().default(false),
   themesOnly: integer("themes_only", { mode: "boolean" }).notNull().default(false),
   playableOfflineOnly: integer("playable_offline_only", { mode: "boolean" }).notNull().default(false),

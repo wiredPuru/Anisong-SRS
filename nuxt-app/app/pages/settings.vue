@@ -8,6 +8,7 @@ const { data, pending, error, refresh } = await useFetch<{
   streamCachePath: string;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  japaneseBreakdown: boolean;
   offlineMode: boolean;
   playableOfflineOnly: boolean;
   themesOnly: boolean;
@@ -375,6 +376,7 @@ async function importDeck() {
                 library as you study or preview it, instead of relying on the manual Download button.
               </p>
               <SettingsAutoDownloadControl :enabled="data.autoDownload" @saved="refresh" />
+              <SettingsJapaneseBreakdownControl :enabled="data.japaneseBreakdown" @saved="refresh" />
               <p class="section-hint">
                 Ambient mode: a soft glow from the playing clip on Study, Listen and Preview, and the last played
                 clip as a blurred backdrop on every other page. Saved on this device.

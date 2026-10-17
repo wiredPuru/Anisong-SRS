@@ -28,6 +28,7 @@ describe("HOTKEY_ACTIONS defaults", () => {
     hideInfo: ["i", null],
     ambient: ["a", null],
     flipCard: ["d", null],
+    flipJapanese: ["j", null],
     previousCard: ["p", null],
     sessionLog: ["l", null],
     editCard: ["e", null],
