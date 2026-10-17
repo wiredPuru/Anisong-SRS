@@ -6,26 +6,14 @@ import {
   hasKanji,
   JAPANESE_SCRIPT_LABELS,
   JAPANESE_SCRIPT_STORAGE_KEY,
+  backKanji,
   JAPANESE_SCRIPTS,
+  type KanjiEntry,
+  openKanji,
   parseScript,
   titleSections,
   type JapaneseScript,
 } from "~/utils/japaneseBreakdown";
-
-// Mirrors KanjiEntry in server/utils/kanjiData.ts; keep the fields in the same order.
-interface KanjiEntry {
-  char: string;
-  keyword: string;
-  alternates: string[];
-  parts: string[];
-  on: string[];
-  kun: string[];
-  strokes: number;
-  grade: number | null;
-  jlpt: number | null;
-  freq: number | null;
-  rtk: number | null;
-}
 
 interface KanjiReply {
   kanji: KanjiEntry[];
@@ -46,6 +34,13 @@ const shownText = ref<Record<string, string>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
 const requests = createLatestRequest();
+const drill = ref<string[]>([]);
+const drilled = computed(() => drill.value[drill.value.length - 1] ?? null);
+
+// A new card, or the answer being hidden again, starts from the titles.
+watch(() => [props.animeTitleNative, props.songTitleNative, props.blurred], () => {
+  drill.value = [];
+});
 
 onMounted(() => {
   try {
@@ -118,6 +113,15 @@ function rowsFor(text: string): KanjiReply {
       </div>
     </div>
 
+    <StudyKanjiDetail
+      v-if="drilled"
+      :char="drilled"
+      :depth="drill.length"
+      @open="drill = openKanji(drill, $event)"
+      @back="drill = backKanji(drill)"
+    />
+
+    <template v-else>
     <p v-if="error" class="jb-note jb-error" role="alert">
       {{ error }} <button type="button" class="jb-retry" @click="load">Try again</button>
     </p>
@@ -130,14 +134,23 @@ function rowsFor(text: string): KanjiReply {
       <p v-else-if="kanjiByTitle[section.text] && !hasKanji(section.text)" class="jb-note">No kanji in this title.</p>
       <ul v-else class="jb-grid">
         <li v-for="entry in rowsFor(section.text).kanji" :key="entry.char" class="jb-tile">
-          <span class="jb-char" lang="ja">{{ entry.char }}</span>
+          <button type="button" class="jb-char" lang="ja" :aria-label="`Open ${entry.char}`" @click="drill = openKanji(drill, entry.char)">{{ entry.char }}</button>
           <div class="jb-body">
             <p class="jb-keyword">
               {{ entry.keyword || "(no English meaning)" }}
               <span v-if="entry.alternates.length" class="jb-alt">{{ entry.alternates.join(", ") }}</span>
             </p>
             <p v-if="entry.parts.length" class="jb-parts" aria-label="Components">
-              <span v-for="part in entry.parts" :key="part" class="jb-part" lang="ja">{{ part }}</span>
+              <button
+                v-for="part in entry.parts"
+                :key="part"
+                type="button"
+                class="jb-part"
+                lang="ja"
+                @click="drill = openKanji(drill, part)"
+              >
+                {{ part }}
+              </button>
             </p>
             <p v-if="entry.on.length || entry.kun.length" class="jb-readings" lang="ja">
               <span v-if="entry.on.length">{{ entry.on.join("、") }}</span>
@@ -155,6 +168,7 @@ function rowsFor(text: string): KanjiReply {
         </li>
       </ul>
     </section>
+    </template>
   </div>
 </template>
 
@@ -265,8 +279,20 @@ function rowsFor(text: string): KanjiReply {
 
 .jb-char {
   flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font-size: 44px;
   line-height: 1;
+}
+
+button.jb-char {
+  cursor: pointer;
+}
+
+button.jb-char:hover {
+  color: var(--accent);
 }
 
 .jb-body {
@@ -304,7 +330,14 @@ function rowsFor(text: string): KanjiReply {
   padding: 1px 7px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
   font-size: 14px;
+  cursor: pointer;
+}
+
+.jb-part:hover {
+  border-color: var(--accent);
 }
 
 .jb-readings {

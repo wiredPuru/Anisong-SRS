@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatKunReading, formatRtkFrame, formatStrokes, hasKanji, parseScript, titleSections } from "./japaneseBreakdown.ts";
+import { backKanji, formatKunReading, formatRtkFrame, formatStrokes, hasKanji, openKanji, parseScript, titleSections } from "./japaneseBreakdown.ts";
 
 describe("parseScript", () => {
   it("accepts the three scripts and falls back to normal", () => {
@@ -45,5 +45,28 @@ describe("reading and meta formatting", () => {
     expect(formatStrokes(14)).toBe("14 strokes");
     expect(formatRtkFrame(508)).toBe("RTK #508");
     expect(formatRtkFrame(null)).toBeNull();
+  });
+});
+
+describe("kanji drill stack", () => {
+  it("pushes each opened character", () => {
+    expect(openKanji(openKanji([], "魔"), "鬼")).toEqual(["魔", "鬼"]);
+  });
+
+  it("ignores reopening the character already on top", () => {
+    expect(openKanji(["魔"], "魔")).toEqual(["魔"]);
+  });
+
+  it("goes back one level and stops at empty", () => {
+    expect(backKanji(["魔", "鬼"])).toEqual(["魔"]);
+    expect(backKanji(["魔"])).toEqual([]);
+    expect(backKanji([])).toEqual([]);
+  });
+
+  it("does not mutate the stack it was given", () => {
+    const stack = ["魔"];
+    openKanji(stack, "鬼");
+    backKanji(stack);
+    expect(stack).toEqual(["魔"]);
   });
 });

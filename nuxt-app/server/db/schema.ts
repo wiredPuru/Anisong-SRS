@@ -220,3 +220,17 @@ export const partyRules = sqliteTable("party_rules", {
   id: integer("id").primaryKey(),
   text: text("text").notNull().default(""),
 });
+
+// A personal kanji deck (feature 111): one Leitner track per added character,
+// independent of card, card_track and review_log.
+export const kanjiCard = sqliteTable("kanji_card", {
+  char: text("char").primaryKey(),
+  box: integer("box").notNull().default(1),
+  streak: integer("streak").notNull().default(0),
+  nextReviewAt: integer("next_review_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

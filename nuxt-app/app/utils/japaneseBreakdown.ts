@@ -21,6 +21,21 @@ export function hasKanji(text: string): boolean {
   return KANJI.test(text);
 }
 
+// Mirrors KanjiEntry in server/utils/kanjiData.ts; keep the fields in the same order.
+export interface KanjiEntry {
+  char: string;
+  keyword: string;
+  alternates: string[];
+  parts: string[];
+  on: string[];
+  kun: string[];
+  strokes: number;
+  grade: number | null;
+  jlpt: number | null;
+  freq: number | null;
+  rtk: number | null;
+}
+
 export interface TitleSection {
   key: "anime" | "song";
   label: string;
@@ -51,4 +66,13 @@ export function formatStrokes(strokes: number): string {
 // RTK learners number their frames; the frame is a pointer into their own book.
 export function formatRtkFrame(rtk: number | null): string | null {
   return rtk === null ? null : `RTK #${rtk}`;
+}
+
+// The characters drilled through, oldest first; the last is the one on screen.
+export function openKanji(stack: readonly string[], char: string): string[] {
+  return stack[stack.length - 1] === char ? [...stack] : [...stack, char];
+}
+
+export function backKanji(stack: readonly string[]): string[] {
+  return stack.slice(0, -1);
 }

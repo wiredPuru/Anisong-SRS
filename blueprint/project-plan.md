@@ -91,6 +91,11 @@ game, behind a password.
   anime titles into kanji with an RTK-style keyword, component parts, readings
   and stroke count, and can show the text as Normal, all hiragana or all
   katakana. It never reveals an answer early and changes no review state.
+- **Kanji Study** - shown only while the Japanese breakdown is on. Kanji from
+  the breakdown can be added to a personal kanji deck and studied on `/kanji`
+  with the same Leitner boxes as cards, as flashcards (kanji, recall the
+  keyword, self-graded Pass/Fail) over random library clips playing in the
+  background. Kanji have their own schedule; cards and stats are untouched.
 - **Playback** - "play song" plays audio only and requires a guess; "show
   video" plays from the start of the clip if a video exists.
 - **Review stats** - guess-rate tracking, sliceable by artist and by anime
@@ -136,6 +141,10 @@ game, behind a password.
   artist and by anime title. Each logged review records which grading criterion
   it was for, plus the track's streak and due date from before it, so the
   review can be undone.
+- Kanji stories: a free-text personal mnemonic per character, independent of
+  cards and review history.
+- Kanji cards: one row per added character with its Leitner box, streak and
+  due date, independent of cards, tracks and review history.
 - User-configured media library folder path(s).
 
 ## 5. Tech - What stack are we using?

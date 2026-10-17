@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 5d0fae9b9e44254e735b4f145cb33d502a4c8cb54bff1b9f080660c90c997c46 -->
+<!-- blueprint:source-hash 8e3b884243b5e6534fd2b6defecda087fdb753bc2cb025baf98013a52b13492c -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2733,6 +2733,44 @@ panel, like features 93 and 102.
       action), and Settings > About has a Kanji data panel crediting KANJIDIC2
       and KRADFILE (EDRDG, CC BY-SA 4.0).
 
+110. **Kanji parts viewer and stories** - added to `build-plan.md` 2026-10-17, in
+    two sub-features, 110a built, 110b not. In the Japanese breakdown panel (feature
+    109) every kanji tile and part chip becomes clickable and opens an inline
+    detail view with a back stack: keyword, alternates, readings, strokes, RTK
+    frame, and its own clickable parts (drill 魔 into 鬼 and back). 247 of the
+    253 distinct parts KRADFILE produces are kanji with their own entries; the
+    six bare stroke shapes (ノ ハ ｜ ユ ヨ マ) say they have no entry. Each
+    character also gets a personal story, saved locally. Decided at intake:
+    inline expand with a back stack (not a modal), SQLite storage (not
+    `localStorage`), viewer and stories split. Amended `project-plan.md` §4
+    (Kanji stories bullet).
+    - **110a. Clickable parts + detail view** - done 2026-10-17. Tiles and chips open the detail
+      view, on Study and Listen. No storage, no server change.
+    - **110b. Personal stories** - `kanji_story` table, `GET`/`PUT`/`DELETE
+      /api/kanji/story`, an editable story box, and a marker on tiles and chips
+      that have a story.
+
+111. **Kanji Study** - added to `build-plan.md` 2026-10-17, in three
+    sub-features, none built. Kanji from the Japanese breakdown (109/110) can be
+    added to a personal kanji deck and studied with the same Leitner boxes as
+    cards, as a fun mode with random library clips playing in the background.
+    Everything is hidden while Settings > Japanese breakdown is off. Kanji have
+    their own schedule: no `Card`, `CardTrack`, `ReviewLog` or stats change.
+    Amended `project-plan.md` §3 (Kanji Study bullet) and §4 (Kanji cards
+    bullet). Decided at intake: kanji shown, keyword recalled, reveal then
+    self-graded Pass/Fail (no typed answers); `computeNextBoxState` reused with
+    the same intervals and box-1 streak setting; background clips are random
+    library cards looping, audio on with the volume slider, subject to Clip
+    source and offline settings; a kanji or part can be added only if it has a
+    dictionary entry; no daily new-kanji limit at first; independent of 110b
+    (a story is shown on reveal if one exists).
+    - **111a. Kanji deck + scheduling** - done 2026-10-17. `kanji_card` table, add/remove/list/
+      next/review routes. No UI.
+    - **111b. Add from the breakdown** - "Add to Kanji Study" on tiles, part
+      chips and the detail view with an Added state, plus a rail entry.
+    - **111c. Kanji Study page** - `/kanji`: due kanji flashcards over background
+      clips.
+
 ## Data model
 
 ### Anime
@@ -2898,6 +2936,24 @@ A card with no row for the criterion being studied is new and immediately due,
 so it starts at box 1 rather than inheriting the title track's progress.
 Changing a deck's `gradingCriterion` leaves existing rows in place; nothing
 prunes a track whose deck no longer uses it.
+
+### KanjiStory
+
+Feature 110b (planned). A personal mnemonic per character, independent of cards.
+
+- `char` (text, PK) - a single kanji or part
+- `text` (text, not null)
+- `updatedAt` (datetime)
+
+### KanjiCard
+
+Feature 111a (planned). One Leitner track per added character, independent of
+`Card`, `CardTrack` and `ReviewLog`.
+
+- `char` (text, PK) - a single kanji present in the bundled dictionary
+- `box` (integer, default `1`), `streak` (integer, default `0`)
+- `nextReviewAt` (datetime, default now)
+- `createdAt` (datetime)
 
 ### MediaLibrarySettings
 

@@ -1299,6 +1299,33 @@ cleaned-up checkbox version before generating the project overview.
     configurable hotkey, Hide Info rules, and the Settings toggle that enables it.
   - [x] 109c. About attribution and Listen parity.
 
+- [ ] 110. **Kanji parts viewer and stories** - in the Japanese breakdown
+  panel (109), every kanji tile and every part chip is clickable and opens an
+  inline detail view with a back stack: the character large, its keyword and
+  alternates, readings, strokes, RTK frame, and its own clickable parts, so
+  you can drill from 魔 into 鬼 and back. A part with no dictionary entry (a
+  bare stroke shape) says so. Each kanji and part also gets a personal
+  Heisig-style story, saved locally. Follows Hide Info like the rest of the
+  panel; no schedule, score or card change.
+  - [x] 110a. Clickable parts + detail view - tiles and chips open the detail
+    view with a back stack, on Study and Listen. No storage, no server change.
+  - [ ] 110b. Personal stories - a `kanji_story` table, `GET`/`PUT`/`DELETE
+    /api/kanji/story`, an editable story box in the detail view, and a marker
+    on tiles and chips that have a story.
+
+- [ ] 111. **Kanji Study** - add kanji from the Japanese breakdown (109/110)
+  to a personal kanji deck and study them with the same Leitner boxes as
+  cards, in a fun mode where the anime clips keep playing in the background.
+  Shown only while Settings > Japanese breakdown is on. Kanji-only, with its
+  own schedule, so no card, review log or stats change.
+  - [x] 111a. Kanji deck + scheduling - `kanji_card` table, add/remove/list/
+    next/review routes, reusing `computeNextBoxState`. No UI.
+  - [ ] 111b. Add from the breakdown - an "Add to Kanji Study" button on kanji
+    tiles, part chips and the detail view (with an "Added" state), plus a
+    "Kanji Study" rail entry, both hidden when the breakdown setting is off.
+  - [ ] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a
+    background of random library clips, self-graded Pass/Fail.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in
