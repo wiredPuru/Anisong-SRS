@@ -49,7 +49,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   { id: "hideInfo", label: "Hide info", scopes: BOTH_PLAYERS, defaults: { primary: "i", alternate: null } },
   { id: "ambient", label: "Ambient mode", scopes: BOTH_PLAYERS, defaults: { primary: "a", alternate: null } },
   { id: "flipCard", label: "Flip card", scopes: BOTH_PLAYERS, defaults: { primary: "d", alternate: null } },
-  { id: "flipJapanese", label: "Japanese breakdown", scopes: ["study"], defaults: { primary: "j", alternate: null } },
+  { id: "flipJapanese", label: "Japanese breakdown", scopes: BOTH_PLAYERS, defaults: { primary: "j", alternate: null } },
   { id: "previousCard", label: "Previous card", scopes: ["study"], defaults: { primary: "p", alternate: null } },
   { id: "sessionLog", label: "Session log", scopes: ["study"], defaults: { primary: "l", alternate: null } },
   { id: "editCard", label: "Edit card", scopes: ["study"], defaults: { primary: "e", alternate: null } },

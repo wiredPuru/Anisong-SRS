@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a76f67c5c34f58b251c69c1ecbf05a215e0858996561b1ed86fc155f3a80ab88 -->
+<!-- blueprint:source-hash 5d0fae9b9e44254e735b4f145cb33d502a4c8cb54bff1b9f080660c90c997c46 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2700,7 +2700,7 @@ panel, like features 93 and 102.
     target, with player names left for later.
 
 109. **Japanese breakdown panel** - added to `build-plan.md` 2026-10-17, in
-    three sub-features; 109a and 109b are built. A second flip card for learning the kanji in
+    three sub-features, all built. A second flip card for learning the kanji in
     a card's native titles, behind a persistent Settings toggle (default off).
     On Study and Listen, J flips the picture to it as D flips to Details
     (unchanged; opening one closes the other). It covers the song's and the
@@ -2728,7 +2728,10 @@ panel, like features 93 and 102.
       `localStorage` `gaqSrs:japaneseScript`). Blurred and inert while the answer
       is hidden. Enabled by the new `japaneseBreakdown` setting (migration `0039`,
       Settings > Playback), which moved here from 109c.
-    - **109c. About attribution and Listen parity.**
+    - **109c. About attribution and Listen parity** - done 2026-10-17. `/listen`
+      gets the same J flip and 漢 button (`flipJapanese` is now a Study and Listen
+      action), and Settings > About has a Kanji data panel crediting KANJIDIC2
+      and KRADFILE (EDRDG, CC BY-SA 4.0).
 
 ## Data model
 

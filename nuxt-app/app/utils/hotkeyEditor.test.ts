@@ -104,7 +104,7 @@ describe("hotkeyGroups", () => {
   it("puts each action in the group that matches its pages", () => {
     const by = Object.fromEntries(groups.map((g) => [g.label, g.actions.map((a) => a.id)]));
     expect(by["Everywhere"]).toEqual(["playPause"]);
-    expect(by["Study and Listen"]).toEqual(["hideVideo", "hideCover", "hideInfo", "ambient", "flipCard"]);
+    expect(by["Study and Listen"]).toEqual(["hideVideo", "hideCover", "hideInfo", "ambient", "flipCard", "flipJapanese"]);
     expect(by["Listen only"]).toEqual(["reveal", "listenNext", "listenPrevious"]);
     expect(by["Cards and Preview"]).toEqual(["expand"]);
   });

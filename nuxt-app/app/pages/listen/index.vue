@@ -30,11 +30,13 @@ const { data: settings } = await useFetch<{
   defaultDownloadFolder: string | null;
   playbackMode: "auto" | "audioOnly";
   autoDownload: boolean;
+  japaneseBreakdown: boolean;
   clipSource: "anisongdb" | "both" | "animethemes";
 }>("/api/media-library");
 
 const hasDefaultDownloadFolder = computed(() => Boolean(settings.value?.defaultDownloadFolder));
 const audioOnly = computed(() => settings.value?.playbackMode === "audioOnly");
+const japaneseBreakdown = computed(() => settings.value?.japaneseBreakdown ?? false);
 const autoDownload = computed(() => settings.value?.autoDownload ?? false);
 const clipSource = computed(() => settings.value?.clipSource ?? "anisongdb");
 
@@ -219,9 +221,24 @@ watch(showDetails, (open) => {
   }
 });
 
+// J flips to the Japanese breakdown. Only one of it and Details is open at a
+// time, and it only exists when its Settings toggle is on.
+const showJapanese = ref(false);
+const japaneseOpen = computed(() => showJapanese.value && japaneseBreakdown.value);
+watch(showDetails, (open) => {
+  if (open) showJapanese.value = false;
+});
+watch(showJapanese, (open) => {
+  if (open) showDetails.value = false;
+});
+function toggleJapanese() {
+  if (japaneseBreakdown.value) showJapanese.value = !showJapanese.value;
+}
+
 // A new song always opens on the picture, even if the last one was flipped.
 watch(presentationKey, () => {
   showDetails.value = false;
+  showJapanese.value = false;
 });
 
 const { isTypingTarget } = useHotkeyGuard();
@@ -238,6 +255,7 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   ambient: () => { ambientMode.value = !ambientMode.value; },
   reveal,
   flipCard: () => { showDetails.value = !showDetails.value; },
+  flipJapanese: toggleJapanese,
 };
 
 function onKeydown(event: KeyboardEvent) {
@@ -357,6 +375,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /></svg>
             <span class="tooltip">Details &middot; D</span>
           </button>
+          <button
+            v-if="japaneseBreakdown"
+            type="button"
+            class="icon-btn"
+            :class="{ active: japaneseOpen }"
+            aria-label="Japanese breakdown"
+            :aria-pressed="japaneseOpen"
+            @click="toggleJapanese"
+          >
+            <span class="jp-glyph" lang="ja" aria-hidden="true">漢</span>
+            <span class="tooltip">Japanese breakdown<template v-if="hotkeyHint('flipJapanese')"> &middot; {{ hotkeyHint("flipJapanese") }}</template></span>
+          </button>
         </div>
         <p v-if="skippedCount || capped || offlineHidden" class="header-note">
           <OfflineHiddenNote :count="offlineHidden" />
@@ -432,6 +462,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               />
             </div>
           </StudyDetailsCard>
+          <StudyDetailsCard
+            v-if="japaneseBreakdown"
+            :open="japaneseOpen"
+            :cover-image-url="currentCard.animeCoverImageUrl"
+            :hidden="infoHidden"
+          >
+            <StudyJapaneseBreakdown
+              :anime-title-native="currentCard.animeTitleNative"
+              :song-title-native="currentCard.songTitleNative"
+              :blurred="infoHidden"
+            />
+          </StudyDetailsCard>
         </div>
         <div class="np-wrap">
           <StudyNowPlaying
@@ -446,9 +488,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             hidden-line="Click to reveal"
             revealable
             :countdown-seconds="autoReveal.countdownActive.value ? autoReveal.displaySeconds.value : null"
-            :on-details="showDetails"
+            :on-details="showDetails || japaneseOpen"
             @reveal="reveal"
-            @watch-video="showDetails = false"
+            @watch-video="showDetails = false; showJapanese = false"
           >
             <div class="transport" role="group" aria-label="Playlist">
               <button
@@ -761,5 +803,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   .stage {
     padding: 4px 14px 16px;
   }
+}
+
+.jp-glyph {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
 }
 </style>

@@ -1278,7 +1278,7 @@ cleaned-up checkbox version before generating the project overview.
   first when the bar opens empty (remembered in that browser). Host panel
   only; no server or party state change.
 
-- [ ] 109. **Japanese breakdown panel** - a second flip card for learning
+- [x] 109. **Japanese breakdown panel** - a second flip card for learning
   the kanji in a card's native titles. A persistent Settings toggle (default
   off) enables it. On Study and Listen, J flips the picture over to it, the
   way D flips to Details (D is unchanged, and opening one closes the other).
@@ -1297,7 +1297,7 @@ cleaned-up checkbox version before generating the project overview.
     `GET /api/kanji`, tests. No UI.
   - [x] 109b. Breakdown panel and J flip - the card UI, script switch,
     configurable hotkey, Hide Info rules, and the Settings toggle that enables it.
-  - [ ] 109c. About attribution and Listen parity.
+  - [x] 109c. About attribution and Listen parity.
 
 ## Plan maintenance
 

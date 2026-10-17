@@ -265,6 +265,21 @@ async function importDeck() {
               Check again
             </button>
           </div>
+
+          <div class="panel panel-full">
+            <div class="panel-header">
+              <span class="panel-title">Kanji data</span>
+              <span class="panel-hint">Behind the Japanese breakdown card.</span>
+            </div>
+            <p class="version-hint">
+              Kanji meanings, readings, stroke counts and component parts come from KANJIDIC2 and KRADFILE, copyright the
+              Electronic Dictionary Research and Development Group, used under the
+              <a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0 licence</a>.
+              The data was reduced to the fields this app uses and is bundled with it, so it works offline.
+              The keywords are KANJIDIC2's first English meaning, not Heisig's own RTK keywords; the RTK number is only a
+              pointer into your copy of the book.
+            </p>
+          </div>
         </div>
 
         <!-- Outside the settings fetch too: the scan reads everything it needs
