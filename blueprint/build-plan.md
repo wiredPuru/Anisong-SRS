@@ -1293,7 +1293,7 @@ cleaned-up checkbox version before generating the project overview.
   stack), remembered in the browser. The panel follows Hide Info and stays
   hidden until a typed answer is revealed, so it never gives the answer
   away. Presentation only: no schedule, score or stored-card change.
-  - [ ] 109a. Kanji data and server - bundled KANJIDIC2/KRADFILE lookup,
+  - [x] 109a. Kanji data and server - bundled KANJIDIC2/KRADFILE lookup,
     `GET /api/kanji`, tests. No UI.
   - [ ] 109b. Breakdown panel and J flip - the card UI, script switch,
     configurable hotkey, Hide Info rules.

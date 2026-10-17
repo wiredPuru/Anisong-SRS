@@ -246,6 +246,10 @@ checks do not make the Blueprint unusable.
       bun run measure /study --size 1400x640 --key e --select .player-frame
       bun run measure /study --css ".app-content{height:auto;min-height:100vh}"
 
+- Regenerate the bundled kanji data (feature 109): `bun run scripts/build-kanji-data.ts
+  <kanjidic2.xml> <kradfile>` in `nuxt-app/` - reads the two EDRDG source files
+  and rewrites `server/data/kanji.json`. The generated file is committed; the
+  app never fetches it at runtime.
 - Test: `bun run test` (Vitest, run once) - run in `nuxt-app/`
 - Test (watch): `bun run test:watch`
 

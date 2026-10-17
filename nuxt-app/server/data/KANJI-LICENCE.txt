@@ -1,0 +1,20 @@
+kanji.json is derived from two files published by the Electronic Dictionary
+Research and Development Group (EDRDG):
+
+  KANJIDIC2   https://www.edrdg.org/kanjidic/kanjidic2.xml.gz
+  KRADFILE    http://ftp.edrdg.org/pub/Nihongo/kradzip.zip
+
+Both are copyright the Electronic Dictionary Research and Development Group
+and are used under the Creative Commons Attribution-ShareAlike 4.0 licence
+(https://www.edrdg.org/edrdg/licence.html). KRADFILE is also copyright
+Michael Raine and James Breen.
+
+Changes: only the fields this app uses were kept (English meanings, on and kun
+readings, stroke count, grade, JLPT level, frequency rank, the Heisig frame
+number, and KRADFILE components), and kanji KRADFILE does not decompose were
+dropped. Regenerate with:
+
+  bun run scripts/build-kanji-data.ts <kanjidic2.xml> <kradfile>
+
+Downloaded and converted on 2026-10-17. The derived file stays under the same
+CC BY-SA 4.0 terms.
