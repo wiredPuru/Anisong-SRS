@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ char: string }>();
+const props = defineProps<{ char: string; sourceCardId?: number }>();
 
 const deck = useKanjiDeck();
 const added = computed(() => deck.chars.value.has(props.char));
@@ -11,7 +11,7 @@ onMounted(() => {
 
 function toggle() {
   if (added.value) deck.remove(props.char);
-  else deck.add(props.char);
+  else deck.add(props.char, props.sourceCardId);
 }
 </script>
 

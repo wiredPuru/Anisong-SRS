@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
-import { kanjiCard } from "../db/schema.ts";
+import { card, kanjiCard } from "../db/schema.ts";
+import { getOrCreateArtist, upsertAnime, upsertSong } from "./lookup.ts";
 import {
   addKanjiCards,
   getNextKanji,
@@ -54,6 +55,13 @@ describe("parseKanjiAddBody", () => {
 
   it("accepts known kanji", () => {
     expect(parseKanjiAddBody({ chars: ["魔"] })).toEqual({ chars: ["魔"] });
+  });
+
+  it("carries an optional source card id and rejects anything but a positive integer", () => {
+    expect(parseKanjiAddBody({ chars: ["魔"], sourceCardId: 7 })).toEqual({ chars: ["魔"], sourceCardId: 7 });
+    for (const bad of [0, -3, 1.5, "7", null]) {
+      expect(parseKanjiAddBody({ chars: ["魔"], sourceCardId: bad })).toHaveProperty("error");
+    }
   });
 });
 
@@ -115,6 +123,41 @@ describe("kanji deck", () => {
 
   it("reports an unknown kanji as not found", () => {
     expect(reviewKanji("魔", "pass")).toEqual({ notFound: true });
+  });
+});
+
+describe("kanji source card", () => {
+  function seedCard() {
+    const anime = upsertAnime({ aniListId: 1, animethemesId: null, titleRomaji: "Show", titleEnglish: null, titleNative: null });
+    const song = upsertSong({ animeId: anime.id, artistId: getOrCreateArtist("Singer").id, title: "Opening", themeSlot: "OP1", animethemesThemeId: null });
+    return db.insert(card).values({ songId: song.id, localVideoPath: "/library/clip.webm" }).returning().get();
+  }
+
+  function sourceOf(char: string) {
+    return db.select().from(kanjiCard).where(eqChar(char)).get()?.sourceCardId;
+  }
+
+  it("stores the source on new rows only, so the first source wins", () => {
+    const first = seedCard();
+    const second = db.insert(card).values({ songId: first.songId, localAudioPath: "/library/a.mp3" }).returning().get();
+    addKanjiCards(["魔"], first.id);
+    addKanjiCards(["魔", "鬼"], second.id);
+    expect(sourceOf("魔")).toBe(first.id);
+    expect(sourceOf("鬼")).toBe(second.id);
+  });
+
+  it("stores null with no source or an unknown card", () => {
+    addKanjiCards(["魔"]);
+    expect(addKanjiCards(["鬼"], 9999)).toEqual({ added: 1, alreadyAdded: 0 });
+    expect(sourceOf("魔")).toBeNull();
+    expect(sourceOf("鬼")).toBeNull();
+  });
+
+  it("goes null when the source card is deleted", () => {
+    const source = seedCard();
+    addKanjiCards(["魔"], source.id);
+    db.delete(card).where(eq(card.id, source.id)).run();
+    expect(sourceOf("魔")).toBeNull();
   });
 });
 

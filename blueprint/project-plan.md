@@ -94,8 +94,8 @@ game, behind a password.
 - **Kanji Study** - shown only while the Japanese breakdown is on. Kanji from
   the breakdown can be added to a personal kanji deck and studied on `/kanji`
   with the same Leitner boxes as cards, as flashcards (kanji, recall the
-  keyword, self-graded Pass/Fail) over random library clips playing in the
-  background. Kanji have their own schedule; cards and stats are untouched.
+  keyword, self-graded Pass/Fail) over the song the kanji was added from (random
+  library clips when it has none) playing in the background. Kanji have their own schedule; cards and stats are untouched.
 - **Playback** - "play song" plays audio only and requires a guess; "show
   video" plays from the start of the clip if a video exists.
 - **Review stats** - guess-rate tracking, sliceable by artist and by anime
@@ -143,8 +143,9 @@ game, behind a password.
   review can be undone.
 - Kanji stories: a free-text personal mnemonic per character, independent of
   cards and review history.
-- Kanji cards: one row per added character with its Leitner box, streak and
-  due date, independent of cards, tracks and review history.
+- Kanji cards: one row per added character with its Leitner box, streak,
+  due date and the card it was added from (optional), independent of cards,
+  tracks and review history.
 - User-configured media library folder path(s).
 
 ## 5. Tech - What stack are we using?

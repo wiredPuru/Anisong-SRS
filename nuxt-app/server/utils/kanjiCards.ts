@@ -1,6 +1,6 @@
 import { asc, count, eq, inArray, lte } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { kanjiCard } from "../db/schema.ts";
+import { card, kanjiCard } from "../db/schema.ts";
 import type { KanjiEntry } from "./kanjiData.ts";
 import { extractKanji, lookupKanji } from "./kanjiLookup.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
@@ -37,12 +37,19 @@ export function parseKanjiCharsBody(body: unknown): { error: string } | { chars:
   return { chars };
 }
 
-export function parseKanjiAddBody(body: unknown): { error: string } | { chars: string[] } {
+export function parseKanjiAddBody(
+  body: unknown,
+): { error: string } | { chars: string[]; sourceCardId?: number } {
   const parsed = parseKanjiCharsBody(body);
   if ("error" in parsed) return parsed;
   const { unknown } = lookupKanji(parsed.chars);
   if (unknown.length > 0) return { error: `${unknown[0]} has no kanji dictionary entry` };
-  return parsed;
+  const source = isRecord(body) ? body.sourceCardId : undefined;
+  if (source === undefined) return parsed;
+  if (typeof source !== "number" || !Number.isInteger(source) || source < 1) {
+    return { error: "sourceCardId must be a positive integer" };
+  }
+  return { ...parsed, sourceCardId: source };
 }
 
 export function parseKanjiReviewBody(body: unknown): { error: string } | { char: string; result: "pass" | "fail" } {
@@ -64,10 +71,15 @@ export function countDueKanji(now: Date = new Date()): number {
   return db.select({ value: count() }).from(kanjiCard).where(lte(kanjiCard.nextReviewAt, now)).get()?.value ?? 0;
 }
 
-export function addKanjiCards(chars: string[]): { added: number; alreadyAdded: number } {
+export function addKanjiCards(chars: string[], sourceCardId?: number): { added: number; alreadyAdded: number } {
   const existing = db.select({ char: kanjiCard.char }).from(kanjiCard).where(inArray(kanjiCard.char, chars)).all();
   const fresh = chars.filter((char) => !existing.some((row) => row.char === char));
-  if (fresh.length > 0) db.insert(kanjiCard).values(fresh.map((char) => ({ char }))).run();
+  if (fresh.length > 0) {
+    // A card deleted since the page loaded must not fail the add.
+    const known = sourceCardId !== undefined && db.select({ id: card.id }).from(card).where(eq(card.id, sourceCardId)).get();
+    const source = known ? sourceCardId : null;
+    db.insert(kanjiCard).values(fresh.map((char) => ({ char, sourceCardId: source }))).run();
+  }
   return { added: fresh.length, alreadyAdded: chars.length - fresh.length };
 }
 

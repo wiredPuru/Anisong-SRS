@@ -17,12 +17,12 @@ export function useKanjiDeck() {
     }
   }
 
-  async function setAdded(char: string, added: boolean): Promise<void> {
+  async function setAdded(char: string, added: boolean, sourceCardId?: number): Promise<void> {
     if (pending.value.has(char)) return;
     pending.value = new Set(pending.value).add(char);
     error.value = null;
     try {
-      await $fetch("/api/kanji/cards", { method: added ? "POST" : "DELETE", body: { chars: [char] } });
+      await $fetch("/api/kanji/cards", { method: added ? "POST" : "DELETE", body: { chars: [char], ...(added && sourceCardId !== undefined ? { sourceCardId } : {}) } });
       chars.value = kanjiDeckAfter(chars.value, char, added);
     } catch (failure) {
       error.value = extractErrorMessage(
@@ -36,5 +36,5 @@ export function useKanjiDeck() {
     }
   }
 
-  return { chars, loaded, pending, error, load, add: (char: string) => setAdded(char, true), remove: (char: string) => setAdded(char, false) };
+  return { chars, loaded, pending, error, load, add: (char: string, sourceCardId?: number) => setAdded(char, true, sourceCardId), remove: (char: string) => setAdded(char, false) };
 }

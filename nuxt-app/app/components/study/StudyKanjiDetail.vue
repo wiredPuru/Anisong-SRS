@@ -13,6 +13,7 @@ const props = defineProps<{
   // How many characters were opened before this one; Back shows only past the first.
   depth: number;
   storyChars: ReadonlySet<string>;
+  sourceCardId?: number;
 }>();
 
 const emit = defineEmits<{
@@ -162,7 +163,7 @@ onScopeDispose(() => {
             {{ formatStrokes(entry.strokes) }}
             <template v-if="formatRtkFrame(entry.rtk)"> &middot; {{ formatRtkFrame(entry.rtk) }}</template>
           </p>
-          <StudyKanjiDeckButton :char="char" />
+          <StudyKanjiDeckButton :char="char" :source-card-id="sourceCardId" />
         </template>
       </div>
     </div>

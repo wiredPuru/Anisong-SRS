@@ -2799,6 +2799,23 @@ panel, like features 93 and 102.
     No `project-plan.md` change: it extends party mode's existing endless
     queue, like features 93 and 102.
 
+113. **Kanji plays its source song** - added to `build-plan.md` 2026-10-19, in
+    two sub-features. A kanji added from the Japanese breakdown remembers the
+    card it was added from, and `/kanji` plays that card's clip in the
+    background (the exact song on screen when it was added, so an ending plays
+    if that is what it was) in place of feature 111c's random clips. A kanji
+    with no source, or whose card was deleted or cannot play, keeps random
+    clips. Decided at intake: the exact card rather than any opening of the
+    show; first source wins if a kanji is added from two cards; a part added by
+    drilling in uses the card on screen; no backfill of kanji added earlier.
+    Amended `project-plan.md` §3 (Kanji Study bullet) and §4 (Kanji cards
+    bullet).
+    - **113a. Remember the source** - nullable `kanji_card.sourceCardId`, set
+      null on card delete; the add route accepts it and the breakdown's Add
+      button sends the card being viewed. No visible change.
+    - **113b. Play it** - `/kanji` starts the background with the current
+      kanji's source card, honouring Clip source and offline settings.
+
 ## Data model
 
 ### Anime
@@ -2982,6 +2999,8 @@ Feature 111a (built, migration `0040`). One Leitner track per added character, i
 - `box` (integer, default `1`), `streak` (integer, default `0`)
 - `nextReviewAt` (datetime, default now)
 - `createdAt` (datetime)
+- `sourceCardId` (FK -> Card, nullable, set null on delete) - feature 113a. The
+  card the kanji was added from; `/kanji` plays its clip. Null plays random clips.
 
 ### MediaLibrarySettings
 

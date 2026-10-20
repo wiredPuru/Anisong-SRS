@@ -1652,6 +1652,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :anime-title-native="currentCard.animeTitleNative"
               :song-title-native="currentCard.songTitleNative"
               :blurred="detailsHidden"
+              :source-card-id="currentCard.id"
             />
           </StudyDetailsCard>
         </div>

@@ -5,5 +5,5 @@ export default defineEventHandler(async (event) => {
   if ("error" in parsed) {
     throw createError({ statusCode: 400, statusMessage: parsed.error });
   }
-  return addKanjiCards(parsed.chars);
+  return addKanjiCards(parsed.chars, parsed.sourceCardId);
 });

@@ -23,6 +23,8 @@ interface KanjiReply {
 const props = defineProps<{
   animeTitleNative: string;
   songTitleNative: string;
+  // The card on screen: a kanji added from here plays its clip in Kanji Study.
+  sourceCardId?: number;
   // The titles are the answer: blurred and inert while it is still a secret.
   blurred?: boolean;
 }>();
@@ -141,6 +143,7 @@ function rowsFor(text: string): KanjiReply {
       :char="drilled"
       :depth="drill.length"
       :story-chars="storyChars"
+      :source-card-id="sourceCardId"
       @story-changed="onStoryChanged"
       @open="drill = openKanji(drill, $event)"
       @back="drill = backKanji(drill)"
@@ -187,7 +190,7 @@ function rowsFor(text: string): KanjiReply {
               {{ formatStrokes(entry.strokes) }}
               <template v-if="formatRtkFrame(entry.rtk)"> &middot; {{ formatRtkFrame(entry.rtk) }}</template>
             </p>
-            <StudyKanjiDeckButton :char="entry.char" />
+            <StudyKanjiDeckButton :char="entry.char" :source-card-id="sourceCardId" />
           </div>
         </li>
         <li v-for="char in rowsFor(section.text).unknown" :key="`unknown-${char}`" class="jb-tile jb-unknown">

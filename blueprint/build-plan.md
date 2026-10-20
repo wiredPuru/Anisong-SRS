@@ -1336,6 +1336,20 @@ cleaned-up checkbox version before generating the project overview.
   endless keeps its AniList-popularity bands. Online only, like today. The
   panel's copy stops saying difficulty does not apply.
 
+- [ ] 113. **Kanji plays its source song** - a kanji added from the Japanese
+  breakdown remembers the card it was added from, and on `/kanji` that card's
+  clip (the opening, or whichever song was on screen) plays in the
+  background, so the song helps the kanji stick. A kanji with no remembered
+  source (added before this, or whose card was deleted) keeps today's random
+  clips. First source wins when a kanji is added from two cards. Nothing is
+  backfilled.
+  - [x] 113a. Remember the source - nullable `kanji_card.sourceCardId`
+    (set null on card delete), the add route accepts it, and the breakdown's
+    Add button sends the card being viewed. No visible change.
+  - [ ] 113b. Play it - `/kanji` background starts with the current kanji's
+    source card (honouring Clip source and offline settings) and falls back to
+    random clips when there is none or it can't play.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

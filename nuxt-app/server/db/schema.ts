@@ -233,6 +233,7 @@ export const kanjiCard = sqliteTable("kanji_card", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  sourceCardId: integer("source_card_id").references(() => card.id, { onDelete: "set null" }),
 });
 
 // A personal mnemonic per character (feature 110b), independent of cards.
