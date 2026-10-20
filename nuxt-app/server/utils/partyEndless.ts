@@ -7,6 +7,18 @@ export const ENDLESS_BATCH = 10;
 
 const MAX_WINDOW = 60;
 
+/**
+ * AnisongDB songDifficulty bands for songs outside the library. The value is
+ * AMQ's guess rate, so higher is easier; about 31% of the catalog is 30+ and
+ * 8% is 50+, which is why Easy is the narrow band. Random has no range.
+ */
+export function catalogDifficultyRange(difficulty: EndlessDifficulty): { start: number; end: number } | null {
+  if (difficulty === "easy") return { start: 50, end: 100 };
+  if (difficulty === "medium") return { start: 30, end: 50 };
+  if (difficulty === "hard") return { start: 0, end: 30 };
+  return null;
+}
+
 /** AniList popularity (users listing a show) at the 500th and 1000th most popular anime. */
 export interface PopularityCutoffs {
   top500: number;

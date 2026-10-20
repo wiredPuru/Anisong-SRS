@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inBand, pickEndlessBatch, type EndlessCandidate, type PopularityCutoffs } from "./partyEndless.ts";
+import { catalogDifficultyRange, inBand, pickEndlessBatch, type EndlessCandidate, type PopularityCutoffs } from "./partyEndless.ts";
 
 const CUTOFFS: PopularityCutoffs = { top500: 100, top1000: 50 };
 
@@ -105,5 +105,16 @@ describe("pickEndlessBatch", () => {
   it("returns nothing once every song is queued", () => {
     const candidates = library(3, 1, () => 500);
     expect(pickEndlessBatch({ candidates, difficulty: "easy", queue: candidates.map((c) => c.cardId), count: 5, cutoffs: CUTOFFS })).toEqual([]);
+  });
+});
+
+describe("catalogDifficultyRange", () => {
+  it.each([
+    ["easy", { start: 50, end: 100 }],
+    ["medium", { start: 30, end: 50 }],
+    ["hard", { start: 0, end: 30 }],
+    ["random", null],
+  ] as const)("%s", (difficulty, range) => {
+    expect(catalogDifficultyRange(difficulty)).toEqual(range);
   });
 });

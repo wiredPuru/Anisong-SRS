@@ -39,14 +39,6 @@
 **Suggested fix:** Add one `likeContains(text)` helper that escapes `\`, `%` and `_` and emits `LIKE ? ESCAPE '\'` (in Drizzle, a small `sql` template with an `escape` clause), use it at every `like()` site that takes user text, and unit-test it with `%`, `_`, and a backslash.
 **Resolution:** Re-examined 2026-10-17 by /audit (scope: full, partial; lens: all): still open. `cardSearchCondition` (`cards.ts:119`), `searchCards` (`cards.ts:104`) and `decks.ts:112,153,219` still build unescaped `%...%` patterns.
 
-### F-20 [P2] closed - `fetchNext()` has no stale-response guard, so an older `/api/study/next` answer can overwrite a newer one
-
-**File:** nuxt-app/app/composables/useStudySession.ts:75
-**Found:** 2026-09-26 by /audit (scope: full; lens: quality)
-**Why it matters:** `fetchNext()` is triggered by the scope watcher, the filters watcher, `studyNewCards()`, and the page's post-review refresh, and nothing orders their responses: whichever request resolves last writes `currentCard`, `criterion`, `dueCount`, and `sessionComplete`. Applying filters while a post-review fetch is in flight, or switching decks while the previous deck's card is still loading, can leave a card on screen that is outside the active scope or filters, with a matching but stale `dueCount`. The review itself stays self-consistent, because `criterion` comes from the same response as the card, so it grades the right track for the wrong card. The codebase already has `createLatestRequest()` (`app/utils/latestRequest.ts`) for exactly this, and eleven other components and composables use it. Not reproduced at runtime; SQLite answers fast, so the race window is widest with a large list filter (up to 5000 ids).
-**Suggested fix:** Hold one `createLatestRequest()` in the composable, call `start()` at the top of `fetchNext()`, and drop the result (without clearing `loading`) when `isLatest()` is false. A scope change can also `invalidate()` before it resets state.
-**Resolution:** Closed 2026-10-17 by /audit (scope: full, partial; lens: all). `useStudySession.ts:96` now holds `createLatestRequest()`; `fetchNext()` calls `start()` and returns early on `!isCurrent()` in both the success and error paths, so a stale response no longer writes the card, criterion or counts. No new defect in the repaired code.
-
 ### F-21 [P2] open - The 30s download and stream-cache timeout covers the whole body, so a slow or large clip always fails at 30 seconds
 
 **File:** nuxt-app/server/utils/mediaDownload.ts:87 (also server/utils/streamCache.ts:78)

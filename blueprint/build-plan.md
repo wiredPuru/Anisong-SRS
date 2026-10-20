@@ -1326,6 +1326,16 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a
     background of random library clips, self-graded Pass/Fail.
 
+- [x] 112. **Difficulty for outside-library endless songs** - Party's endless
+  queue can already draw random songs from AnisongDB's whole catalog ("Songs
+  outside my cards and decks"), but ignores Difficulty. Make Easy / Medium /
+  Hard / Random apply to them using AnisongDB's own per-song `songDifficulty`
+  (AMQ guess rate, higher is easier) through the random-songs endpoint's
+  difficulty range. Bands: Easy 50-100, Medium 30-50, Hard 0-30, Random any.
+  Songs with no difficulty value are only drawn under Random. In-library
+  endless keeps its AniList-popularity bands. Online only, like today. The
+  panel's copy stops saying difficulty does not apply.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

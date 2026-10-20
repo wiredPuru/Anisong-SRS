@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 8e3b884243b5e6534fd2b6defecda087fdb753bc2cb025baf98013a52b13492c -->
+<!-- blueprint:source-hash 5f79ec38c72c37ee74ec6776c59a7bd0cadf6666db4f0422e4a9134e14030ab1 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2781,6 +2781,23 @@ panel, like features 93 and 102.
       filtered by Clip source) play in `StudyMediaPlayer` and advance on end or
       Skip clip. Gated on Settings > Japanese breakdown. Hotkeys are fixed, not
       in the rebindable registry.
+
+112. **Difficulty for outside-library endless songs** - added to
+    `build-plan.md` 2026-10-19, done 2026-10-19. Party's endless queue (built
+    ad hoc in commit `40b7c07`, before this entry existed) keeps a few songs
+    ready ahead of the current one, with Easy / Medium / Hard / Random
+    difficulty taken from the AniList popularity of library shows
+    (`server/utils/partyEndless.ts`). Its "Songs outside my cards and
+    decks" option (`outsideLibrary`) instead draws random songs from
+    AnisongDB's whole catalog (`fetchRandomSongs`, `get_n_random_songs`), but
+    ignores difficulty. This applies Easy / Medium / Hard / Random to those
+    songs using AnisongDB's per-song `songDifficulty` (AMQ guess rate, so
+    higher is easier) through the endpoint's difficulty range: Easy 50-100,
+    Medium 30-50, Hard 0-30, Random any. The catalog skews hard (about 31% of
+    songs are 30+, 8% are 50+). A song with no difficulty value is drawn only
+    under Random. In-library endless keeps its popularity bands. Online only.
+    No `project-plan.md` change: it extends party mode's existing endless
+    queue, like features 93 and 102.
 
 ## Data model
 

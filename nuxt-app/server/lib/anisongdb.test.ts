@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchArtistCatalog, fetchThemesByMalId, relevance, searchArtists, searchSongs, toThemeSlot } from "./anisongdb.ts";
+import { fetchArtistCatalog, fetchRandomSongs, fetchThemesByMalId, relevance, searchArtists, searchSongs, toThemeSlot } from "./anisongdb.ts";
 
 const HOST = "https://naedist.animemusicquiz.com";
 
@@ -399,5 +399,21 @@ describe("AnisongDB insert songs", () => {
   it("keeps one anime's insert apart from another anime's copy of the same song", async () => {
     respond([insert(), insert({ annSongId: 40000, linked_ids: { myanimelist: 2, anilist: 2 } })]);
     expect(await searchSongs("sis", { includeInserts: true })).toHaveLength(2);
+  });
+});
+
+describe("fetchRandomSongs", () => {
+  const sentBody = () => JSON.parse(fetch.mock.calls[0]![1].body as string);
+
+  it("sends only a count without a difficulty, so unrated songs stay eligible", async () => {
+    respond([entry()]);
+    await fetchRandomSongs(10);
+    expect(sentBody()).toEqual({ n: 10 });
+  });
+
+  it("sends the difficulty range and drops unrated songs", async () => {
+    respond([entry()]);
+    await fetchRandomSongs(10, { start: 50, end: 100 });
+    expect(sentBody()).toEqual({ n: 10, filters: { difficulty: { start: 50, end: 100, include_no_difficulty: false } } });
   });
 });

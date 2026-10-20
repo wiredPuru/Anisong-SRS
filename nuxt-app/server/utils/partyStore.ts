@@ -9,7 +9,7 @@ import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPart
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
-import { ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
+import { catalogDifficultyRange, ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
@@ -119,6 +119,7 @@ function scheduleTimer(): void {
 
 let toppingUp = false;
 let fetchingCatalog = false;
+let staleCatalogBatch = false;
 
 // A song straight from AnisongDB has no card behind it, so its id is the
 // negated AMQ song id: unique, and never colliding with a library card.
@@ -204,12 +205,17 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
   fetchingCatalog = true;
   try {
     const queued = new Set(state.queue.map((item) => item.cardId));
-    const items = (await fetchRandomSongs(ENDLESS_BATCH * 2))
+    const difficulty = state.endless?.difficulty ?? "random";
+    const items = (await fetchRandomSongs(ENDLESS_BATCH * 2, catalogDifficultyRange(difficulty)))
       .map(fromRandom)
       .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
       .slice(0, ENDLESS_BATCH);
-    // The host may have stopped endless or switched source while this was out.
+    // The host may have stopped endless, switched source or changed difficulty while this was out.
     if (!items.length || !state.endless?.outsideLibrary) return;
+    if (state.endless.difficulty !== difficulty) {
+      staleCatalogBatch = true;
+      return;
+    }
     const stillHasGame = state.index >= 0 && state.index < state.queue.length;
     commit(
       applyPartyCommand(
@@ -222,6 +228,11 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
     // AnisongDB being down just means no new songs this round; the next change retries.
   } finally {
     fetchingCatalog = false;
+    // The change that made this batch stale already tried to top up and was blocked by this fetch.
+    if (staleCatalogBatch) {
+      staleCatalogBatch = false;
+      topUpEndless();
+    }
   }
 }
 
@@ -494,7 +505,7 @@ function rerollQueueItem(index: number): { loaded: number } {
 async function rerollCatalogItem(index: number): Promise<void> {
   try {
     const queued = new Set(state.queue.map((item) => item.cardId));
-    const replacement = (await fetchRandomSongs(10)).map(fromRandom).find((item) => item && !queued.has(item.cardId));
+    const replacement = (await fetchRandomSongs(10, catalogDifficultyRange(state.endless?.difficulty ?? "random"))).map(fromRandom).find((item) => item && !queued.has(item.cardId));
     if (replacement) commit(applyPartyCommand(state, { type: "queueReroll", index }, { loaded: [replacement] }));
   } catch {
     // The song stays when AnisongDB cannot answer.

@@ -360,9 +360,21 @@ export interface AnisongRandomSong {
   audioUrl: string | null;
 }
 
-/** Random songs from AnisongDB's whole catalog, whether or not the library has them. */
-export async function fetchRandomSongs(count: number): Promise<AnisongRandomSong[]> {
-  const entries = await postJson("get_n_random_songs", { n: count }, null);
+export interface DifficultyRange {
+  start: number;
+  end: number;
+}
+
+/**
+ * Random songs from AnisongDB's whole catalog, whether or not the library has
+ * them. A range narrows by songDifficulty (AMQ's guess rate, so higher is
+ * easier); without one, songs with no difficulty value stay eligible too.
+ */
+export async function fetchRandomSongs(count: number, difficulty: DifficultyRange | null = null): Promise<AnisongRandomSong[]> {
+  const payload = difficulty
+    ? { n: count, filters: { difficulty: { start: difficulty.start, end: difficulty.end, include_no_difficulty: false } } }
+    : { n: count };
+  const entries = await postJson("get_n_random_songs", payload, null);
   const songs: AnisongRandomSong[] = [];
   for (const entry of entries) {
     if (!isRecord(entry)) continue;

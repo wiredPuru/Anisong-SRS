@@ -5,11 +5,11 @@ import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 const props = defineProps<{ state: PartyHostState; source: PartyEndlessSource }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
-const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string }[] = [
-  { value: "easy", label: "Easy", hint: "Mostly the top 500 most popular anime, with a 10% sprinkle of anything." },
-  { value: "medium", label: "Medium", hint: "Mostly the top 1000 most popular anime, with a 10% sprinkle of anything." },
-  { value: "hard", label: "Hard", hint: "Every anime in the pool, leaning on ones outside the top 500." },
-  { value: "random", label: "Random", hint: "Any anime in the pool, no weighting." },
+const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string; catalogHint: string }[] = [
+  { value: "easy", label: "Easy", hint: "Mostly the top 500 most popular anime, with a 10% sprinkle of anything.", catalogHint: "Songs most players get right." },
+  { value: "medium", label: "Medium", hint: "Mostly the top 1000 most popular anime, with a 10% sprinkle of anything.", catalogHint: "Songs about half of players get right." },
+  { value: "hard", label: "Hard", hint: "Every anime in the pool, leaning on ones outside the top 500.", catalogHint: "Songs few players get right, most of the catalog." },
+  { value: "random", label: "Random", hint: "Any anime in the pool, no weighting.", catalogHint: "Any song, including ones with no difficulty rating." },
 ];
 
 const difficulty = ref<PartyEndlessDifficulty>(props.state.endless?.difficulty ?? "easy");
@@ -18,7 +18,10 @@ const { offlineMode } = useNetworkMode();
 const outsideLibrary = ref(props.state.endless?.outsideLibrary ?? false);
 const outsideBlocked = computed(() => offlineMode.value === true);
 const running = computed(() => props.state.endless !== null);
-const hint = computed(() => LEVELS.find((level) => level.value === difficulty.value)?.hint ?? "");
+const hint = computed(() => {
+  const level = LEVELS.find((entry) => entry.value === difficulty.value);
+  return (outsideLibrary.value ? level?.catalogHint : level?.hint) ?? "";
+});
 
 const download = ref<{ partyAutoDownload: boolean; hasDownloadFolder: boolean } | null>(null);
 const downloadError = ref<string | null>(null);
@@ -99,7 +102,7 @@ function setOutside(value: boolean) {
     </label>
     <p v-if="outsideBlocked" class="endless-hint">Songs outside your library need online mode.</p>
     <p class="endless-hint">
-      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog. Difficulty, filters and the downloaded-only option don't apply." : "Only songs you have cards for." }}
+      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog, picked by AMQ's song difficulty. Filters and the downloaded-only option don't apply." : "Only songs you have cards for." }}
     </p>
 
     <template v-if="outsideLibrary && download">
@@ -119,7 +122,7 @@ function setOutside(value: boolean) {
       <p v-if="downloadError" class="endless-hint" role="alert">{{ downloadError }}</p>
     </template>
 
-    <div v-if="!outsideLibrary" class="levels" role="radiogroup" aria-label="Difficulty">
+    <div class="levels" role="radiogroup" aria-label="Difficulty">
       <button
         v-for="level in LEVELS"
         :key="level.value"
@@ -133,7 +136,7 @@ function setOutside(value: boolean) {
         {{ level.label }}
       </button>
     </div>
-    <p v-if="!outsideLibrary" class="endless-hint">{{ hint }}</p>
+    <p class="endless-hint">{{ hint }}</p>
 
     <label v-if="!outsideLibrary" class="endless-check">
       <input type="checkbox" :checked="downloadedOnly" @change="setDownloaded(($event.target as HTMLInputElement).checked)" />
