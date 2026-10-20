@@ -8,6 +8,7 @@ export interface KanjiStudyItem {
   nextReviewAt: string;
   createdAt: string;
   entry: KanjiEntry;
+  partInfo: { char: string; keyword: string | null }[];
 }
 
 interface NextReply {

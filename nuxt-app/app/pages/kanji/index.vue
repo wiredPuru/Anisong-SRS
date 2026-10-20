@@ -16,7 +16,7 @@ const backgroundClip = background.current;
 
 const study = useKanjiStudy();
 const { current, dueCount, loading, error, revealed, story, grading, passed, failed } = study;
-const parts = computed(() => current.value?.entry.parts.filter((part) => part !== current.value?.char) ?? []);
+const parts = computed(() => current.value?.partInfo.filter((part) => part.char !== current.value?.char) ?? []);
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -92,7 +92,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             &middot; Box {{ current.box }}
           </p>
           <p v-if="parts.length" class="kanji-parts" lang="ja" aria-label="Components">
-            <span v-for="part in parts" :key="part" class="kanji-part">{{ part }}</span>
+            <span v-for="part in parts" :key="part.char" class="kanji-part">
+              <span class="kanji-part-char">{{ part.char }}</span>
+              <span class="kanji-part-keyword" lang="en">{{ part.keyword ?? "(shape)" }}</span>
+            </span>
           </p>
           <p v-if="story" class="kanji-story">{{ story }}</p>
         </template>
@@ -261,10 +264,21 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .kanji-part {
-  padding: 2px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
+}
+
+.kanji-part-char {
   font-size: 22px;
+}
+
+.kanji-part-keyword {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .kanji-story {

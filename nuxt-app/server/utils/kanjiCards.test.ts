@@ -126,6 +126,30 @@ describe("kanji deck", () => {
   });
 });
 
+describe("kanji part info", () => {
+  it("names each part with its keyword, and null for a shape with no entry", () => {
+    addKanjiCards(["魔"]);
+    const item = listKanjiCards().cards[0]!;
+    expect(item.partInfo.map((part) => part.char)).toEqual(item.entry.parts);
+    const oni = item.partInfo.find((part) => part.char === "鬼");
+    expect(oni?.keyword).toBeTruthy();
+  });
+
+  it("gives a bare stroke shape a null keyword", () => {
+    addKanjiCards(["右"]);
+    const item = listKanjiCards().cards[0]!;
+    expect(item.partInfo.find((part) => part.char === "ノ")).toEqual({ char: "ノ", keyword: null });
+    expect(item.partInfo.find((part) => part.char === "口")?.keyword).toBeTruthy();
+  });
+
+  it("returns the same info after a review", () => {
+    addKanjiCards(["魔"]);
+    const reviewed = reviewKanji("魔", "pass");
+    if ("notFound" in reviewed) throw new Error("expected a review");
+    expect(reviewed.kanji.partInfo).toEqual(listKanjiCards().cards[0]!.partInfo);
+  });
+});
+
 describe("kanji source card", () => {
   function seedCard() {
     const anime = upsertAnime({ aniListId: 1, animethemesId: null, titleRomaji: "Show", titleEnglish: null, titleNative: null });

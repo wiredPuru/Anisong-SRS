@@ -15,6 +15,7 @@ export interface KanjiStudyItem {
   nextReviewAt: Date;
   createdAt: Date;
   entry: KanjiEntry;
+  partInfo: { char: string; keyword: string | null }[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,7 +65,10 @@ type KanjiCardRow = typeof kanjiCard.$inferSelect;
 
 function withEntry(row: KanjiCardRow): KanjiStudyItem | null {
   const entry = lookupKanji([row.char]).kanji[0];
-  return entry ? { ...row, entry } : null;
+  if (!entry) return null;
+  const known = new Map(lookupKanji(entry.parts).kanji.map((part) => [part.char, part.keyword]));
+  const partInfo = entry.parts.map((char) => ({ char, keyword: known.get(char) || null }));
+  return { ...row, entry, partInfo };
 }
 
 export function countDueKanji(now: Date = new Date()): number {
@@ -114,9 +118,9 @@ export function reviewKanji(
   result: "pass" | "fail",
 ): { notFound: true } | { kanji: KanjiStudyItem; dueCount: number } {
   const existing = db.select().from(kanjiCard).where(eq(kanjiCard.char, char)).get();
-  const entry = existing ? withEntry(existing) : null;
-  if (!existing || !entry) return { notFound: true };
+  const item = existing ? withEntry(existing) : null;
+  if (!existing || !item) return { notFound: true };
   const next = computeNextBoxState(existing.box, existing.streak, result, getBoxOneStreakRequired());
   db.update(kanjiCard).set(next).where(eq(kanjiCard.char, char)).run();
-  return { kanji: { ...existing, ...next, entry }, dueCount: countDueKanji() };
+  return { kanji: { ...item, ...next }, dueCount: countDueKanji() };
 }
