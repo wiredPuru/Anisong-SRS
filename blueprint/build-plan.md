@@ -1326,6 +1326,21 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 111c. Kanji Study page - `/kanji`: due kanji as flashcards over a
     background of random library clips, self-graded Pass/Fail.
 
+- [ ] 112. **Community song difficulty** - mirror AMQ's per-song difficulty:
+  read AnisongDB's guess rate for each song at import, store it on `Song`,
+  and show it as a difficulty chip (Easy / Medium / Hard / Very hard, using
+  AMQ's bands) in `/cards`, the inspector and Study's info panel, with a
+  difficulty filter on `/cards` and in Study's filters. Separate from your
+  own review history, which stays a later item. Songs with no community
+  rate show no chip rather than a guess.
+  - [ ] 112a. **Field, storage and import** - read the rate from AnisongDB
+    responses, add `Song.communityDifficulty`, fill it on every import and
+    through a Settings backfill for songs already in the library.
+  - [ ] 112b. **Chip, `/cards` filter and Study filter** - bucket helper,
+    chip on the three surfaces, `/cards` difficulty filter, and a Difficulty
+    section in Study's filter form (so deck-from-filters and the party queue
+    get it too).
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

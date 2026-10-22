@@ -126,7 +126,9 @@ game, behind a password.
 
 - Anime and song/theme metadata (titles in EN/Romaji/JP, artist, OP/ED/insert
   info), cached locally from AniList/animethemes.moe lookups, plus season year,
-  season, format, AniList score, genres, and tags, used to filter Study.
+  season, format, AniList score, genres, and tags, used to filter Study, and
+  each song's community difficulty (AMQ's guess rate, from AnisongDB), shown
+  as a chip and used to filter.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
   criterion; the card's own columns are the anime-title track), and whether

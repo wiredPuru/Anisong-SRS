@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 8e3b884243b5e6534fd2b6defecda087fdb753bc2cb025baf98013a52b13492c -->
+<!-- blueprint:source-hash b49cb2413c07da2a24991238f571b0b519c1bb9d533be7384121143d6bfebe9f -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -363,6 +363,11 @@ that searches every host action, setting, and panel: a toggle such as Pixelate
 flips and scrolls to its control, and a panel such as Add songs is jumped to.
 No `project-plan.md` change: it is a control on feature 86/90's existing host
 panel, like features 93 and 102.
+Feature 112 (community song difficulty, in two sub-features 112a-112b) was
+added to `build-plan.md` on 2026-10-22. It mirrors AMQ's per-song guess rate,
+read from AnisongDB, as a stored field, a chip and a filter, separate from the
+user's own review history. It amended `project-plan.md` §4's first Data bullet
+to name the stored field, as features 76 and 78 did for their anime fields.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2781,6 +2786,21 @@ panel, like features 93 and 102.
       filtered by Clip source) play in `StudyMediaPlayer` and advance on end or
       Skip clip. Gated on Settings > Japanese breakdown. Hotkeys are fixed, not
       in the rebindable registry.
+112. **Community song difficulty** - added to `build-plan.md` 2026-10-22, in two
+    sub-features, neither built. Mirrors AMQ's per-song difficulty: AnisongDB's
+    guess rate is stored on `Song` at import and shown as an Easy / Medium /
+    Hard / Very hard chip in `/cards`, the inspector and Study's info panel,
+    with a filter on `/cards` and in Study's filters. A song with no community
+    rate shows no chip. Chosen over Spotify or YouTube plays, which measure
+    fame rather than how recognisable a clip is. The user's own difficulty from
+    `ReviewLog` is a separate, later item. Unconfirmed at intake: the exact
+    AnisongDB field name (believed `songDifficulty`) and AMQ's band cut-offs;
+    112a confirms both before anything depends on them.
+    - **112a. Field, storage and import** - read the rate from AnisongDB
+      responses, add `Song.communityDifficulty`, fill it on every import and
+      through a Settings backfill.
+    - **112b. Chip, `/cards` filter and Study filter** - bucket helper, chip on
+      the three surfaces, and the two filters.
 
 ## Data model
 
