@@ -152,26 +152,26 @@ describe("useListenMix fade curve", () => {
     return values;
   }
 
-  it("defaults to Smooth, restores a saved Linear on mount, and ignores junk", () => {
-    curveStorage("linear");
+  it("defaults to Linear, restores a saved Smooth on mount, and ignores junk", () => {
+    curveStorage("smooth");
     const { mix, mount } = setup();
-    expect(mix.curve.value).toBe("smooth");
-    mount();
     expect(mix.curve.value).toBe("linear");
+    mount();
+    expect(mix.curve.value).toBe("smooth");
     curveStorage("wobbly");
     const second = setup();
     second.mount();
-    expect(second.mix.curve.value).toBe("smooth");
+    expect(second.mix.curve.value).toBe("linear");
   });
 
-  it("saves a choice and treats an unknown choice as Smooth", () => {
+  it("saves a choice and treats an unknown choice as Linear", () => {
     const values = curveStorage(null);
     const { mix } = setup();
-    mix.setCurve("linear");
-    expect(values.get(LISTEN_MIX_CURVE_STORAGE_KEY)).toBe("linear");
-    mix.setCurve("other");
-    expect(mix.curve.value).toBe("smooth");
+    mix.setCurve("smooth");
     expect(values.get(LISTEN_MIX_CURVE_STORAGE_KEY)).toBe("smooth");
+    mix.setCurve("other");
+    expect(mix.curve.value).toBe("linear");
+    expect(values.get(LISTEN_MIX_CURVE_STORAGE_KEY)).toBe("linear");
   });
 
   it("still changes for the session when storage throws", () => {
@@ -181,7 +181,8 @@ describe("useListenMix fade curve", () => {
     } });
     const { mix, mount } = setup();
     mount();
-    mix.setCurve("linear");
     expect(mix.curve.value).toBe("linear");
+    mix.setCurve("smooth");
+    expect(mix.curve.value).toBe("smooth");
   });
 });

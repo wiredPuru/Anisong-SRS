@@ -13,7 +13,7 @@ import {
 export function useListenMix() {
   const enabled = ref(false);
   const seconds = ref<number>(LISTEN_MIX_SECONDS);
-  const curve = ref<GainCurve>("smooth");
+  const curve = ref<GainCurve>("linear");
 
   onMounted(() => {
     try {

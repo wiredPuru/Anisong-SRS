@@ -30,9 +30,9 @@ export function parseListenMixPreference(stored: string | null): boolean {
   return stored === "1";
 }
 
-/** Only an exact saved "linear" opts out of the smooth default. */
+/** Only an exact saved "smooth" opts in; Linear is the default. */
 export function parseListenMixCurve(stored: string | null): "smooth" | "linear" {
-  return stored === "linear" ? "linear" : "smooth";
+  return stored === "smooth" ? "smooth" : "linear";
 }
 
 /** Anything but an exact option reads as the default. */

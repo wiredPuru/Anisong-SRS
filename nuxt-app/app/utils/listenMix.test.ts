@@ -169,10 +169,10 @@ describe("Mix fade length", () => {
 });
 
 describe("Mix fade curve preference", () => {
-  it("reads Smooth unless Linear was saved exactly", () => {
-    expect(parseListenMixCurve("linear")).toBe("linear");
-    for (const stored of [null, "", "smooth", "Linear", " linear", "equal", "1", "{}"]) {
-      expect(parseListenMixCurve(stored)).toBe("smooth");
+  it("reads Linear unless Smooth was saved exactly", () => {
+    expect(parseListenMixCurve("smooth")).toBe("smooth");
+    for (const stored of [null, "", "linear", "Smooth", " smooth", "equal", "1", "{}"]) {
+      expect(parseListenMixCurve(stored)).toBe("linear");
     }
   });
 });

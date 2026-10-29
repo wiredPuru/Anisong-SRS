@@ -72,7 +72,7 @@ export function useListenPlayback(options: {
   // Decided once per presentation: toggling Mix mid-song never swaps the mounted
   // player, it only changes what happens at the next boundary.
   const managedMode = ref(false);
-  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "smooth" };
+  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "linear" };
 
   const foreground = () => slots.value.find((s) => s.role === "foreground");
   const standby = () => slots.value.find((s) => s.role === "standby");
