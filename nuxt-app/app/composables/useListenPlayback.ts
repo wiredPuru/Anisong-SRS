@@ -53,6 +53,8 @@ interface Overlap {
 
 export function useListenPlayback(options: {
   advance: () => void;
+  // Called once per committed handoff, just before the queue moves on.
+  onHandoff?: () => void;
   onForeground?: (snapshot: ManagedPlaybackSnapshot) => void;
   // Seconds left of the play-length budget, or null when the full song plays.
   playLengthRemaining?: () => number | null;
@@ -142,6 +144,7 @@ export function useListenPlayback(options: {
     outPort?.rampGain(0, seconds, settings.mixCurve);
     overlap = { tailId: out.id, endsAt: Date.now() + seconds * 1000, remainingMs: null,
       timer: setTimeout(endOverlap, seconds * 1000) };
+    options.onHandoff?.();
     options.advance();
   }
 

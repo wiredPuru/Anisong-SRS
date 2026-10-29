@@ -193,7 +193,14 @@ function onLocalPathCleared({ cardId, kind }: { cardId: number; kind: "video" | 
   patchCard(cardId, kind === "video" ? { localVideoPath: null } : { localAudioPath: null });
 }
 
-const playback = useListenPlayback({ advance: next, playLengthRemaining: () => playLimit.remainingExactSeconds() });
+// What the outgoing picture was showing when the handoff happened, so a song
+// that was revealed does not re-veil while it is still on screen.
+const frozenVeil = ref({ video: false, cover: false });
+const playback = useListenPlayback({
+  advance: next,
+  onHandoff: () => { frozenVeil.value = { video: videoHidden.value, cover: coverHidden.value }; },
+  playLengthRemaining: () => playLimit.remainingExactSeconds(),
+});
 watchEffect(() => playback.configure({
   mix: listenMix.enabled.value,
   autoplay: autoplayNext.value,
@@ -472,6 +479,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :presentation-key="presentationKey"
             :card="currentCard"
             :managed-mode="playback.managedMode.value"
+            :tail-hide-video="frozenVeil.video"
+            :tail-hide-cover="frozenVeil.cover"
             :slots="playback.slots.value"
             :hide-video="videoHidden"
             :hide-cover="coverHidden"

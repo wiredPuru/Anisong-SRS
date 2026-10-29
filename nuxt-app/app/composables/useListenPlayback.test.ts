@@ -95,11 +95,11 @@ function livePort(id: number, over: Partial<ManagedPlaybackSnapshot>): Live {
   };
   return { port, state, ramps, curves };
 }
-async function mixSetup(playLengthRemaining: () => number | null = () => null, mixSeconds = 5, mixCurve: "smooth" | "linear" = "smooth") {
+async function mixSetup(playLengthRemaining: () => number | null = () => null, mixSeconds = 5, mixCurve: "smooth" | "linear" = "smooth", onHandoff?: () => void) {
   vi.useFakeTimers();
   const scope = effectScope();
   const advance = vi.fn();
-  const controller = scope.run(() => useListenPlayback({ advance, playLengthRemaining }))!;
+  const controller = scope.run(() => useListenPlayback({ advance, playLengthRemaining, onHandoff }))!;
   controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds, mixCurve });
   controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(2) });
   const [a, b] = controller.slots.value;
@@ -187,6 +187,32 @@ describe("Listen Mix handoff", () => {
     const standby = controller.slots.value.find((s) => s.role === "standby");
     expect(standby).toBeDefined();
     expect(standby!.id).not.toBe(b.id);
+    scope.stop();
+  });
+
+  it("calls onHandoff once at commit, before the queue advances", async () => {
+    const order: string[] = [];
+    const onHandoff = vi.fn(() => order.push("handoff"));
+    const { advance, out, scope } = await mixSetup(() => null, 5, "smooth", onHandoff);
+    advance.mockImplementation(() => order.push("advance"));
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onHandoff).toHaveBeenCalledOnce();
+    expect(order).toEqual(["handoff", "advance"]);
+    scope.stop();
+  });
+
+  it("does not call onHandoff when the start is cancelled or falls back", async () => {
+    const onHandoff = vi.fn();
+    const { controller, incoming, out, scope } = await mixSetup(() => null, 5, "smooth", onHandoff);
+    let finish!: (r: ManagedPlaybackResult<"playing">) => void;
+    incoming.port.play = vi.fn(() => new Promise((r) => { finish = r; }));
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    controller.foregroundPaused();
+    finish({ status: "playing", snapshot: incoming.state });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onHandoff).not.toHaveBeenCalled();
     scope.stop();
   });
 

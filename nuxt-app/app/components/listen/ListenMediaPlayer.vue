@@ -10,6 +10,8 @@ const props = defineProps<{
   presentationKey: number;
   managedMode: boolean;
   slots: ListenSlot[];
+  tailHideVideo?: boolean;
+  tailHideCover?: boolean;
 }>();
 const emit = defineEmits<{
   "attach": [id: number, port: ListenPlayerPort];
@@ -36,6 +38,14 @@ function bindPort(slot: ListenSlot, instance: unknown) {
   if (instance) emit("attach", slot.id, instance as ListenPlayerPort);
 }
 
+// The outgoing slot keeps the veil state it had when it left the foreground.
+const attrs = useAttrs();
+function veil(slot: ListenSlot, name: "hideVideo" | "hideCover") {
+  if (slot.role === "tail") return name === "hideVideo" ? props.tailHideVideo : props.tailHideCover;
+  const kebab = name === "hideVideo" ? "hide-video" : "hide-cover";
+  return Boolean(attrs[kebab] ?? attrs[name]);
+}
+
 function adopt(slot: ListenSlot) {
   return slot.role === "foreground";
 }
@@ -53,13 +63,16 @@ function adopt(slot: ListenSlot) {
   >
     <template #error-actions><slot name="error-actions" /></template>
   </StudyMediaPlayer>
-  <template v-else>
+  <div v-else class="mix-stack">
     <StudyMediaPlayer
       v-for="slot in slots"
       :key="slot.id"
       :ref="(instance: unknown) => bindPort(slot, instance)"
       v-bind="$attrs"
       :card="slot.card"
+      :hide-video="veil(slot, 'hideVideo')"
+      :hide-cover="veil(slot, 'hideCover')"
+      :ghost="slot.role === 'tail'"
       :audio-only="slot.audioOnly"
       :random-start="slot.randomStart"
       :play-length="slot.playLength"
@@ -74,5 +87,32 @@ function adopt(slot: ListenSlot) {
     >
       <template #error-actions><slot name="error-actions" /></template>
     </StudyMediaPlayer>
-  </template>
+  </div>
 </template>
+
+<style scoped>
+/* Both pictures share one cell so the outgoing song can stay beneath the
+   incoming one. The properties are the hooks the dissolve drives; at their
+   defaults the incoming picture is opaque and the outgoing one invisible. */
+.mix-stack {
+  --incoming-opacity: 1;
+  --tail-opacity: 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+}
+
+.mix-stack :deep(.player-card) {
+  grid-area: 1 / 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+  opacity: var(--incoming-opacity);
+}
+
+.mix-stack :deep(.player-card.ghost) {
+  z-index: 0;
+  opacity: var(--tail-opacity);
+}
+</style>

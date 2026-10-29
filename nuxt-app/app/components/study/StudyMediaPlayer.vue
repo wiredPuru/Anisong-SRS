@@ -49,6 +49,9 @@ const props = defineProps<{
   lastPlayed?: { songTitle: string; animeTitle: string } | null;
   managed?: { presentationId: number; role: ManagedPlaybackRole };
   masterVolume?: number;
+  // A slot that has left the foreground but whose picture stays on screen: it
+  // is shown, inert and without chrome, until its owner removes it.
+  ghost?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -1363,10 +1366,10 @@ onUnmounted(() => stopDrag?.());
   </Teleport>
   <div
     class="player-card"
-    :hidden="!foreground"
+    :hidden="!foreground && !ghost"
     :inert="!foreground"
     :aria-hidden="!foreground || undefined"
-    :class="{ expanded: immersive, 'ambient-glass': ambient }"
+    :class="{ expanded: immersive, 'ambient-glass': ambient, ghost: ghost && !foreground }"
     @click.self="emit('update:immersive', false)"
   >
     <div
@@ -1628,6 +1631,16 @@ onUnmounted(() => stopDrag?.());
 }
 
 /* No slab or border in ambient mode: the video feathers into the glow. */
+.player-card.ghost {
+  pointer-events: none;
+}
+
+.player-card.ghost .player-controls,
+.player-card.ghost .theme-badge,
+.player-card.ghost .expand-btn {
+  display: none;
+}
+
 .player-card.ambient-glass {
   background: transparent;
   border-color: transparent;

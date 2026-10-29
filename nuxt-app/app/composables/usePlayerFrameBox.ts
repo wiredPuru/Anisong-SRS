@@ -1,5 +1,10 @@
 import type { Ref } from "vue";
 
+// With Mix the pane holds a second, hidden player card that can come first in
+// the DOM, so the first frame is not necessarily the one on screen. A ghost
+// card (the outgoing song kept beneath the incoming one) is never the measure.
+const FRAME_SELECTOR = ".player-card:not([hidden]):not(.ghost) .player-frame";
+
 /**
  * Where the player frame sits inside its pane, as CSS variables, so the Now
  * playing bar can match the picture's width and the details card can cover it
@@ -12,7 +17,7 @@ export function usePlayerFrameBox(paneRef: Ref<HTMLElement | null>, presentation
 
   function measure() {
     const pane = paneRef.value;
-    const frame = pane?.querySelector(".player-frame");
+    const frame = pane?.querySelector(FRAME_SELECTOR);
     if (!pane || !frame) return;
     const outer = pane.getBoundingClientRect();
     const inner = frame.getBoundingClientRect();
@@ -21,7 +26,7 @@ export function usePlayerFrameBox(paneRef: Ref<HTMLElement | null>, presentation
 
   // The player remounts per card, so its frame is a new element to watch.
   function observeFrame() {
-    const frame = paneRef.value?.querySelector(".player-frame");
+    const frame = paneRef.value?.querySelector(FRAME_SELECTOR);
     if (frame) observer?.observe(frame);
     measure();
   }
