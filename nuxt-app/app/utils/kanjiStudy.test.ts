@@ -27,6 +27,21 @@ describe("kanjiKeyAction", () => {
   });
 });
 
+describe("kanjiKeyAction while a part's detail is open", () => {
+  it("ignores reveal and grading keys so the hidden card cannot be graded", () => {
+    for (const key of [" ", "Enter", "ArrowRight", "ArrowLeft"]) {
+      expect(kanjiKeyAction(key, true, {}, true)).toBeNull();
+      expect(kanjiKeyAction(key, false, {}, true)).toBeNull();
+    }
+  });
+
+  it("goes back on Escape, and only then", () => {
+    expect(kanjiKeyAction("Escape", true, {}, true)).toBe("back");
+    expect(kanjiKeyAction("Escape", true, {}, false)).toBeNull();
+    expect(kanjiKeyAction("Escape", true, { ctrl: true }, true)).toBeNull();
+  });
+});
+
 describe("nextClipIndex", () => {
   it("steps forward and wraps at the end", () => {
     expect(nextClipIndex(0, 3)).toBe(1);

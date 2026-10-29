@@ -98,6 +98,8 @@ game, behind a password.
   library clips when it has none) playing in the background. Kanji have their own schedule; cards and stats are untouched. A kanji's story can be
   written on `/kanji`; with none of your own, the top Koohii story from
   hochanh.github.io/rtk is shown as a default (fetched online, cached locally).
+  Its parts can be opened to drill into their own parts, and any kanji or part
+  can be looked up by character or keyword, from the bundled dictionary.
 - **Playback** - "play song" plays audio only and requires a guess; "show
   video" plays from the start of the clip if a video exists.
 - **Review stats** - guess-rate tracking, sliceable by artist and by anime

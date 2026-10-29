@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatKunReading, formatRtkFrame, formatStrokes, MAX_KANJI_STORY_LENGTH, storyDraftState } from "~/utils/japaneseBreakdown";
+import { backKanji, formatKunReading, formatRtkFrame, formatStrokes, MAX_KANJI_STORY_LENGTH, openKanji, storyDraftState } from "~/utils/japaneseBreakdown";
 import { kanjiKeyAction, pickSourceClip, storyView } from "~/utils/kanjiStudy";
 
 const { data: settings, pending: settingsPending } = await useFetch<{
@@ -16,6 +16,31 @@ const background = useBackgroundClips(clipSource);
 const study = useKanjiStudy();
 const { current, dueCount, loading, error, revealed, story, defaultStory, storySaving, storyError, grading, passed, failed } = study;
 const shownStory = computed(() => storyView(story.value, defaultStory.value));
+
+const kanjiDeck = useKanjiDeck();
+const drill = ref<string[]>([]);
+const drilled = computed(() => drill.value[drill.value.length - 1] ?? null);
+const storyChars = ref<Set<string>>(new Set());
+
+async function loadStoryChars() {
+  try {
+    storyChars.value = new Set((await $fetch<{ chars: string[] }>("/api/kanji/story/chars")).chars);
+  } catch {
+    // The markers are a convenience; drilling works without them.
+  }
+}
+
+function onStoryChanged(char: string, hasStory: boolean) {
+  const next = new Set(storyChars.value);
+  if (hasStory) next.add(char);
+  else next.delete(char);
+  storyChars.value = next;
+}
+
+function partLabel(part: string): string {
+  const notes = [storyChars.value.has(part) && "has your story", kanjiDeck.chars.value.has(part) && "in Kanji Study"].filter(Boolean);
+  return notes.length ? `Open ${part} (${notes.join(", ")})` : `Open ${part}`;
+}
 
 const editing = ref(false);
 const draft = ref("");
@@ -41,6 +66,7 @@ async function removeOwnStory() {
 
 watch(() => current.value?.char, () => {
   editing.value = false;
+  drill.value = [];
 });
 
 // Skipping or an error leaves the kanji's own song until the next kanji loads.
@@ -76,16 +102,19 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 function onKeydown(event: KeyboardEvent) {
   if (isTypingTarget(event.target)) return;
-  const action = kanjiKeyAction(event.key, revealed.value, { ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey });
+  const action = kanjiKeyAction(event.key, revealed.value, { ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey }, drilled.value !== null);
   if (!action) return;
   event.preventDefault();
-  if (action === "reveal") study.reveal();
+  if (action === "back") drill.value = backKanji(drill.value);
+  else if (action === "reveal") study.reveal();
   else study.grade(action);
 }
 
 onMounted(() => {
   window.addEventListener("keydown", onKeydown);
   if (enabled.value) {
+    loadStoryChars();
+    if (!kanjiDeck.loaded.value) kanjiDeck.load();
     study.loadNext();
     background.load();
   }
@@ -125,7 +154,18 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
       </MascotState>
 
       <div class="kanji-stage">
-      <section v-if="current" class="kanji-card" aria-label="Kanji flashcard">
+      <section v-if="current && drilled" class="kanji-card kanji-drill" aria-label="Kanji parts">
+        <StudyKanjiDetail
+          :char="drilled"
+          :depth="drill.length"
+          root-label="Back to kanji"
+          :story-chars="storyChars"
+          @story-changed="onStoryChanged"
+          @open="drill = openKanji(drill, $event)"
+          @back="drill = backKanji(drill)"
+        />
+      </section>
+      <section v-else-if="current" class="kanji-card" aria-label="Kanji flashcard">
         <p class="kanji-char" lang="ja">{{ current.char }}</p>
 
         <template v-if="revealed">
@@ -143,10 +183,18 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             &middot; Box {{ current.box }}
           </p>
           <p v-if="parts.length" class="kanji-parts" lang="ja" aria-label="Components">
-            <span v-for="part in parts" :key="part.char" class="kanji-part">
+            <button
+              v-for="part in parts"
+              :key="part.char"
+              type="button"
+              class="kanji-part"
+              :class="{ 'has-story': storyChars.has(part.char), 'in-deck': kanjiDeck.chars.value.has(part.char) }"
+              :aria-label="partLabel(part.char)"
+              @click="drill = openKanji(drill, part.char)"
+            >
               <span class="kanji-part-char">{{ part.char }}</span>
               <span class="kanji-part-keyword" lang="en">{{ part.keyword ?? "(shape)" }}</span>
-            </span>
+            </button>
           </p>
           <div v-if="shownStory.kind !== 'none' && !editing" class="kanji-story">
             <p class="kanji-story-text">{{ shownStory.text }}</p>
@@ -385,12 +433,37 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 }
 
 .kanji-part {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.kanji-part.in-deck {
+  border-color: var(--pass);
+}
+
+.kanji-part.has-story::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.kanji-drill {
+  align-items: stretch;
+  text-align: left;
 }
 
 .kanji-part-char {

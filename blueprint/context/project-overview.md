@@ -2873,6 +2873,19 @@ refines feature 115's existing control.
     - **118a. Default story fetch** - client, cache table and route. No UI.
     - **118b. Story on /kanji** - display, in-place editor, Use this story, Remove.
 
+119. **Explore kanji parts on /kanji** - added to `build-plan.md` 2026-10-29,
+    in two sub-features, neither built. The parts on `/kanji` after Reveal
+    open the Japanese breakdown's `StudyKanjiDetail` view in place, with a back
+    stack, so an unknown part can be drilled into its own parts (parts are
+    pruned of nested shapes since the 2026-10-29 `kanji-prune-nested-parts` fix,
+    so e.g. the spoon under 花 is reached through 化). A search box looks up any
+    kanji or part by character or English keyword and opens the same view. All
+    from the bundled KANJIDIC2/KRADFILE data: offline, no schema change. A kanji
+    added from a part or search result has no source card and plays random
+    clips. Amended `project-plan.md` §3 (Kanji Study bullet).
+    - **119a. Clickable parts** - done, client only.
+    - **119b. Search** - `GET /api/kanji/search` and the search box.
+
 ## Data model
 
 ### Anime

@@ -14,6 +14,8 @@ const props = defineProps<{
   depth: number;
   storyChars: ReadonlySet<string>;
   sourceCardId?: number;
+  // What Back reads on the first level; the breakdown goes back to its titles.
+  rootLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -137,7 +139,7 @@ onScopeDispose(() => {
 <template>
   <div class="kd">
     <button type="button" class="kd-back" @click="emit('back')">
-      &larr; {{ depth > 1 ? "Back" : "Back to titles" }}
+      &larr; {{ depth > 1 ? "Back" : (rootLabel ?? "Back to titles") }}
     </button>
 
     <div class="kd-main">

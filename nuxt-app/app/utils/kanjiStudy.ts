@@ -1,15 +1,18 @@
 import { isPlayableCard, type PlayableSourceCard } from "./listenQueue";
 import type { ClipSource } from "./clipSource";
 
-export type KanjiKeyAction = "reveal" | "pass" | "fail";
+export type KanjiKeyAction = "reveal" | "pass" | "fail" | "back";
 
 // Space and Enter reveal; the arrows grade, but only once the answer is showing.
+// While a part's detail is open the card is not on screen, so only Escape acts.
 export function kanjiKeyAction(
   key: string,
   revealed: boolean,
   modifiers: { ctrl?: boolean; meta?: boolean; alt?: boolean } = {},
+  drilling = false,
 ): KanjiKeyAction | null {
   if (modifiers.ctrl || modifiers.meta || modifiers.alt) return null;
+  if (drilling) return key === "Escape" ? "back" : null;
   if (!revealed) return key === " " || key === "Enter" ? "reveal" : null;
   if (key === "ArrowRight") return "pass";
   if (key === "ArrowLeft") return "fail";
