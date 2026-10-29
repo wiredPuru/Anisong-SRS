@@ -1,6 +1,6 @@
 import { onMounted } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LISTEN_MIX_LENGTH_STORAGE_KEY, LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
+import { LISTEN_MIX_CURVE_STORAGE_KEY, LISTEN_MIX_LENGTH_STORAGE_KEY, LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
 import { useListenMix } from "./useListenMix";
 
 vi.mock("vue", async (importOriginal) => {
@@ -139,5 +139,49 @@ describe("useListenMix fade length", () => {
     mount();
     mix.setSeconds(2);
     expect(mix.seconds.value).toBe(2);
+  });
+});
+
+describe("useListenMix fade curve", () => {
+  function curveStorage(initial: string | null) {
+    const values = new Map<string, string>(initial === null ? [] : [[LISTEN_MIX_CURVE_STORAGE_KEY, initial]]);
+    vi.stubGlobal("window", { localStorage: {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => { values.set(key, value); }),
+    } });
+    return values;
+  }
+
+  it("defaults to Smooth, restores a saved Linear on mount, and ignores junk", () => {
+    curveStorage("linear");
+    const { mix, mount } = setup();
+    expect(mix.curve.value).toBe("smooth");
+    mount();
+    expect(mix.curve.value).toBe("linear");
+    curveStorage("wobbly");
+    const second = setup();
+    second.mount();
+    expect(second.mix.curve.value).toBe("smooth");
+  });
+
+  it("saves a choice and treats an unknown choice as Smooth", () => {
+    const values = curveStorage(null);
+    const { mix } = setup();
+    mix.setCurve("linear");
+    expect(values.get(LISTEN_MIX_CURVE_STORAGE_KEY)).toBe("linear");
+    mix.setCurve("other");
+    expect(mix.curve.value).toBe("smooth");
+    expect(values.get(LISTEN_MIX_CURVE_STORAGE_KEY)).toBe("smooth");
+  });
+
+  it("still changes for the session when storage throws", () => {
+    vi.stubGlobal("window", { localStorage: {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    } });
+    const { mix, mount } = setup();
+    mount();
+    mix.setCurve("linear");
+    expect(mix.curve.value).toBe("linear");
   });
 });

@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 798684b1263c84d4f738527bfb84323a7ea3b6d550edf0ec7c648112b2ce9f4f -->
+<!-- blueprint:source-hash 503b6803fb74901d276ee6d08ed640f9907432fa0f09ed7825e0beb3d8a40196 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -370,8 +370,8 @@ crossfades with Autoplay, for full-song or selected play-length playback,
 with normal advancement when the next clip is not ready. No
 `project-plan.md` change: it is an incremental playback control on the existing
 Listen page.
-Feature 116 (Mix fade length and curve, in two sub-features 116a-116b) was
-added to `build-plan.md` on 2026-10-29: remembered Listen settings for the Mix
+Feature 116 (Mix fade length and curve, in two sub-features 116a-116b, both
+built) was added to `build-plan.md` on 2026-10-29: remembered Listen settings for the Mix
 overlap length (2, 5, 8 or 12 seconds, default 5) and its curve (Smooth equal
 power, the default, or Linear). No `project-plan.md` change: it refines
 feature 115's existing control.
@@ -2841,7 +2841,7 @@ feature 115's existing control.
     - **116a. Fade length** - done 2026-10-29. 2, 5, 8 or 12 seconds (default 5). The overlap
       planner, the handoff window and the "Next in" countdown read it; the
       one-second floor and the half-of-either-song cap stay.
-    - **116b. Fade curve** - Smooth (equal power) or Linear. The fade's gain
+    - **116b. Fade curve** - done 2026-10-29. Smooth (equal power) or Linear. The fade's gain
       helper learns a curved shape, including holding and resuming it.
 
 ## Data model

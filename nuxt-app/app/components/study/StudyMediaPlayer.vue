@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CardWithDetails } from "~/composables/useStudySession";
-import { createMediaGain } from "~/utils/mediaGain";
+import { createMediaGain, type GainCurve } from "~/utils/mediaGain";
 import type { HotkeyScope } from "~/utils/hotkeys";
 import { networkImageSrc } from "~/utils/networkImage";
 import { isOfflineUncachedFailure, networkMediaKind, OFFLINE_CLIP_MESSAGE } from "~/utils/networkPlayback";
@@ -1063,9 +1063,9 @@ async function prepareGain(): Promise<boolean> {
   finally { clearTimeout(timeout); }
 }
 
-function rampGain(value: number, seconds: number): boolean {
+function rampGain(value: number, seconds: number, curve?: GainCurve): boolean {
   if (!fadeEnvelope || audioContext?.state !== "running" || managedStopped.value) return false;
-  fadeEnvelope.ramp(value, seconds);
+  fadeEnvelope.ramp(value, seconds, curve);
   return true;
 }
 

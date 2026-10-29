@@ -1,4 +1,5 @@
 export const LISTEN_MIX_STORAGE_KEY = "gaqSrs:listenMix";
+export const LISTEN_MIX_CURVE_STORAGE_KEY = "gaqSrs:listenMixCurve";
 export const LISTEN_MIX_LENGTH_STORAGE_KEY = "gaqSrs:listenMixSeconds";
 export const LISTEN_MIX_LENGTH_OPTIONS = [2, 5, 8, 12] as const;
 export const LISTEN_MIX_SECONDS = 5;
@@ -27,6 +28,11 @@ export interface ListenPlaybackTiming {
 
 export function parseListenMixPreference(stored: string | null): boolean {
   return stored === "1";
+}
+
+/** Only an exact saved "linear" opts out of the smooth default. */
+export function parseListenMixCurve(stored: string | null): "smooth" | "linear" {
+  return stored === "linear" ? "linear" : "smooth";
 }
 
 /** Anything but an exact option reads as the default. */

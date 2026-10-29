@@ -19,7 +19,7 @@ function setup(mix = true) {
   const advance = vi.fn();
   const onForeground = vi.fn();
   const controller = scope.run(() => useListenPlayback({ advance, onForeground }))!;
-  controller.configure({ mix, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5 });
+  controller.configure({ mix, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5, mixCurve: "smooth" });
   controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(2) });
   return { controller, advance, onForeground, scope };
 }
@@ -39,13 +39,13 @@ describe("Listen slot ownership", () => {
   it("uses one slot with Mix off and never stages beyond the last song", () => {
     const { controller, scope } = setup(false);
     expect(controller.slots.value).toHaveLength(1);
-    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5 });
+    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5, mixCurve: "smooth" });
     controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: null });
     expect(controller.slots.value).toHaveLength(1); scope.stop();
   });
   it("keeps a presentation plain when Mix is turned on mid-song", () => {
     const { controller, scope } = setup(false);
-    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5 });
+    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5, mixCurve: "smooth" });
     expect(controller.managedMode.value).toBe(false);
     expect(controller.slots.value).toHaveLength(1);
     controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: card(3) });
@@ -55,7 +55,7 @@ describe("Listen slot ownership", () => {
   it("retires the standby when Mix is turned off mid-song but keeps the foreground", () => {
     const { controller, scope } = setup();
     const keep = controller.slots.value[0]!.id;
-    controller.configure({ mix: false, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5 });
+    controller.configure({ mix: false, autoplay: true, audioOnly: false, randomStart: false, playLength: 30, mixSeconds: 5, mixCurve: "smooth" });
     expect(controller.slots.value.map((s) => s.id)).toEqual([keep]); scope.stop();
   });
   it("rejects a late preparation result from a retired queue", async () => {
@@ -80,26 +80,27 @@ describe("Listen slot ownership", () => {
   });
 });
 
-interface Live { port: ListenPlayerPort; state: ManagedPlaybackSnapshot; ramps: Array<[number, number]> }
+interface Live { port: ListenPlayerPort; state: ManagedPlaybackSnapshot; ramps: Array<[number, number]>; curves: Array<string | undefined> }
 function livePort(id: number, over: Partial<ManagedPlaybackSnapshot>): Live {
   const state: ManagedPlaybackSnapshot = { ...snapshot(id), ...over };
   const ramps: Array<[number, number]> = [];
+  const curves: Array<string | undefined> = [];
   const port: ListenPlayerPort = {
     prepare: vi.fn(async () => ({ status: "ready", snapshot: state })),
     play: vi.fn(async () => { state.state = "playing"; return { status: "playing", snapshot: state }; }),
     pause: vi.fn(), stop: vi.fn(), getSnapshot: () => state,
     prepareGain: vi.fn(async () => true),
-    rampGain: vi.fn((value: number, seconds: number) => { ramps.push([value, seconds]); return true; }),
+    rampGain: vi.fn((value: number, seconds: number, curve?: string) => { ramps.push([value, seconds]); curves.push(curve); return true; }),
     holdGain: vi.fn(), resumeGain: vi.fn(),
   };
-  return { port, state, ramps };
+  return { port, state, ramps, curves };
 }
-async function mixSetup(playLengthRemaining: () => number | null = () => null, mixSeconds = 5) {
+async function mixSetup(playLengthRemaining: () => number | null = () => null, mixSeconds = 5, mixCurve: "smooth" | "linear" = "smooth") {
   vi.useFakeTimers();
   const scope = effectScope();
   const advance = vi.fn();
   const controller = scope.run(() => useListenPlayback({ advance, playLengthRemaining }))!;
-  controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds });
+  controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds, mixCurve });
   controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(2) });
   const [a, b] = controller.slots.value;
   const out = livePort(a!.id, { state: "playing", duration: 60 });
@@ -161,7 +162,28 @@ describe("Listen Mix handoff", () => {
 
   it("re-stages the standby when the length changes mid-song", async () => {
     const { controller, b, scope } = await mixSetup();
-    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 8 });
+    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 8, mixCurve: "smooth" });
+    const standby = controller.slots.value.find((s) => s.role === "standby");
+    expect(standby).toBeDefined();
+    expect(standby!.id).not.toBe(b.id);
+    scope.stop();
+  });
+
+  it("ramps both slots with the chosen curve", async () => {
+    for (const curve of ["smooth", "linear"] as const) {
+      const { incoming, out, scope } = await mixSetup(() => null, 5, curve);
+      out.state.currentTime = 56;
+      await vi.advanceTimersByTimeAsync(250);
+      expect(incoming.curves.at(-1)).toBe(curve);
+      expect(out.curves.at(-1)).toBe(curve);
+      scope.stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-stages the standby when the curve changes mid-song", async () => {
+    const { controller, b, scope } = await mixSetup();
+    controller.configure({ mix: true, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "linear" });
     const standby = controller.slots.value.find((s) => s.role === "standby");
     expect(standby).toBeDefined();
     expect(standby!.id).not.toBe(b.id);
@@ -257,7 +279,7 @@ describe("Listen Mix handoff", () => {
     const { controller, out, incoming, scope } = await mixSetup();
     out.state.currentTime = 56;
     await vi.advanceTimersByTimeAsync(250);
-    controller.configure({ mix: false, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5 });
+    controller.configure({ mix: false, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "smooth" });
     expect(out.port.stop).toHaveBeenCalledOnce();
     expect(incoming.ramps.at(-1)).toEqual([1, 0]);
     expect(roles(controller)).toEqual(["foreground"]); scope.stop();

@@ -1356,7 +1356,7 @@ cleaned-up checkbox version before generating the project overview.
   video and audio, keep pause/skip controls predictable, and fall back to
   normal advancement if the next clip is not ready.
 
-- [ ] 116. **Mix fade length and curve** - two remembered Listen settings
+- [x] 116. **Mix fade length and curve** - two remembered Listen settings
   that refine feature 115's Mix. Fade length chooses how long songs overlap
   (2, 5, 8 or 12 seconds, default 5), and Fade curve chooses Smooth (equal
   power, no volume dip mid-fade, the default) or Linear. Listen only, saved in
@@ -1364,7 +1364,7 @@ cleaned-up checkbox version before generating the project overview.
   the chosen length use a shorter overlap, as 115 already does.
   - [x] 116a. Fade length - the setting, with the planner, handoff window and
     "Next in" countdown using it.
-  - [ ] 116b. Fade curve - the Smooth/Linear setting and the gain math behind
+  - [x] 116b. Fade curve - the Smooth/Linear setting and the gain math behind
     it, including holding and resuming a curved fade.
 
 ## Plan maintenance

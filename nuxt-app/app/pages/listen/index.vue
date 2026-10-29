@@ -201,6 +201,7 @@ watchEffect(() => playback.configure({
   randomStart: randomStart.value,
   playLength: playLimit.seconds.value,
   mixSeconds: listenMix.seconds.value,
+  mixCurve: listenMix.curve.value,
 }));
 watch([presentationKey, queueKey, currentCard, nextCard], () => playback.synchronize({
   key: presentationKey.value,
@@ -394,6 +395,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <option v-for="length in LISTEN_MIX_LENGTH_OPTIONS" :key="length" :value="length">
                 Fade: {{ length }}s
               </option>
+            </select>
+            <select
+              v-if="listenMix.enabled.value"
+              :value="listenMix.curve.value"
+              class="menu-select"
+              aria-label="Mix fade curve"
+              :disabled="!autoplayNext"
+              :title="autoplayNext ? 'Smooth keeps the loudness steady through the fade' : 'Needs Autoplay on'"
+              @change="listenMix.setCurve(($event.target as HTMLSelectElement).value)"
+            >
+              <option value="smooth">Curve: Smooth</option>
+              <option value="linear">Curve: Linear</option>
             </select>
             <p id="mix-note" class="menu-note">
               <template v-if="listenMix.enabled.value && !autoplayNext">Needs Autoplay on</template>

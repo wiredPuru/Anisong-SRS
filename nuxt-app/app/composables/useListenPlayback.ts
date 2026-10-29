@@ -1,6 +1,7 @@
 import { onScopeDispose, ref, shallowRef } from "vue";
 import type { CardWithDetails } from "./useStudySession";
 import { MIN_LISTEN_MIX_SECONDS, planListenMix, remainingListenSeconds } from "../utils/listenMix";
+import type { GainCurve } from "../utils/mediaGain";
 import type { ManagedPlaybackResult, ManagedPlaybackRole, ManagedPlaybackSnapshot } from "../utils/managedPlayback";
 
 export interface ListenPlayerPort {
@@ -10,7 +11,7 @@ export interface ListenPlayerPort {
   stop(): void;
   getSnapshot(): ManagedPlaybackSnapshot | null;
   prepareGain(): Promise<boolean>;
-  rampGain(value: number, seconds: number): boolean;
+  rampGain(value: number, seconds: number, curve?: GainCurve): boolean;
   holdGain(): void;
   resumeGain(): void;
 }
@@ -30,6 +31,7 @@ export interface ListenPlaybackSettings {
   randomStart: boolean;
   playLength: number;
   mixSeconds: number;
+  mixCurve: GainCurve;
 }
 export interface ListenPresentation {
   key: number;
@@ -70,7 +72,7 @@ export function useListenPlayback(options: {
   // Decided once per presentation: toggling Mix mid-song never swaps the mounted
   // player, it only changes what happens at the next boundary.
   const managedMode = ref(false);
-  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5 };
+  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "smooth" };
 
   const foreground = () => slots.value.find((s) => s.role === "foreground");
   const standby = () => slots.value.find((s) => s.role === "standby");
@@ -136,8 +138,8 @@ export function useListenPlayback(options: {
     slots.value = slots.value.map((s) => s.id === incoming.id ? { ...s, role: "foreground" as const }
       : s.id === out.id ? { ...s, role: "tail" as const } : s);
     handoffPending = true;
-    inPort?.rampGain(1, seconds);
-    outPort?.rampGain(0, seconds);
+    inPort?.rampGain(1, seconds, settings.mixCurve);
+    outPort?.rampGain(0, seconds, settings.mixCurve);
     overlap = { tailId: out.id, endsAt: Date.now() + seconds * 1000, remainingMs: null,
       timer: setTimeout(endOverlap, seconds * 1000) };
     options.advance();

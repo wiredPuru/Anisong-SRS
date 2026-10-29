@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   listenMixGains,
+  parseListenMixCurve,
   parseListenMixLength,
   parseListenMixPreference,
   secondsUntilHandoff,
@@ -164,5 +165,14 @@ describe("Mix fade length", () => {
   it("counts a Next in label down to the handoff, never below zero", () => {
     expect(secondsUntilHandoff(30, 8)).toBe(22);
     expect(secondsUntilHandoff(3, 8)).toBe(0);
+  });
+});
+
+describe("Mix fade curve preference", () => {
+  it("reads Smooth unless Linear was saved exactly", () => {
+    expect(parseListenMixCurve("linear")).toBe("linear");
+    for (const stored of [null, "", "smooth", "Linear", " linear", "equal", "1", "{}"]) {
+      expect(parseListenMixCurve(stored)).toBe("smooth");
+    }
   });
 });
