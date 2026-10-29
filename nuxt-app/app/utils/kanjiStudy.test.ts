@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backgroundClips, kanjiKeyAction, nextClipIndex, pickSourceClip } from "./kanjiStudy.ts";
+import { backgroundClips, kanjiKeyAction, nextClipIndex, pickSourceClip, storyView } from "./kanjiStudy.ts";
 
 describe("kanjiKeyAction", () => {
   it("reveals with Space or Enter before the answer shows", () => {
@@ -75,5 +75,26 @@ describe("pickSourceClip", () => {
   it("returns null when Clip source blocks the only remote URL", () => {
     expect(pickSourceClip(remote, "anisongdb")).toBeNull();
     expect(pickSourceClip(remote, "animethemes")).toBe(remote);
+  });
+});
+
+describe("storyView", () => {
+  const koohii = { text: "Flowers change.", author: "Copycatken", url: "https://example.test/花" };
+
+  it("prefers the user's own story over the default", () => {
+    expect(storyView("my story", koohii)).toEqual({ kind: "personal", text: "my story" });
+  });
+
+  it("falls back to the default with its author and source", () => {
+    expect(storyView(null, koohii)).toEqual({ kind: "default", ...koohii });
+  });
+
+  it("treats a blank own story as none, so the default shows", () => {
+    expect(storyView("  ", koohii).kind).toBe("default");
+  });
+
+  it("is none with no default, or a default with no text", () => {
+    expect(storyView(null, null)).toEqual({ kind: "none" });
+    expect(storyView(null, { ...koohii, text: null })).toEqual({ kind: "none" });
   });
 });

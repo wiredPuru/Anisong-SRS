@@ -13,6 +13,15 @@ export interface KanjiStudyItem {
   partInfo: { char: string; keyword: string | null }[];
 }
 
+// Mirrors DefaultStoryReply in server/utils/kanjiDefaultStories.ts, same field order (F-09).
+export interface DefaultStoryReply {
+  char: string;
+  text: string | null;
+  author: string | null;
+  url: string;
+  reason: "offline" | "unavailable" | "none" | null;
+}
+
 interface NextReply {
   kanji: KanjiStudyItem | null;
   dueCount: number;
@@ -27,7 +36,10 @@ export function useKanjiStudy() {
   const error = ref<string | null>(null);
   const revealed = ref(false);
   const story = ref<string | null>(null);
+  const defaultStory = ref<DefaultStoryReply | null>(null);
   const grading = ref(false);
+  const storySaving = ref(false);
+  const storyError = ref<string | null>(null);
   const passed = ref(0);
   const failed = ref(0);
   const requests = createLatestRequest();
@@ -41,23 +53,75 @@ export function useKanjiStudy() {
     }
   }
 
+  async function loadDefaultStory(char: string, isCurrent: () => boolean) {
+    try {
+      const reply = await $fetch<DefaultStoryReply>("/api/kanji/story/default", { query: { char } });
+      if (isCurrent()) defaultStory.value = reply;
+    } catch {
+      // The Koohii default is a bonus; any failure just leaves it out.
+    }
+  }
+
   async function loadNext() {
     const isCurrent = requests.start();
     loading.value = true;
     error.value = null;
     revealed.value = false;
     story.value = null;
+    defaultStory.value = null;
+    storyError.value = null;
     try {
       const reply = await $fetch<NextReply>("/api/kanji/cards/next");
       if (!isCurrent()) return;
       current.value = reply.kanji;
       dueCount.value = reply.dueCount;
       sourceCard.value = reply.sourceCard;
-      if (reply.kanji) await loadStory(reply.kanji.char, isCurrent);
+      if (reply.kanji) {
+        await loadStory(reply.kanji.char, isCurrent);
+        // Not awaited: a first fetch can take seconds and must not hold up Reveal.
+        if (story.value === null) void loadDefaultStory(reply.kanji.char, isCurrent);
+      }
     } catch (failure) {
       if (isCurrent()) error.value = extractErrorMessage(failure, "Couldn't load your kanji. Try again.");
     } finally {
       if (isCurrent()) loading.value = false;
+    }
+  }
+
+  async function saveStory(text: string): Promise<boolean> {
+    const char = current.value?.char;
+    if (!char || storySaving.value) return false;
+    storySaving.value = true;
+    storyError.value = null;
+    try {
+      const reply = await $fetch<{ char: string; text: string }>("/api/kanji/story", { method: "PUT", body: { char, text } });
+      if (current.value?.char === char) story.value = reply.text;
+      return true;
+    } catch (failure) {
+      if (current.value?.char === char) storyError.value = extractErrorMessage(failure, "Couldn't save your story. Try again.");
+      return false;
+    } finally {
+      storySaving.value = false;
+    }
+  }
+
+  async function removeStory(): Promise<boolean> {
+    const char = current.value?.char;
+    if (!char || storySaving.value) return false;
+    storySaving.value = true;
+    storyError.value = null;
+    try {
+      await $fetch("/api/kanji/story", { method: "DELETE", body: { char } });
+      if (current.value?.char === char) {
+        story.value = null;
+        void loadDefaultStory(char, () => current.value?.char === char && story.value === null);
+      }
+      return true;
+    } catch (failure) {
+      if (current.value?.char === char) storyError.value = extractErrorMessage(failure, "Couldn't remove your story. Try again.");
+      return false;
+    } finally {
+      storySaving.value = false;
     }
   }
 
@@ -84,5 +148,5 @@ export function useKanjiStudy() {
 
   onScopeDispose(requests.invalidate);
 
-  return { current, dueCount, sourceCard, loading, error, revealed, story, grading, passed, failed, loadNext, reveal, grade };
+  return { current, dueCount, sourceCard, loading, error, revealed, story, defaultStory, storySaving, storyError, grading, passed, failed, loadNext, reveal, grade, saveStory, removeStory };
 }

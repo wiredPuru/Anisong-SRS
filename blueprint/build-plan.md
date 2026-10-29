@@ -1381,6 +1381,21 @@ cleaned-up checkbox version before generating the project overview.
     overlap's progress, freezing on pause and resuming with it, plus the
     Dissolve toggle and reduced-motion handling.
 
+- [x] 118. **RTK stories on Kanji Study** - on `/kanji` after Reveal, a kanji
+  shows your own story or, when you have not written one, the top Koohii story
+  for it fetched from hochanh.github.io/rtk, labelled with its author. An
+  Edit button opens the story editor right on `/kanji`, pre-filled with that
+  default; saving stores it as your personal story (feature 110b's
+  `kanji_story`), which from then on replaces the default everywhere, and
+  Remove goes back to the default. The default is fetched one kanji at a time
+  and cached in the local database, never bundled. Online only: offline with
+  nothing cached, the default is simply absent.
+  - [x] 118a. Default story fetch - a server client that fetches and parses
+    the top Koohii story, a local cache table, and a route, all respecting
+    Offline mode. No UI.
+  - [x] 118b. Story on /kanji - show the story or default after Reveal, plus
+    an in-place editor, "Use this story" and Remove.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

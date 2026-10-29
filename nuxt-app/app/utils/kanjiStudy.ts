@@ -28,3 +28,20 @@ export function backgroundClips<T extends PlayableSourceCard>(cards: readonly T[
 export function pickSourceClip<T extends PlayableSourceCard>(sourceCard: T | null, clipSource: ClipSource): T | null {
   return sourceCard && isPlayableCard(sourceCard, clipSource) ? sourceCard : null;
 }
+
+export type StoryView =
+  | { kind: "personal"; text: string }
+  | { kind: "default"; text: string; author: string; url: string }
+  | { kind: "none" };
+
+export function storyView(
+  personal: string | null,
+  defaultStory: { text: string | null; author: string | null; url: string } | null,
+): StoryView {
+  const own = personal?.trim();
+  if (own) return { kind: "personal", text: own };
+  if (defaultStory?.text && defaultStory.author) {
+    return { kind: "default", text: defaultStory.text, author: defaultStory.author, url: defaultStory.url };
+  }
+  return { kind: "none" };
+}

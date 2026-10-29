@@ -236,6 +236,16 @@ export const kanjiCard = sqliteTable("kanji_card", {
   sourceCardId: integer("source_card_id").references(() => card.id, { onDelete: "set null" }),
 });
 
+// The top Koohii story fetched for a character (feature 118a); null text means the site has none.
+export const kanjiDefaultStory = sqliteTable("kanji_default_story", {
+  char: text("char").primaryKey(),
+  text: text("text"),
+  author: text("author"),
+  fetchedAt: integer("fetched_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 // A personal mnemonic per character (feature 110b), independent of cards.
 export const kanjiStory = sqliteTable("kanji_story", {
   char: text("char").primaryKey(),

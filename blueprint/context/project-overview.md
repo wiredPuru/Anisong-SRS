@@ -2859,6 +2859,20 @@ refines feature 115's existing control.
       there is no dark dip), freezes on pause, and covers cover-art songs;
       plus the Dissolve toggle (default on) and reduced-motion handling.
 
+118. **RTK stories on Kanji Study** - added to `build-plan.md` 2026-10-29, built, in
+    two sub-features, built (118a, 118b). `/kanji` shows the user's own story, or
+    else the top Koohii story for the kanji fetched from
+    hochanh.github.io/rtk (one page per kanji, stories pre-sorted by votes), with
+    its author. An editor on `/kanji` is pre-filled with the default; saving
+    writes feature 110b's `kanji_story`, which then wins everywhere, and Remove
+    restores the default. Fetched on demand and cached in `kanji_default_story`,
+    never bundled, since the stories are community-written and not licensed for
+    redistribution. Online only, via `assertOnline`; offline with no cache the
+    default is absent. Amended `project-plan.md` §3 (Kanji Study bullet) and §4
+    (Kanji default stories bullet).
+    - **118a. Default story fetch** - client, cache table and route. No UI.
+    - **118b. Story on /kanji** - display, in-place editor, Use this story, Remove.
+
 ## Data model
 
 ### Anime
@@ -3044,6 +3058,15 @@ Feature 111a (built, migration `0040`). One Leitner track per added character, i
 - `createdAt` (datetime)
 - `sourceCardId` (FK -> Card, nullable, set null on delete) - feature 113a. The
   card the kanji was added from; `/kanji` plays its clip. Null plays random clips.
+
+### KanjiDefaultStory
+
+Feature 118a (built, migration `0043`). A fetched, cached default story; never edited by the user.
+
+- `char` (text, PK)
+- `text` (text, nullable) - null means the site was checked and has no story
+- `author` (text, nullable)
+- `fetchedAt` (datetime)
 
 ### MediaLibrarySettings
 

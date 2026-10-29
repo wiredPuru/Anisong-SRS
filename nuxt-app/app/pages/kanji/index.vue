@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { formatKunReading, formatRtkFrame, formatStrokes } from "~/utils/japaneseBreakdown";
-import { kanjiKeyAction, pickSourceClip } from "~/utils/kanjiStudy";
+import { formatKunReading, formatRtkFrame, formatStrokes, MAX_KANJI_STORY_LENGTH, storyDraftState } from "~/utils/japaneseBreakdown";
+import { kanjiKeyAction, pickSourceClip, storyView } from "~/utils/kanjiStudy";
 
 const { data: settings, pending: settingsPending } = await useFetch<{
   japaneseBreakdown: boolean;
@@ -14,7 +14,34 @@ const clipSource = computed(() => settings.value?.clipSource ?? "anisongdb");
 const background = useBackgroundClips(clipSource);
 
 const study = useKanjiStudy();
-const { current, dueCount, loading, error, revealed, story, grading, passed, failed } = study;
+const { current, dueCount, loading, error, revealed, story, defaultStory, storySaving, storyError, grading, passed, failed } = study;
+const shownStory = computed(() => storyView(story.value, defaultStory.value));
+
+const editing = ref(false);
+const draft = ref("");
+const draftState = computed(() => storyDraftState(story.value, draft.value));
+
+function startEdit() {
+  draft.value = shownStory.value.kind === "none" ? "" : shownStory.value.text;
+  editing.value = true;
+}
+
+async function saveDraft() {
+  if (!draftState.value.canSave) return;
+  if (await study.saveStory(draft.value.trim())) editing.value = false;
+}
+
+async function useDefaultStory() {
+  if (shownStory.value.kind === "default") await study.saveStory(shownStory.value.text);
+}
+
+async function removeOwnStory() {
+  await study.removeStory();
+}
+
+watch(() => current.value?.char, () => {
+  editing.value = false;
+});
 
 // Skipping or an error leaves the kanji's own song until the next kanji loads.
 const sourceDropped = ref(false);
@@ -121,7 +148,46 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               <span class="kanji-part-keyword" lang="en">{{ part.keyword ?? "(shape)" }}</span>
             </span>
           </p>
-          <p v-if="story" class="kanji-story">{{ story }}</p>
+          <div v-if="shownStory.kind !== 'none' && !editing" class="kanji-story">
+            <p class="kanji-story-text">{{ shownStory.text }}</p>
+            <p v-if="shownStory.kind === 'default'" class="kanji-story-credit">
+              <a :href="shownStory.url" target="_blank" rel="noopener">Koohii story by {{ shownStory.author }}</a>
+            </p>
+          </div>
+
+          <div v-if="editing" class="kanji-editor">
+            <label class="kanji-editor-label" for="kanji-story-input">Your story</label>
+            <textarea
+              id="kanji-story-input"
+              v-model="draft"
+              class="kanji-editor-input"
+              rows="4"
+              :maxlength="MAX_KANJI_STORY_LENGTH + 200"
+              :disabled="storySaving"
+              placeholder="Make up a vivid story using the keyword and the parts"
+            />
+            <p class="kanji-editor-count" :class="{ 'kanji-editor-over': draftState.tooLong }">
+              {{ draft.trim().length }} / {{ MAX_KANJI_STORY_LENGTH }}
+            </p>
+            <div class="kanji-story-actions">
+              <button type="button" class="kanji-small kanji-small-primary" :disabled="!draftState.canSave || storySaving" @click="saveDraft">
+                {{ storySaving ? "Saving..." : "Save story" }}
+              </button>
+              <button type="button" class="kanji-small" :disabled="storySaving" @click="editing = false">Cancel</button>
+            </div>
+          </div>
+          <div v-else class="kanji-story-actions">
+            <button type="button" class="kanji-small" @click="startEdit">
+              {{ shownStory.kind === "none" ? "Add story" : "Edit story" }}
+            </button>
+            <button v-if="shownStory.kind === 'default'" type="button" class="kanji-small" :disabled="storySaving" @click="useDefaultStory">
+              Use this story
+            </button>
+            <button v-if="shownStory.kind === 'personal'" type="button" class="kanji-small" :disabled="storySaving" @click="removeOwnStory">
+              Remove
+            </button>
+          </div>
+          <p v-if="storyError" class="kanji-error" role="alert">{{ storyError }}</p>
         </template>
 
         <p v-if="error" class="kanji-error" role="alert">{{ error }}</p>
@@ -344,7 +410,87 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   font-size: 14px;
   line-height: 1.5;
   text-align: left;
+}
+
+.kanji-card > .kanji-story > p {
+  margin: 0;
+}
+
+.kanji-story-text {
   white-space: pre-wrap;
+}
+
+.kanji-card > .kanji-story > .kanji-story-credit {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.kanji-story-credit a {
+  color: inherit;
+}
+
+.kanji-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+}
+
+.kanji-editor-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kanji-editor-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: 14px/1.5 var(--font-sans);
+  resize: vertical;
+}
+
+.kanji-editor-count {
+  margin: 0;
+  align-self: flex-end;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.kanji-editor-over {
+  color: var(--fail);
+}
+
+.kanji-story-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.kanji-small {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+}
+
+.kanji-small-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kanji-small:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .kanji-error {
