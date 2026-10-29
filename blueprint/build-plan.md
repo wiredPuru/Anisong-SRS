@@ -1367,7 +1367,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 116b. Fade curve - the Smooth/Linear setting and the gain math behind
     it, including holding and resuming a curved fade.
 
-- [ ] 117. **Mix video dissolve** - during a Mix overlap on Listen, the
+- [x] 117. **Mix video dissolve** - during a Mix overlap on Listen, the
   outgoing song's picture stays visible under the incoming one while the
   incoming picture fades in over the same fade length and curve, instead of
   cutting at the handoff. Covers video-to-video, video-to-cover art and
@@ -1377,7 +1377,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 117a. Stacked frames - both pictures share one frame during an
     overlap with a stable size, only the foreground has controls, and the
     outgoing picture keeps its revealed state. No fade yet.
-  - [ ] 117b. Dissolve - the incoming picture's opacity follows the
+  - [x] 117b. Dissolve - the incoming picture's opacity follows the
     overlap's progress, freezing on pause and resuming with it, plus the
     Dissolve toggle and reduced-motion handling.
 

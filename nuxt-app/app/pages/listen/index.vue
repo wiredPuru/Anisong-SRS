@@ -226,6 +226,13 @@ const nextInSeconds = computed(() => {
   return mixing ? secondsUntilHandoff(left, listenMix.seconds.value) : left;
 });
 
+const dissolveOpacityNow = useMixDissolve({
+  active: playback.overlapActive,
+  enabled: computed(() => listenMix.dissolve.value),
+  curve: computed(() => listenMix.curve.value),
+  progress: playback.overlapProgress,
+});
+
 function onPlaybackStarted() {
   autoReveal.onPlaybackStarted();
   playLimit.onPlaybackStarted();
@@ -415,6 +422,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <option value="smooth">Curve: Smooth</option>
               <option value="linear">Curve: Linear</option>
             </select>
+            <button
+              v-if="listenMix.enabled.value"
+              type="button"
+              class="menu-toggle"
+              :class="{ on: listenMix.dissolve.value }"
+              :aria-pressed="listenMix.dissolve.value"
+              :disabled="!autoplayNext"
+              :title="autoplayNext ? 'Fade the next picture in over the current one' : 'Needs Autoplay on'"
+              @click="listenMix.setDissolve(!listenMix.dissolve.value)"
+            >
+              Dissolve
+            </button>
             <p id="mix-note" class="menu-note">
               <template v-if="listenMix.enabled.value && !autoplayNext">Needs Autoplay on</template>
               <template v-else>Crossfade between songs (with Autoplay)</template>
@@ -481,6 +500,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :managed-mode="playback.managedMode.value"
             :tail-hide-video="frozenVeil.video"
             :tail-hide-cover="frozenVeil.cover"
+            :dissolve="dissolveOpacityNow"
             :slots="playback.slots.value"
             :hide-video="videoHidden"
             :hide-cover="coverHidden"
@@ -709,6 +729,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   color: var(--accent);
 }
 
+.menu-toggle:disabled,
 .menu-select:disabled {
   opacity: 0.5;
   cursor: default;

@@ -12,6 +12,8 @@ const props = defineProps<{
   slots: ListenSlot[];
   tailHideVideo?: boolean;
   tailHideCover?: boolean;
+  // The incoming picture's opacity during a dissolve; null leaves the stack as is.
+  dissolve?: number | null;
 }>();
 const emit = defineEmits<{
   "attach": [id: number, port: ListenPlayerPort];
@@ -63,7 +65,12 @@ function adopt(slot: ListenSlot) {
   >
     <template #error-actions><slot name="error-actions" /></template>
   </StudyMediaPlayer>
-  <div v-else class="mix-stack">
+  <div
+    v-else
+    class="mix-stack"
+    :class="{ dissolving: dissolve != null }"
+    :style="dissolve != null ? { '--incoming-opacity': dissolve, '--tail-opacity': 1 } : undefined"
+  >
     <StudyMediaPlayer
       v-for="slot in slots"
       :key="slot.id"
@@ -109,6 +116,12 @@ function adopt(slot: ListenSlot) {
   position: relative;
   z-index: 1;
   opacity: var(--incoming-opacity);
+}
+
+/* Ambient mode makes the frame transparent, which would let the outgoing picture
+   show through letterbox bars; a dissolve gives the incoming frame a backdrop. */
+.mix-stack.dissolving :deep(.player-card:not(.ghost) .player-frame) {
+  background-color: var(--surface-sunken);
 }
 
 .mix-stack :deep(.player-card.ghost) {

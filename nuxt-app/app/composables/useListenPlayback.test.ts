@@ -216,6 +216,61 @@ describe("Listen Mix handoff", () => {
     scope.stop();
   });
 
+  it("reports the overlap's progress from the clock, frozen on pause", async () => {
+    const { controller, out, scope } = await mixSetup();
+    expect(controller.overlapActive.value).toBe(false);
+    expect(controller.overlapProgress()).toBeNull();
+    out.state.currentTime = 55;
+    await vi.advanceTimersByTimeAsync(250);
+    expect(controller.overlapActive.value).toBe(true);
+    expect(controller.overlapProgress()).toBeCloseTo(0, 1);
+    controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: null });
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(controller.overlapProgress()).toBeCloseTo(0.5, 1);
+    controller.foregroundPaused();
+    const held = controller.overlapProgress();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(controller.overlapProgress()).toBe(held);
+    await controller.foregroundResumed();
+    await vi.advanceTimersByTimeAsync(1250);
+    expect(controller.overlapProgress()!).toBeGreaterThan(held!);
+    expect(controller.overlapProgress()!).toBeLessThan(1);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(controller.overlapActive.value).toBe(false);
+    expect(controller.overlapProgress()).toBeNull();
+    scope.stop();
+  });
+
+  it("clears the progress after a seek abort, a settle and a manual Next", async () => {
+    const seek = await mixSetup();
+    seek.out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    seek.controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: null });
+    seek.incoming.state.seeking = true;
+    await vi.advanceTimersByTimeAsync(250);
+    expect(seek.controller.overlapActive.value).toBe(false);
+    expect(seek.controller.overlapProgress()).toBeNull();
+    seek.scope.stop();
+    vi.useRealTimers();
+
+    const settle = await mixSetup();
+    settle.out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    settle.controller.configure({ mix: false, autoplay: true, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "linear" });
+    expect(settle.controller.overlapActive.value).toBe(false);
+    expect(settle.controller.overlapProgress()).toBeNull();
+    settle.scope.stop();
+    vi.useRealTimers();
+
+    const next = await mixSetup();
+    next.out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    next.controller.synchronize({ key: 9, queue: 1, card: card(7), nextCard: null });
+    expect(next.controller.overlapActive.value).toBe(false);
+    expect(next.controller.overlapProgress()).toBeNull();
+    next.scope.stop();
+  });
+
   it("accepts the advanced presentation without tearing the promoted slot down", async () => {
     const { controller, incoming, b, out, scope } = await mixSetup();
     out.state.currentTime = 56;

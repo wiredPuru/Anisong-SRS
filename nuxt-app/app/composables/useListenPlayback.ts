@@ -45,6 +45,7 @@ const DEAD_STATES = new Set(["ended", "failed", "stopped", "blocked"]);
 
 interface Overlap {
   tailId: number;
+  seconds: number;
   endsAt: number;
   // Set while the overlap is paused; the fade resumes with this much left.
   remainingMs: number | null;
@@ -74,6 +75,7 @@ export function useListenPlayback(options: {
   // Decided once per presentation: toggling Mix mid-song never swaps the mounted
   // player, it only changes what happens at the next boundary.
   const managedMode = ref(false);
+  const overlapActive = ref(false);
   let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5, mixCurve: "linear" };
 
   const foreground = () => slots.value.find((s) => s.role === "foreground");
@@ -95,6 +97,7 @@ export function useListenPlayback(options: {
   function clearOverlap() {
     if (overlap?.timer) clearTimeout(overlap.timer);
     overlap = null;
+    overlapActive.value = false;
   }
   function stopPolling() {
     if (poll !== null) clearInterval(poll);
@@ -142,8 +145,9 @@ export function useListenPlayback(options: {
     handoffPending = true;
     inPort?.rampGain(1, seconds, settings.mixCurve);
     outPort?.rampGain(0, seconds, settings.mixCurve);
-    overlap = { tailId: out.id, endsAt: Date.now() + seconds * 1000, remainingMs: null,
+    overlap = { tailId: out.id, seconds, endsAt: Date.now() + seconds * 1000, remainingMs: null,
       timer: setTimeout(endOverlap, seconds * 1000) };
+    overlapActive.value = true;
     options.onHandoff?.();
     options.advance();
   }
@@ -290,11 +294,20 @@ export function useListenPlayback(options: {
     live.remainingMs = null;
   }
 
+  // How far the running fade has got, from the clock, so a throttled tab catches
+  // up and a paused fade reports exactly where it stopped.
+  function overlapProgress(): number | null {
+    if (!overlap) return null;
+    const total = overlap.seconds * 1000;
+    const left = overlap.remainingMs ?? overlap.endsAt - Date.now();
+    return Math.min(1, Math.max(0, 1 - left / total));
+  }
+
   function pause() { currentPort()?.pause(); }
   async function play() { return currentPort()?.play(); }
   function dispose() { if (disposed) return; disposed = true; stopPolling(); stop(); }
   onScopeDispose(dispose);
-  return { slots, managedMode, synchronize, configure, attach, report, settle, pause, play, stop, dispose,
+  return { slots, managedMode, overlapActive, overlapProgress, synchronize, configure, attach, report, settle, pause, play, stop, dispose,
     foregroundPaused, foregroundResumed,
     getSnapshot: () => { const slot = foreground(); return slot ? snapshots.get(slot.id) ?? null : null; } };
 }

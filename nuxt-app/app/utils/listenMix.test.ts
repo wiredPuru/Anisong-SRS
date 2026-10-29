@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   listenMixGains,
+  dissolveOpacity,
   parseListenMixCurve,
+  parseListenMixDissolve,
   parseListenMixLength,
   parseListenMixPreference,
   secondsUntilHandoff,
@@ -173,6 +175,30 @@ describe("Mix fade curve preference", () => {
     expect(parseListenMixCurve("smooth")).toBe("smooth");
     for (const stored of [null, "", "linear", "Smooth", " smooth", "equal", "1", "{}"]) {
       expect(parseListenMixCurve(stored)).toBe("linear");
+    }
+  });
+});
+
+describe("Mix dissolve", () => {
+  it("is on unless an exact saved off", () => {
+    expect(parseListenMixDissolve("0")).toBe(false);
+    for (const stored of [null, "1", "", " 0", "false", "off", "{}"]) {
+      expect(parseListenMixDissolve(stored)).toBe(true);
+    }
+  });
+
+  it("follows a sine for Smooth and a straight line for Linear", () => {
+    for (const [p, smooth] of [[0, 0], [0.25, Math.sin(Math.PI / 8)], [0.5, Math.SQRT1_2], [0.75, Math.sin(3 * Math.PI / 8)], [1, 1]] as const) {
+      expect(dissolveOpacity(p, "smooth")).toBeCloseTo(smooth, 10);
+      expect(dissolveOpacity(p, "linear")).toBe(p);
+    }
+  });
+
+  it("clamps progress and reads NaN as the start", () => {
+    for (const curve of ["smooth", "linear"] as const) {
+      expect(dissolveOpacity(-3, curve)).toBe(0);
+      expect(dissolveOpacity(7, curve)).toBe(1);
+      expect(dissolveOpacity(NaN, curve)).toBe(0);
     }
   });
 });

@@ -1,6 +1,6 @@
 import { onMounted } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LISTEN_MIX_CURVE_STORAGE_KEY, LISTEN_MIX_LENGTH_STORAGE_KEY, LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
+import { LISTEN_MIX_DISSOLVE_STORAGE_KEY, LISTEN_MIX_CURVE_STORAGE_KEY, LISTEN_MIX_LENGTH_STORAGE_KEY, LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
 import { useListenMix } from "./useListenMix";
 
 vi.mock("vue", async (importOriginal) => {
@@ -184,5 +184,49 @@ describe("useListenMix fade curve", () => {
     expect(mix.curve.value).toBe("linear");
     mix.setCurve("smooth");
     expect(mix.curve.value).toBe("smooth");
+  });
+});
+
+describe("useListenMix dissolve", () => {
+  function dissolveStorage(initial: string | null) {
+    const values = new Map<string, string>(initial === null ? [] : [[LISTEN_MIX_DISSOLVE_STORAGE_KEY, initial]]);
+    vi.stubGlobal("window", { localStorage: {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => { values.set(key, value); }),
+    } });
+    return values;
+  }
+
+  it("is on by default and restores a saved off on mount", () => {
+    dissolveStorage("0");
+    const { mix, mount } = setup();
+    expect(mix.dissolve.value).toBe(true);
+    mount();
+    expect(mix.dissolve.value).toBe(false);
+  });
+
+  it("reads junk as on and saves a choice", () => {
+    dissolveStorage("maybe");
+    const first = setup();
+    first.mount();
+    expect(first.mix.dissolve.value).toBe(true);
+    const values = dissolveStorage(null);
+    const { mix } = setup();
+    mix.setDissolve(false);
+    expect(values.get(LISTEN_MIX_DISSOLVE_STORAGE_KEY)).toBe("0");
+    mix.setDissolve(true);
+    expect(values.get(LISTEN_MIX_DISSOLVE_STORAGE_KEY)).toBe("1");
+  });
+
+  it("still changes for the session when storage throws", () => {
+    vi.stubGlobal("window", { localStorage: {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    } });
+    const { mix, mount } = setup();
+    mount();
+    expect(mix.dissolve.value).toBe(true);
+    mix.setDissolve(false);
+    expect(mix.dissolve.value).toBe(false);
   });
 });

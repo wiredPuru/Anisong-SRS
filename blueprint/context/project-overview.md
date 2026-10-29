@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 03da74978110c4c596a1877de23279cad0f4122e9a4f6ec38f41624923e91347 -->
+<!-- blueprint:source-hash 5dd675c97a494a46aa5b24107768f6a5ec6d2b1210a7c5377b00ab50a19576b8 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -375,7 +375,7 @@ built) was added to `build-plan.md` on 2026-10-29: remembered Listen settings fo
 overlap length (2, 5, 8 or 12 seconds, default 5) and its curve (Smooth equal
 power, the default, or Linear). No `project-plan.md` change: it refines
 feature 115's existing control.
-Feature 117 (Mix video dissolve, in two sub-features 117a-117b; 117a built) was added to
+Feature 117 (Mix video dissolve, in two sub-features 117a-117b, both built) was added to
 `build-plan.md` on 2026-10-29: during a Mix overlap the outgoing picture stays
 under the incoming one and the incoming picture fades in over it, behind a
 remembered Dissolve toggle (default on). No `project-plan.md` change: it
@@ -2849,12 +2849,12 @@ refines feature 115's existing control.
     - **116b. Fade curve** - done 2026-10-29. Smooth (equal power) or Linear. The fade's gain
       helper learns a curved shape, including holding and resuming it.
 
-117. **Mix video dissolve** - added 2026-10-29, in two sub-features; 117a is
-    built, 117b is not. Listen only; the audio crossfade of 115/116 is unchanged.
+117. **Mix video dissolve** - added 2026-10-29, in two sub-features,
+    both built. Listen only; the audio crossfade of 115/116 is unchanged.
     - **117a. Stacked frames** - done 2026-10-29. Both pictures share one frame during an
       overlap with a stable measured size, only the foreground has controls,
       and the outgoing picture keeps its revealed state. No fade yet.
-    - **117b. Dissolve** - the incoming picture's opacity follows the
+    - **117b. Dissolve** - done 2026-10-29. The incoming picture's opacity follows the
       overlap's progress (the outgoing one stays fully visible beneath, so
       there is no dark dip), freezes on pause, and covers cover-art songs;
       plus the Dissolve toggle (default on) and reduced-motion handling.

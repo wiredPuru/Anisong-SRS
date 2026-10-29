@@ -1,4 +1,5 @@
 export const LISTEN_MIX_STORAGE_KEY = "gaqSrs:listenMix";
+export const LISTEN_MIX_DISSOLVE_STORAGE_KEY = "gaqSrs:listenMixDissolve";
 export const LISTEN_MIX_CURVE_STORAGE_KEY = "gaqSrs:listenMixCurve";
 export const LISTEN_MIX_LENGTH_STORAGE_KEY = "gaqSrs:listenMixSeconds";
 export const LISTEN_MIX_LENGTH_OPTIONS = [2, 5, 8, 12] as const;
@@ -33,6 +34,17 @@ export function parseListenMixPreference(stored: string | null): boolean {
 /** Only an exact saved "smooth" opts in; Linear is the default. */
 export function parseListenMixCurve(stored: string | null): "smooth" | "linear" {
   return stored === "smooth" ? "smooth" : "linear";
+}
+
+/** On by default; only an exact saved "0" turns the picture dissolve off. */
+export function parseListenMixDissolve(stored: string | null): boolean {
+  return stored !== "0";
+}
+
+/** The incoming picture's opacity at overlap progress `progress`, following the fade's curve. */
+export function dissolveOpacity(progress: number, curve: "smooth" | "linear"): number {
+  const p = Number.isNaN(progress) ? 0 : Math.min(1, Math.max(0, progress));
+  return curve === "smooth" ? Math.sin(p * Math.PI / 2) : p;
 }
 
 /** Anything but an exact option reads as the default. */
