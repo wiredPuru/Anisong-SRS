@@ -31,10 +31,14 @@ export function useListenSession(
   // Bumped on every song shown, even a repeat of the same card, so the player
   // always gets a fresh mount.
   const presentationKey = ref(0);
+  // Bumped whenever the playlist is replaced, so a coordinator can tell a new
+  // queue from an ordinary move within the same one.
+  const queueKey = ref(0);
   let loadToken = 0;
 
   const total = computed(() => cards.value.length);
   const currentCard = computed<CardWithDetails | null>(() => (finished.value ? null : (cards.value[index.value] ?? null)));
+  const nextCard = computed<CardWithDetails | null>(() => (finished.value ? null : (cards.value[index.value + 1] ?? null)));
 
   async function load() {
     if (!scope.value) return;
@@ -55,6 +59,7 @@ export function useListenSession(
       index.value = 0;
       finished.value = false;
       presentationKey.value += 1;
+      queueKey.value += 1;
     } catch (err) {
       if (token !== loadToken) return;
       cards.value = [];
@@ -94,6 +99,13 @@ export function useListenSession(
     if (current) cards.value[index.value] = { ...current, ...patch };
   }
 
+  // Patched by owner id so a background download for an upcoming song lands on
+  // that song, whichever one is current when it finishes.
+  function patchCard(id: number, patch: Partial<CardWithDetails>) {
+    const at = cards.value.findIndex((card) => card.id === id);
+    if (at >= 0) cards.value[at] = { ...cards.value[at]!, ...patch };
+  }
+
   // Refetches rather than rewinding, so a shuffled playlist comes back reshuffled.
   function restart() {
     return load();
@@ -102,6 +114,7 @@ export function useListenSession(
   watch([scope, filters, shuffle], () => {
     cards.value = [];
     finished.value = false;
+    queueKey.value += 1;
     load();
   }, { immediate: true, deep: true });
 
@@ -118,6 +131,8 @@ export function useListenSession(
   return {
     cards,
     currentCard,
+    nextCard,
+    queueKey,
     index,
     total,
     finished,
@@ -131,5 +146,6 @@ export function useListenSession(
     previous,
     restart,
     patchCurrent,
+    patchCard,
   };
 }

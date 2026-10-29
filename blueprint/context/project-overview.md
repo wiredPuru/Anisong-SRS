@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 5f79ec38c72c37ee74ec6776c59a7bd0cadf6666db4f0422e4a9134e14030ab1 -->
+<!-- blueprint:source-hash 590a9f486c37b39eddf854ee91b0d8c01b03805c65458175049ea9770d706ece -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -363,6 +363,13 @@ that searches every host action, setting, and panel: a toggle such as Pixelate
 flips and scrolls to its control, and a panel such as Add songs is jumped to.
 No `project-plan.md` change: it is a control on feature 86/90's existing host
 panel, like features 93 and 102.
+
+Feature 115 (Listen Mix) was added to `build-plan.md` on 2026-10-29 and is
+built. A remembered Mix toggle in Listen's Display menu enables five-second
+crossfades with Autoplay, for full-song or selected play-length playback,
+with normal advancement when the next clip is not ready. No
+`project-plan.md` change: it is an incremental playback control on the existing
+Listen page.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2815,6 +2822,13 @@ panel, like features 93 and 102.
       button sends the card being viewed. No visible change.
     - **113b. Play it** - `/kanji` starts the background with the current
       kanji's source card, honouring Clip source and offline settings.
+
+115. **Listen Mix** - done 2026-10-29. A remembered Mix toggle in `/listen`'s Display
+    menu, off by default. With Autoplay enabled, video-backed and audio-only
+    songs crossfade over five seconds before the current full song or selected
+    play length ends. Pause and skip controls remain predictable; if the next
+    clip is not ready, the playlist advances normally. This extends feature
+    101 without changing review state, the stack, or deployment.
 
 ## Data model
 

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { CardWithDetails } from "~/composables/useStudySession";
+import { createMediaGain } from "~/utils/mediaGain";
 import type { HotkeyScope } from "~/utils/hotkeys";
 import { networkImageSrc } from "~/utils/networkImage";
 import { isOfflineUncachedFailure, networkMediaKind, OFFLINE_CLIP_MESSAGE } from "~/utils/networkPlayback";
+import { createManagedPlayback, type ManagedPlaybackRole, type ManagedPlaybackSnapshot,
+  type ManagedPlaybackFailure, type ManagedPlaybackResult } from "~/utils/managedPlayback";
 
 const props = defineProps<{
   card: Pick<
@@ -44,6 +47,8 @@ const props = defineProps<{
   tintChrome?: boolean;
   // Remembers this clip as the backdrop for the rest of the app.
   lastPlayed?: { songTitle: string; animeTitle: string } | null;
+  managed?: { presentationId: number; role: ManagedPlaybackRole };
+  masterVolume?: number;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -53,7 +58,13 @@ const emit = defineEmits<{
   "playback-ended": [];
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
+  "managed-state": [ManagedPlaybackSnapshot];
+  "update:master-volume": [number];
 }>();
+
+const managedStopped = ref(false);
+const foreground = computed(() => !managedStopped.value && (!props.managed || props.managed.role === "foreground"));
+let disposed = false;
 
 const { offlineMode, canUseRemote } = useNetworkMode();
 const localAvailability = ref<{ video: boolean; audio: boolean } | null>(null);
@@ -114,6 +125,7 @@ const audioFallbackChosen = ref(false);
 watch(
   () => props.card.id,
   () => {
+    if (props.managed) stopPlayback();
     failedKind.value = null;
     audioFallbackChosen.value = false;
     loadedSrc.value = null;
@@ -128,7 +140,9 @@ const mediaKind = computed<"video" | "audio">(() => {
 // Lets the page's display-toggle strip show only the one Video/Cover pill
 // that actually applies to this card - it has no other way to know which of
 // the two is currently mounted (audioFallbackChosen included).
-watch(mediaKind, (kind) => emit("update:media-kind", kind), { immediate: true });
+watch([mediaKind, foreground], ([kind, active]) => {
+  if (active) emit("update:media-kind", kind);
+}, { immediate: true });
 
 // True only when the kind that just failed to load has nothing else to try -
 // its only source is a remote URL the Clip source setting rejects, not a
@@ -194,7 +208,7 @@ const cardSrc = computed(() =>
 // keep - a card change, a media-kind swap, or a user-initiated retry or
 // redownload - so feature 42's recovery from the failure veil still works.
 const loadedSrc = ref<string | null>(null);
-const src = computed(() => availabilityPending.value ? null : loadedSrc.value ?? cardSrc.value);
+const src = computed(() => managedStopped.value || availabilityPending.value ? null : loadedSrc.value ?? cardSrc.value);
 watch(offlineMode, () => { loadedSrc.value = null; });
 
 // 3D parallax: the record tilts toward the cursor like a physical disk
@@ -245,7 +259,7 @@ const prefetchUrl = computed(() =>
   resolveRemotePrefetchUrl(props.card, props.audioOnly, props.clipSource ?? "anisongdb"));
 
 function triggerPrefetch(url: string | null) {
-  if (!url || !canUseRemote.value) return;
+  if (!url || !canUseRemote.value || disposed) return;
   $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
 }
 
@@ -303,7 +317,7 @@ function onLoadStart() {
   const el = activeEl.value;
   if (!el?.paused) return;
   isPlaying.value = false;
-  if (playWanted) nextTick(playIfPaused);
+  if (playWanted && !props.managed) nextTick(playIfPaused);
 }
 
 function settleBuffering() {
@@ -317,9 +331,9 @@ function settleBuffering() {
 const LOADING_MESSAGE_DELAY_MS = 400;
 const showLoadingMessage = ref(false);
 let loadingMessageTimer: ReturnType<typeof setTimeout> | undefined;
-watch(isBuffering, (buffering) => {
+watch([isBuffering, foreground], ([buffering, active]) => {
   clearTimeout(loadingMessageTimer);
-  if (!buffering) {
+  if (!buffering || !active) {
     showLoadingMessage.value = false;
     return;
   }
@@ -334,10 +348,18 @@ onUnmounted(() => clearTimeout(loadingMessageTimer));
 // the same 15s the message already admits something is wrong. Without them
 // the only other way out is the stream route's 30s fetch timeout, which is a
 // long time to sit on a clip that is never going to arrive.
-const { isSlow: loadIsSlow } = useActivityTimer(loadAttempt, isBuffering);
+const displayBuffering = computed(() => foreground.value && isBuffering.value);
+const { isSlow: loadIsSlow } = useActivityTimer(loadAttempt, displayBuffering);
 
 const VOLUME_STORAGE_KEY = "gaqSrs:playerVolume";
 const volume = ref(1);
+const effectiveVolume = computed(() => props.managed && props.masterVolume !== undefined
+  ? Math.max(0, Math.min(1, props.masterVolume)) : volume.value);
+function changeVolume(event: Event) {
+  const value = Number((event.target as HTMLInputElement).value);
+  volume.value = value;
+  if (props.managed) emit("update:master-volume", value);
+}
 
 onMounted(() => {
   try {
@@ -403,13 +425,17 @@ function onTimeUpdate() {
   if (activeEl.value) currentTime.value = activeEl.value.currentTime;
 }
 
+let clearDurationProbe: (() => void) | null = null;
 function onLoadedMetadata() {
+  clearDurationProbe?.();
+  clearDurationProbe = null;
   const el = activeEl.value;
   if (!el) return;
+  const cardId = props.card.id;
 
   if (Number.isFinite(el.duration) && el.duration > 0) {
     duration.value = el.duration;
-    if (props.randomStart) {
+    if (props.randomStart && !props.managed) {
       el.currentTime = randomStartTime(el.duration, props.playLength);
     }
     return;
@@ -430,14 +456,20 @@ function onLoadedMetadata() {
   const MAX_DURATION_ATTEMPTS = 5;
   let durationAttempts = 0;
   const onDurationChange = () => {
+    if (disposed || managedStopped.value || el !== activeEl.value || props.card.id !== cardId) {
+      el.removeEventListener("durationchange", onDurationChange);
+      return;
+    }
     durationAttempts += 1;
     const resolved = el.duration;
     const isResolved = Number.isFinite(resolved) && resolved > 0;
     if (!isResolved && durationAttempts < MAX_DURATION_ATTEMPTS) return;
     el.removeEventListener("durationchange", onDurationChange);
     duration.value = isResolved ? resolved : 0;
-    el.currentTime = props.randomStart && isResolved ? randomStartTime(resolved, props.playLength) : 0;
+    el.currentTime = props.managed ? managedController.value?.getSnapshot().startOffset ?? 0
+      : props.randomStart && isResolved ? randomStartTime(resolved, props.playLength) : 0;
   };
+  clearDurationProbe = () => el.removeEventListener("durationchange", onDurationChange);
   el.addEventListener("durationchange", onDurationChange);
   el.currentTime = 1e101;
 }
@@ -503,7 +535,13 @@ watch(src, () => {
 function retryLoad() {
   clearFailure();
   loadedSrc.value = null;
-  activeEl.value?.load();
+  const element = activeEl.value;
+  if (props.managed) {
+    retireManaged();
+    if (element && src.value) element.setAttribute("src", src.value);
+  }
+  element?.load();
+  if (props.managed && element && src.value) bindManaged(element);
 }
 
 const {
@@ -518,11 +556,13 @@ const {
 } = useCardDownloads();
 
 async function runDownload(kind: "video" | "audio"): Promise<string | null> {
+  const cardId = props.card.id;
   const result = await downloadMedia<{ localVideoPath: string | null; localAudioPath: string | null }>(
     props.card.id,
     props.card.id,
     kind,
   );
+  if (disposed || managedStopped.value || props.card.id !== cardId) return null;
   if (!result) return null;
   const localPath = kind === "video" ? result.localVideoPath : result.localAudioPath;
   if (localPath) emit("local-path-updated", { kind, localPath });
@@ -545,10 +585,12 @@ async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
 // A successful redownload's new local path recomputes `src`, which is what
 // clears the failure state above.
 async function redownload(kind: "video" | "audio") {
+  const cardId = props.card.id;
   try {
     const body =
       kind === "video" ? { id: props.card.id, localVideoPath: null } : { id: props.card.id, localAudioPath: null };
     await $fetch("/api/cards", { method: "PATCH", body });
+    if (disposed || managedStopped.value || props.card.id !== cardId) return;
     emit("local-path-cleared", { kind });
   } catch {
     downloadError[props.card.id] = `Failed to clear the stale local ${kind} file.`;
@@ -566,7 +608,7 @@ async function redownload(kind: "video" | "audio") {
 // "nothing to download" (no remote source, or already local), so this
 // settles to null on its own once the download lands.
 const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
-  canUseRemote.value && props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
+  foreground.value && canUseRemote.value && props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
     ? mediaKind.value
     : null,
 );
@@ -578,7 +620,7 @@ function triggerAutoDownload(kind: "video" | "audio" | null) {
 
 const autoplayPlan = computed(() =>
   planAutoplay({
-    autoplay: Boolean(props.autoplay),
+    autoplay: !props.managed && Boolean(props.autoplay),
     hasSource: Boolean(src.value),
     canDownloadFirst: canUseRemote.value && props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
   }),
@@ -591,7 +633,7 @@ onMounted(() => {
 });
 watch(autoDownloadTarget, (kind) => triggerAutoDownload(kind));
 onMounted(() => {
-  if (props.startOnMount) nextTick(playIfPaused);
+  if (!props.managed && props.startOnMount) nextTick(playIfPaused);
 });
 onMounted(() => {
   if (autoplayPlan.value !== "none") runAutoplay(autoplayPlan.value);
@@ -599,10 +641,11 @@ onMounted(() => {
 
 const savingForAutoplay = ref<"video" | "audio" | null>(null);
 watch(availabilityPending, (pending, previous) => {
-  if (previous && !pending && (props.autoplay || props.startOnMount) && src.value) nextTick(playIfPaused);
+  if (!props.managed && previous && !pending && (props.autoplay || props.startOnMount) && src.value) nextTick(playIfPaused);
 });
 
 async function runAutoplay(plan: "play" | "download-then-play") {
+  const cardId = props.card.id;
   quietPlay = true;
   if (plan === "download-then-play" && canUseRemote.value) {
     const kind = mediaKind.value;
@@ -613,10 +656,12 @@ async function runAutoplay(plan: "play" | "download-then-play") {
     savingForAutoplay.value = null;
     await nextTick();
   }
-  playIfPaused();
+  if (!disposed && props.card.id === cardId) playIfPaused();
 }
 
 function playIfPaused() {
+  if (disposed || managedStopped.value) return;
+  if (props.managed) { void playManaged(); return; }
   const el = activeEl.value;
   if (!el?.paused) return;
   playWanted = true;
@@ -628,7 +673,8 @@ function playIfPaused() {
   // AudioContext starts suspended under autoplay policy; resuming here,
   // inside a real click/keypress handler, is what actually unlocks it.
   audioContext?.resume();
-  el.play().catch((error: DOMException) => {
+  el.play().then(() => { if (disposed) el.pause(); }).catch((error: DOMException) => {
+    if (disposed) return;
     // The reload above tears down an in-flight play request. That abort is
     // ours, the same way MEDIA_ERR_ABORTED is in onError.
     if (error?.name === "AbortError") return;
@@ -647,14 +693,145 @@ function playIfPaused() {
 }
 
 function togglePlay() {
+  if (!foreground.value || disposed) return;
   const el = activeEl.value;
   if (!el) return;
   quietPlay = false;
   if (el.paused) playIfPaused();
-  else el.pause();
+  else pausePlayback();
 }
 
-defineExpose({ pause: () => activeEl.value?.pause(), playIfPaused });
+type ManagedController = ReturnType<typeof createManagedPlayback>;
+const managedController = shallowRef<ManagedController | null>(null);
+const managedSnapshot = shallowRef<ManagedPlaybackSnapshot | null>(null);
+const connectionWaiters = new Set<(result: ManagedController | ManagedPlaybackFailure) => void>();
+let managedGeneration = 0;
+let commandGeneration = 0;
+
+function settleConnections(result: ManagedController | ManagedPlaybackFailure) {
+  for (const finish of [...connectionWaiters]) finish(result);
+}
+
+function retireManaged() {
+  managedGeneration += 1;
+  commandGeneration += 1;
+  const controller = managedController.value;
+  managedController.value = null;
+  controller?.stop();
+  settleConnections({ status: "cancelled" });
+}
+
+function bindManaged(element: HTMLMediaElement) {
+  if (!props.managed || managedStopped.value || disposed) return;
+  if (managedController.value) retireManaged();
+  const generation = managedGeneration;
+  const controller = createManagedPlayback(element, {
+    ...props.managed,
+    startAt: (length) => props.randomStart && length ? randomStartTime(length, props.playLength) : 0,
+    onChange: (snapshot) => {
+      if (generation !== managedGeneration || disposed) return;
+      managedSnapshot.value = snapshot;
+      duration.value = snapshot.duration ?? 0;
+      currentTime.value = snapshot.currentTime;
+      emit("managed-state", snapshot);
+    },
+  });
+  managedController.value = controller;
+  settleConnections(controller);
+  void controller.prepare();
+}
+
+watch(src, () => { if (props.managed && managedController.value) retireManaged(); }, { flush: "pre" });
+watch([activeEl, src], ([element, source]) => {
+  if (element && source) bindManaged(element);
+}, { flush: "post" });
+
+watch(() => props.managed?.role, (role) => { if (role) managedController.value?.setRole(role); });
+const managedPresentationId = props.managed?.presentationId;
+watch(() => props.managed?.presentationId, (id) => {
+  if (id !== managedPresentationId) stopPlayback();
+});
+
+async function connectedController(): Promise<ManagedController | ManagedPlaybackFailure> {
+  await nextTick();
+  if (disposed || managedStopped.value || !props.managed) return { status: "cancelled" };
+  if (managedController.value) return managedController.value;
+  if (!availabilityPending.value && !src.value) return { status: "failed", reason: "source" };
+  return new Promise((resolve) => {
+    const finish = (result: ManagedController | ManagedPlaybackFailure) => {
+      clearTimeout(timeout);
+      connectionWaiters.delete(finish);
+      resolve(result);
+    };
+    const timeout = setTimeout(() => finish({ status: "failed", reason: "timeout" }), 30_000);
+    connectionWaiters.add(finish);
+  });
+}
+
+async function prepareManaged(): Promise<ManagedPlaybackResult<"ready">> {
+  const generation = commandGeneration;
+  const controller = await connectedController();
+  if (generation !== commandGeneration || disposed || managedStopped.value) return { status: "cancelled" };
+  return "status" in controller ? controller : controller.prepare();
+}
+
+async function playManaged(): Promise<ManagedPlaybackResult<"playing">> {
+  if (foreground.value && errorMessage.value) retryLoad();
+  const generation = commandGeneration;
+  const controller = await connectedController();
+  if (generation !== commandGeneration || disposed || managedStopped.value) return { status: "cancelled" };
+  if ("status" in controller) return controller;
+  audioContext?.resume().catch(() => {});
+  const result = await controller.play();
+  if (controller === managedController.value && !disposed && result.status === "playing") fadeEnvelope?.resume();
+  if (controller === managedController.value && !disposed && result.status === "failed") {
+    errorMessage.value = "Couldn't play this clip.";
+    failedKind.value = mediaKind.value;
+  }
+  return result;
+}
+
+function pausePlayback() {
+  fadeEnvelope?.hold();
+  commandGeneration += 1;
+  settleConnections({ status: "cancelled" });
+  if (props.managed) managedController.value?.pause();
+  else activeEl.value?.pause();
+}
+
+function stopPlayback() {
+  if (!props.managed || managedStopped.value) return;
+  const wasForeground = foreground.value;
+  managedStopped.value = true;
+  clearDurationProbe?.();
+  if (wasForeground && props.tintChrome) setTint(null);
+  const controller = managedController.value;
+  retireManaged();
+  if (controller) {
+    managedSnapshot.value = controller.getSnapshot();
+    emit("managed-state", managedSnapshot.value);
+  }
+  stopAmbientInterval();
+  stopVisualizerLoop();
+  stopLastPlayedTimer();
+  teardownAudioGraph();
+}
+
+onBeforeUnmount(() => {
+  disposed = true;
+  clearDurationProbe?.();
+  stopPlayback();
+  for (const element of [videoRef.value, audioRef.value]) {
+    element?.pause();
+    element?.removeAttribute("src");
+    element?.load();
+  }
+});
+
+defineExpose({ prepare: prepareManaged, play: playManaged, pause: pausePlayback, stop: stopPlayback,
+  getSnapshot: () => managedSnapshot.value, playIfPaused,
+  prepareGain, rampGain, holdGain: () => fadeEnvelope?.hold(),
+  resumeGain: () => fadeEnvelope?.resume(), getGainSnapshot: () => fadeEnvelope?.getSnapshot() ?? null });
 
 // Ambient glow: samples the *same* <video> already decoding for playback via
 // canvas, rather than a second <video> playing a duplicate stream - avoids
@@ -674,7 +851,7 @@ const AMBIENT_SAMPLE_MS = 100;
 const AMBIENT_BLEND = 0.22;
 
 const ambientActive = computed(
-  () => Boolean(props.ambient) && (quizType.value === "video" || showCoverArt.value),
+  () => foreground.value && Boolean(props.ambient) && (quizType.value === "video" || showCoverArt.value),
 );
 
 function ambientSource(): CanvasImageSource | null {
@@ -687,6 +864,7 @@ function ambientSource(): CanvasImageSource | null {
 }
 
 function drawAmbientFrame(blend = true) {
+  if (!ambientActive.value || disposed) return;
   const canvas = ambientCanvasRef.value;
   const ctx = canvas?.getContext("2d");
   const source = ambientSource();
@@ -722,7 +900,7 @@ watch(
   },
 );
 onUnmounted(() => {
-  if (props.tintChrome) setTint(null);
+  if (foreground.value && props.tintChrome) setTint(null);
 });
 
 // Last played: a small frame (or the cover, for an audio card) kept for the
@@ -735,6 +913,7 @@ let lastPlayedTimer: ReturnType<typeof setInterval> | null = null;
 let snapshotCanvas: HTMLCanvasElement | null = null;
 
 function recordLastPlayed() {
+  if (!foreground.value || disposed) return;
   const meta = props.lastPlayed;
   if (!meta) return;
   const base = { cardId: props.card.id, songTitle: meta.songTitle, animeTitle: meta.animeTitle };
@@ -762,7 +941,7 @@ function recordLastPlayed() {
 
 function startLastPlayedTimer() {
   stopLastPlayedTimer();
-  if (!props.lastPlayed) return;
+  if (!props.lastPlayed || !foreground.value) return;
   recordLastPlayed();
   lastPlayedTimer = setInterval(recordLastPlayed, LAST_PLAYED_EVERY_MS);
 }
@@ -806,21 +985,21 @@ watch(ambientActive, (active) => {
 
 onUnmounted(stopAmbientInterval);
 
-// Audio visualizer: an AnalyserNode tapped off the same <audio> element
-// already playing, drawn as bars reacting to the real audio - the record's
-// (feature 44) play-state feedback, since Kai's listening pose is hidden
-// whenever the record shows. The source node is created once per underlying
-// <audio> element instance, not per card: CardPreviewModal doesn't remount
-// this component, so the same element can persist across several
-// audio-only cards in a row, and createMediaElementSource throws if called
-// twice on the same element. Watching audioRef itself (rather than the
-// card prop) means this only re-fires when the element is actually
-// created/destroyed (a mediaKind flip), never on a same-element src change.
+// A media element can have only one source node, shared by its visualizer and fade.
 let audioContext: AudioContext | null = null;
 let analyserNode: AnalyserNode | null = null;
 let sourceNode: MediaElementAudioSourceNode | null = null;
+let fadeNode: GainNode | null = null;
+let fadeEnvelope: ReturnType<typeof createMediaGain> | null = null;
+let graphElement: HTMLMediaElement | null = null;
+const failedGraphElements = new WeakSet<HTMLMediaElement>();
 
 function teardownAudioGraph() {
+  fadeEnvelope?.stop();
+  fadeNode?.disconnect();
+  fadeEnvelope = null;
+  fadeNode = null;
+  graphElement = null;
   sourceNode?.disconnect();
   analyserNode?.disconnect();
   if (audioContext && audioContext.state !== "closed") {
@@ -831,24 +1010,72 @@ function teardownAudioGraph() {
   sourceNode = null;
 }
 
-function setupAudioGraph(el: HTMLAudioElement) {
-  audioContext = new AudioContext();
-  analyserNode = audioContext.createAnalyser();
-  analyserNode.fftSize = 128;
-  // createMediaElementSource takes over the element's audio output routing,
-  // so it must be reconnected to destination or playback goes silent.
-  sourceNode = audioContext.createMediaElementSource(el);
-  sourceNode.connect(analyserNode);
-  analyserNode.connect(audioContext.destination);
+function setupAudioGraph(el: HTMLMediaElement): boolean {
+  if (graphElement === el && audioContext) return true;
+  if (failedGraphElements.has(el) || typeof AudioContext === "undefined") return false;
+  teardownAudioGraph();
+  let context: AudioContext | null = null;
+  let source: MediaElementAudioSourceNode | null = null;
+  try {
+    context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 128;
+    const gain = context.createGain();
+    source = context.createMediaElementSource(el);
+    source.connect(analyser);
+    analyser.connect(gain);
+    gain.connect(context.destination);
+    audioContext = context;
+    analyserNode = analyser;
+    sourceNode = source;
+    graphElement = el;
+    fadeNode = gain;
+    fadeEnvelope = createMediaGain(gain.gain, () => context!.currentTime);
+    return true;
+  } catch {
+    failedGraphElements.add(el);
+    // Once a source exists, keep a direct output path if graph setup fails.
+    if (source && context) {
+      source.disconnect();
+      source.connect(context.destination);
+      audioContext = context;
+      sourceNode = source;
+      graphElement = el;
+    } else void context?.close().catch(() => {});
+    return false;
+  }
 }
 
-watch(audioRef, (newEl) => {
+async function prepareGain(): Promise<boolean> {
+  if (!props.managed || disposed || managedStopped.value || !activeEl.value) return false;
+  const element = activeEl.value;
+  if (!setupAudioGraph(element) || !fadeEnvelope || !audioContext) return false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    // Some autoplay policies leave resume pending until another user gesture.
+    await Promise.race([
+      audioContext.resume(),
+      new Promise<void>((resolve) => { timeout = setTimeout(resolve, 1000); }),
+    ]);
+    return !disposed && !managedStopped.value && graphElement === element
+      && audioContext?.state === "running";
+  } catch { return false; }
+  finally { clearTimeout(timeout); }
+}
+
+function rampGain(value: number, seconds: number): boolean {
+  if (!fadeEnvelope || audioContext?.state !== "running" || managedStopped.value) return false;
+  fadeEnvelope.ramp(value, seconds);
+  return true;
+}
+
+watch(activeEl, (newEl) => {
   teardownAudioGraph();
-  if (newEl) setupAudioGraph(newEl);
+  if (newEl && (props.managed || mediaKind.value === "audio")) setupAudioGraph(newEl);
 });
 
 const visualizerCanvasRef = ref<HTMLCanvasElement | null>(null);
-const visualizerActive = computed(() => showCoverArt.value && isPlaying.value);
+const visualizerActive = computed(() => foreground.value && showCoverArt.value && isPlaying.value);
 let visualizerRafId: number | null = null;
 let visualizerFrequencyData: Uint8Array | null = null;
 let visualizerMaskColor = "";
@@ -991,21 +1218,42 @@ function onPlay() {
 // (not just a card's first start), which is exactly what the auto-reveal
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
+  if (disposed || managedStopped.value) { activeEl.value?.pause(); return; }
+  isPlaying.value = true;
   hasStarted.value = true;
   quietPlay = false;
   markPlayable();
-  startLastPlayedTimer();
-  emit("playback-started");
+  if (foreground.value) {
+    startLastPlayedTimer();
+    emit("playback-started");
+  }
 }
 
 function onPause() {
+  if (activeEl.value && !activeEl.value.paused) return;
   isPlaying.value = false;
   playWanted = false;
   stopAmbientLoop();
   stopVisualizerLoop();
   stopLastPlayedTimer();
-  emit("playback-paused");
+  if (foreground.value && !disposed) emit("playback-paused");
 }
+
+function onEnded() {
+  if (foreground.value && !disposed) emit("playback-ended");
+}
+
+watch(foreground, (active) => {
+  if (!active) {
+    stopAmbientInterval();
+    stopVisualizerLoop();
+    stopLastPlayedTimer();
+    stopDrag?.();
+  } else if (managedSnapshot.value?.state === "playing") {
+    startLastPlayedTimer();
+    emit("playback-started");
+  }
+}, { flush: "post" });
 
 function onSeeked() {
   if (ambientActive.value) drawAmbientFrame(false);
@@ -1054,6 +1302,7 @@ const { isTypingTarget } = useHotkeyGuard();
 const { actionFor, claimSpace, hint: hotkeyHint } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
+  if (!foreground.value || disposed) return;
   if (isTypingTarget(event)) return;
   const action = actionFor(props.hotkeyScope ?? "preview", event);
   if (action === "playPause") {
@@ -1067,7 +1316,11 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => { if (foreground.value) window.addEventListener("keydown", onKeydown); });
+watch(foreground, (active) => {
+  if (active) window.addEventListener("keydown", onKeydown);
+  else window.removeEventListener("keydown", onKeydown);
+});
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function seekToClientX(clientX: number, rect: DOMRect) {
@@ -1110,6 +1363,9 @@ onUnmounted(() => stopDrag?.());
   </Teleport>
   <div
     class="player-card"
+    :hidden="!foreground"
+    :inert="!foreground"
+    :aria-hidden="!foreground || undefined"
     :class="{ expanded: immersive, 'ambient-glass': ambient }"
     @click.self="emit('update:immersive', false)"
   >
@@ -1136,11 +1392,11 @@ onUnmounted(() => stopDrag?.());
         ref="videoRef"
         class="media-el"
         :src="src"
-        :volume="volume"
+        :volume="effectiveVolume"
         @play="onPlay"
         @playing="onPlaying"
         @pause="onPause"
-        @ended="emit('playback-ended')"
+        @ended="onEnded"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @loadeddata="onLoadedData"
@@ -1158,11 +1414,11 @@ onUnmounted(() => stopDrag?.());
         ref="audioRef"
         class="hidden-audio"
         :src="src"
-        :volume="volume"
+        :volume="effectiveVolume"
         @play="onPlay"
         @playing="onPlaying"
         @pause="onPause"
-        @ended="emit('playback-ended')"
+        @ended="onEnded"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onLoadedMetadata"
         @loadeddata="onLoadedData"
@@ -1322,7 +1578,7 @@ onUnmounted(() => stopDrag?.());
             <path class="volume-body" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z" />
             <path class="volume-wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
           </svg>
-          <input v-model.number="volume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
+          <input :value="effectiveVolume" @input="changeVolume" type="range" class="volume-slider" min="0" max="1" step="0.01" aria-label="Volume" />
         </div>
       </div>
 
@@ -1995,5 +2251,8 @@ onUnmounted(() => stopDrag?.());
 
 .player-card.expanded .volume-slider {
   width: clamp(58px, 6.21cqw, 144px);
+}
+.player-card[hidden] {
+  display: none;
 }
 </style>

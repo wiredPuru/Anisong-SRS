@@ -94,5 +94,12 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
     return Math.max(0, Math.ceil(ms / 1000));
   });
 
-  return { seconds, remainingSeconds, onPlaybackStarted, onPlaybackPaused };
+  // Unrounded, for a caller that schedules against the song's real end.
+  function remainingExactSeconds(): number | null {
+    if (!active.value) return null;
+    const ms = timeout !== null ? armedMs - (Date.now() - armedAt) : (remainingMs ?? seconds.value * 1000);
+    return Math.max(0, ms / 1000);
+  }
+
+  return { seconds, remainingSeconds, remainingExactSeconds, onPlaybackStarted, onPlaybackPaused };
 }

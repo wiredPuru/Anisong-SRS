@@ -1350,6 +1350,12 @@ cleaned-up checkbox version before generating the project overview.
     source card (honouring Clip source and offline settings) and falls back to
     random clips when there is none or it can't play.
 
+- [x] 115. **Listen Mix** - add a remembered Mix toggle to Listen's Display
+  menu, off by default. With Autoplay enabled, crossfade songs over five
+  seconds, respecting full-song or selected play-length playback. Support
+  video and audio, keep pause/skip controls predictable, and fall back to
+  normal advancement if the next clip is not ready.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

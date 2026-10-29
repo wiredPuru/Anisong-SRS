@@ -72,6 +72,8 @@ const shuffle = ref(true);
 
 const {
   currentCard,
+  nextCard,
+  queueKey,
   index,
   total,
   finished,
@@ -84,7 +86,7 @@ const {
   next,
   previous,
   restart,
-  patchCurrent,
+  patchCard,
 } = useListenSession(scope, filters, shuffle, audioOnly, clipSource);
 
 // A session-only override of the Playback mode setting. It is snapshotted when
@@ -98,6 +100,7 @@ watch(presentationKey, () => {
 });
 
 const { autoplayNext, toggle: toggleAutoplay } = useAutoplayNext();
+const listenMix = useListenMix();
 
 // Autoplay also carries the playlist on by itself. Each song advances at most
 // once, so an ended clip and a later trigger for the same song cannot skip two.
@@ -182,22 +185,48 @@ function switchScope(pick: ScopePick) {
 }
 const canGoBack = computed(() => finished.value || index.value > 0);
 
-function onLocalPathUpdated({ kind, localPath }: { kind: "video" | "audio"; localPath: string }) {
-  patchCurrent(kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath });
+function onLocalPathUpdated({ cardId, kind, localPath }: { cardId: number; kind: "video" | "audio"; localPath: string }) {
+  patchCard(cardId, kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath });
 }
 
-function onLocalPathCleared({ kind }: { kind: "video" | "audio" }) {
-  patchCurrent(kind === "video" ? { localVideoPath: null } : { localAudioPath: null });
+function onLocalPathCleared({ cardId, kind }: { cardId: number; kind: "video" | "audio" }) {
+  patchCard(cardId, kind === "video" ? { localVideoPath: null } : { localAudioPath: null });
 }
+
+const playback = useListenPlayback({ advance: next, playLengthRemaining: () => playLimit.remainingExactSeconds() });
+watchEffect(() => playback.configure({
+  mix: listenMix.enabled.value,
+  autoplay: autoplayNext.value,
+  audioOnly: effectiveAudioOnly.value,
+  randomStart: randomStart.value,
+  playLength: playLimit.seconds.value,
+}));
+watch([presentationKey, queueKey, currentCard, nextCard], () => playback.synchronize({
+  key: presentationKey.value,
+  queue: queueKey.value,
+  card: currentCard.value,
+  nextCard: nextCard.value,
+}), { immediate: true });
+
+// With Mix the next song starts at the planned handoff, a few seconds before
+// the old one would have ended.
+const nextInSeconds = computed(() => {
+  const left = playLimit.remainingSeconds.value;
+  if (left === null) return null;
+  const mixing = playback.managedMode.value && listenMix.enabled.value && playback.slots.value.some((s) => s.role === "standby");
+  return mixing ? Math.max(0, left - LISTEN_MIX_SECONDS) : left;
+});
 
 function onPlaybackStarted() {
   autoReveal.onPlaybackStarted();
   playLimit.onPlaybackStarted();
+  void playback.foregroundResumed();
 }
 
 function onPlaybackPaused() {
   autoReveal.onPlaybackPaused();
   playLimit.onPlaybackPaused();
+  playback.foregroundPaused();
 }
 
 const playerPaneRef = ref<HTMLElement | null>(null);
@@ -341,6 +370,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             >
               Shuffle
             </button>
+            <button
+              type="button"
+              class="menu-toggle"
+              :class="{ on: listenMix.enabled.value }"
+              :aria-pressed="listenMix.enabled.value"
+              :aria-describedby="'mix-note'"
+              title="Crossfade into the next song over 5 seconds"
+              @click="listenMix.toggle()"
+            >
+              Mix
+            </button>
+            <p id="mix-note" class="menu-note">
+              <template v-if="listenMix.enabled.value && !autoplayNext">Needs Autoplay on</template>
+              <template v-else>5-second crossfade between songs (with Autoplay)</template>
+            </p>
               <select
                 v-model.number="playLimit.seconds.value"
                 class="menu-select"
@@ -396,10 +440,12 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </header>
       <div class="stage" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture">
-          <StudyMediaPlayer
+          <ListenMediaPlayer
             hotkey-scope="listen"
-            :key="presentationKey"
+            :presentation-key="presentationKey"
             :card="currentCard"
+            :managed-mode="playback.managedMode.value"
+            :slots="playback.slots.value"
             :hide-video="videoHidden"
             :hide-cover="coverHidden"
             hide-theme-badge
@@ -416,6 +462,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             @playback-started="onPlaybackStarted"
             @playback-paused="onPlaybackPaused"
             @playback-ended="advanceOnce"
+            @attach="playback.attach"
+            @report="playback.report"
             @local-path-updated="onLocalPathUpdated"
             @local-path-cleared="onLocalPathCleared"
             @update:media-kind="currentMediaKind = $event"
@@ -423,7 +471,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             <template #error-actions>
               <button type="button" class="transport-btn" @click="next">Next song &rarr;</button>
             </template>
-          </StudyMediaPlayer>
+          </ListenMediaPlayer>
           <StudyDetailsCard
             :open="showDetails"
             :cover-image-url="currentCard.animeCoverImageUrl"
@@ -511,8 +559,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M19 5 9 12l10 7z" /></svg>
               </button>
-              <span v-if="playLimit.remainingSeconds.value !== null" class="next-in" aria-live="off">
-                Next in <strong>{{ playLimit.remainingSeconds.value }}s</strong>
+              <span v-if="nextInSeconds !== null" class="next-in" aria-live="off">
+                Next in <strong>{{ nextInSeconds }}s</strong>
               </span>
               <span class="position">{{ positionLabel(index, total) }}</span>
               <button type="button" class="transport-btn next" @click="next">
@@ -535,6 +583,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </template>
 
 <style scoped>
+.menu-note {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .listen {
   flex: 1;
   min-height: 0;
