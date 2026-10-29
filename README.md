@@ -60,6 +60,9 @@ library, in order or shuffled, with the same player and Hide Video and Hide Info
 toggles but no scoring. It's handy for warming up or hosting a guessing round
 without the party server.
 
+Turn on **Mix** and Listen crossfades from one song into the next, with a choice
+of fade length and curve, and the pictures dissolve into each other too.
+
 <p align="center">
   <img src="docs/screenshots/listen.png" width="1000" alt="Listen mode playing a song with its title, artist, and a song counter">
 </p>
@@ -83,11 +86,54 @@ can see it actually sticking.
   <img src="docs/screenshots/stats.png" width="1000" alt="Review stats with total reviews, pass rate, streak, and a review forecast">
 </p>
 
+### 6. Learn the kanji in the titles
+
+Turn on **Japanese breakdown** in Settings and a second flip card shows each
+native title kanji by kanji: an English keyword, its component parts, readings,
+stroke count, and your own memory story (or a default one if you haven't written
+one). Tap any kanji or part to drill into it, switch the text to all hiragana or
+all katakana, and search for any kanji by character or keyword.
+
+Add kanji to your personal **Kanji Study** deck and review them with the same
+spaced-repetition boxes as your songs, while the song each kanji came from plays
+in the background.
+
+## More ways to tune it
+
+- **Typed answers**: type the anime name (with suggestions) for points and a
+  combo, and optionally the song, artist, or OP/ED number too. You can set what
+  each deck is graded on.
+- **Filters**: narrow any session by year, season, score, format, genre, tag,
+  OP/ED/Insert, or the Completed list of an AniList or MyAnimeList user.
+- **Bulk adding**: browse AniList by filters, import a whole Completed list,
+  or pull in everything an artist has sung, then drop the results into a deck.
+- **Known, Learning, Suspended**: mark songs you already know so they leave the
+  queue, or park a card for later. Undo your last review if you slip.
+- **Your keys**: every Study, Listen, and Preview hotkey can be rebound in
+  Settings.
+- **Light and dark** themes, plus custom pictures for your own decks.
+- **Offline mode**: stop the app from contacting any provider. Songs you've
+  downloaded or cached keep playing.
+- **One-click updates**: Settings > About can install a new release for you.
+
 ## Party mode
 
 GAQ SRS also comes with **Guess the Anime**, a party game for game nights and
 streams. Put the display on a TV or stream it, run the show from your phone,
 and see who in the room really knows their openings.
+
+- **Players join from their phones** with just a name and can buzz in. The host
+  judges each buzz and awards points, and a scoreboard and round summary show
+  on the display.
+- **Make it harder**: blur, pixelate, or black out the picture, mute it, let it
+  decay over time, or run **lightning rounds** with blind, peek, cover, and
+  clue modes. An endless queue can draw songs from outside your library at Easy,
+  Medium, or Hard.
+- **Host tools**: timers, banners, lobby music, kick and ban, and a command bar
+  (`Shift+P`) that finds any action by name. You can drag and resize every piece
+  of the display to fit your screen or stream.
+
+Run it with the `gaq-party` program that comes in each release.
 
 ---
 
