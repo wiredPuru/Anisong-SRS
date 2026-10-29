@@ -1,3 +1,4 @@
+import type { CardWithDetails } from "~/composables/useStudySession";
 import type { KanjiEntry } from "~/utils/japaneseBreakdown";
 
 // Mirrors KanjiStudyItem in server/utils/kanjiCards.ts, same field order (F-09).
@@ -7,6 +8,7 @@ export interface KanjiStudyItem {
   streak: number;
   nextReviewAt: string;
   createdAt: string;
+  sourceCardId: number | null;
   entry: KanjiEntry;
   partInfo: { char: string; keyword: string | null }[];
 }
@@ -14,11 +16,13 @@ export interface KanjiStudyItem {
 interface NextReply {
   kanji: KanjiStudyItem | null;
   dueCount: number;
+  sourceCard: CardWithDetails | null;
 }
 
 export function useKanjiStudy() {
   const current = ref<KanjiStudyItem | null>(null);
   const dueCount = ref(0);
+  const sourceCard = ref<CardWithDetails | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const revealed = ref(false);
@@ -48,6 +52,7 @@ export function useKanjiStudy() {
       if (!isCurrent()) return;
       current.value = reply.kanji;
       dueCount.value = reply.dueCount;
+      sourceCard.value = reply.sourceCard;
       if (reply.kanji) await loadStory(reply.kanji.char, isCurrent);
     } catch (failure) {
       if (isCurrent()) error.value = extractErrorMessage(failure, "Couldn't load your kanji. Try again.");
@@ -79,5 +84,5 @@ export function useKanjiStudy() {
 
   onScopeDispose(requests.invalidate);
 
-  return { current, dueCount, loading, error, revealed, story, grading, passed, failed, loadNext, reveal, grade };
+  return { current, dueCount, sourceCard, loading, error, revealed, story, grading, passed, failed, loadNext, reveal, grade };
 }

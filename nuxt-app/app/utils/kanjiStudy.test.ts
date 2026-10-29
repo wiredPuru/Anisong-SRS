@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backgroundClips, kanjiKeyAction, nextClipIndex } from "./kanjiStudy.ts";
+import { backgroundClips, kanjiKeyAction, nextClipIndex, pickSourceClip } from "./kanjiStudy.ts";
 
 describe("kanjiKeyAction", () => {
   it("reveals with Space or Enter before the answer shows", () => {
@@ -57,5 +57,23 @@ describe("backgroundClips", () => {
     const remote = { id: 1, ...blank, animethemesVideoUrl: "https://v.animethemes.moe/x.webm" };
     expect(backgroundClips([remote], "anisongdb", 5)).toEqual([]);
     expect(backgroundClips([remote], "both", 5)).toHaveLength(1);
+  });
+});
+
+describe("pickSourceClip", () => {
+  const remote = { localVideoPath: null, localAudioPath: null, animethemesVideoUrl: "https://v.animethemes.moe/a.webm", animethemesAudioUrl: null };
+  const local = { ...remote, localVideoPath: "/library/a.webm", animethemesVideoUrl: null };
+
+  it("returns a playable source card", () => {
+    expect(pickSourceClip(local, "anisongdb")).toBe(local);
+  });
+
+  it("returns null with no source card", () => {
+    expect(pickSourceClip(null, "both")).toBeNull();
+  });
+
+  it("returns null when Clip source blocks the only remote URL", () => {
+    expect(pickSourceClip(remote, "anisongdb")).toBeNull();
+    expect(pickSourceClip(remote, "animethemes")).toBe(remote);
   });
 });

@@ -24,3 +24,7 @@ export function nextClipIndex(index: number, total: number): number {
 export function backgroundClips<T extends PlayableSourceCard>(cards: readonly T[], clipSource: ClipSource, limit: number): T[] {
   return cards.filter((card) => isPlayableCard(card, clipSource)).slice(0, limit);
 }
+
+export function pickSourceClip<T extends PlayableSourceCard>(sourceCard: T | null, clipSource: ClipSource): T | null {
+  return sourceCard && isPlayableCard(sourceCard, clipSource) ? sourceCard : null;
+}

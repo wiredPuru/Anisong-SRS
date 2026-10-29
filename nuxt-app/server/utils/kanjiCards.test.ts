@@ -102,7 +102,7 @@ describe("kanji deck", () => {
   });
 
   it("returns null when nothing is due", () => {
-    expect(getNextKanji()).toEqual({ kanji: null, dueCount: 0 });
+    expect(getNextKanji()).toEqual({ kanji: null, dueCount: 0, sourceCard: null });
   });
 
   it("graduates from box 1 only after the required streak, and a fail resets", () => {
@@ -182,6 +182,37 @@ describe("kanji source card", () => {
     addKanjiCards(["魔"], source.id);
     db.delete(card).where(eq(card.id, source.id)).run();
     expect(sourceOf("魔")).toBeNull();
+  });
+});
+
+describe("getNextKanji source card", () => {
+  function seedCard() {
+    const anime = upsertAnime({ aniListId: 2, animethemesId: null, titleRomaji: "Other", titleEnglish: null, titleNative: null });
+    const song = upsertSong({ animeId: anime.id, artistId: getOrCreateArtist("Singer").id, title: "Ending", themeSlot: "ED1", animethemesThemeId: null });
+    return db.insert(card).values({ songId: song.id, localVideoPath: "/library/clip.webm" }).returning().get();
+  }
+
+  it("returns the source card with its details", () => {
+    const source = seedCard();
+    addKanjiCards(["魔"], source.id);
+    const next = getNextKanji();
+    expect(next.kanji?.sourceCardId).toBe(source.id);
+    expect(next.sourceCard?.id).toBe(source.id);
+    expect(next.sourceCard?.songTitle).toBe("Ending");
+  });
+
+  it("is null for a kanji added without a source", () => {
+    addKanjiCards(["魔"]);
+    expect(getNextKanji().sourceCard).toBeNull();
+  });
+
+  it("is null once the source card is deleted", () => {
+    const source = seedCard();
+    addKanjiCards(["魔"], source.id);
+    db.delete(card).where(eq(card.id, source.id)).run();
+    const next = getNextKanji();
+    expect(next.kanji?.sourceCardId).toBeNull();
+    expect(next.sourceCard).toBeNull();
   });
 });
 

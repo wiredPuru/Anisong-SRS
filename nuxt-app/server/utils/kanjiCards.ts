@@ -3,6 +3,7 @@ import { db } from "../db/client.ts";
 import { card, kanjiCard } from "../db/schema.ts";
 import type { KanjiEntry } from "./kanjiData.ts";
 import { extractKanji, lookupKanji } from "./kanjiLookup.ts";
+import { getCardWithDetails, type CardWithDetails } from "./cards.ts";
 import { getBoxOneStreakRequired } from "./mediaLibrary.ts";
 import { computeNextBoxState } from "./study.ts";
 
@@ -14,6 +15,7 @@ export interface KanjiStudyItem {
   streak: number;
   nextReviewAt: Date;
   createdAt: Date;
+  sourceCardId: number | null;
   entry: KanjiEntry;
   partInfo: { char: string; keyword: string | null }[];
 }
@@ -103,14 +105,20 @@ export function listKanjiCards(now: Date = new Date()): { cards: KanjiStudyItem[
   return { cards, dueCount: countDueKanji(now), total: cards.length };
 }
 
-export function getNextKanji(now: Date = new Date()): { kanji: KanjiStudyItem | null; dueCount: number } {
+export function getNextKanji(now: Date = new Date()): {
+  kanji: KanjiStudyItem | null;
+  dueCount: number;
+  sourceCard: CardWithDetails | null;
+} {
   const row = db
     .select()
     .from(kanjiCard)
     .where(lte(kanjiCard.nextReviewAt, now))
     .orderBy(asc(kanjiCard.nextReviewAt), asc(kanjiCard.createdAt))
     .get();
-  return { kanji: row ? withEntry(row) : null, dueCount: countDueKanji(now) };
+  const kanji = row ? withEntry(row) : null;
+  const sourceCard = kanji?.sourceCardId ? (getCardWithDetails(kanji.sourceCardId) ?? null) : null;
+  return { kanji, dueCount: countDueKanji(now), sourceCard };
 }
 
 export function reviewKanji(

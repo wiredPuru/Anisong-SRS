@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatKunReading, formatRtkFrame, formatStrokes } from "~/utils/japaneseBreakdown";
-import { kanjiKeyAction } from "~/utils/kanjiStudy";
+import { kanjiKeyAction, pickSourceClip } from "~/utils/kanjiStudy";
 
 const { data: settings, pending: settingsPending } = await useFetch<{
   japaneseBreakdown: boolean;
@@ -12,10 +12,34 @@ const { data: settings, pending: settingsPending } = await useFetch<{
 const enabled = computed(() => settings.value?.japaneseBreakdown ?? false);
 const clipSource = computed(() => settings.value?.clipSource ?? "anisongdb");
 const background = useBackgroundClips(clipSource);
-const backgroundClip = background.current;
 
 const study = useKanjiStudy();
 const { current, dueCount, loading, error, revealed, story, grading, passed, failed } = study;
+
+// Skipping or an error leaves the kanji's own song until the next kanji loads.
+const sourceDropped = ref(false);
+const sourceReplays = ref(0);
+const sourceClip = computed(() => (sourceDropped.value ? null : pickSourceClip(study.sourceCard.value, clipSource.value)));
+const backgroundClip = computed(() => sourceClip.value ?? background.current.value);
+const playerKey = computed(() =>
+  sourceClip.value ? `source-${sourceReplays.value}` : `random-${background.presentationKey.value}`,
+);
+
+watch(loading, (isLoading) => {
+  if (!isLoading) return;
+  sourceDropped.value = false;
+  sourceReplays.value += 1;
+});
+
+function onClipEnded() {
+  if (sourceClip.value) sourceReplays.value += 1;
+  else background.next();
+}
+
+function skipClip() {
+  if (sourceClip.value) sourceDropped.value = true;
+  else background.next();
+}
 const parts = computed(() => current.value?.partInfo.filter((part) => part.char !== current.value?.char) ?? []);
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -117,7 +141,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
       <aside v-if="backgroundClip" class="kanji-clip" aria-label="Background clip">
         <StudyMediaPlayer
-          :key="background.presentationKey.value"
+          :key="playerKey"
           :card="backgroundClip"
           hide-theme-badge
           autoplay
@@ -125,13 +149,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           :auto-download="settings?.autoDownload ?? false"
           :has-default-download-folder="Boolean(settings?.defaultDownloadFolder)"
           :clip-source="clipSource"
-          @playback-ended="background.next()"
+          @playback-ended="onClipEnded"
         >
           <template #error-actions>
-            <button type="button" class="kanji-link" @click="background.next()">Next clip</button>
+            <button type="button" class="kanji-link" @click="skipClip">Next clip</button>
           </template>
         </StudyMediaPlayer>
-        <button type="button" class="kanji-skip" @click="background.next()">Skip clip</button>
+        <button type="button" class="kanji-skip" @click="skipClip">Skip clip</button>
       </aside>
       </div>
     </template>
@@ -205,6 +229,37 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 @media (max-width: 1100px) {
   .kanji-stage {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Side by side the whole page fits the window; a long reveal scrolls inside the card. */
+@media (min-width: 1101px) {
+  .kanji-page {
+    flex: 1;
+    min-height: 0;
+    padding-block: 16px;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .kanji-stage {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(0, 520px) minmax(0, 400px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .kanji-card {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .kanji-clip {
+    max-height: 100%;
+  }
+
+  .kanji-char {
+    font-size: clamp(72px, 16vh, 140px);
   }
 }
 
