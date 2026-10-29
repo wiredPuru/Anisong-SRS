@@ -21,12 +21,29 @@ export function extractKanji(text: string): string[] {
   return [...seen];
 }
 
+// KRADFILE lists every shape in a kanji, so a part already inside another listed
+// part shows twice (spoon under change). The kanji itself never prunes its own
+// parts, or a kanji built from bare shapes would lose all of them.
+export function pruneNestedParts(
+  char: string,
+  parts: readonly string[],
+  partsOf: (part: string) => readonly string[] | undefined,
+): string[] {
+  const contains = (outer: string, inner: string) => outer !== inner && Boolean(partsOf(outer)?.includes(inner));
+  return parts.filter(
+    (part) => !parts.some((other) => other !== char && contains(other, part) && !contains(part, other)),
+  );
+}
+
 export function lookupKanji(chars: readonly string[]): { kanji: KanjiEntry[]; unknown: string[] } {
   const kanji: KanjiEntry[] = [];
   const unknown: string[] = [];
   for (const char of chars) {
     const record = data.kanji[char];
-    if (record) kanji.push({ char, ...record });
+    if (record) {
+      const parts = pruneNestedParts(char, record.parts, (part) => data.kanji[part]?.parts);
+      kanji.push({ char, ...record, parts });
+    }
     else unknown.push(char);
   }
   return { kanji, unknown };
