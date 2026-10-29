@@ -18,6 +18,7 @@ const { current, dueCount, loading, error, revealed, story, defaultStory, storyS
 const shownStory = computed(() => storyView(story.value, defaultStory.value));
 
 const kanjiDeck = useKanjiDeck();
+const search = useKanjiSearch();
 const drill = ref<string[]>([]);
 const drilled = computed(() => drill.value[drill.value.length - 1] ?? null);
 const storyChars = ref<Set<string>>(new Set());
@@ -64,10 +65,20 @@ async function removeOwnStory() {
   await study.removeStory();
 }
 
-watch(() => current.value?.char, () => {
+watch(() => current.value?.char, (_, previous) => {
   editing.value = false;
-  drill.value = [];
+  if (previous !== undefined) drill.value = [];
 });
+
+function openSearchResult(char: string) {
+  drill.value = [char];
+  search.clear();
+}
+
+function onSearchEnter() {
+  const first = search.results.value[0];
+  if (first) openSearchResult(first.char);
+}
 
 // Skipping or an error leaves the kanji's own song until the next kanji loads.
 const sourceDropped = ref(false);
@@ -126,6 +137,29 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   <main class="kanji-page">
     <header class="kanji-header">
       <h1>Kanji Study</h1>
+      <div v-if="enabled" class="kanji-search">
+        <input
+          v-model="search.query.value"
+          type="search"
+          class="kanji-search-input"
+          placeholder="Look up a kanji or part"
+          aria-label="Look up a kanji or part by character or English keyword"
+          autocomplete="off"
+          @keydown.enter.prevent="onSearchEnter"
+          @keydown.escape.stop="search.clear()"
+        />
+        <ul v-if="search.results.value.length" class="kanji-search-results" aria-label="Search results">
+          <li v-for="result in search.results.value" :key="result.char">
+            <button type="button" class="kanji-search-item" @click="openSearchResult(result.char)">
+              <span class="kanji-search-char" lang="ja">{{ result.char }}</span>
+              <span class="kanji-search-keyword">{{ result.keyword || "(no English meaning)" }}</span>
+              <span v-if="formatRtkFrame(result.rtk)" class="kanji-search-rtk">{{ formatRtkFrame(result.rtk) }}</span>
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="search.error.value" class="kanji-search-note kanji-error" role="alert">{{ search.error.value }}</p>
+        <p v-else-if="search.searched.value && !search.searching.value" class="kanji-search-note">No kanji or parts found.</p>
+      </div>
       <p v-if="enabled" class="kanji-tally" aria-live="polite">
         <span>{{ dueCount }} left</span>
         <span class="tally-pass">{{ passed }} passed</span>
@@ -148,13 +182,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         <button type="button" class="kanji-link" @click="study.loadNext()">Try again</button>
       </MascotState>
 
-      <MascotState v-else-if="!current" pose="sleepy">
+      <MascotState v-else-if="!current && !drilled" pose="sleepy">
         You're all caught up. Add more kanji from the Japanese breakdown on Study or Listen (press J, then
         Add to Kanji Study).
       </MascotState>
 
       <div class="kanji-stage">
-      <section v-if="current && drilled" class="kanji-card kanji-drill" aria-label="Kanji parts">
+      <section v-if="drilled" class="kanji-card kanji-drill" aria-label="Kanji parts">
         <StudyKanjiDetail
           :char="drilled"
           :depth="drill.length"
@@ -295,6 +329,85 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 .kanji-header h1 {
   margin: 0;
   font-family: var(--font-display);
+}
+
+.kanji-search {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.kanji-search-input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: 14px var(--font-sans);
+}
+
+.kanji-search-results,
+.kanji-search-note {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.kanji-search-results {
+  max-height: 50vh;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.kanji-search-note {
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.kanji-search-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kanji-search-item:hover {
+  background: var(--surface-raised);
+}
+
+.kanji-search-char {
+  font-size: 22px;
+}
+
+.kanji-search-keyword {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanji-search-rtk {
+  color: var(--faint);
+  font-size: 12px;
 }
 
 .kanji-tally {

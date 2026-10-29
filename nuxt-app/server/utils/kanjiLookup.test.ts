@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractKanji, kanjiNotice, lookupKanji, lookupKanjiInText, MAX_KANJI_RESULTS, pruneNestedParts } from "./kanjiLookup.ts";
+import { extractKanji, kanjiNotice, lookupKanji, lookupKanjiInText, MAX_KANJI_RESULTS, MAX_SEARCH_RESULTS, pruneNestedParts, searchKanji } from "./kanjiLookup.ts";
 
 describe("extractKanji", () => {
   it("keeps only ideographs, once each, in first-seen order", () => {
@@ -89,5 +89,49 @@ describe("lookupKanji parts from the bundled data", () => {
 
   it("keeps the bare shapes of a kanji built from them", () => {
     expect(lookupKanji(["鬼"]).kanji[0]!.parts.length).toBeGreaterThan(1);
+  });
+});
+
+describe("searchKanji", () => {
+  it("finds a part by keyword", () => {
+    expect(searchKanji("spoon")[0]!.char).toBe("匕");
+    expect(searchKanji("flower")[0]!.char).toBe("花");
+  });
+
+  it("is case- and whitespace-insensitive", () => {
+    expect(searchKanji("  Spoon ")[0]!.char).toBe("匕");
+  });
+
+  it("ranks a kanji with the keyword before ones that only mention it", () => {
+    const chars = searchKanji("change").map((result) => result.char);
+    expect(chars.indexOf("化")).toBeGreaterThanOrEqual(0);
+    expect(searchKanji("change")[0]!.keyword.toLowerCase()).toBe("change");
+  });
+
+  it("matches an alternate meaning", () => {
+    expect(searchKanji("wormwood").map((result) => result.char)).toContain("艾");
+  });
+
+  it("needs two characters for a keyword search", () => {
+    expect(searchKanji("s")).toEqual([]);
+    expect(searchKanji("   ")).toEqual([]);
+  });
+
+  it("returns the characters in a query that has kanji, skipping unknown ones", () => {
+    expect(searchKanji("魔鬼").map((result) => result.char)).toEqual(["魔", "鬼"]);
+    expect(searchKanji("魔𠮟").map((result) => result.char)).toEqual(["魔"]);
+  });
+
+  it("returns nothing for kana or nonsense", () => {
+    expect(searchKanji("ひらがな")).toEqual([]);
+    expect(searchKanji("zzzzqq")).toEqual([]);
+  });
+
+  it("caps results and orders ties by RTK frame", () => {
+    const results = searchKanji("to");
+    expect(results.length).toBeLessThanOrEqual(MAX_SEARCH_RESULTS);
+    const exact = results.filter((result) => result.keyword.toLowerCase() === "to");
+    const frames = exact.map((result) => result.rtk ?? Infinity);
+    expect(frames).toEqual([...frames].sort((a, b) => a - b));
   });
 });

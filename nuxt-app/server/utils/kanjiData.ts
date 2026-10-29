@@ -12,6 +12,13 @@ export interface KanjiEntry {
   rtk: number | null;
 }
 
+export interface KanjiSearchResult {
+  char: string;
+  keyword: string;
+  alternates: string[];
+  rtk: number | null;
+}
+
 export type KanjiRecord = Omit<KanjiEntry, "char">;
 
 export interface KanjiDataFile {

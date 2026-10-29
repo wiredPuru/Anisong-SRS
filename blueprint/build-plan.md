@@ -1396,7 +1396,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 118b. Story on /kanji - show the story or default after Reveal, plus
     an in-place editor, "Use this story" and Remove.
 
-- [ ] 119. **Explore kanji parts on /kanji** - the parts shown on `/kanji`
+- [x] 119. **Explore kanji parts on /kanji** - the parts shown on `/kanji`
   after Reveal become buttons that open that character's detail view in place
   (keyword, readings, strokes, RTK frame, its own parts, your story, Add to
   Kanji Study), with a Back button, so you can drill 魔 into 鬼 and on down to
@@ -1405,7 +1405,7 @@ cleaned-up checkbox version before generating the project overview.
   bundled dictionary only: offline, no new data, no schema change.
   - [x] 119a. Clickable parts - parts open the existing breakdown detail view
     on `/kanji`, with a back stack and Back to the card. Client only.
-  - [ ] 119b. Search - `GET /api/kanji/search?q=` matches a character or
+  - [x] 119b. Search - `GET /api/kanji/search?q=` matches a character or
     keyword (keyword and alternates, prefix matches first, at most 20), and a
     search box on `/kanji` opens a result in the same detail view.
 
