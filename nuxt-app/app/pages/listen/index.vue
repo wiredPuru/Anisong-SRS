@@ -200,6 +200,7 @@ watchEffect(() => playback.configure({
   audioOnly: effectiveAudioOnly.value,
   randomStart: randomStart.value,
   playLength: playLimit.seconds.value,
+  mixSeconds: listenMix.seconds.value,
 }));
 watch([presentationKey, queueKey, currentCard, nextCard], () => playback.synchronize({
   key: presentationKey.value,
@@ -214,7 +215,7 @@ const nextInSeconds = computed(() => {
   const left = playLimit.remainingSeconds.value;
   if (left === null) return null;
   const mixing = playback.managedMode.value && listenMix.enabled.value && playback.slots.value.some((s) => s.role === "standby");
-  return mixing ? Math.max(0, left - LISTEN_MIX_SECONDS) : left;
+  return mixing ? secondsUntilHandoff(left, listenMix.seconds.value) : left;
 });
 
 function onPlaybackStarted() {
@@ -376,14 +377,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :class="{ on: listenMix.enabled.value }"
               :aria-pressed="listenMix.enabled.value"
               :aria-describedby="'mix-note'"
-              title="Crossfade into the next song over 5 seconds"
+              title="Crossfade into the next song"
               @click="listenMix.toggle()"
             >
               Mix
             </button>
+            <select
+              v-if="listenMix.enabled.value"
+              :value="listenMix.seconds.value"
+              class="menu-select"
+              aria-label="Mix fade length"
+              :disabled="!autoplayNext"
+              :title="autoplayNext ? 'How long songs overlap' : 'Needs Autoplay on'"
+              @change="listenMix.setSeconds(Number(($event.target as HTMLSelectElement).value))"
+            >
+              <option v-for="length in LISTEN_MIX_LENGTH_OPTIONS" :key="length" :value="length">
+                Fade: {{ length }}s
+              </option>
+            </select>
             <p id="mix-note" class="menu-note">
               <template v-if="listenMix.enabled.value && !autoplayNext">Needs Autoplay on</template>
-              <template v-else>5-second crossfade between songs (with Autoplay)</template>
+              <template v-else>Crossfade between songs (with Autoplay)</template>
             </p>
               <select
                 v-model.number="playLimit.seconds.value"

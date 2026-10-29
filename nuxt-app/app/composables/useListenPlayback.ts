@@ -1,6 +1,6 @@
 import { onScopeDispose, ref, shallowRef } from "vue";
 import type { CardWithDetails } from "./useStudySession";
-import { MIN_LISTEN_MIX_SECONDS, LISTEN_MIX_SECONDS, planListenMix, remainingListenSeconds } from "../utils/listenMix";
+import { MIN_LISTEN_MIX_SECONDS, planListenMix, remainingListenSeconds } from "../utils/listenMix";
 import type { ManagedPlaybackResult, ManagedPlaybackRole, ManagedPlaybackSnapshot } from "../utils/managedPlayback";
 
 export interface ListenPlayerPort {
@@ -29,6 +29,7 @@ export interface ListenPlaybackSettings {
   audioOnly: boolean;
   randomStart: boolean;
   playLength: number;
+  mixSeconds: number;
 }
 export interface ListenPresentation {
   key: number;
@@ -69,7 +70,7 @@ export function useListenPlayback(options: {
   // Decided once per presentation: toggling Mix mid-song never swaps the mounted
   // player, it only changes what happens at the next boundary.
   const managedMode = ref(false);
-  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0 };
+  let settings: ListenPlaybackSettings = { mix: false, autoplay: false, audioOnly: false, randomStart: false, playLength: 0, mixSeconds: 5 };
 
   const foreground = () => slots.value.find((s) => s.role === "foreground");
   const standby = () => slots.value.find((s) => s.role === "standby");
@@ -179,11 +180,12 @@ export function useListenPlayback(options: {
     const inSnap = snap(incoming.id);
     if (!outSnap || outSnap.state !== "playing") return;
     const left = remainingSeconds(out.id);
-    if (left === null || left > LISTEN_MIX_SECONDS) return;
+    if (left === null || left > settings.mixSeconds) return;
     if (!inSnap?.ready) { attempted.add(out.id); return; }
     const seconds = planListenMix({
       enabled: true,
       autoplay: true,
+      targetSeconds: settings.mixSeconds,
       outgoing: { duration: outSnap.duration, startOffset: outSnap.startOffset ?? 0, playLength: out.playLength },
       incoming: { duration: inSnap.duration, startOffset: inSnap.startOffset ?? 0, playLength: incoming.playLength },
     });

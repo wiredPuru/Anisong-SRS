@@ -1,4 +1,6 @@
 export const LISTEN_MIX_STORAGE_KEY = "gaqSrs:listenMix";
+export const LISTEN_MIX_LENGTH_STORAGE_KEY = "gaqSrs:listenMixSeconds";
+export const LISTEN_MIX_LENGTH_OPTIONS = [2, 5, 8, 12] as const;
 export const LISTEN_MIX_SECONDS = 5;
 export const MIN_LISTEN_MIX_SECONDS = 1;
 
@@ -11,6 +13,8 @@ export interface ListenMixSegment {
 export interface ListenMixInputs {
   enabled: boolean;
   autoplay: boolean;
+  /** The chosen fade length; the plan can only be shorter. */
+  targetSeconds?: number;
   outgoing: ListenMixSegment | null;
   incoming: ListenMixSegment | null;
 }
@@ -25,6 +29,17 @@ export function parseListenMixPreference(stored: string | null): boolean {
   return stored === "1";
 }
 
+/** Anything but an exact option reads as the default. */
+export function parseListenMixLength(stored: string | null): number {
+  const option = LISTEN_MIX_LENGTH_OPTIONS.find((length) => String(length) === stored);
+  return option ?? LISTEN_MIX_SECONDS;
+}
+
+/** Seconds a "Next in" label shows when the next song starts at the handoff. */
+export function secondsUntilHandoff(remaining: number, mixSeconds: number): number {
+  return Math.max(0, remaining - mixSeconds);
+}
+
 function segmentSeconds(segment: ListenMixSegment | null): number {
   if (!segment || segment.duration === null) return 0;
   const { duration, startOffset, playLength } = segment;
@@ -34,9 +49,9 @@ function segmentSeconds(segment: ListenMixSegment | null): number {
 }
 
 /** Zero means the boundary should use ordinary advancement. */
-export function planListenMix({ enabled, autoplay, outgoing, incoming }: ListenMixInputs): number {
+export function planListenMix({ enabled, autoplay, targetSeconds = LISTEN_MIX_SECONDS, outgoing, incoming }: ListenMixInputs): number {
   if (!enabled || !autoplay) return 0;
-  const seconds = Math.min(LISTEN_MIX_SECONDS, segmentSeconds(outgoing) / 2, segmentSeconds(incoming) / 2);
+  const seconds = Math.min(targetSeconds, segmentSeconds(outgoing) / 2, segmentSeconds(incoming) / 2);
   return seconds >= MIN_LISTEN_MIX_SECONDS ? seconds : 0;
 }
 

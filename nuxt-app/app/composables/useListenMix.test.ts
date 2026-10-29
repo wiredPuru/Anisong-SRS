@@ -1,6 +1,6 @@
 import { onMounted } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
+import { LISTEN_MIX_LENGTH_STORAGE_KEY, LISTEN_MIX_STORAGE_KEY } from "../utils/listenMix";
 import { useListenMix } from "./useListenMix";
 
 vi.mock("vue", async (importOriginal) => {
@@ -90,5 +90,54 @@ describe("useListenMix preference", () => {
     expect(mix.enabled.value).toBe(false);
     expect(() => mix.setEnabled(true)).not.toThrow();
     expect(mix.enabled.value).toBe(true);
+  });
+});
+
+describe("useListenMix fade length", () => {
+  function lengthStorage(initial: string | null) {
+    const values = new Map<string, string>(initial === null ? [] : [[LISTEN_MIX_LENGTH_STORAGE_KEY, initial]]);
+    const storage = {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => { values.set(key, value); }),
+    };
+    vi.stubGlobal("window", { localStorage: storage });
+    return { storage, values };
+  }
+
+  it("defaults to five seconds and restores a saved option on mount", () => {
+    lengthStorage("12");
+    const { mix, mount } = setup();
+    expect(mix.seconds.value).toBe(5);
+    mount();
+    expect(mix.seconds.value).toBe(12);
+  });
+
+  it("ignores a saved value that is not an option", () => {
+    lengthStorage("7");
+    const { mix, mount } = setup();
+    mount();
+    expect(mix.seconds.value).toBe(5);
+  });
+
+  it("saves a chosen option and keeps a bad one from being stored", () => {
+    const { values } = lengthStorage(null);
+    const { mix } = setup();
+    mix.setSeconds(8);
+    expect(mix.seconds.value).toBe(8);
+    expect(values.get(LISTEN_MIX_LENGTH_STORAGE_KEY)).toBe("8");
+    mix.setSeconds(30);
+    expect(mix.seconds.value).toBe(5);
+    expect(values.get(LISTEN_MIX_LENGTH_STORAGE_KEY)).toBe("5");
+  });
+
+  it("still changes for the session when storage throws", () => {
+    vi.stubGlobal("window", { localStorage: {
+      getItem: () => { throw new Error("blocked"); },
+      setItem: () => { throw new Error("blocked"); },
+    } });
+    const { mix, mount } = setup();
+    mount();
+    mix.setSeconds(2);
+    expect(mix.seconds.value).toBe(2);
   });
 });

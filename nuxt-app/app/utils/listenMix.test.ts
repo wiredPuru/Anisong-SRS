@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   listenMixGains,
+  parseListenMixLength,
   parseListenMixPreference,
+  secondsUntilHandoff,
   planListenMix,
   remainingListenSeconds,
   type ListenMixSegment,
@@ -128,5 +130,39 @@ describe("Mix gain envelope", () => {
       expect(gains.incoming + gains.outgoing).toBeCloseTo(1);
     }
     expect(listenMixGains(NaN)).toEqual({ outgoing: 1, incoming: 0 });
+  });
+});
+
+describe("Mix fade length", () => {
+  it("accepts exactly the offered lengths and defaults otherwise", () => {
+    for (const length of [2, 5, 8, 12]) expect(parseListenMixLength(String(length))).toBe(length);
+    for (const stored of [null, "", "0", "3", "7", "13", " 8", "8 ", "8.0", "abc", "-2"]) {
+      expect(parseListenMixLength(stored)).toBe(5);
+    }
+  });
+
+  it("uses the chosen length for long songs", () => {
+    const plan = (targetSeconds: number) => planListenMix({ enabled: true, autoplay: true, targetSeconds, outgoing: fullSong, incoming: fullSong });
+    expect(plan(2)).toBe(2);
+    expect(plan(12)).toBe(12);
+  });
+
+  it("caps a long fade by half of the shorter song", () => {
+    const short: ListenMixSegment = { duration: 20, startOffset: 0, playLength: 0 };
+    const plan = (outgoing: ListenMixSegment, incoming: ListenMixSegment) =>
+      planListenMix({ enabled: true, autoplay: true, targetSeconds: 12, outgoing, incoming });
+    expect(plan(short, fullSong)).toBe(10);
+    expect(plan(fullSong, short)).toBe(10);
+    expect(plan(fullSong, { duration: 90, startOffset: 0, playLength: 6 })).toBe(3);
+  });
+
+  it("still falls back to ordinary advancement under one second", () => {
+    const tiny: ListenMixSegment = { duration: 1.5, startOffset: 0, playLength: 0 };
+    expect(planListenMix({ enabled: true, autoplay: true, targetSeconds: 12, outgoing: tiny, incoming: fullSong })).toBe(0);
+  });
+
+  it("counts a Next in label down to the handoff, never below zero", () => {
+    expect(secondsUntilHandoff(30, 8)).toBe(22);
+    expect(secondsUntilHandoff(3, 8)).toBe(0);
   });
 });

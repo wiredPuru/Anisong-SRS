@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 590a9f486c37b39eddf854ee91b0d8c01b03805c65458175049ea9770d706ece -->
+<!-- blueprint:source-hash 798684b1263c84d4f738527bfb84323a7ea3b6d550edf0ec7c648112b2ce9f4f -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -370,6 +370,11 @@ crossfades with Autoplay, for full-song or selected play-length playback,
 with normal advancement when the next clip is not ready. No
 `project-plan.md` change: it is an incremental playback control on the existing
 Listen page.
+Feature 116 (Mix fade length and curve, in two sub-features 116a-116b) was
+added to `build-plan.md` on 2026-10-29: remembered Listen settings for the Mix
+overlap length (2, 5, 8 or 12 seconds, default 5) and its curve (Smooth equal
+power, the default, or Linear). No `project-plan.md` change: it refines
+feature 115's existing control.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2829,6 +2834,15 @@ Listen page.
     play length ends. Pause and skip controls remain predictable; if the next
     clip is not ready, the playlist advances normally. This extends feature
     101 without changing review state, the stack, or deployment.
+
+116. **Mix fade length and curve** - added 2026-10-29, in two sub-features,
+    neither built. Both settings are browser-only (`localStorage`), shown under
+    Listen's Mix toggle while Mix is on.
+    - **116a. Fade length** - done 2026-10-29. 2, 5, 8 or 12 seconds (default 5). The overlap
+      planner, the handoff window and the "Next in" countdown read it; the
+      one-second floor and the half-of-either-song cap stay.
+    - **116b. Fade curve** - Smooth (equal power) or Linear. The fade's gain
+      helper learns a curved shape, including holding and resuming it.
 
 ## Data model
 
