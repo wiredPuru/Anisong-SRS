@@ -47,6 +47,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   refresh: [];
   preview: [card: CardWithDetails];
+  updated: [card: CardWithDetails];
 }>();
 
 const results = ref<SongSearchResult[] | null>(null);
@@ -123,7 +124,10 @@ async function downloadMedia(songId: number, kind: "video" | "audio") {
   if (!card) return;
 
   const updated = await downloadMediaBase<CardWithDetails>(songId, card.id, kind);
-  if (updated) addedCards[songId] = updated;
+  if (updated) {
+    addedCards[songId] = updated;
+    emit("updated", updated);
+  }
 }
 
 function addSongRowClick(result: SongSearchResult) {

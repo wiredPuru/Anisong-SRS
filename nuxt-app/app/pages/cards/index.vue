@@ -670,6 +670,7 @@ watch(
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
+          @updated="replaceCard"
         />
       </template>
     </div>
@@ -886,6 +887,7 @@ watch(
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
+          @updated="replaceCard"
         />
 
         <CardAddSongResults
@@ -893,6 +895,7 @@ watch(
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
+          @updated="replaceCard"
         />
 
         <CardAddArtistResults
@@ -900,6 +903,7 @@ watch(
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
+          @updated="replaceCard"
         />
       </div>
 

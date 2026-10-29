@@ -155,6 +155,17 @@ async function downloadMedia(c: CardWithDetails, kind: "video" | "audio") {
   }
 }
 
+// A download started outside the inspector (a search result's Download) lands
+// as a new card prop; an open edit form would otherwise keep the old paths.
+watch(
+  () => [props.card?.id, props.card?.localVideoPath, props.card?.localAudioPath] as const,
+  ([id, video, audio]) => {
+    if (id === undefined || editingId.value !== id) return;
+    editVideoPath.value = video ?? "";
+    editAudioPath.value = audio ?? "";
+  },
+);
+
 function startEdit(c: CardWithDetails) {
   editingId.value = c.id;
   editVideoPath.value = c.localVideoPath ?? "";
