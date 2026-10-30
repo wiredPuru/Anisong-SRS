@@ -67,6 +67,10 @@ of fade length and curve, and the pictures dissolve into each other too.
   <img src="docs/screenshots/listen.png" width="1000" alt="Listen mode playing a song with its title, artist, and a song counter">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/listen-mix.png" width="1000" alt="Listen's Display menu with the Mix, Fade, Curve, and Dissolve settings">
+</p>
+
 ### 4. Focus on what you want
 
 Your songs sort themselves into decks by anime and by artist, and you can make
@@ -98,6 +102,14 @@ Add kanji to your personal **Kanji Study** deck and review them with the same
 spaced-repetition boxes as your songs, while the song each kanji came from plays
 in the background.
 
+<p align="center">
+  <img src="docs/screenshots/japanese-breakdown.png" width="1000" alt="The Japanese breakdown card listing each kanji in an anime title with its keyword, parts, readings, and stroke count">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/kanji-study.gif" width="900" alt="Kanji Study: reveal a kanji, then tap its parts to drill into them and back out">
+</p>
+
 ## More ways to tune it
 
 - **Typed answers**: type the anime name (with suggestions) for points and a
@@ -115,6 +127,10 @@ in the background.
 - **Offline mode**: stop the app from contacting any provider. Songs you've
   downloaded or cached keep playing.
 - **One-click updates**: Settings > About can install a new release for you.
+
+<p align="center">
+  <img src="docs/screenshots/study-filters.png" width="700" alt="The Study filters panel with theme, year, season, score, format, and genre filters">
+</p>
 
 ## Party mode
 
@@ -134,6 +150,18 @@ and see who in the room really knows their openings.
   of the display to fit your screen or stream.
 
 Run it with the `gaq-party` program that comes in each release.
+
+<p align="center">
+  <img src="docs/screenshots/party-display.png" width="1000" alt="The party display during a song, with the answer card, the round points, and the scoreboard">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/party-host.png" width="1000" alt="The host panel with the queue, playback controls, and one-tap scoring">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/party-phone.png" width="260" alt="A phone showing the big Buzz button and the live scoreboard">
+</p>
 
 ---
 
