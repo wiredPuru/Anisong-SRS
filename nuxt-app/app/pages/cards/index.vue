@@ -306,6 +306,10 @@ const { data: manualDecksData, refresh: refreshManualDecks } = await useFetch<{ 
 });
 const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
 
+function onDeckCreated(deck: { id: number; name: string }) {
+  manualDecksData.value = { decks: [...manualDecks.value, deck] };
+}
+
 const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
   memberships: Record<number, number[]>;
 }>("/api/decks/memberships");
@@ -975,6 +979,7 @@ watch(
           :reload-metadata="() => loadFirstPage({ quiet: true })"
           @deleted="dropCardsFromList([$event])"
           @toggle-deck="toggleDeckMembership"
+          @deck-created="onDeckCreated"
         />
       </aside>
     </div>

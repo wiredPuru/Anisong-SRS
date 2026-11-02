@@ -1409,6 +1409,14 @@ cleaned-up checkbox version before generating the project overview.
     keyword (keyword and alternates, prefix matches first, at most 20), and a
     search box on `/kanji` opens a result in the same detail view.
 
+- [x] 120. **Quick deck creation from card edit** - the Decks list in every
+  card edit surface (the `/cards` and `/decks` inspector, Study's Edit card
+  panel, and the Listen/Preview edit modal) gets a "New deck" field. Typing a
+  name and pressing Create (or Enter) makes a manual deck through the
+  existing `POST /api/decks` and ticks the card into it in one action, so
+  there is no trip to `/decks`. A blank or duplicate name shows the server's
+  message inline. No schema or route change.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

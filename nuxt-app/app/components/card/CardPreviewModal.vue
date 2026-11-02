@@ -380,6 +380,7 @@ watch(
             :toggling="togglingMembership"
             :error="deckToggleError"
             @toggle="toggleDeckMembership"
+            @created="(deck) => manualDecks.push(deck)"
           />
         </fieldset>
 

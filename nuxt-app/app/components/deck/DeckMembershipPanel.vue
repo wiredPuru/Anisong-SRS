@@ -11,7 +11,33 @@ const props = defineProps<{
   toggling: Record<string, boolean>;
   error: string | null;
 }>();
-const emit = defineEmits<{ toggle: [deckId: number, checked: boolean] }>();
+const emit = defineEmits<{
+  toggle: [deckId: number, checked: boolean];
+  created: [deck: ManualDeck];
+}>();
+
+const newName = ref("");
+const creating = ref(false);
+const createError = ref<string | null>(null);
+
+// `created` goes out before `toggle` so a host has the deck in its list by the
+// time the checkbox for it renders.
+async function createDeck() {
+  const name = newName.value.trim();
+  if (!name || creating.value) return;
+  creating.value = true;
+  createError.value = null;
+  try {
+    const { deck } = await $fetch<{ deck: ManualDeck }>("/api/decks", { method: "POST", body: { name } });
+    newName.value = "";
+    emit("created", { id: deck.id, name: deck.name });
+    emit("toggle", deck.id, true);
+  } catch (err) {
+    createError.value = extractErrorMessage(err, "Failed to create the deck.");
+  } finally {
+    creating.value = false;
+  }
+}
 
 function isInDeck(deckId: number): boolean {
   return (props.memberships[props.cardId] ?? []).includes(deckId);
@@ -24,9 +50,7 @@ function isToggling(deckId: number): boolean {
 
 <template>
   <div class="decks-panel">
-    <p v-if="!decks.length" class="decks-hint">
-      No manual decks yet - <NuxtLink to="/decks?type=created">create one on the Decks page</NuxtLink>.
-    </p>
+    <p v-if="!decks.length" class="decks-hint">No manual decks yet. Create one below.</p>
     <label v-for="d in decks" :key="d.id" class="deck-checkbox-row">
       <!-- Explicit pending state lets a failed write restore the checkbox. -->
       <input
@@ -37,6 +61,21 @@ function isToggling(deckId: number): boolean {
       />
       {{ d.name }}
     </label>
+    <div class="new-deck-row">
+      <input
+        v-model="newName"
+        type="text"
+        class="new-deck-input"
+        placeholder="New deck name"
+        aria-label="New deck name"
+        :disabled="creating"
+        @keydown.enter.prevent="createDeck"
+      />
+      <button type="button" class="new-deck-btn" :disabled="creating || !newName.trim()" @click="createDeck">
+        {{ creating ? "Creating..." : "Create" }}
+      </button>
+    </div>
+    <p v-if="createError" class="edit-error">{{ createError }}</p>
     <p v-if="error" class="edit-error">{{ error }}</p>
   </div>
 </template>
@@ -59,8 +98,33 @@ function isToggling(deckId: number): boolean {
   font-size: 13px;
 }
 
-.decks-hint a {
-  color: var(--accent);
+.new-deck-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.new-deck-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-deck-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.new-deck-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .deck-checkbox-row {

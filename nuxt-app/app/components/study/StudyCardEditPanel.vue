@@ -28,6 +28,7 @@ const emit = defineEmits<{
 	updated: [card: CardWithDetails]
 	'editing-change': [editing: boolean]
 	'toggle-membership': [deckId: number, checked: boolean]
+	'deck-created': [deck: ManualDeck]
 	deleted: [cardId: number]
 	buried: [cardId: number]
 	suspended: [cardId: number]
@@ -426,6 +427,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 						(deckId, checked) =>
 							emit('toggle-membership', deckId, checked)
 					"
+					@created="(deck) => emit('deck-created', deck)"
 				/>
 			</div>
 

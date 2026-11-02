@@ -2887,6 +2887,16 @@ refines feature 115's existing control.
     - **119b. Search** - done. `GET /api/kanji/search` matches characters and
       keywords from the bundled dictionary; the search box opens the same detail view.
 
+120. **Quick deck creation from card edit** - added to `build-plan.md`
+    2026-11-02, done 2026-11-02. The Decks list in every card edit surface (the `/cards` and
+    `/decks` inspector, Study's Edit card panel, and the Listen/Preview edit
+    modal) gains a "New deck" field. Create (or Enter) makes a manual deck
+    through the existing `POST /api/decks` and ticks the current card into it,
+    so a deck can be made without leaving the edit. A blank or duplicate name
+    shows the server's message inline. No schema or route change and no
+    `project-plan.md` change: §3's Decks bullet already allows manual decks, so
+    this only speeds up making one, like features 73 and 77.
+
 ## Data model
 
 ### Anime

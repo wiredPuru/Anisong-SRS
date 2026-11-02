@@ -68,6 +68,7 @@ const emit = defineEmits<{
   updated: [card: CardWithDetails];
   deleted: [id: number];
   "toggle-deck": [cardId: number, deckId: number, checked: boolean];
+  "deck-created": [deck: ManualDeck];
 }>();
 
 function isCurrentDeck(type: "artist" | "anime", id: number): boolean {
@@ -387,6 +388,7 @@ async function toggleKnown(target: CardWithDetails) {
             :toggling="togglingMembership"
             :error="membershipError"
             @toggle="(deckId, checked) => emit('toggle-deck', card!.id, deckId, checked)"
+            @created="(deck) => emit('deck-created', deck)"
           />
         </div>
 

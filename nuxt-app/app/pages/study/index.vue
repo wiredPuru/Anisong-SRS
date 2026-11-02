@@ -731,6 +731,10 @@ const { data: manualDecksData } = await useFetch<{ decks: ManualDeck[] }>("/api/
 });
 const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
 
+function onDeckCreated(deck: { id: number; name: string }) {
+  manualDecksData.value = { decks: [...manualDecks.value, deck] };
+}
+
 const { data: membershipsData, refresh: refreshMemberships } = await useFetch<{
   memberships: Record<number, number[]>;
 }>("/api/decks/memberships");
@@ -1615,6 +1619,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               @deleted="onCardDeleted"
               @editing-change="cardEditing = $event"
               @toggle-membership="(deckId, checked) => toggleDeckMembership(currentCard!.id, deckId, checked)"
+              @deck-created="onDeckCreated"
             />
             <template #footer>
               <p class="hotkey-legend">

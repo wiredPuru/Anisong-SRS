@@ -194,6 +194,10 @@ const { data: manualDecksData, refresh: refreshManualDecks } = await useFetch<{
 }>("/api/decks", { query: { type: "created" } });
 const manualDecks = computed(() => manualDecksData.value?.decks ?? []);
 
+function onDeckCreated(deck: { id: number; name: string }) {
+  manualDecksData.value = { decks: [...manualDecks.value, deck] };
+}
+
 const togglingMembership = reactive<Record<string, boolean>>({});
 const deckToggleError = ref<string | null>(null);
 
@@ -1268,6 +1272,7 @@ function backToDecks() {
             :reload-metadata="() => loadFirstDeckCardsPage({ quiet: true, throwOnError: true })"
             @deleted="onCardDeleted"
             @toggle-deck="toggleDeckMembership"
+            @deck-created="onDeckCreated"
           >
             <template v-if="activeType === 'created'" #actions="{ card }">
               <button
