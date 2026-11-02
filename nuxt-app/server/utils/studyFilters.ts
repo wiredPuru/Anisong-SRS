@@ -36,6 +36,8 @@ export interface StudyFilters {
   scoreMin: number | null;
   scoreMax: number | null;
   formats: string[];
+  // Any-of: a show matches when one picked studio animated it.
+  studios: string[];
   themeTypes: ThemeType[];
   // Feature 103: relative weights (0-100) for how often each type is served.
   themeMix: ThemeMixWeights | null;
@@ -107,7 +109,7 @@ function parseThemeMix(raw: unknown): Parsed<ThemeMixWeights | null> {
 function isEmpty(filters: StudyFilters): boolean {
   if (filters.listAniListIds !== null || filters.themeMix !== null) return false;
   return [filters.yearMin, filters.yearMax, filters.scoreMin, filters.scoreMax].every((bound) => bound === null)
-    && [filters.seasons, filters.formats, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
+    && [filters.seasons, filters.formats, filters.studios, filters.themeTypes, filters.genresInclude, filters.genresExclude, filters.tagsInclude, filters.tagsExclude]
       .every((list) => list.length === 0);
 }
 
@@ -132,6 +134,7 @@ export function parseStudyFilters(raw: unknown): { filters: StudyFilters | null 
     scoreMin: parseBound(body.scoreMin, "scoreMin", 0, 100),
     scoreMax: parseBound(body.scoreMax, "scoreMax", 0, 100),
     formats: parseNames(body.formats, "formats", ANIME_FORMATS),
+    studios: parseNames(body.studios, "studios"),
     themeTypes: parseNames(body.themeTypes, "themeTypes", THEME_TYPES),
     themeMix: parseThemeMix(body.themeMix),
     genresInclude: parseNames(body.genresInclude, "genresInclude"),
@@ -165,6 +168,10 @@ function hasGenre(name: string): SQL {
   return sql`exists (select 1 from json_each(${anime.genres}) where json_each.value = ${name})`;
 }
 
+function hasStudio(name: string): SQL {
+  return sql`exists (select 1 from json_each(${anime.studios}) where json_each.value = ${name})`;
+}
+
 function hasTag(name: string, minRank: number): SQL {
   return sql`exists (select 1 from json_each(${anime.tags}) where json_extract(json_each.value, '$.name') = ${name} and json_extract(json_each.value, '$.rank') >= ${minRank})`;
 }
@@ -172,7 +179,8 @@ function hasTag(name: string, minRank: number): SQL {
 // Reads anime and song columns directly, so it only works inside a query that
 // already joins both (every due query does). An active year, score, or format
 // filter drops an anime whose value is unknown: it cannot be shown to match.
-// A season filter does the same for anime AniList gives no season.
+// A season filter does the same for anime AniList gives no season, and a
+// studio filter for anime with no studio recorded.
 export function studyFilterCondition(filters: StudyFilters | null): SQL | undefined {
   if (!filters) return undefined;
   const conditions: (SQL | undefined)[] = [];
@@ -184,6 +192,7 @@ export function studyFilterCondition(filters: StudyFilters | null): SQL | undefi
   if (filters.scoreMin !== null) conditions.push(gte(anime.averageScore, filters.scoreMin));
   if (filters.scoreMax !== null) conditions.push(lte(anime.averageScore, filters.scoreMax));
   if (filters.formats.length) conditions.push(inArray(anime.format, filters.formats));
+  if (filters.studios.length) conditions.push(or(...filters.studios.map(hasStudio)));
   const themeTypes = effectiveThemeTypes(filters.themeTypes, filters.themeMix);
   if (themeTypes.length) conditions.push(or(...themeTypes.map((type) => like(song.themeSlot, `${type}%`))));
   conditions.push(...filters.genresInclude.map(hasGenre));

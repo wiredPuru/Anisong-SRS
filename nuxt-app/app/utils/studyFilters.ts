@@ -20,6 +20,7 @@ export interface StudyFilters {
   scoreMin: number | null;
   scoreMax: number | null;
   formats: string[];
+  studios: string[];
   themeTypes: StudyThemeType[];
   themeMix: ThemeMixWeights | null;
   genresInclude: string[];
@@ -40,6 +41,7 @@ export const EMPTY_STUDY_FILTERS: StudyFilters = {
   scoreMin: null,
   scoreMax: null,
   formats: [],
+  studios: [],
   themeTypes: [],
   themeMix: null,
   genresInclude: [],
@@ -61,13 +63,14 @@ export const ANIME_FORMAT_LABELS: Record<string, string> = {
   MUSIC: "Music",
 };
 
-// Each bound pair, list-type choice, and genre or tag counts as one filter,
+// Each bound pair, list-type choice, and genre, tag or studio counts as one filter,
 // which is what the Filters badge shows.
 export function countActiveFilters(filters: StudyFilters): number {
   return Number(filters.yearMin !== null || filters.yearMax !== null)
     + Number(filters.seasons.length > 0)
     + Number(filters.scoreMin !== null || filters.scoreMax !== null)
     + Number(filters.formats.length > 0)
+    + filters.studios.length
     + Number(filters.themeTypes.length > 0)
     + Number(filters.themeMix !== null)
     + filters.genresInclude.length + filters.genresExclude.length
@@ -142,7 +145,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { ...EMPTY_STUDY_FILTERS };
   const stored = { ...EMPTY_STUDY_FILTERS, ...(parsed as Partial<StudyFilters>) };
-  const listsValid = [stored.seasons, stored.formats, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
+  const listsValid = [stored.seasons, stored.formats, stored.studios, stored.themeTypes, stored.genresInclude, stored.genresExclude, stored.tagsInclude, stored.tagsExclude]
     .every(isStringList) && stored.themeTypes.every((type) => type === "OP" || type === "ED" || type === "IN")
     && stored.seasons.every((season) => STUDY_SEASONS.includes(season));
   const boundsValid = [stored.yearMin, stored.yearMax, stored.scoreMin, stored.scoreMax].every(isBound)
@@ -157,6 +160,7 @@ export function readStoredFilters(raw: string | null): StudyFilters {
     scoreMin: stored.scoreMin,
     scoreMax: stored.scoreMax,
     formats: stored.formats,
+    studios: stored.studios,
     themeTypes: stored.themeTypes,
     themeMix: stored.themeMix,
     genresInclude: stored.genresInclude,
@@ -227,6 +231,7 @@ export interface CatalogFilterOptions {
   yearRange: null;
   formats: string[];
   genres: string[];
+  studios: { name: string; count: number }[];
   tags: TagOption[];
   missingDetailsCount: number;
 }
@@ -236,6 +241,7 @@ export function catalogFilterOptions(reply: CatalogOptionsReply): CatalogFilterO
     yearRange: null,
     formats: Object.keys(ANIME_FORMAT_LABELS),
     genres: reply.genres,
+    studios: [],
     tags: reply.tags.map((tag) => ({ name: tag.name, ranks: [] })),
     missingDetailsCount: 0,
   };

@@ -30,6 +30,10 @@ describe("countActiveFilters", () => {
     }))).toBe(8);
   });
 
+  it("counts each picked studio as one filter", () => {
+    expect(countActiveFilters(withFilters({ studios: ["Shaft", "Kyoto Animation"] }))).toBe(2);
+  });
+
   it("counts any number of seasons as one filter", () => {
     expect(countActiveFilters(withFilters({ seasons: ["SPRING", "FALL"] }))).toBe(1);
   });
@@ -101,6 +105,15 @@ describe("readStoredFilters", () => {
     delete beforeSeasons.seasons;
     expect(readStoredFilters(JSON.stringify(beforeSeasons))).toEqual(withFilters({ yearMin: 2009 }));
     expect(readStoredFilters(JSON.stringify({ seasons: ["WINTER"] }))).toEqual(withFilters({ seasons: ["WINTER"] }));
+  });
+
+  it("reads a set saved before studios existed as having no studio filter", () => {
+    const beforeStudios = { ...EMPTY_STUDY_FILTERS, yearMin: 2009 } as Partial<StudyFilters>;
+    delete beforeStudios.studios;
+    expect(readStoredFilters(JSON.stringify(beforeStudios))).toEqual(withFilters({ yearMin: 2009 }));
+    expect(readStoredFilters(JSON.stringify({ studios: ["Shaft"] }))).toEqual(withFilters({ studios: ["Shaft"] }));
+    expect(readStoredFilters(JSON.stringify({ studios: "Shaft" }))).toEqual(EMPTY_STUDY_FILTERS);
+    expect(readStoredFilters(JSON.stringify({ studios: [""] }))).toEqual(EMPTY_STUDY_FILTERS);
   });
 
   it("fills missing fields and drops unknown ones", () => {

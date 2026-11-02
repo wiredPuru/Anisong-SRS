@@ -6,6 +6,7 @@ export interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
   formats: string[];
   genres: string[];
+  studios: { name: string; count: number }[];
   // One relevance rank per show with the tag, so the client can count shows
   // at whatever minimum relevance the filter is set to.
   tags: { name: string; ranks: number[] }[];
@@ -21,6 +22,7 @@ export function getStudyFilterOptions(): StudyFilterOptions {
       year: anime.year,
       format: anime.format,
       genres: anime.genres,
+      studios: anime.studios,
       tags: anime.tags,
       checkedAt: anime.aniListDetailsCheckedAt,
     })
@@ -36,10 +38,18 @@ export function getStudyFilterOptions(): StudyFilterOptions {
     for (const [name, rank] of best) tagRanks.set(name, [...(tagRanks.get(name) ?? []), rank]);
   }
 
+  const studioCounts = new Map<string, number>();
+  for (const row of rows) {
+    for (const name of new Set(row.studios)) studioCounts.set(name, (studioCounts.get(name) ?? 0) + 1);
+  }
+
   return {
     yearRange: years.length ? { min: Math.min(...years), max: Math.max(...years) } : null,
     formats: [...new Set(rows.map((row) => row.format).filter((format): format is string => format !== null))].sort(),
     genres: [...new Set(rows.flatMap((row) => row.genres))].sort(),
+    studios: [...studioCounts]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
     tags: [...tagRanks]
       .map(([name, ranks]) => ({ name, ranks }))
       .sort((a, b) => b.ranks.length - a.ranks.length || a.name.localeCompare(b.name)),

@@ -1417,6 +1417,15 @@ cleaned-up checkbox version before generating the project overview.
   there is no trip to `/decks`. A blank or duplicate name shows the server's
   message inline. No schema or route change.
 
+- [x] 121. **Studio filter** - a Studio section in the shared filter form
+  (feature 77a's `StudyFilterForm`): a search box over the studios in your
+  library, with chips for the ones picked. A show matches when any picked
+  studio animated it. Works wherever the form does: Study's Filters popup,
+  "From filters" when building a deck, and `/cards`' library search. Reads
+  the `Anime.studios` AniList already supplies (main animation studios), so
+  there is no schema change, migration or new lookup. A show with no studio
+  recorded is dropped while the filter is on, like the year and score filters.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

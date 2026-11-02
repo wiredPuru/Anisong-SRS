@@ -28,19 +28,20 @@ afterEach(() => {
 
 describe("getStudyFilterOptions", () => {
   it("is empty for an empty library", () => {
-    expect(getStudyFilterOptions()).toEqual({ yearRange: null, formats: [], genres: [], tags: [], missingDetailsCount: 0 });
+    expect(getStudyFilterOptions()).toEqual({ yearRange: null, formats: [], genres: [], studios: [], tags: [], missingDetailsCount: 0 });
   });
 
   it("summarises only anime with cards, counting each anime once per tag", () => {
-    addAnime(1, { year: 2009, season: null, format: "TV", averageScore: 78, genres: ["Comedy", "Music"], tags: [{ name: "Band", rank: 90 }, { name: "Moe", rank: 60 }] }, 2);
-    addAnime(2, { year: 2002, season: null, format: "TV", averageScore: null, genres: ["Comedy"], tags: [{ name: "Moe", rank: 80 }] }, 1);
-    addAnime(3, { year: 1990, season: null, format: "MOVIE", averageScore: 70, genres: ["Drama"], tags: [{ name: "Tragedy", rank: 99 }] }, 0);
+    addAnime(1, { year: 2009, season: null, format: "TV", averageScore: 78, genres: ["Comedy", "Music"], studios: ["Kyoto Animation", "Shaft"], tags: [{ name: "Band", rank: 90 }, { name: "Moe", rank: 60 }] }, 2);
+    addAnime(2, { year: 2002, season: null, format: "TV", averageScore: null, genres: ["Comedy"], studios: ["Shaft"], tags: [{ name: "Moe", rank: 80 }] }, 1);
+    addAnime(3, { year: 1990, season: null, format: "MOVIE", averageScore: 70, genres: ["Drama"], studios: ["Madhouse"], tags: [{ name: "Tragedy", rank: 99 }] }, 0);
     addAnime(4, undefined, 1);
 
     expect(getStudyFilterOptions()).toEqual({
       yearRange: { min: 2002, max: 2009 },
       formats: ["TV"],
       genres: ["Comedy", "Music"],
+      studios: [{ name: "Shaft", count: 2 }, { name: "Kyoto Animation", count: 1 }],
       tags: [{ name: "Moe", ranks: [60, 80] }, { name: "Band", ranks: [90] }],
       missingDetailsCount: 1,
     });

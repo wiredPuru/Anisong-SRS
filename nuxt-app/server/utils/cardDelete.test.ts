@@ -44,7 +44,7 @@ describe("parseMatchingQuery", () => {
 });
 
 const NARROWING: StudyFilters = {
-  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: ["IN"],
+  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], studios: [], themeTypes: ["IN"],
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
   listAniListIds: null, listSource: null,
 };

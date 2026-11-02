@@ -16,7 +16,7 @@ vi.mock("../db/client.ts", async () => {
 });
 
 const EMPTY: StudyFilters = {
-  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [], themeMix: null,
+  yearMin: null, yearMax: null, seasons: [], scoreMin: null, scoreMax: null, formats: [], studios: [], themeTypes: [], themeMix: null,
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60,
   listAniListIds: null, listSource: null,
 };
@@ -53,6 +53,10 @@ describe("parseStudyFilters", () => {
   });
 
   it("fills defaults for missing fields and de-duplicates lists", () => {
+    expect(parse({ studios: ["Shaft", "Shaft", "Kyoto Animation"] })).toEqual({
+      filters: { ...EMPTY, studios: ["Shaft", "Kyoto Animation"] },
+    });
+    expect(parse({ studios: [] })).toEqual({ filters: null });
     expect(parse({ yearMin: 2000, genresInclude: ["Comedy", "Comedy"] })).toEqual({
       filters: { ...EMPTY, yearMin: 2000, genresInclude: ["Comedy"] },
     });
@@ -75,6 +79,9 @@ describe("parseStudyFilters", () => {
     [{ tagsInclude: Array.from({ length: 51 }, (_, i) => `t${i}`) }, "at most 50"],
     [{ tagsExclude: ["x".repeat(101)] }, "at most 100 characters"],
     [{ genresExclude: [""] }, "non-empty"],
+    [{ studios: "Shaft" }, "list"],
+    [{ studios: Array.from({ length: 51 }, (_, i) => `s${i}`) }, "at most 50"],
+    [{ studios: [42] }, "non-empty"],
     [{ tagMinRank: 101 }, "tagMinRank"],
   ] as const)("rejects %o", (input, message) => {
     const result = parse(input as Partial<StudyFilters> | string);
@@ -113,7 +120,7 @@ describe("studyFilterCondition", () => {
   function addAnime(key: string, slot: string, details?: Partial<AniListDetails>) {
     const animeRow = upsertAnime({
       aniListId: Object.keys(cards).length + 1, animethemesId: null, titleRomaji: key, titleEnglish: null, titleNative: null,
-      details: details ? { year: null, format: null, averageScore: null, genres: [], tags: [], ...details } : undefined,
+      details: details ? { year: null, format: null, averageScore: null, genres: [], tags: [], studios: [], ...details } : undefined,
     });
     const artistRow = getOrCreateArtist("Artist");
     const songRow = upsertSong({ animeId: animeRow.id, artistId: artistRow.id, title: key, themeSlot: slot, animethemesThemeId: null });
@@ -133,9 +140,9 @@ describe("studyFilterCondition", () => {
   }
 
   beforeEach(() => {
-    addAnime("kon", "OP1", { year: 2009, format: "TV", averageScore: 78, genres: ["Comedy", "Music", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 96 }] });
-    addAnime("azumanga", "ED1", { year: 2002, format: "TV", averageScore: 80, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 40 }] });
-    addAnime("eva", "OP1", { year: 1995, format: "TV", averageScore: 83, genres: ["Action", "Drama", "Mecha"], tags: [{ name: "Ecchi", rank: 20 }] });
+    addAnime("kon", "OP1", { studios: ["Kyoto Animation"], year: 2009, format: "TV", averageScore: 78, genres: ["Comedy", "Music", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 96 }] });
+    addAnime("azumanga", "ED1", { studios: ["J.C.STAFF"], year: 2002, format: "TV", averageScore: 80, genres: ["Comedy", "Slice of Life"], tags: [{ name: "Cute Girls Doing Cute Things", rank: 40 }] });
+    addAnime("eva", "OP1", { studios: ["Gainax", "Khara"], year: 1995, format: "TV", averageScore: 83, genres: ["Action", "Drama", "Mecha"], tags: [{ name: "Ecchi", rank: 20 }] });
     addAnime("movie", "ED1", { year: 2016, format: "MOVIE", averageScore: null, genres: ["Drama", "Romance"], tags: [] });
     addAnime("unknown", "OP1");
   });
@@ -166,6 +173,13 @@ describe("studyFilterCondition", () => {
     addAnime("madoka", "IN-21049");
     expect(matching({ themeTypes: ["IN"] })).toEqual(["madoka"]);
     expect(matching({ themeTypes: ["OP", "IN"] })).toEqual(["eva", "kon", "madoka", "unknown"]);
+  });
+
+  it("matches any picked studio and drops anime with no studio recorded", () => {
+    expect(matching({ studios: ["Kyoto Animation"] })).toEqual(["kon"]);
+    expect(matching({ studios: ["Khara", "J.C.STAFF"] })).toEqual(["azumanga", "eva"]);
+    expect(matching({ studios: ["Nobody"] })).toEqual([]);
+    expect(matching({ studios: ["Kyoto Animation"], yearMax: 2000 })).toEqual([]);
   });
 
   it("requires every included genre and none of the excluded ones", () => {

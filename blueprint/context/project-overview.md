@@ -2897,6 +2897,19 @@ refines feature 115's existing control.
     `project-plan.md` change: §3's Decks bullet already allows manual decks, so
     this only speeds up making one, like features 73 and 77.
 
+121. **Studio filter** - added to `build-plan.md` 2026-11-02, done 2026-11-02. A Studio section
+    in the shared filter form (feature 77a's `StudyFilterForm`): a search over the
+    studios in the library, with chips for the ones picked; a show matches when
+    any picked studio animated it. It works in Study's Filters popup, "From
+    filters" when building a deck, and `/cards`' library search. It reads
+    `Anime.studios` (main animation studios, already stored from AniList and
+    filled by the existing details backfill), so there is no schema change,
+    migration or new lookup. A show with no studio recorded is dropped while the
+    filter is on, like the year and score filters. Not offered in Browse by
+    filters' AniList catalog mode. No `project-plan.md` change: §3's Study
+    session bullet already covers filtering by anime metadata, as with feature
+    78.
+
 ## Data model
 
 ### Anime
@@ -2923,6 +2936,8 @@ refines feature 115's existing control.
   by any import with fresh AniList data and by a Settings backfill (batched
   `id_in`, 50 per request); `aniListDetailsCheckedAt` null means never
   fetched, so an anime AniList does not return is stamped and not re-probed.
+- `studios` (JSON `string[]`, default `[]`) - AniList's main animation studios,
+  written with the details above. Feature 121 filters on it.
 
 ### Artist
 

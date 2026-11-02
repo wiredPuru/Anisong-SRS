@@ -8,6 +8,7 @@ interface StudyFilterOptions {
   yearRange: { min: number; max: number } | null;
   formats: string[];
   genres: string[];
+  studios: { name: string; count: number }[];
   tags: TagOption[];
   missingDetailsCount: number;
 }
@@ -44,6 +45,7 @@ const THEME_TYPES: { value: StudyThemeType; label: string }[] = [
   { value: "IN", label: "Inserts" },
 ];
 const TAG_SUGGESTION_LIMIT = 12;
+const STUDIO_SUGGESTION_LIMIT = 12;
 const LIST_SITE_LABELS: Record<StudyListSite, string> = { anilist: "AniList", mal: "MyAnimeList" };
 
 interface ListAnimeResult {
@@ -56,6 +58,7 @@ interface ListAnimeResult {
 const options = ref<StudyFilterOptions | null>(null);
 const optionsError = ref<string | null>(null);
 const tagQuery = ref("");
+const studioQuery = ref("");
 const listSite = ref<StudyListSite>("anilist");
 const listUsername = ref("");
 const listLoading = ref(false);
@@ -134,6 +137,23 @@ function flipTag(name: string, choice: Choice) {
 function removeTag(name: string) {
   draft.value.tagsInclude = draft.value.tagsInclude.filter((entry) => entry !== name);
   draft.value.tagsExclude = draft.value.tagsExclude.filter((entry) => entry !== name);
+}
+
+const studioSuggestions = computed(() => {
+  const query = studioQuery.value.trim().toLowerCase();
+  if (!query) return [];
+  return (options.value?.studios ?? [])
+    .filter((studio) => !draft.value.studios.includes(studio.name) && studio.name.toLowerCase().includes(query))
+    .slice(0, STUDIO_SUGGESTION_LIMIT);
+});
+
+function addStudio(name: string) {
+  draft.value.studios.push(name);
+  studioQuery.value = "";
+}
+
+function removeStudio(name: string) {
+  draft.value.studios = draft.value.studios.filter((entry) => entry !== name);
 }
 
 const { offlineMode } = useNetworkMode();
@@ -388,6 +408,25 @@ const listCheckedOn = computed(() => {
       </div>
     </section>
 
+    <section v-if="!catalog && options?.studios.length" class="group">
+      <h3 class="group-title">Studio <span class="group-hint">a show matches when any chosen studio animated it</span></h3>
+      <div v-if="draft.studios.length" class="pill-row">
+        <span v-for="studio in draft.studios" :key="studio" class="tag-chip include">
+          <span class="studio-chip-name">{{ studio }}</span>
+          <button type="button" class="tag-chip-remove" :aria-label="`Remove ${studio}`" @click="removeStudio(studio)">✕</button>
+        </span>
+      </div>
+      <input v-model="studioQuery" class="tag-search" type="search" placeholder="Search studios, e.g. Kyoto Animation" aria-label="Search studios">
+      <template v-if="studioQuery.trim()">
+        <div v-if="studioSuggestions.length" class="pill-row">
+          <button v-for="studio in studioSuggestions" :key="studio.name" type="button" class="pill" @click="addStudio(studio.name)">
+            {{ studio.name }} <span class="tag-count">{{ studio.count }}</span>
+          </button>
+        </div>
+        <p v-else class="empty-hint">No studio in your library matches that.</p>
+      </template>
+    </section>
+
     <section v-if="options?.genres.length" class="group">
       <h3 class="group-title">Genres <span class="group-hint">tap once to require, twice to exclude</span></h3>
       <div class="pill-row">
@@ -559,6 +598,12 @@ const listCheckedOn = computed(() => {
 
 .tag-chip-flip {
   padding: 6px 4px 6px 12px;
+}
+
+.studio-chip-name {
+  padding: 6px 4px 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .tag-chip-remove {

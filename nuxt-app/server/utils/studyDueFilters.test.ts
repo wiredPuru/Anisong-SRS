@@ -16,7 +16,7 @@ vi.mock("../db/client.ts", async () => {
 });
 
 const FILTERS: StudyFilters = {
-  yearMin: 2000, yearMax: 2009, seasons: [], scoreMin: null, scoreMax: null, formats: [], themeTypes: [],
+  yearMin: 2000, yearMax: 2009, seasons: [], scoreMin: null, scoreMax: null, formats: [], studios: [], themeTypes: [],
   genresInclude: [], genresExclude: [], tagsInclude: [], tagsExclude: [], tagMinRank: 60, listAniListIds: null, listSource: null,
 };
 
