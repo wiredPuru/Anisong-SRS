@@ -39,10 +39,14 @@ interface CardWithDetails {
   animeCoverImageUrl: string | null;
 }
 
-const props = defineProps<{
-  query: string;
-  hasDefaultDownloadFolder: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    query: string;
+    hasDefaultDownloadFolder: boolean;
+    active?: boolean;
+  }>(),
+  { active: true },
+);
 
 const emit = defineEmits<{
   refresh: [];
@@ -195,7 +199,7 @@ async function removeCard(resultKey: string) {
 </script>
 
 <template>
-  <div v-if="props.query.trim().length >= 2" class="add-song-group">
+  <div v-if="props.query.trim().length >= 2" v-show="props.active" class="add-song-group">
     <h2 class="group-title">Songs</h2>
     <div v-if="searching" class="state">
       <ActivityStatus :request-key="props.query" label="Searching for songs" />

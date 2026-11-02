@@ -100,6 +100,29 @@ function onSearchInput() {
   }, 250);
 }
 
+const RESULT_TABS = [
+  { key: "cards", label: "Your cards" },
+  { key: "anime", label: "Anime" },
+  { key: "songs", label: "Songs" },
+  { key: "artists", label: "Artists" },
+] as const;
+type ResultTab = (typeof RESULT_TABS)[number]["key"];
+
+const resultTab = ref<ResultTab>("cards");
+const listPaneRef = ref<HTMLElement | null>(null);
+const tabScroll: Partial<Record<ResultTab, number>> = {};
+const showResultTabs = computed(() => searchQuery.value.length >= 2);
+const activeResultTab = computed<ResultTab>(() => (showResultTabs.value ? resultTab.value : "cards"));
+
+async function selectResultTab(next: ResultTab) {
+  if (next === resultTab.value) return;
+  const pane = listPaneRef.value;
+  if (pane) tabScroll[resultTab.value] = pane.scrollTop;
+  resultTab.value = next;
+  await nextTick();
+  if (pane) pane.scrollTop = tabScroll[next] ?? 0;
+}
+
 const route = useRoute();
 
 function applyQueryParam(raw: unknown) {
@@ -681,7 +704,23 @@ watch(
       :class="{ resizing: inspectorDragging }"
       :style="{ '--inspector-width': `${inspectorWidth}px` }"
     >
-      <div class="list-pane">
+      <div ref="listPaneRef" class="list-pane">
+        <div v-if="showResultTabs" class="result-tabs tab-seg" role="tablist" aria-label="Search result types">
+          <button
+            v-for="tab in RESULT_TABS"
+            :key="tab.key"
+            type="button"
+            role="tab"
+            class="tab-seg-btn"
+            :class="{ active: resultTab === tab.key }"
+            :aria-selected="resultTab === tab.key"
+            @click="selectResultTab(tab.key)"
+          >
+            {{ tab.label }}<template v-if="tab.key === 'cards' && !initialPending && !initialError"> ({{ totalCards }})</template>
+          </button>
+        </div>
+
+        <div v-show="activeResultTab === 'cards'">
         <div v-if="initialPending" class="state">
           <MascotState pose="laptop">
             <ActivityStatus :request-key="`${searchQuery}|${missingAnimeThemesMatch}|${statusFilter}|${libraryDescription}`" label="Loading your cards" />
@@ -881,9 +920,11 @@ watch(
             </span>
           </div>
         </template>
+        </div>
 
         <CardAddAnimeResults
           :query="searchQuery"
+          :active="activeResultTab === 'anime'"
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
@@ -892,6 +933,7 @@ watch(
 
         <CardAddSongResults
           :query="searchQuery"
+          :active="activeResultTab === 'songs'"
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
@@ -900,6 +942,7 @@ watch(
 
         <CardAddArtistResults
           :query="searchQuery"
+          :active="activeResultTab === 'artists'"
           :has-default-download-folder="hasDefaultDownloadFolder"
           @refresh="loadFirstPage"
           @preview="previewInInspector"
@@ -1023,6 +1066,40 @@ h1 {
   min-width: 0;
   overflow-y: auto;
   padding: 16px 20px 24px;
+}
+
+.result-tabs {
+  width: fit-content;
+  margin-bottom: 16px;
+}
+
+.tab-seg {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tab-seg-btn {
+  padding: 8px 16px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab-seg-btn:first-child {
+  border-left: none;
+}
+
+.tab-seg-btn.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
 }
 
 .inspector {
