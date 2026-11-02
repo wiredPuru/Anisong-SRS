@@ -6,7 +6,7 @@ const STORAGE_KEY = "gaqSrs:listenPlayLength";
 // /listen's play length: counts only time the clip is actually playing, then
 // calls onExpire so the page can move on. Separate from the Auto Reveal timer
 // on purpose; the two are independent settings.
-export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<number>, onExpire: () => void) {
+export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<number>, onExpire: (presentationKey: number) => void) {
   const seconds = ref(0);
   const playing = ref(false);
   const active = computed(() => enabled.value && seconds.value > 0);
@@ -33,10 +33,12 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
     armedAt = Date.now();
     armedMs = durationMs;
     ticker = setInterval(() => (tick.value += 1), 250);
+    const key = presentationKey.value;
     timeout = setTimeout(() => {
+      if (key !== presentationKey.value) return;
       stop();
       remainingMs = null;
-      onExpire();
+      onExpire(key);
     }, durationMs);
   }
 
@@ -58,7 +60,7 @@ export function useListenPlayLimit(enabled: Ref<boolean>, presentationKey: Ref<n
     stop();
     remainingMs = null;
     playing.value = false;
-  });
+  }, { flush: "sync" });
 
   // A changed length or Autoplay switch applies cleanly: a countdown already
   // running restarts at the new length.

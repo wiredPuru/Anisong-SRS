@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 15797b667e42938cd9c5f5aefd3abc8ba8028e1f0ecb8398ea761d45238a702b -->
+<!-- blueprint:source-hash e3156cf67da63d5dd737575403d722526513f3bb58252d5d8285bc6a784dd944 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -380,6 +380,13 @@ Feature 117 (Mix video dissolve, in two sub-features 117a-117b, both built) was 
 under the incoming one and the incoming picture fades in over it, behind a
 remembered Dissolve toggle (default on). No `project-plan.md` change: it
 refines feature 115's existing control.
+
+Feature 122 (Listen song requests) was added to `build-plan.md` on
+2026-11-02 and is built and verified. Listen has library and online catalog
+search, Play now and Play next, and a session-only request queue that
+returns to the existing deck without changing its order. Catalog
+requests create no library cards. Amended `project-plan.md` §3
+(Listen mode bullet); no persistent data or deployment change.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2841,7 +2848,7 @@ refines feature 115's existing control.
     101 without changing review state, the stack, or deployment.
 
 116. **Mix fade length and curve** - added 2026-10-29, in two sub-features,
-    neither built. Both settings are browser-only (`localStorage`), shown under
+    both built. Both settings are browser-only (`localStorage`), shown under
     Listen's Mix toggle while Mix is on.
     - **116a. Fade length** - done 2026-10-29. 2, 5, 8 or 12 seconds (default 5). The overlap
       planner, the handoff window and the "Next in" countdown read it; the
@@ -2910,7 +2917,25 @@ refines feature 115's existing control.
     session bullet already covers filtering by anime metadata, as with feature
     78.
 
+122. **Listen song requests** - done 2026-11-02. Search the library
+    and online song catalog from Listen, play a result now or queue it next,
+    then resume the existing deck in its current order. Requests are session-
+    only.
+    Catalog requests do not create library cards, deck memberships, or
+    review progress. Library playback remains available offline; online
+    discovery follows the existing Offline mode and Clip source settings.
+
 ## Data model
+
+### Listen request queue (session-only)
+
+- Original deck playlist and its position, kept in memory so requests
+  can finish and the same playlist can continue in its existing order.
+- Requested songs in playback order: either an existing library card
+  reference or temporary online catalog metadata and clip sources.
+- No persisted queue, catalog-card creation, migration, scheduling, or
+  review-history write. See `blueprint/history/features/122-listen-song-requests.md`
+  for the playback contracts.
 
 ### Anime
 
@@ -3364,6 +3389,10 @@ itself with new params without remounting it.
 
 Routes:
 
+- `/listen` - feature 101's deck player, with feature 115-117 Mix controls.
+  Feature 122 adds song search, Play now / Play next, and a
+  temporary request queue that returns to the original deck; catalog
+  playback does not import cards.
 - `/` - done (feature 15). A launcher hub with links to Study, Cards, Decks,
   Stats, Settings - no live data, no dashboard stats, plus a persistent nav
   bar in a shared Nuxt layout, present on every page. Feature 50f (2026-09-03)

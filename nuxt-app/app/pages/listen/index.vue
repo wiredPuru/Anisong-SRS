@@ -4,6 +4,7 @@ import type { CardWithDetails, StudyScope } from "~/composables/useStudySession"
 import { buildSourceLinks } from "~/utils/sourceLinks";
 import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
 import type { HotkeyActionId } from "~/utils/hotkeys";
+import { listenCard, listenTrackUnavailableReason, type ListenTrack } from "~/utils/listenRequests";
 
 const route = useRoute();
 
@@ -70,11 +71,26 @@ function applyFilters(next: StudyFilters) {
 
 const shuffle = ref(true);
 const editingCard = shallowRef<CardWithDetails | null>(null);
+const showSongSearch = ref(false);
+const songSearchTrigger = ref<HTMLButtonElement | null>(null);
+const queueTrigger = ref<HTMLButtonElement | null>(null);
+const focusQueue = ref(false);
+const requestNotice = ref<string | null>(null);
 const listenPlayer = ref<{ pause(): void } | null>(null);
 
 const {
   currentCard,
+  currentEntry,
+  nextEntry,
+  currentLibraryCard,
   nextCard,
+  startOnMount,
+  canGoPrevious,
+  pendingRequests,
+  deckProgress,
+  removeRequest,
+  clearRequests,
+  request,
   queueKey,
   index,
   total,
@@ -86,10 +102,46 @@ const {
   offlineHidden,
   presentationKey,
   next,
+  advance,
   previous,
   restart,
   patchCard,
 } = useListenSession(scope, filters, shuffle, audioOnly, clipSource);
+
+const pendingKeys = computed(() => pendingRequests.value.map((entry) => entry.track.key));
+function openSongSearch() {
+  focusQueue.value = false;
+  requestNotice.value = null;
+  showSongSearch.value = true;
+}
+function openRequestQueue() {
+  focusQueue.value = true;
+  requestNotice.value = null;
+  showSongSearch.value = true;
+}
+function closeSongSearch() {
+  showSongSearch.value = false;
+  nextTick(() => (focusQueue.value ? queueTrigger.value ?? songSearchTrigger.value : songSearchTrigger.value)?.focus());
+}
+function removeSongRequest(entryId: number) {
+  removeRequest(entryId);
+  requestNotice.value = "Removed the request.";
+}
+function clearSongRequests() {
+  clearRequests();
+  requestNotice.value = "Cleared the requests. Your deck continues normally.";
+}
+function requestSong(track: ListenTrack, mode: "now" | "next", epoch: number) {
+  const status = request(track, mode, epoch);
+  if (status === "stale") { closeSongSearch(); return; }
+  if (status === "unavailable") {
+    requestNotice.value = listenTrackUnavailableReason(track, clipSource.value) ?? "That song can't be played right now.";
+    return;
+  }
+  const title = listenCard({ entryId: 1, origin: "request", track }).songTitle;
+  requestNotice.value = status === "playing" ? `Playing ${title}.` : status === "already-queued" ? `${title} is already queued.` : `Queued ${title}.`;
+}
+watch(queueKey, () => { if (showSongSearch.value) closeSongSearch(); });
 
 // A session-only override of the Playback mode setting. It is snapshotted when
 // a new song begins, so the mounted player never sees its audio-only prop
@@ -107,10 +159,10 @@ const listenMix = useListenMix();
 // Autoplay also carries the playlist on by itself. Each song advances at most
 // once, so an ended clip and a later trigger for the same song cannot skip two.
 let advancedFrom = -1;
-function advanceOnce() {
-  if (editingCard.value || !autoplayNext.value || advancedFrom === presentationKey.value) return;
-  advancedFrom = presentationKey.value;
-  next();
+function advanceOnce(key = presentationKey.value) {
+  if (key !== presentationKey.value || editingCard.value || !autoplayNext.value || advancedFrom === key) return;
+  advancedFrom = key;
+  advance(key);
 }
 
 const playLimit = useListenPlayLimit(autoplayNext, presentationKey, advanceOnce);
@@ -185,7 +237,7 @@ const scopeChipLabel = computed(() => (scope.value?.type === "all" ? "All decks"
 function switchScope(pick: ScopePick) {
   return navigateTo({ path: route.path, query: scopeToQuery(pick) });
 }
-const canGoBack = computed(() => finished.value || index.value > 0);
+const canGoBack = canGoPrevious;
 
 function onLocalPathUpdated({ cardId, kind, localPath }: { cardId: number; kind: "video" | "audio"; localPath: string }) {
   patchCard(cardId, kind === "video" ? { localVideoPath: localPath } : { localAudioPath: localPath });
@@ -215,6 +267,8 @@ watchEffect(() => playback.configure({
 watch([presentationKey, queueKey, currentCard, nextCard], () => playback.synchronize({
   key: presentationKey.value,
   queue: queueKey.value,
+  entryId: currentEntry.value?.entryId,
+  nextEntryId: nextEntry.value?.entryId,
   card: currentCard.value,
   nextCard: nextCard.value,
 }), { immediate: true });
@@ -253,8 +307,8 @@ function onPlaybackPaused() {
 }
 
 function openEditor() {
-  if (!currentCard.value || editingCard.value) return;
-  editingCard.value = { ...currentCard.value };
+  if (!currentLibraryCard.value || editingCard.value) return;
+  editingCard.value = { ...currentLibraryCard.value };
   playback.setHeld(true);
   listenPlayer.value?.pause();
   onPlaybackPaused();
@@ -330,7 +384,7 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
 };
 
 function onKeydown(event: KeyboardEvent) {
-  if (editingCard.value) return;
+  if (editingCard.value || showSongSearch.value) return;
   if (isTypingTarget(event)) return;
   const action = hotkeys.actionFor("listen", event);
   const run = action && PAGE_ACTIONS[action];
@@ -354,16 +408,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <ActivityStatus label="Loading your playlist" />
     </div>
     <div v-else-if="error" class="state state-error">{{ error }}</div>
-    <div v-else-if="total === 0" class="state">
+    <div v-else-if="total === 0 && !currentCard" class="state">
       <MascotKai pose="surprised" class="state-mascot" />
       <strong class="state-title">No songs match</strong>
       <span v-if="offlineHidden"><OfflineHiddenNote :count="offlineHidden" />. Turn off Playable offline only in Settings to bring them back.</span>
       <span v-else-if="skippedCount">{{ skippedCount }} {{ skippedCount === 1 ? "song has" : "songs have" }} no playable clip with your Clip source setting.</span>
       <span v-else-if="activeFilterCount">Nothing in this playlist matches your filters.</span>
       <span v-else>There is nothing to play here yet.</span>
-      <div v-if="activeFilterCount" class="state-actions">
-        <button type="button" class="ghost-btn" @click="showFilters = true">Edit filters</button>
-        <button type="button" class="ghost-btn" @click="filters = { ...EMPTY_STUDY_FILTERS }">Clear filters</button>
+      <div class="state-actions">
+        <button ref="songSearchTrigger" type="button" class="primary-btn" data-listen-search @click="openSongSearch">Search songs</button>
+        <button v-if="activeFilterCount" type="button" class="ghost-btn" @click="showFilters = true">Edit filters</button>
+        <button v-if="activeFilterCount" type="button" class="ghost-btn" @click="filters = { ...EMPTY_STUDY_FILTERS }">Clear filters</button>
       </div>
     </div>
     <div v-else-if="finished" class="state">
@@ -372,6 +427,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <span>{{ total }} {{ total === 1 ? "song" : "songs" }} played.</span>
       <div class="state-actions">
         <button type="button" class="primary-btn" @click="restart">Play again</button>
+        <button ref="songSearchTrigger" type="button" class="ghost-btn" data-listen-search @click="openSongSearch">Search songs</button>
         <button type="button" class="ghost-btn" @click="previous">Back to the last song</button>
       </div>
     </div>
@@ -381,7 +437,11 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
         </div>
         <div class="header-right">
-          <button type="button" class="transport-btn" @click="openEditor">
+          <span v-if="currentEntry?.origin === 'request'" class="request-label">Requested song</span>
+          <span v-if="currentEntry?.track.kind === 'catalog'" class="catalog-source">Online catalog</span>
+          <button ref="songSearchTrigger" type="button" class="transport-btn" data-listen-search @click="openSongSearch">Search songs</button>
+          <button ref="queueTrigger" type="button" class="transport-btn" @click="openRequestQueue">Queue ({{ pendingRequests.length }})</button>
+          <button v-if="currentLibraryCard" type="button" class="transport-btn" @click="openEditor">
             Edit card <kbd v-if="hotkeyHint('editCard')">{{ hotkeyHint("editCard") }}</kbd>
           </button>
           <StudyDisplayMenu label="Display">
@@ -527,6 +587,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             ref="listenPlayer"
             hotkey-scope="listen"
             :playback-held="Boolean(editingCard)"
+            :keyboard-blocked="showSongSearch"
             :presentation-key="presentationKey"
             :card="currentCard"
             :managed-mode="playback.managedMode.value"
@@ -545,6 +606,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             :audio-only="playerAudioOnly"
             :auto-download="autoDownload"
             :autoplay="autoplayNext"
+            :start-on-mount="startOnMount"
             :play-length="autoplayNext ? playLimit.seconds.value : 0"
             :clip-source="clipSource"
             @playback-started="onPlaybackStarted"
@@ -575,7 +637,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                 :song-title="currentCard.songTitle"
                 :song-title-native="currentCard.songTitleNative"
                 :artist-name="currentCard.artistName"
-                :artist-href="artistDeckPath(currentCard.artistId)"
+                :artist-href="artistLinkPath(currentCard.artistId, currentCard.artistName)"
                 artist-new-tab
                 :anime-title-english="currentCard.animeTitleEnglish"
                 :anime-title-romaji="currentCard.animeTitleRomaji"
@@ -608,7 +670,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :anime-title-native="currentCard.animeTitleNative"
               :song-title-native="currentCard.songTitleNative"
               :blurred="infoHidden"
-              :source-card-id="currentCard.id"
+              :source-card-id="currentCard.libraryCardId ?? undefined"
             />
           </StudyDetailsCard>
         </div>
@@ -650,7 +712,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <span v-if="nextInSeconds !== null" class="next-in" aria-live="off">
                 Next in <strong>{{ nextInSeconds }}s</strong>
               </span>
-              <span class="position">{{ positionLabel(index, total) }}</span>
+              <span class="position">{{ currentEntry?.origin === 'request' ? (total ? `Deck ${deckProgress.played} / ${total}` : 'Request') : positionLabel(index, total) }}</span>
               <button type="button" class="transport-btn next" @click="next">
                 Next <kbd v-if="hotkeyHint('listenNext')">{{ hotkeyHint("listenNext") }}</kbd>
               </button>
@@ -659,6 +721,21 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </div>
     </template>
+    <ListenSongSearch
+      v-if="showSongSearch"
+      :queue-key="queueKey"
+      :clip-source="clipSource"
+      :pending-keys="pendingKeys"
+      :pending-requests="pendingRequests"
+      :focus-queue="focusQueue"
+      :current-key="currentEntry?.track.key"
+      :notice="requestNotice"
+      :disabled="loading"
+      @request="requestSong"
+      @remove="removeSongRequest"
+      @clear="clearSongRequests"
+      @close="closeSongSearch"
+    />
     <CardPreviewModal
       v-if="editingCard"
       :key="editingCard.id"
@@ -680,6 +757,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </template>
 
 <style scoped>
+.catalog-source, .request-label { font-size: 0.75rem; color: var(--muted); }
 .menu-note {
   margin: 0;
   padding: 0 4px;
@@ -806,6 +884,10 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 .header-right {
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header-note {

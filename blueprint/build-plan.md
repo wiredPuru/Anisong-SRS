@@ -1426,6 +1426,10 @@ cleaned-up checkbox version before generating the project overview.
   there is no schema change, migration or new lookup. A show with no studio
   recorded is dropped while the filter is on, like the year and score filters.
 
+- [x] 122. **Listen song requests** - search the library and online song
+  catalog from Listen, play a result now or queue it next, then resume
+  the existing deck in its current order. Requests are session-only.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

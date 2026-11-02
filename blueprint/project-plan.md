@@ -79,6 +79,10 @@ game, behind a password.
   grading, scheduling or score and never changes a card's review state.
   Study's filters narrow it. A casual way to run a guess-the-anime session
   from a deck.
+  Songs can also be requested from the library or online song catalog
+  with Play now or Play next. A temporary request queue plays ahead of
+  the remaining deck, then resumes it without changing its order.
+  Catalog requests do not create library cards.
 - **Language display** - English, Romaji, and Japanese are each independently
   toggleable and can all be shown at once if desired; Furigana is a separate
   sub-toggle under Japanese (only relevant when Japanese is on). Furigana is

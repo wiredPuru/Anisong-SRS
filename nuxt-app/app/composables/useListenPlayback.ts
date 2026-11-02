@@ -1,5 +1,5 @@
 import { onScopeDispose, ref, shallowRef } from "vue";
-import type { CardWithDetails } from "./useStudySession";
+import type { ListenMediaCard } from "../utils/listenRequests";
 import { MIN_LISTEN_MIX_SECONDS, planListenMix, remainingListenSeconds } from "../utils/listenMix";
 import type { GainCurve } from "../utils/mediaGain";
 import type { ManagedPlaybackResult, ManagedPlaybackRole, ManagedPlaybackSnapshot } from "../utils/managedPlayback";
@@ -17,7 +17,8 @@ export interface ListenPlayerPort {
 }
 export interface ListenSlot {
   id: number;
-  card: CardWithDetails;
+  entryId: number;
+  card: ListenMediaCard;
   role: ManagedPlaybackRole;
   origin: ManagedPlaybackRole;
   audioOnly: boolean;
@@ -36,8 +37,10 @@ export interface ListenPlaybackSettings {
 export interface ListenPresentation {
   key: number;
   queue: number;
-  card: CardWithDetails | null;
-  nextCard: CardWithDetails | null;
+  entryId?: number;
+  nextEntryId?: number;
+  card: ListenMediaCard | null;
+  nextCard: ListenMediaCard | null;
 }
 
 const POLL_MS = 250;
@@ -66,6 +69,7 @@ export function useListenPlayback(options: {
   const attempted = new Set<number>();
   let sequence = 0;
   let generation = 0;
+  let holdGeneration = 0;
   let disposed = false;
   let attempting = false;
   let handoffPending = false;
@@ -116,15 +120,15 @@ export function useListenPlayback(options: {
     for (const slot of [...slots.value]) if (slot.role !== "foreground") retire(slot.id);
     currentPort()?.rampGain(1, 0);
   }
-  function allocate(card: CardWithDetails, role: ManagedPlaybackRole) {
-    const slot: ListenSlot = { id: ++sequence, card, role, origin: role, audioOnly: settings.audioOnly,
+  function allocate(card: ListenMediaCard, role: ManagedPlaybackRole, entryId = card.id) {
+    const slot: ListenSlot = { id: ++sequence, entryId, card, role, origin: role, audioOnly: settings.audioOnly,
       randomStart: settings.randomStart, playLength: settings.autoplay ? settings.playLength : 0 };
     slots.value = [...slots.value, slot];
   }
   function stageNext() {
     if (!managedMode.value || !settings.mix || !settings.autoplay || !presentation?.nextCard
       || slots.value.length !== 1 || !foreground()) return;
-    allocate(presentation.nextCard, "standby");
+    allocate(presentation.nextCard, "standby", presentation.nextEntryId);
   }
 
   // The fade ended, or something made it unsafe to continue: drop the tail and
@@ -225,16 +229,26 @@ export function useListenPlayback(options: {
 
   function synchronize(next: ListenPresentation) {
     if (disposed) return;
-    if (handoffPending && next.card && foreground()?.card.id === next.card.id && presentation?.queue === next.queue) {
+    if (handoffPending && next.card && foreground()?.entryId === (next.entryId ?? next.card.id)
+      && presentation?.queue === next.queue && next.key === presentation.key + 1) {
       handoffPending = false;
       presentation = next;
       stageNext();
       return;
     }
-    if (presentation?.key === next.key && presentation.queue === next.queue && foreground()?.card.id === next.card?.id) {
+    if (presentation?.key === next.key && presentation.queue === next.queue
+      && foreground()?.entryId === (next.entryId ?? next.card?.id)) {
+      const waiting = standby();
+      if (waiting && (!next.nextCard || waiting.entryId !== (next.nextEntryId ?? next.nextCard.id))) {
+        cancelPending();
+        retire(waiting.id);
+        const out = foreground();
+        if (out) attempted.delete(out.id);
+      }
       presentation = next;
       slots.value = slots.value.map((slot) => {
-        const card = [next.card, next.nextCard].find((card) => card?.id === slot.card.id);
+        const card = slot.entryId === (next.entryId ?? next.card?.id) ? next.card
+          : slot.entryId === (next.nextEntryId ?? next.nextCard?.id) ? next.nextCard : null;
         return card && card !== slot.card ? { ...slot, card } : slot;
       });
       stageNext();
@@ -243,7 +257,7 @@ export function useListenPlayback(options: {
     stop();
     presentation = next;
     managedMode.value = settings.mix && settings.autoplay;
-    if (next.card) allocate(next.card, "foreground");
+    if (next.card) allocate(next.card, "foreground", next.entryId);
     stageNext();
     if (managedMode.value) ensurePolling(); else stopPolling();
   }
@@ -255,9 +269,9 @@ export function useListenPlayback(options: {
   async function attach(id: number, port: ListenPlayerPort | null) {
     if (!port || !slots.value.some((s) => s.id === id) || ports.has(id)) return;
     ports.set(id, port);
-    const token = generation;
+    const token = holdGeneration;
     const result = await port.prepare();
-    if (disposed || token !== generation || ports.get(id) !== port) return;
+    if (disposed || token !== holdGeneration || ports.get(id) !== port) return;
     if (result.status === "ready" && foreground()?.id === id && settings.autoplay && !held) await port.play();
   }
   function report(id: number, snapshot: ManagedPlaybackSnapshot) {
@@ -313,6 +327,7 @@ export function useListenPlayback(options: {
     if (held === value) return;
     held = value;
     if (!held) return;
+    holdGeneration += 1;
     foregroundPaused();
     cancelPending();
     for (const port of ports.values()) port.pause();

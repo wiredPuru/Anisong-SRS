@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { CardWithDetails } from "~/composables/useStudySession";
+import type { ListenMediaCard } from "~/utils/listenRequests";
 import type { ListenPlayerPort, ListenSlot } from "~/composables/useListenPlayback";
 import type { ManagedPlaybackSnapshot } from "~/utils/managedPlayback";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
-  card: CardWithDetails;
+  card: ListenMediaCard;
   presentationKey: number;
   managedMode: boolean;
   slots: ListenSlot[];
@@ -21,6 +21,9 @@ const emit = defineEmits<{
   "local-path-updated": [{ cardId: number; kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ cardId: number; kind: "video" | "audio" }];
   "update:media-kind": ["video" | "audio"];
+  "playback-started": [key: number];
+  "playback-paused": [key: number];
+  "playback-ended": [key: number];
 }>();
 
 // One master volume for both slots; the saved level is only written by the
@@ -50,6 +53,12 @@ function veil(slot: ListenSlot, name: "hideVideo" | "hideCover") {
   return Boolean(attrs[kebab] ?? attrs[name]);
 }
 
+function forwardPlayback(event: "playback-started" | "playback-paused" | "playback-ended", owner: number | undefined, managed: boolean) {
+  if (managed !== props.managedMode) return;
+  const active = managed ? props.slots.find((slot) => slot.role === "foreground")?.id : props.presentationKey;
+  if (owner === active) emit(event, props.presentationKey);
+}
+
 function adopt(slot: ListenSlot) {
   return slot.role === "foreground";
 }
@@ -60,8 +69,13 @@ function adopt(slot: ListenSlot) {
     v-if="!managedMode"
     ref="plainPlayer"
     :key="presentationKey"
+    :event-key="presentationKey"
     v-bind="$attrs"
+    @playback-started="forwardPlayback('playback-started', $event, false)"
+    @playback-paused="forwardPlayback('playback-paused', $event, false)"
+    @playback-ended="forwardPlayback('playback-ended', $event, false)"
     :card="card"
+    :read-only="card.libraryCardId === null"
     @local-path-updated="emit('local-path-updated', { cardId: card.id, ...$event })"
     @local-path-cleared="emit('local-path-cleared', { cardId: card.id, ...$event })"
     @update:media-kind="emit('update:media-kind', $event)"
@@ -77,9 +91,14 @@ function adopt(slot: ListenSlot) {
     <StudyMediaPlayer
       v-for="slot in slots"
       :key="slot.id"
+      :event-key="slot.id"
       :ref="(instance: unknown) => bindPort(slot, instance)"
       v-bind="$attrs"
+      @playback-started="forwardPlayback('playback-started', $event, true)"
+      @playback-paused="forwardPlayback('playback-paused', $event, true)"
+      @playback-ended="forwardPlayback('playback-ended', $event, true)"
       :card="slot.card"
+      :read-only="slot.card.libraryCardId === null"
       :hide-video="veil(slot, 'hideVideo')"
       :hide-cover="veil(slot, 'hideCover')"
       :ghost="slot.role === 'tail'"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CardWithDetails } from "~/composables/useStudySession";
+import { mediaLibraryCardId, type ListenMediaCard } from "~/utils/listenRequests";
 import { createMediaGain, type GainCurve } from "~/utils/mediaGain";
 import type { HotkeyScope } from "~/utils/hotkeys";
 import { networkImageSrc } from "~/utils/networkImage";
@@ -8,16 +8,10 @@ import { createManagedPlayback, type ManagedPlaybackRole, type ManagedPlaybackSn
   type ManagedPlaybackFailure, type ManagedPlaybackResult } from "~/utils/managedPlayback";
 
 const props = defineProps<{
-  card: Pick<
-    CardWithDetails,
-    | "id"
-    | "localVideoPath"
-    | "localAudioPath"
-    | "animethemesVideoUrl"
-    | "animethemesAudioUrl"
-    | "themeSlot"
-    | "animeCoverImageUrl"
-  >;
+  card: ListenMediaCard;
+  readOnly?: boolean;
+  eventKey?: number;
+  keyboardBlocked?: boolean;
   hideVideo?: boolean;
   randomStart?: boolean;
   ambient?: boolean;
@@ -57,9 +51,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:immersive": [boolean];
   "update:media-kind": ["video" | "audio"];
-  "playback-started": [];
-  "playback-paused": [];
-  "playback-ended": [];
+  "playback-started": [eventKey?: number];
+  "playback-paused": [eventKey?: number];
+  "playback-ended": [eventKey?: number];
   "local-path-updated": [{ kind: "video" | "audio"; localPath: string }];
   "local-path-cleared": [{ kind: "video" | "audio" }];
   "managed-state": [ManagedPlaybackSnapshot];
@@ -69,6 +63,8 @@ const emit = defineEmits<{
 const managedStopped = ref(false);
 const foreground = computed(() => !managedStopped.value && (!props.managed || props.managed.role === "foreground"));
 let disposed = false;
+const playbackEventKey = props.eventKey;
+const writableCard = computed(() => mediaLibraryCardId(props.card, props.readOnly) !== null);
 
 const { offlineMode, canUseRemote } = useNetworkMode();
 const localAvailability = ref<{ video: boolean; audio: boolean } | null>(null);
@@ -116,7 +112,7 @@ const hasAudioSource = computed(() => Boolean(localAudioPath.value) || remoteAud
 // overlapping audio, which is exactly what that constraint avoids. A card
 // with no audio source at all still falls back to video even when audioOnly
 // is on. audioFallbackChosen is the one other after-mount trigger, and only
-// an explicit "Use audio for this card" click sets it: a failed video is
+// an explicit "Use audio" click sets it: a failed video is
 // reported rather than silently swapped, so this fires on a deliberate click
 // against a video that never played, and watch(mediaKind, ...) below pauses
 // and resets both elements before the DOM swaps anyway. Both refs are
@@ -481,7 +477,7 @@ function onLoadedMetadata() {
 // Only the element that is mounted right now can report a failure, and only
 // for a reason that is actually about the clip. An error from any other
 // element is about a source we already moved off: the <video> immediately
-// after "Use audio for this card", or the previous card's load inside
+// after "Use audio", or the previous card's load inside
 // CardPreviewModal, which keeps one player mounted across cards. And
 // MEDIA_ERR_ABORTED means the load was torn down at our own request (a
 // source swapped in by a background download, a card advance), not that the
@@ -560,10 +556,11 @@ const {
 } = useCardDownloads();
 
 async function runDownload(kind: "video" | "audio"): Promise<string | null> {
-  const cardId = props.card.id;
+  const cardId = mediaLibraryCardId(props.card, props.readOnly);
+  if (cardId === null) return null;
   const result = await downloadMedia<{ localVideoPath: string | null; localAudioPath: string | null }>(
-    props.card.id,
-    props.card.id,
+    cardId,
+    cardId,
     kind,
   );
   if (disposed || managedStopped.value || props.card.id !== cardId) return null;
@@ -589,7 +586,8 @@ async function retryDownload(kind: "video" | "audio"): Promise<string | null> {
 // A successful redownload's new local path recomputes `src`, which is what
 // clears the failure state above.
 async function redownload(kind: "video" | "audio") {
-  const cardId = props.card.id;
+  const cardId = mediaLibraryCardId(props.card, props.readOnly);
+  if (cardId === null) return;
   try {
     const body =
       kind === "video" ? { id: props.card.id, localVideoPath: null } : { id: props.card.id, localAudioPath: null };
@@ -612,7 +610,7 @@ async function redownload(kind: "video" | "audio") {
 // "nothing to download" (no remote source, or already local), so this
 // settles to null on its own once the download lands.
 const autoDownloadTarget = computed<"video" | "audio" | null>(() =>
-  foreground.value && canUseRemote.value && props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
+  writableCard.value && foreground.value && canUseRemote.value && props.autoDownload && props.hasDefaultDownloadFolder && canDownload(props.card, mediaKind.value)
     ? mediaKind.value
     : null,
 );
@@ -626,7 +624,7 @@ const autoplayPlan = computed(() =>
   planAutoplay({
     autoplay: !props.managed && Boolean(props.autoplay),
     hasSource: Boolean(src.value),
-    canDownloadFirst: canUseRemote.value && props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
+    canDownloadFirst: writableCard.value && canUseRemote.value && props.hasDefaultDownloadFolder === true && canDownload(props.card, mediaKind.value),
   }),
 );
 
@@ -923,7 +921,7 @@ let lastPlayedTimer: ReturnType<typeof setInterval> | null = null;
 let snapshotCanvas: HTMLCanvasElement | null = null;
 
 function recordLastPlayed() {
-  if (!foreground.value || disposed) return;
+  if (!foreground.value || disposed || !writableCard.value) return;
   const meta = props.lastPlayed;
   if (!meta) return;
   const base = { cardId: props.card.id, songTitle: meta.songTitle, animeTitle: meta.animeTitle };
@@ -1235,7 +1233,7 @@ function onPlaying() {
   markPlayable();
   if (foreground.value) {
     startLastPlayedTimer();
-    emit("playback-started");
+    emit("playback-started", playbackEventKey);
   }
 }
 
@@ -1246,11 +1244,11 @@ function onPause() {
   stopAmbientLoop();
   stopVisualizerLoop();
   stopLastPlayedTimer();
-  if (foreground.value && !disposed) emit("playback-paused");
+  if (foreground.value && !disposed) emit("playback-paused", playbackEventKey);
 }
 
 function onEnded() {
-  if (foreground.value && !disposed) emit("playback-ended");
+  if (foreground.value && !disposed) emit("playback-ended", playbackEventKey);
 }
 
 watch(foreground, (active) => {
@@ -1261,7 +1259,7 @@ watch(foreground, (active) => {
     stopDrag?.();
   } else if (managedSnapshot.value?.state === "playing") {
     startLastPlayedTimer();
-    emit("playback-started");
+    emit("playback-started", playbackEventKey);
   }
 }, { flush: "post" });
 
@@ -1312,7 +1310,7 @@ const { isTypingTarget } = useHotkeyGuard();
 const { actionFor, claimSpace, hint: hotkeyHint } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
-  if (!foreground.value || disposed || props.playbackHeld) return;
+  if (!foreground.value || disposed || props.playbackHeld || props.keyboardBlocked) return;
   if (isTypingTarget(event)) return;
   const action = actionFor(props.hotkeyScope ?? "preview", event);
   if (action === "playPause") {
@@ -1477,13 +1475,13 @@ onUnmounted(() => stopDrag?.());
             class="download-btn"
             @click="audioFallbackChosen = true"
           >
-            Use audio for this card
+            Use audio
           </button>
         </div>
         <!-- Only the kind that actually failed is offered here. Rendering both
              is what put "Download audio" under a video failure whose audio was
              never the problem. -->
-        <div v-if="failedKind && !failedKindBlocked && !failedOffline && hasAnyDownloadableSource(card)" class="download-section">
+        <div v-if="writableCard && failedKind && !failedKindBlocked && !failedOffline && hasAnyDownloadableSource(card)" class="download-section">
           <div v-if="hasDefaultDownloadFolder" class="download-actions">
             <template v-if="canDownload(card, failedKind)">
               <DownloadProgress
@@ -1515,15 +1513,14 @@ onUnmounted(() => stopDrag?.());
         </div>
         <div v-else-if="failedOffline" class="download-section">
           <p class="clip-blocked-hint">
-            Turn off <NuxtLink to="/settings?section=library">Offline mode</NuxtLink> to stream it, or download this
-            card's clips while online.
+            Turn off <NuxtLink to="/settings?section=library">Offline mode</NuxtLink> to stream it<span v-if="writableCard">, or download this card's clips while online</span>.
           </p>
         </div>
         <div v-else-if="failedKindBlocked" class="download-section">
           <p class="clip-blocked-hint">
-            Blocked by your <NuxtLink to="/settings?section=playback">Clip source setting</NuxtLink>. Try
-            <NuxtLink to="/settings?section=library">re-sourcing this card's clips</NuxtLink>, or widen the setting to
-            include this host.
+            Blocked by your <NuxtLink to="/settings?section=playback">Clip source setting</NuxtLink>. <template v-if="writableCard">Try
+            <NuxtLink to="/settings?section=library">re-sourcing this card's clips</NuxtLink>, or widen the setting to include this host.</template>
+            <template v-else>Widen the setting to include this host.</template>
           </p>
         </div>
         <slot name="error-actions" />
@@ -1553,7 +1550,7 @@ onUnmounted(() => stopDrag?.());
               class="download-btn"
               @click.stop="audioFallbackChosen = true"
             >
-              Use audio for this card
+              Use audio
             </button>
           </div>
         </template>

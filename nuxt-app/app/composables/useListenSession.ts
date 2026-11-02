@@ -1,17 +1,21 @@
-import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
-import type { ClipSource } from "~/utils/clipSource";
-import type { StudyFilters } from "~/utils/studyFilters";
+import { computed, onScopeDispose, ref, shallowRef, watch, type ComputedRef, type Ref } from "vue";
+import type { CardWithDetails, StudyScope } from "./useStudySession";
+import { extractErrorMessage } from "./useApiError";
+import type { ClipSource } from "../utils/clipSource";
+import { filtersQueryValue, type StudyFilters } from "../utils/studyFilters";
+import { isPlayableCard } from "../utils/listenQueue";
+import { resolveRemotePrefetchUrl } from "../utils/mediaSource";
+import { libraryListenTrack, listenCard, listenTrackUnavailableReason, type ListenTrack } from "../utils/listenRequests";
+import { clearListenRequests, createListenRequestQueue, currentListenEntry, listenDeckProgress,
+  moveListenQueue, pendingListenRequests, removeListenRequest, requestListenTrack } from "../utils/listenRequestQueue";
 
 const PREFETCH_AHEAD = 2;
-
 interface ListenQueueResponse {
   cards: CardWithDetails[];
   total: number;
   offlineHidden?: number;
 }
 
-// A playlist over a scope: no grading and no schedule, so unlike
-// useStudySession it never calls a study or review route.
 export function useListenSession(
   scope: ComputedRef<StudyScope | null>,
   filters: Ref<StudyFilters>,
@@ -20,132 +24,116 @@ export function useListenSession(
   clipSource: ComputedRef<ClipSource>,
 ) {
   const { canUseRemote } = useNetworkMode();
-  const cards = ref<CardWithDetails[]>([]);
-  const index = ref(0);
-  const finished = ref(false);
+  const queue = shallowRef(createListenRequestQueue());
   const loading = ref(false);
   const error = ref<string | null>(null);
   const skippedCount = ref(0);
   const capped = ref(false);
   const offlineHidden = ref(0);
-  // Bumped on every song shown, even a repeat of the same card, so the player
-  // always gets a fresh mount.
   const presentationKey = ref(0);
-  // Bumped whenever the playlist is replaced, so a coordinator can tell a new
-  // queue from an ordinary move within the same one.
   const queueKey = ref(0);
+  const startOnMount = ref(false);
   let loadToken = 0;
+  let disposed = false;
 
-  const total = computed(() => cards.value.length);
-  const currentCard = computed<CardWithDetails | null>(() => (finished.value ? null : (cards.value[index.value] ?? null)));
-  const nextCard = computed<CardWithDetails | null>(() => (finished.value ? null : (cards.value[index.value + 1] ?? null)));
+  const currentEntry = computed(() => currentListenEntry(queue.value));
+  const nextEntry = computed(() => queue.value.finished ? null : (queue.value.entries[queue.value.index + 1] ?? null));
+  const currentCard = computed(() => currentEntry.value ? listenCard(currentEntry.value) : null);
+  const nextCard = computed(() => nextEntry.value ? listenCard(nextEntry.value) : null);
+  const currentLibraryCard = computed(() => currentEntry.value?.track.kind === "library" ? currentEntry.value.track.card : null);
+  const pendingRequests = computed(() => pendingListenRequests(queue.value));
+  const deckProgress = computed(() => listenDeckProgress(queue.value));
+  const total = computed(() => deckProgress.value.total);
+  const index = computed(() => Math.max(0, deckProgress.value.played - 1));
+  const finished = computed(() => queue.value.finished);
+  const canGoPrevious = computed(() => queue.value.finished || queue.value.index > 0);
 
   async function load() {
-    if (!scope.value) return;
     const token = ++loadToken;
-    loading.value = true;
+    queue.value = createListenRequestQueue();
+    queueKey.value += 1;
+    presentationKey.value += 1;
+    startOnMount.value = false;
     error.value = null;
+    skippedCount.value = 0;
+    capped.value = false;
+    offlineHidden.value = 0;
+    if (!scope.value) { loading.value = false; return; }
+    loading.value = true;
     try {
       const result = await $fetch<ListenQueueResponse>("/api/listen/queue", {
         method: "POST",
         body: { scope: scope.value, filters: filtersQueryValue(filters.value), shuffle: shuffle.value },
       });
-      if (token !== loadToken) return;
+      if (disposed || token !== loadToken) return;
       const playable = result.cards.filter((card) => isPlayableCard(card, clipSource.value));
-      cards.value = playable;
+      queue.value = createListenRequestQueue(playable.map(libraryListenTrack));
       skippedCount.value = result.cards.length - playable.length;
       capped.value = result.total > result.cards.length;
       offlineHidden.value = result.offlineHidden ?? 0;
-      index.value = 0;
-      finished.value = false;
       presentationKey.value += 1;
-      queueKey.value += 1;
     } catch (err) {
-      if (token !== loadToken) return;
-      cards.value = [];
+      if (disposed || token !== loadToken) return;
       error.value = extractErrorMessage(err, "Failed to load the playlist.");
     } finally {
-      if (token === loadToken) loading.value = false;
+      if (!disposed && token === loadToken) loading.value = false;
     }
   }
 
-  function next() {
-    if (finished.value || !cards.value.length) return;
-    const step = stepIndex(index.value, total.value, "next");
-    if (step === "finished") {
-      finished.value = true;
-      return;
-    }
-    index.value = step;
+  function move(direction: "next" | "previous", expectedKey?: number) {
+    if (disposed || (expectedKey !== undefined && expectedKey !== presentationKey.value)) return;
+    const next = moveListenQueue(queue.value, direction);
+    if (next === queue.value) return;
+    queue.value = next;
+    startOnMount.value = false;
     presentationKey.value += 1;
   }
+  const next = () => move("next");
+  const advance = (expectedKey: number) => move("next", expectedKey);
+  const previous = () => move("previous");
 
-  function previous() {
-    if (!cards.value.length) return;
-    if (finished.value) {
-      finished.value = false;
-    } else {
-      const step = stepIndex(index.value, total.value, "previous");
-      if (step === "finished" || step === index.value) return;
-      index.value = step;
+  function request(track: ListenTrack, mode: "now" | "next", expectedQueue = queueKey.value) {
+    if (disposed || expectedQueue !== queueKey.value) return "stale" as const;
+    if (loading.value || !scope.value || (track.kind === "catalog" && !canUseRemote.value)
+      || listenTrackUnavailableReason(track, clipSource.value)) return "unavailable" as const;
+    const result = requestListenTrack(queue.value, track, mode);
+    queue.value = result.queue;
+    error.value = null;
+    if (result.status === "playing") {
+      startOnMount.value = true;
+      presentationKey.value += 1;
     }
-    presentationKey.value += 1;
+    return result.status;
   }
 
-  // A download or cleared path updates the song in place; an index write does not
-  // retrigger the prefetch watch below, which only looks at the array's identity.
-  function patchCurrent(patch: Partial<CardWithDetails>) {
-    const current = cards.value[index.value];
-    if (current) cards.value[index.value] = { ...current, ...patch };
-  }
+  function removeRequest(entryId: number) { queue.value = removeListenRequest(queue.value, entryId); }
+  function clearRequests() { queue.value = clearListenRequests(queue.value); }
 
-  // Patched by owner id so a background download for an upcoming song lands on
-  // that song, whichever one is current when it finishes.
   function patchCard(id: number, patch: Partial<CardWithDetails>) {
-    const at = cards.value.findIndex((card) => card.id === id);
-    if (at >= 0) cards.value[at] = { ...cards.value[at]!, ...patch };
+    queue.value = { ...queue.value, entries: queue.value.entries.map((entry) =>
+      entry.track.kind === "library" && entry.track.card.id === id
+        ? { ...entry, track: { ...entry.track, card: { ...entry.track.card, ...patch } } } : entry) };
+  }
+  function patchCurrent(patch: Partial<CardWithDetails>) {
+    if (currentLibraryCard.value) patchCard(currentLibraryCard.value.id, patch);
   }
 
-  // Refetches rather than rewinding, so a shuffled playlist comes back reshuffled.
-  function restart() {
-    return load();
-  }
-
-  watch([scope, filters, shuffle], () => {
-    cards.value = [];
-    finished.value = false;
-    queueKey.value += 1;
-    load();
-  }, { immediate: true, deep: true });
-
-  // Best-effort cache warm-up for the songs coming up; the current song's own
-  // warm-up is StudyMediaPlayer's job.
-  watch([cards, index], () => {
-    if (!canUseRemote.value) return;
-    for (const upcoming of cards.value.slice(index.value + 1, index.value + 1 + PREFETCH_AHEAD)) {
-      const url = resolveRemotePrefetchUrl(upcoming, audioOnly.value, clipSource.value);
+  watch([scope, filters, shuffle], load, { immediate: true, deep: true });
+  watch(queue, () => {
+    if (!canUseRemote.value || queue.value.finished) return;
+    const upcoming = queue.value.entries.slice(queue.value.index + 1, queue.value.index + 1 + PREFETCH_AHEAD);
+    for (const entry of upcoming) {
+      const url = resolveRemotePrefetchUrl(listenCard(entry), audioOnly.value, clipSource.value);
       if (url) $fetch("/api/media/prefetch", { method: "POST", body: { url } }).catch(() => {});
     }
   });
+  onScopeDispose(() => { disposed = true; loadToken += 1; });
 
   return {
-    cards,
-    currentCard,
-    nextCard,
-    queueKey,
-    index,
-    total,
-    finished,
-    loading,
-    error,
-    skippedCount,
-    capped,
-    offlineHidden,
-    presentationKey,
-    next,
-    previous,
-    restart,
-    patchCurrent,
-    patchCard,
+    currentEntry, nextEntry, currentCard, nextCard, currentLibraryCard,
+    pendingRequests, deckProgress, queueKey, index, total, finished,
+    loading, error, skippedCount, capped, offlineHidden, presentationKey,
+    startOnMount, canGoPrevious, next, advance, previous, request, removeRequest, clearRequests,
+    restart: load, patchCurrent, patchCard,
   };
 }

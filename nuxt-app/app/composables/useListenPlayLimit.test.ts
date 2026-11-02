@@ -23,6 +23,21 @@ afterEach(() => {
 });
 
 describe("play length countdown", () => {
+  it("ignores a callback belonging to a retired presentation", async () => {
+    const { scope, limit, key, onExpire } = setup(10);
+    await nextTick();
+    const schedule = vi.spyOn(globalThis, "setTimeout");
+    limit.onPlaybackStarted();
+    const expired = schedule.mock.calls[0]![0] as () => void;
+    key.value += 1;
+    limit.onPlaybackStarted();
+    expired();
+    expect(onExpire).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10_000);
+    expect(onExpire).toHaveBeenCalledWith(key.value);
+    scope.stop();
+  });
+
   it("expires after the chosen length of playing time", async () => {
     const { scope, limit, onExpire } = setup(10);
     await nextTick();

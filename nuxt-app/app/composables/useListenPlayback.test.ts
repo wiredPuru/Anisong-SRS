@@ -143,6 +143,90 @@ const roles = (c: ReturnType<typeof useListenPlayback>) => c.slots.value.map((s)
 describe("Listen Mix handoff", () => {
   afterEach(() => vi.useRealTimers());
 
+  it("replaces a prepared next occurrence without restarting the foreground", async () => {
+    const { controller, out, incoming, b, scope } = await mixSetup();
+    controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(3) });
+    expect(incoming.port.stop).toHaveBeenCalledOnce();
+    expect(out.port.stop).not.toHaveBeenCalled();
+    expect(controller.slots.value.find((slot) => slot.role === "standby")?.card.id).toBe(3);
+    expect(controller.slots.value.find((slot) => slot.role === "standby")?.id).not.toBe(b.id);
+    scope.stop();
+  });
+
+  it("clears the prepared next clip when the request was removed", async () => {
+    const { controller, out, incoming, advance, scope } = await mixSetup();
+    controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: null });
+    out.state.currentTime = 59;
+    await vi.advanceTimersByTimeAsync(500);
+    expect(incoming.port.stop).toHaveBeenCalledOnce();
+    expect(out.port.stop).not.toHaveBeenCalled();
+    expect(advance).not.toHaveBeenCalled();
+    expect(controller.slots.value).toHaveLength(1);
+    scope.stop();
+  });
+
+  it("cancels an unfinished handoff when a new request replaces its target", async () => {
+    const { controller, out, incoming, advance, scope } = await mixSetup();
+    let ready!: (value: boolean) => void;
+    incoming.port.prepareGain = () => new Promise((resolve) => { ready = resolve; });
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(3) });
+    ready(true);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(advance).not.toHaveBeenCalled();
+    expect(incoming.port.play).not.toHaveBeenCalled();
+    expect(incoming.port.stop).toHaveBeenCalledOnce();
+    expect(out.port.stop).not.toHaveBeenCalled();
+    scope.stop();
+  });
+
+  it("keeps a pending foreground preparation alive across future-only queue edits", async () => {
+    vi.useFakeTimers();
+    const { controller, scope } = setup();
+    const id = controller.slots.value[0]!.id;
+    const current = port(id);
+    let ready!: (value: ManagedPlaybackResult<"ready">) => void;
+    current.prepare = () => new Promise((resolve) => { ready = resolve; });
+    const attaching = controller.attach(id, current);
+    controller.synchronize({ key: 1, queue: 1, card: card(1), nextCard: card(3) });
+    ready({ status: "ready", snapshot: snapshot(id) });
+    await attaching;
+    expect(current.play).toHaveBeenCalledOnce();
+    expect(current.stop).not.toHaveBeenCalled();
+    scope.stop();
+  });
+
+  it("distinguishes a request occurrence from the same song's deck occurrence", async () => {
+    const { controller, out, scope } = await mixSetup();
+    controller.synchronize({ key: 1, queue: 1, entryId: 1, nextEntryId: 4, card: card(1), nextCard: card(1) });
+    const waiting = controller.slots.value.find((slot) => slot.role === "standby")!;
+    const incoming = livePort(waiting.id, { state: "ready", duration: 60 });
+    await controller.attach(waiting.id, incoming.port);
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    controller.synchronize({ key: 2, queue: 1, entryId: 4, nextEntryId: 2, card: card(1), nextCard: card(2) });
+    expect(controller.slots.value.find((slot) => slot.role === "foreground")?.id).toBe(waiting.id);
+    controller.synchronize({ key: 3, queue: 1, entryId: 4, nextEntryId: 2, card: card(1), nextCard: card(2) });
+    expect(incoming.port.stop).toHaveBeenCalledOnce();
+    expect(controller.slots.value.find((slot) => slot.role === "foreground")?.id).not.toBe(waiting.id);
+    scope.stop();
+  });
+
+  it("keeps the committed incoming song while changing what follows the overlap", async () => {
+    const { controller, out, incoming, scope } = await mixSetup();
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: card(3) });
+    controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: card(4) });
+    expect(incoming.port.stop).not.toHaveBeenCalled();
+    expect(controller.overlapActive.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(controller.slots.value.find((slot) => slot.role === "standby")?.card.id).toBe(4);
+    expect(out.port.stop).toHaveBeenCalledOnce();
+    scope.stop();
+  });
+
   it("holds both players without advancing even if telemetry still says playing", async () => {
     const { controller, advance, out, incoming, scope } = await mixSetup();
     out.state.currentTime = 56;
