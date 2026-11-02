@@ -25,6 +25,35 @@ function setup(mix = true) {
 }
 
 describe("Listen slot ownership", () => {
+  it("updates card data without replacing the mounted slots or their ports", async () => {
+    const { controller, scope } = setup();
+    const [first, second] = controller.slots.value;
+    const current = port(first!.id);
+    await controller.attach(first!.id, current);
+    const updated = { ...card(1), songTitle: "Corrected title" };
+    controller.synchronize({ key: 1, queue: 1, card: updated, nextCard: card(2) });
+    expect(controller.slots.value.map((slot) => slot.id)).toEqual([first!.id, second!.id]);
+    expect(controller.slots.value[0]!.card).toBe(updated);
+    expect(current.stop).not.toHaveBeenCalled();
+    expect(current.play).toHaveBeenCalledOnce();
+    scope.stop();
+  });
+
+  it("keeps a late foreground preparation paused after an editor was opened and closed", async () => {
+    const { controller, scope } = setup();
+    const id = controller.slots.value[0]!.id;
+    const current = port(id);
+    let finish!: (result: ManagedPlaybackResult<"ready">) => void;
+    current.prepare = () => new Promise((resolve) => { finish = resolve; });
+    const pending = controller.attach(id, current);
+    controller.setHeld(true);
+    controller.setHeld(false);
+    finish({ status: "ready", snapshot: snapshot(id) });
+    await pending;
+    expect(current.pause).toHaveBeenCalled();
+    expect(current.play).not.toHaveBeenCalled();
+    scope.stop();
+  });
   it("allocates only current and immediate next, and prepares standby without playing", async () => {
     const { controller, scope } = setup();
     const [a, b] = controller.slots.value;
@@ -113,6 +142,39 @@ const roles = (c: ReturnType<typeof useListenPlayback>) => c.slots.value.map((s)
 
 describe("Listen Mix handoff", () => {
   afterEach(() => vi.useRealTimers());
+
+  it("holds both players without advancing even if telemetry still says playing", async () => {
+    const { controller, advance, out, incoming, scope } = await mixSetup();
+    out.state.currentTime = 56;
+    controller.setHeld(true);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(out.port.pause).toHaveBeenCalled();
+    expect(incoming.port.pause).toHaveBeenCalled();
+    expect(incoming.port.play).not.toHaveBeenCalled();
+    expect(advance).not.toHaveBeenCalled();
+    controller.setHeld(false);
+    expect(out.port.play).toHaveBeenCalledOnce();
+    scope.stop();
+  });
+
+  it("freezes an active overlap throughout editing and resumes only on playback", async () => {
+    const { controller, out, incoming, scope } = await mixSetup();
+    out.state.currentTime = 56;
+    await vi.advanceTimersByTimeAsync(250);
+    controller.synchronize({ key: 2, queue: 1, card: card(2), nextCard: null });
+    controller.setHeld(true);
+    const progress = controller.overlapProgress();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(controller.overlapProgress()).toBe(progress);
+    expect(out.port.pause).toHaveBeenCalled();
+    expect(incoming.port.pause).toHaveBeenCalled();
+    controller.setHeld(false);
+    expect(incoming.port.play).toHaveBeenCalledOnce();
+    await controller.foregroundResumed();
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(controller.overlapActive.value).toBe(false);
+    scope.stop();
+  });
 
   it("waits outside the window, then overlaps once and retires the tail", async () => {
     const { controller, advance, out, incoming, scope } = await mixSetup();

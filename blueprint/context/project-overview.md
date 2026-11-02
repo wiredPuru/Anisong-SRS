@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 5dd675c97a494a46aa5b24107768f6a5ec6d2b1210a7c5377b00ab50a19576b8 -->
+<!-- blueprint:source-hash 15797b667e42938cd9c5f5aefd3abc8ba8028e1f0ecb8398ea761d45238a702b -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2874,7 +2874,7 @@ refines feature 115's existing control.
     - **118b. Story on /kanji** - display, in-place editor, Use this story, Remove.
 
 119. **Explore kanji parts on /kanji** - added to `build-plan.md` 2026-10-29,
-    in two sub-features, neither built. The parts on `/kanji` after Reveal
+    in two sub-features, both built. The parts on `/kanji` after Reveal
     open the Japanese breakdown's `StudyKanjiDetail` view in place, with a back
     stack, so an unknown part can be drilled into its own parts (parts are
     pruned of nested shapes since the 2026-10-29 `kanji-prune-nested-parts` fix,
@@ -2884,7 +2884,8 @@ refines feature 115's existing control.
     added from a part or search result has no source card and plays random
     clips. Amended `project-plan.md` §3 (Kanji Study bullet).
     - **119a. Clickable parts** - done, client only.
-    - **119b. Search** - `GET /api/kanji/search` and the search box.
+    - **119b. Search** - done. `GET /api/kanji/search` matches characters and
+      keywords from the bundled dictionary; the search box opens the same detail view.
 
 ## Data model
 

@@ -20,6 +20,25 @@ function keyEvent(key: string, mods: { ctrlKey?: boolean; metaKey?: boolean; alt
 }
 
 describe("HOTKEY_ACTIONS defaults", () => {
+  it("shares Edit card across Study and Listen, including rebound keys", () => {
+    const bindings = resolveBindings();
+    expect(actionForEvent(bindings, "listen", keyEvent("e"))).toBe("editCard");
+    expect(actionForEvent(bindings, "preview", keyEvent("e"))).toBeNull();
+    const result = applyBinding(bindings, "editCard", "primary", "q");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(actionForEvent(result.bindings, "listen", keyEvent("q"))).toBe("editCard");
+    expect(actionForEvent(result.bindings, "study", keyEvent("q"))).toBe("editCard");
+    expect(actionForEvent(result.bindings, "listen", keyEvent("e"))).toBeNull();
+  });
+
+  it("refuses a Listen-only key for Edit card and repairs old conflicting overrides", () => {
+    expect(validateBinding(resolveBindings(), "editCard", "primary", "r")).toEqual({ ok: false, reason: "conflict", conflictsWith: "reveal" });
+    const stored = JSON.stringify({ v: 1, overrides: { editCard: { primary: "r", alternate: null } } });
+    const parsed = parseStored(stored);
+    expect(parsed.editCard.primary).toBe("e");
+    expect(actionForEvent(parsed, "listen", keyEvent("r"))).toBe("reveal");
+  });
   // These are the keys the pages hard-code today (Space is the new addition).
   const TODAY: Record<HotkeyActionId, [string, string | null]> = {
     playPause: ["space", "s"],

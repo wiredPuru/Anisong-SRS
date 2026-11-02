@@ -39,6 +39,7 @@ interface ManualDeck {
 const props = defineProps<{
   card: CardWithDetails | null;
   open: boolean;
+  editOnly?: boolean;
   hasDefaultDownloadFolder?: boolean;
   audioOnly?: boolean;
   autoDownload?: boolean;
@@ -77,6 +78,10 @@ const sourceLinks = computed(() =>
 const immersive = ref(false);
 
 function onKeydown(event: KeyboardEvent) {
+  if (props.editOnly) {
+    if (event.key === "Escape") requestClose();
+    return;
+  }
   if (isTypingTarget(event)) return;
   if (event.key === "Escape") {
     // Two-step: StudyMediaPlayer's own Escape handling collapses immersive
@@ -96,7 +101,7 @@ onMounted(refreshAmbient);
 const { setAmbientGlass } = useAmbientGlass();
 watch(
   () => ambientMode.value && props.open,
-  (active) => setAmbientGlass(active),
+  (active) => { if (!props.editOnly) setAmbientGlass(active); },
   { immediate: true },
 );
 
@@ -121,8 +126,35 @@ const manualDecks = ref<ManualDeck[]>([]);
 const cardMemberships = ref<Record<number, number[]>>({});
 const togglingMembership = reactive<Record<string, boolean>>({});
 const deckToggleError = ref<string | null>(null);
+const loadingDecks = ref(false);
+const editBusy = computed(() => editSaving.value || clearingVideo.value || clearingAudio.value
+  || loadingDecks.value || Object.values(togglingMembership).some(Boolean));
+const editorPanel = ref<HTMLElement | null>(null);
+let returnFocus: HTMLElement | null = null;
+onMounted(() => { if (props.editOnly && document.activeElement instanceof HTMLElement) returnFocus = document.activeElement; });
+onUnmounted(() => { if (props.editOnly && returnFocus?.isConnected) returnFocus.focus(); });
+
+function onPanelKeydown(event: KeyboardEvent) {
+  if (!props.editOnly) return;
+  event.stopPropagation();
+  if (event.key === "Escape") { event.preventDefault(); requestClose(); }
+  if (event.key !== "Tab") return;
+  const controls = editorPanel.value?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]');
+  const first = controls?.[0];
+  const last = controls?.[controls.length - 1];
+  if (!first) { event.preventDefault(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+}
+
+function requestClose() {
+  if (props.editOnly && editBusy.value) return;
+  emit("close");
+}
 
 async function loadDeckData() {
+  loadingDecks.value = true;
+  deckToggleError.value = null;
   try {
     const [decksResult, membershipsResult] = await Promise.all([
       $fetch<{ decks: ManualDeck[] }>("/api/decks", { query: { type: "created" } }),
@@ -132,6 +164,8 @@ async function loadDeckData() {
     cardMemberships.value = membershipsResult.memberships;
   } catch (err) {
     deckToggleError.value = extractErrorMessage(err, "Failed to load decks.");
+  } finally {
+    loadingDecks.value = false;
   }
 }
 
@@ -167,15 +201,17 @@ function startEdit() {
   editError.value = null;
   editing.value = true;
   loadDeckData();
+  if (props.editOnly) nextTick(() => editorPanel.value?.querySelector("input")?.focus());
 }
 
 function cancelEdit() {
   editing.value = false;
   editError.value = null;
+  if (props.editOnly) requestClose();
 }
 
 async function saveEdit() {
-  if (!props.card) return;
+  if (!props.card || (props.editOnly && editBusy.value)) return;
   editError.value = null;
   editSaving.value = true;
   try {
@@ -194,6 +230,7 @@ async function saveEdit() {
     });
     editing.value = false;
     emit("updated", result.card);
+    if (props.editOnly) emit("close");
   } catch (err) {
     editError.value = extractErrorMessage(err, "Failed to update card.");
   } finally {
@@ -221,19 +258,24 @@ async function clearLocalPath(kind: "video" | "audio") {
 }
 
 watch(
-  () => props.card?.id,
+  [() => props.card?.id, () => props.open],
   () => {
     editing.value = false;
     editError.value = null;
     immersive.value = false;
+    if (props.editOnly && props.open && props.card) startEdit();
   },
+  { immediate: true },
 );
 </script>
 
 <template>
-  <div v-if="open && card" class="backdrop" @click.self="emit('close')">
-    <div class="panel" :class="{ 'ambient-glass': ambientMode, immersive }">
+  <div v-if="open && card" class="backdrop" @click.self="requestClose">
+    <div ref="editorPanel" class="panel" :class="{ 'ambient-glass': ambientMode && !editOnly, immersive }"
+      :role="editOnly ? 'dialog' : undefined" :aria-modal="editOnly ? true : undefined"
+      :aria-label="editOnly ? 'Edit card' : undefined" @keydown="onPanelKeydown">
       <button
+        v-if="!editOnly"
         type="button"
         class="ambient-btn"
         :class="{ active: ambientMode }"
@@ -242,8 +284,10 @@ watch(
       >
         ✨
       </button>
-      <button type="button" class="close-btn" @click="emit('close')">✕</button>
+      <button type="button" class="close-btn" aria-label="Close" :disabled="editOnly && editBusy" @click="requestClose">✕</button>
+      <h2 v-if="editOnly" class="edit-title">Edit card</h2>
       <StudyMediaPlayer
+        v-if="!editOnly"
         :card="card"
         :ambient="ambientMode"
         :allow-expand="!editing"
@@ -325,20 +369,25 @@ watch(
           />
         </label>
 
-        <DeckMembershipPanel
-          :card-id="card.id"
-          :decks="manualDecks"
-          :memberships="cardMemberships"
-          :toggling="togglingMembership"
-          :error="deckToggleError"
-          @toggle="toggleDeckMembership"
-        />
+        <p v-if="editOnly" class="decks-note">Deck changes save immediately. Save applies the fields above.</p>
+        <p v-if="loadingDecks" class="decks-note" role="status">Loading decks...</p>
+        <button v-else-if="editOnly && deckToggleError && !manualDecks.length" type="button" class="cancel-btn" @click="loadDeckData">Retry loading decks</button>
+        <fieldset v-if="!loadingDecks" class="membership-fields" :disabled="editOnly && editSaving">
+          <DeckMembershipPanel
+            :card-id="card.id"
+            :decks="manualDecks"
+            :memberships="cardMemberships"
+            :toggling="togglingMembership"
+            :error="deckToggleError"
+            @toggle="toggleDeckMembership"
+          />
+        </fieldset>
 
         <p v-if="editError" class="edit-error">{{ editError }}</p>
 
         <div class="edit-actions">
-          <button type="submit" class="save-btn" :disabled="editSaving">Save</button>
-          <button type="button" class="cancel-btn" :disabled="editSaving" @click="cancelEdit">Cancel</button>
+          <button type="submit" class="save-btn" :disabled="editOnly ? editBusy : editSaving">{{ editSaving ? "Saving..." : "Save" }}</button>
+          <button type="button" class="cancel-btn" :disabled="editOnly ? editBusy : editSaving" @click="cancelEdit">Cancel</button>
         </div>
       </form>
       <template v-else-if="!immersive">
@@ -368,6 +417,9 @@ watch(
 </template>
 
 <style scoped>
+.edit-title { margin: 0; padding-right: 36px; font-family: var(--font-display); font-size: 20px; }
+.decks-note { margin: 0; color: var(--muted); font-size: 13px; }
+.membership-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
 .backdrop {
   position: fixed;
   inset: 0;

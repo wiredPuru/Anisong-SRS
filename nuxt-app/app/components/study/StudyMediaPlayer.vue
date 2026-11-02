@@ -52,6 +52,7 @@ const props = defineProps<{
   // A slot that has left the foreground but whose picture stays on screen: it
   // is shown, inert and without chrome, until its owner removes it.
   ghost?: boolean;
+  playbackHeld?: boolean;
 }>();
 const emit = defineEmits<{
   "update:immersive": [boolean];
@@ -75,7 +76,7 @@ const availabilityPending = ref(offlineMode.value !== false);
 const localVideoPath = computed(() => offlineMode.value === false || localAvailability.value?.video ? props.card.localVideoPath : null);
 const localAudioPath = computed(() => offlineMode.value === false || localAvailability.value?.audio ? props.card.localAudioPath : null);
 let availabilityRequest = 0;
-watch(() => [props.card.id, props.card.localVideoPath, props.card.localAudioPath, offlineMode.value], async () => {
+watch([() => props.card.id, () => props.card.localVideoPath, () => props.card.localAudioPath, () => offlineMode.value], async () => {
   const requestId = ++availabilityRequest;
   localAvailability.value = null;
   availabilityPending.value = offlineMode.value !== false;
@@ -649,6 +650,7 @@ watch(availabilityPending, (pending, previous) => {
 
 async function runAutoplay(plan: "play" | "download-then-play") {
   const cardId = props.card.id;
+  const generation = commandGeneration;
   quietPlay = true;
   if (plan === "download-then-play" && canUseRemote.value) {
     const kind = mediaKind.value;
@@ -659,11 +661,11 @@ async function runAutoplay(plan: "play" | "download-then-play") {
     savingForAutoplay.value = null;
     await nextTick();
   }
-  if (!disposed && props.card.id === cardId) playIfPaused();
+  if (!disposed && props.card.id === cardId && generation === commandGeneration) playIfPaused();
 }
 
 function playIfPaused() {
-  if (disposed || managedStopped.value) return;
+  if (disposed || managedStopped.value || props.playbackHeld) return;
   if (props.managed) { void playManaged(); return; }
   const el = activeEl.value;
   if (!el?.paused) return;
@@ -676,7 +678,8 @@ function playIfPaused() {
   // AudioContext starts suspended under autoplay policy; resuming here,
   // inside a real click/keypress handler, is what actually unlocks it.
   audioContext?.resume();
-  el.play().then(() => { if (disposed) el.pause(); }).catch((error: DOMException) => {
+  const generation = commandGeneration;
+  el.play().then(() => { if (disposed || props.playbackHeld || generation !== commandGeneration) el.pause(); }).catch((error: DOMException) => {
     if (disposed) return;
     // The reload above tears down an in-flight play request. That abort is
     // ours, the same way MEDIA_ERR_ABORTED is in onError.
@@ -779,10 +782,11 @@ async function prepareManaged(): Promise<ManagedPlaybackResult<"ready">> {
 }
 
 async function playManaged(): Promise<ManagedPlaybackResult<"playing">> {
+  if (props.playbackHeld) return { status: "cancelled" };
   if (foreground.value && errorMessage.value) retryLoad();
   const generation = commandGeneration;
   const controller = await connectedController();
-  if (generation !== commandGeneration || disposed || managedStopped.value) return { status: "cancelled" };
+  if (generation !== commandGeneration || disposed || managedStopped.value || props.playbackHeld) return { status: "cancelled" };
   if ("status" in controller) return controller;
   audioContext?.resume().catch(() => {});
   const result = await controller.play();
@@ -795,12 +799,15 @@ async function playManaged(): Promise<ManagedPlaybackResult<"playing">> {
 }
 
 function pausePlayback() {
+  playWanted = false;
   fadeEnvelope?.hold();
   commandGeneration += 1;
   settleConnections({ status: "cancelled" });
   if (props.managed) managedController.value?.pause();
   else activeEl.value?.pause();
 }
+
+watch(() => props.playbackHeld, (held) => { if (held) pausePlayback(); }, { flush: "sync" });
 
 function stopPlayback() {
   if (!props.managed || managedStopped.value) return;
@@ -1221,7 +1228,7 @@ function onPlay() {
 // (not just a card's first start), which is exactly what the auto-reveal
 // timer's own resume logic in study/index.vue relies on.
 function onPlaying() {
-  if (disposed || managedStopped.value) { activeEl.value?.pause(); return; }
+  if (disposed || managedStopped.value || props.playbackHeld) { activeEl.value?.pause(); return; }
   isPlaying.value = true;
   hasStarted.value = true;
   quietPlay = false;
@@ -1305,7 +1312,7 @@ const { isTypingTarget } = useHotkeyGuard();
 const { actionFor, claimSpace, hint: hotkeyHint } = useHotkeys();
 
 function onKeydown(event: KeyboardEvent) {
-  if (!foreground.value || disposed) return;
+  if (!foreground.value || disposed || props.playbackHeld) return;
   if (isTypingTarget(event)) return;
   const action = actionFor(props.hotkeyScope ?? "preview", event);
   if (action === "playPause") {

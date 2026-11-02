@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StudyFilters } from "~/utils/studyFilters";
-import type { StudyScope } from "~/composables/useStudySession";
+import type { CardWithDetails, StudyScope } from "~/composables/useStudySession";
 import { buildSourceLinks } from "~/utils/sourceLinks";
 import { scopeToQuery, type ScopePick } from "~/utils/scopePick";
 import type { HotkeyActionId } from "~/utils/hotkeys";
@@ -69,6 +69,8 @@ function applyFilters(next: StudyFilters) {
 }
 
 const shuffle = ref(true);
+const editingCard = shallowRef<CardWithDetails | null>(null);
+const listenPlayer = ref<{ pause(): void } | null>(null);
 
 const {
   currentCard,
@@ -106,7 +108,7 @@ const listenMix = useListenMix();
 // once, so an ended clip and a later trigger for the same song cannot skip two.
 let advancedFrom = -1;
 function advanceOnce() {
-  if (!autoplayNext.value || advancedFrom === presentationKey.value) return;
+  if (editingCard.value || !autoplayNext.value || advancedFrom === presentationKey.value) return;
   advancedFrom = presentationKey.value;
   next();
 }
@@ -234,6 +236,11 @@ const dissolveOpacityNow = useMixDissolve({
 });
 
 function onPlaybackStarted() {
+  if (editingCard.value) {
+    listenPlayer.value?.pause();
+    playback.setHeld(true);
+    return;
+  }
   autoReveal.onPlaybackStarted();
   playLimit.onPlaybackStarted();
   void playback.foregroundResumed();
@@ -243,6 +250,24 @@ function onPlaybackPaused() {
   autoReveal.onPlaybackPaused();
   playLimit.onPlaybackPaused();
   playback.foregroundPaused();
+}
+
+function openEditor() {
+  if (!currentCard.value || editingCard.value) return;
+  editingCard.value = { ...currentCard.value };
+  playback.setHeld(true);
+  listenPlayer.value?.pause();
+  onPlaybackPaused();
+}
+
+function closeEditor() {
+  editingCard.value = null;
+  playback.setHeld(false);
+}
+
+function onCardEdited(card: Pick<CardWithDetails, "id"> & Partial<CardWithDetails>) {
+  patchCard(card.id, card);
+  if (editingCard.value?.id === card.id) editingCard.value = { ...editingCard.value, ...card };
 }
 
 const playerPaneRef = ref<HTMLElement | null>(null);
@@ -301,9 +326,11 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   reveal,
   flipCard: () => { showDetails.value = !showDetails.value; },
   flipJapanese: toggleJapanese,
+  editCard: openEditor,
 };
 
 function onKeydown(event: KeyboardEvent) {
+  if (editingCard.value) return;
   if (isTypingTarget(event)) return;
   const action = hotkeys.actionFor("listen", event);
   const run = action && PAGE_ACTIONS[action];
@@ -354,6 +381,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <StudyScopePicker :scope="scope" :label="scopeChipLabel" @select="switchScope" />
         </div>
         <div class="header-right">
+          <button type="button" class="transport-btn" @click="openEditor">
+            Edit card <kbd v-if="hotkeyHint('editCard')">{{ hotkeyHint("editCard") }}</kbd>
+          </button>
           <StudyDisplayMenu label="Display">
             <StudyDisplayToggles
               listen
@@ -494,7 +524,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <div class="stage" :style="stageStyle">
         <div ref="playerPaneRef" class="player-pane on-picture">
           <ListenMediaPlayer
+            ref="listenPlayer"
             hotkey-scope="listen"
+            :playback-held="Boolean(editingCard)"
             :presentation-key="presentationKey"
             :card="currentCard"
             :managed-mode="playback.managedMode.value"
@@ -627,6 +659,15 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
         </div>
       </div>
     </template>
+    <CardPreviewModal
+      v-if="editingCard"
+      :key="editingCard.id"
+      :card="editingCard"
+      :open="true"
+      edit-only
+      @updated="onCardEdited"
+      @close="closeEditor"
+    />
     <StudyFiltersModal
       :open="showFilters"
       :filters="filters"

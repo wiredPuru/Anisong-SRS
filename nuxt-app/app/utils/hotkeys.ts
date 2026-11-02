@@ -52,7 +52,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   { id: "flipJapanese", label: "Japanese breakdown", scopes: BOTH_PLAYERS, defaults: { primary: "j", alternate: null } },
   { id: "previousCard", label: "Previous card", scopes: ["study"], defaults: { primary: "p", alternate: null } },
   { id: "sessionLog", label: "Session log", scopes: ["study"], defaults: { primary: "l", alternate: null } },
-  { id: "editCard", label: "Edit card", scopes: ["study"], defaults: { primary: "e", alternate: null } },
+  { id: "editCard", label: "Edit card", scopes: BOTH_PLAYERS, defaults: { primary: "e", alternate: null } },
   { id: "undo", label: "Undo last review", scopes: ["study"], defaults: { primary: "u", alternate: null } },
   { id: "pass", label: "Pass", scopes: ["study"], defaults: { primary: "arrowright", alternate: null } },
   { id: "fail", label: "Fail", scopes: ["study"], defaults: { primary: "arrowleft", alternate: null } },

@@ -28,9 +28,10 @@ function isToggling(deckId: number): boolean {
       No manual decks yet - <NuxtLink to="/decks?type=created">create one on the Decks page</NuxtLink>.
     </p>
     <label v-for="d in decks" :key="d.id" class="deck-checkbox-row">
+      <!-- Explicit pending state lets a failed write restore the checkbox. -->
       <input
         type="checkbox"
-        :checked="isInDeck(d.id)"
+        :checked="isToggling(d.id) ? !isInDeck(d.id) : isInDeck(d.id)"
         :disabled="isToggling(d.id)"
         @change="emit('toggle', d.id, ($event.target as HTMLInputElement).checked)"
       />

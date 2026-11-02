@@ -42,6 +42,8 @@ function bindPort(slot: ListenSlot, instance: unknown) {
 
 // The outgoing slot keeps the veil state it had when it left the foreground.
 const attrs = useAttrs();
+const plainPlayer = ref<{ pause(): void } | null>(null);
+defineExpose({ pause: () => plainPlayer.value?.pause() });
 function veil(slot: ListenSlot, name: "hideVideo" | "hideCover") {
   if (slot.role === "tail") return name === "hideVideo" ? props.tailHideVideo : props.tailHideCover;
   const kebab = name === "hideVideo" ? "hide-video" : "hide-cover";
@@ -56,6 +58,7 @@ function adopt(slot: ListenSlot) {
 <template>
   <StudyMediaPlayer
     v-if="!managedMode"
+    ref="plainPlayer"
     :key="presentationKey"
     v-bind="$attrs"
     :card="card"

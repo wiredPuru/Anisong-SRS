@@ -69,6 +69,7 @@ export function useListenPlayback(options: {
   let disposed = false;
   let attempting = false;
   let handoffPending = false;
+  let held = false;
   let overlap: Overlap | null = null;
   let poll: ReturnType<typeof setInterval> | null = null;
   let presentation: ListenPresentation | null = null;
@@ -181,7 +182,7 @@ export function useListenPlayback(options: {
   }
 
   function maybeBegin() {
-    if (!managedMode.value || !settings.mix || !settings.autoplay || attempting || handoffPending) return;
+    if (held || !managedMode.value || !settings.mix || !settings.autoplay || attempting || handoffPending) return;
     const out = foreground();
     const incoming = standby();
     if (!out || !incoming || attempted.has(out.id)) return;
@@ -232,6 +233,10 @@ export function useListenPlayback(options: {
     }
     if (presentation?.key === next.key && presentation.queue === next.queue && foreground()?.card.id === next.card?.id) {
       presentation = next;
+      slots.value = slots.value.map((slot) => {
+        const card = [next.card, next.nextCard].find((card) => card?.id === slot.card.id);
+        return card && card !== slot.card ? { ...slot, card } : slot;
+      });
       stageNext();
       return;
     }
@@ -253,11 +258,12 @@ export function useListenPlayback(options: {
     const token = generation;
     const result = await port.prepare();
     if (disposed || token !== generation || ports.get(id) !== port) return;
-    if (result.status === "ready" && foreground()?.id === id && settings.autoplay) await port.play();
+    if (result.status === "ready" && foreground()?.id === id && settings.autoplay && !held) await port.play();
   }
   function report(id: number, snapshot: ManagedPlaybackSnapshot) {
     if (disposed || !slots.value.some((s) => s.id === id)) return;
     snapshots.set(id, snapshot);
+    if (held && snapshot.state === "playing") ports.get(id)?.pause();
     if (foreground()?.id === id) options.onForeground?.(snapshot);
   }
 
@@ -282,11 +288,11 @@ export function useListenPlayback(options: {
     }
   }
   async function foregroundResumed() {
-    if (!overlap || overlap.remainingMs === null) return;
+    if (held || !overlap || overlap.remainingMs === null) return;
     const live = overlap;
     const tail = ports.get(live.tailId);
     const result = await tail?.play();
-    if (overlap !== live || live.remainingMs === null) return;
+    if (held || overlap !== live || live.remainingMs === null) return;
     if (result?.status !== "playing") { endOverlap(); return; }
     tail?.resumeGain();
     live.endsAt = Date.now() + live.remainingMs;
@@ -303,11 +309,19 @@ export function useListenPlayback(options: {
     return Math.min(1, Math.max(0, 1 - left / total));
   }
 
+  function setHeld(value: boolean) {
+    if (held === value) return;
+    held = value;
+    if (!held) return;
+    foregroundPaused();
+    cancelPending();
+    for (const port of ports.values()) port.pause();
+  }
   function pause() { currentPort()?.pause(); }
-  async function play() { return currentPort()?.play(); }
+  async function play() { if (!held) return currentPort()?.play(); }
   function dispose() { if (disposed) return; disposed = true; stopPolling(); stop(); }
   onScopeDispose(dispose);
-  return { slots, managedMode, overlapActive, overlapProgress, synchronize, configure, attach, report, settle, pause, play, stop, dispose,
+  return { slots, managedMode, overlapActive, overlapProgress, synchronize, configure, attach, report, settle, pause, play, stop, dispose, setHeld,
     foregroundPaused, foregroundResumed,
     getSnapshot: () => { const slot = foreground(); return slot ? snapshots.get(slot.id) ?? null : null; } };
 }
