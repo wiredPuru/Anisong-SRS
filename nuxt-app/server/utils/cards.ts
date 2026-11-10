@@ -418,27 +418,78 @@ export function pickRandomDueOrder<T extends { id: number; nextReviewAt: Date }>
   return picks;
 }
 
-// A box-1 card is due again the moment it is reviewed and keeps its daily
-// tie-break rank, so on its own pickRandomDueOrder would serve it back to back
-// until it graduates. Cards the session just reviewed (`recentIds`, oldest
-// first) therefore go last: any other due card is served before them, and
-// when only recent cards are due, the one reviewed longest ago goes first.
-export function orderAwayFromRecent<T extends { id: number; nextReviewAt: Date }>(
+// How many cards may be mid-learning (reviewed, still in box 1) before Study
+// stops introducing new ones and repeats those instead.
+export const LEARNING_BACKLOG_CAP = 5;
+
+function pickNextDue<T extends DuePoolEntry>(
+  remaining: readonly T[],
+  learningIds: ReadonlySet<number>,
+  recentIds: readonly number[],
+  now: Date,
+): T | undefined {
+  const reviews = remaining.filter((entry) => entry.box >= 2);
+  if (reviews.length > 0) return pickRandomDueOrder(reviews, 1, now)[0];
+
+  const recent = new Set(recentIds);
+  const learning = remaining.filter((entry) => entry.box === 1 && learningIds.has(entry.id));
+  const settled = learning.filter((entry) => !recent.has(entry.id));
+  if (settled.length > 0) return pickRandomDueOrder(settled, 1, now)[0];
+
+  if (learning.length < LEARNING_BACKLOG_CAP) {
+    const fresh = remaining.filter((entry) => entry.box === 1 && !learningIds.has(entry.id));
+    if (fresh.length > 0) return pickRandomDueOrder(fresh, 1, now)[0];
+  }
+  return [...learning].sort((a, b) => recentIds.lastIndexOf(a.id) - recentIds.lastIndexOf(b.id))[0];
+}
+
+export interface DuePoolEntry {
+  id: number;
+  nextReviewAt: Date;
+  box: number;
+}
+
+// Anki-style queue: due reviews (box 2+) first, then cards still being learned
+// once they are out of the session's recent window, then new cards - but only
+// while fewer than LEARNING_BACKLOG_CAP cards are mid-learning, so a few cards
+// get repeated until they graduate before anything unseen appears. At the cap
+// the learning card reviewed longest ago is served even if it is recent.
+// `reviewedIds` are cards with a review for this track; a box-1 card outside
+// it is new. `pool` must already be sorted ascending by nextReviewAt. Each pick
+// is treated as reviewed next, so a multi-card lookahead matches serving.
+export function orderDueQueue<T extends DuePoolEntry>(
   pool: readonly T[],
+  reviewedIds: ReadonlySet<number>,
   recentIds: readonly number[],
   count: number,
   now: Date = new Date(),
 ): T[] {
-  const recent = new Set(recentIds);
-  const picks = pickRandomDueOrder(
-    pool.filter((entry) => !recent.has(entry.id)),
-    count,
-    now,
-  );
-  const recentDue = pool
-    .filter((entry) => recent.has(entry.id))
-    .sort((a, b) => recentIds.lastIndexOf(a.id) - recentIds.lastIndexOf(b.id));
-  return [...picks, ...recentDue].slice(0, count);
+  const remaining = [...pool];
+  const recent = [...recentIds];
+  const learningIds = new Set(pool.filter((entry) => entry.box === 1 && reviewedIds.has(entry.id)).map((entry) => entry.id));
+  const picks: T[] = [];
+
+  while (picks.length < count) {
+    const next = pickNextDue(remaining, learningIds, recent, now);
+    if (!next) break;
+    picks.push(next);
+    remaining.splice(remaining.indexOf(next), 1);
+    if (next.box === 1) {
+      learningIds.add(next.id);
+      recent.push(next.id);
+    }
+  }
+  return picks;
+}
+
+function reviewedCardIds(criterion: GradingCriterion): Set<number> {
+  const rows = db
+    .select({ id: reviewLog.cardId })
+    .from(reviewLog)
+    .where(eq(reviewLog.criterion, criterion))
+    .groupBy(reviewLog.cardId)
+    .all();
+  return new Set(rows.map((row) => row.id));
 }
 
 export function getNextDueCard(
@@ -458,7 +509,7 @@ export function getNextDueCard(
   // in this queue; otherwise the usual pick is the right answer.
   const preferred = preferId === null ? undefined : pool.find((entry) => entry.id === preferId);
   if (preferred) return preferred;
-  return orderAwayFromRecent(narrowToMixedType(pool, filters?.themeMix ?? null), recentIds, 1)[0];
+  return orderDueQueue(narrowToMixedType(pool, filters?.themeMix ?? null), reviewedCardIds(criterion), recentIds, 1)[0];
 }
 
 // With a theme mix, this draw's type is picked by weight among the types that
@@ -542,7 +593,7 @@ export function getUpcomingDueCards(
   const pool = cardQuery(criterion).where(condition).orderBy(asc(trackNextReviewAtExpr(criterion))).all();
   // The card being served now is the next one the session will have reviewed.
   const afterServed = excludeCardId !== undefined ? [...recentIds, excludeCardId] : recentIds;
-  return orderAwayFromRecent(pool, afterServed, limit);
+  return orderDueQueue(pool, reviewedCardIds(criterion), afterServed, limit);
 }
 
 export function getDueCardCount(

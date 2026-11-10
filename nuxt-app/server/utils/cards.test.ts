@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { db } from "../db/client.ts";
 import { card } from "../db/schema.ts";
-import { baseDueCondition, orderAwayFromRecent, pathsToRemove, pickPracticeId, pickRandomDueOrder } from "./cards.ts";
+import { baseDueCondition, LEARNING_BACKLOG_CAP, orderDueQueue, pathsToRemove, pickPracticeId, pickRandomDueOrder } from "./cards.ts";
 
 const themesOnly = vi.hoisted(() => ({ value: false }));
 const dailyNewCardLimit = vi.hoisted(() => ({ value: null as number | null }));
@@ -66,66 +66,88 @@ function tiedPool(): Pooled[] {
 const seedDay = new Date("2026-09-05T12:00:00.000Z");
 const nextSeedDay = new Date("2026-09-06T12:00:00.000Z");
 
-describe("orderAwayFromRecent", () => {
-  const ids = (picks: Pooled[]) => picks.map((entry) => entry.id);
+describe("orderDueQueue", () => {
+  interface Queued extends Pooled {
+    box: number;
+  }
+  const entry = (id: number, box: number, nextReviewAt: Date = today): Queued => ({ id, box, nextReviewAt });
+  const ids = (picks: Queued[]) => picks.map((pick) => pick.id);
+  const none = new Set<number>();
 
-  it("matches pickRandomDueOrder exactly when nothing is recent", () => {
-    expect(ids(orderAwayFromRecent(tiedPool(), [], 4, seedDay))).toEqual(ids(pickRandomDueOrder(tiedPool(), 4, seedDay)));
+  it("serves a due review before learning and new cards", () => {
+    const pool = [entry(1, 1), entry(2, 3), entry(3, 1)];
+    expect(orderDueQueue(pool, new Set([1]), [], 1, seedDay)[0].id).toBe(2);
   });
 
-  it("never serves a recent card while any other card is due", () => {
-    const leader = pickRandomDueOrder(tiedPool().slice(1), 1, seedDay)[0].id;
-    const [next] = orderAwayFromRecent(tiedPool().slice(1), [leader], 1, seedDay);
-    expect(next.id).not.toBe(leader);
+  it("serves a learning card outside the recent window before an older new card", () => {
+    const pool = [entry(1, 1, earlier), entry(2, 1, earlier), entry(3, 1, today)];
+    expect(orderDueQueue(pool, new Set([3]), [], 1, seedDay)[0].id).toBe(3);
   });
 
-  it("does not repeat the same card across a run of box-1 reviews", () => {
-    const pool = tiedPool().slice(1);
-    const recent: number[] = [];
-    const served: number[] = [];
-    for (let review = 0; review < 6; review += 1) {
-      const [next] = orderAwayFromRecent(pool, recent, 1, seedDay);
-      served.push(next.id);
-      recent.splice(0, recent.length, ...recent.filter((id) => id !== next.id), next.id);
-    }
-    for (let index = 1; index < served.length; index += 1) {
-      expect(served[index]).not.toBe(served[index - 1]);
-    }
+  it("introduces a new card while the learning backlog is under the cap and all learning is recent", () => {
+    const pool = [entry(1, 1), entry(2, 1)];
+    expect(orderDueQueue(pool, new Set([1]), [1], 1, seedDay)[0].id).toBe(2);
   });
 
-  it("serves the card reviewed longest ago when every due card is recent", () => {
-    const pool = tiedPool().slice(1);
-    expect(orderAwayFromRecent(pool, [3, 4, 2], 1, seedDay)[0].id).toBe(3);
-    expect(ids(orderAwayFromRecent(pool, [3, 4, 2], 3, seedDay))).toEqual([3, 4, 2]);
+  it("introduces no new card at the backlog cap and repeats the longest-ago learning card", () => {
+    const learning = Array.from({ length: LEARNING_BACKLOG_CAP }, (_, index) => entry(index + 1, 1));
+    const pool = [...learning, entry(90, 1), entry(91, 1)];
+    const reviewed = new Set(learning.map((item) => item.id));
+    const recent = [3, 1, 5, 2, 4];
+    expect(orderDueQueue(pool, reviewed, recent, 1, seedDay)[0].id).toBe(3);
   });
 
-  it("alternates between two due cards", () => {
-    const pool: Pooled[] = [
-      { id: 2, nextReviewAt: today },
-      { id: 3, nextReviewAt: today },
-    ];
-    const first = orderAwayFromRecent(pool, [], 1, seedDay)[0].id;
-    const second = orderAwayFromRecent(pool, [first], 1, seedDay)[0].id;
-    const third = orderAwayFromRecent(pool, [first, second], 1, seedDay)[0].id;
-    expect(second).not.toBe(first);
-    expect(third).toBe(first);
+  it("serves the oldest recent card when only recent learning cards remain", () => {
+    const pool = [entry(1, 1), entry(2, 1)];
+    expect(orderDueQueue(pool, new Set([1, 2]), [2, 1], 1, seedDay)[0].id).toBe(2);
   });
 
-  it("still serves a lone due card even though it was just reviewed", () => {
-    const pool: Pooled[] = [{ id: 2, nextReviewAt: today }];
-    expect(orderAwayFromRecent(pool, [2], 1, seedDay)[0].id).toBe(2);
+  it("serves a lone learning card even though it was just reviewed", () => {
+    expect(orderDueQueue([entry(1, 1)], new Set([1]), [1], 1, seedDay)[0].id).toBe(1);
   });
 
-  it("keeps an earlier-day card ahead of today's cards", () => {
-    expect(orderAwayFromRecent(tiedPool(), [3], 1, seedDay)[0].id).toBe(1);
-  });
-
-  it("ignores recent ids that are not in the pool", () => {
-    expect(ids(orderAwayFromRecent(tiedPool(), [99], 4, seedDay))).toEqual(ids(pickRandomDueOrder(tiedPool(), 4, seedDay)));
+  it("treats a box-1 card with no review as new and keeps earlier-day new cards first", () => {
+    const pool = [entry(1, 1, earlier), entry(2, 1, today)];
+    expect(orderDueQueue(pool, none, [], 1, seedDay)[0].id).toBe(1);
   });
 
   it("returns an empty list for an empty pool", () => {
-    expect(orderAwayFromRecent([], [1, 2], 1, seedDay)).toEqual([]);
+    expect(orderDueQueue([], none, [1, 2], 3, seedDay)).toEqual([]);
+  });
+
+  it("builds a lookahead that matches serving the same cards one at a time", () => {
+    const pool = [entry(1, 1), entry(2, 1), entry(3, 1), entry(4, 1)];
+    const reviewed = new Set([1]);
+    const batch = ids(orderDueQueue(pool, reviewed, [], 3, seedDay));
+    const served: number[] = [];
+    const seen = new Set(reviewed);
+    for (let step = 0; step < 3; step += 1) {
+      const [next] = orderDueQueue(
+        pool.filter((item) => !served.includes(item.id)),
+        seen,
+        served,
+        1,
+        seedDay,
+      );
+      served.push(next.id);
+      seen.add(next.id);
+    }
+    expect(batch).toEqual(served);
+  });
+
+  it("keeps new cards out until the learning backlog drains across a session", () => {
+    const pool = Array.from({ length: 30 }, (_, index) => entry(index + 1, 1));
+    const reviewed = new Set<number>();
+    const recent: number[] = [];
+    const introduced = new Set<number>();
+    for (let review = 0; review < 40; review += 1) {
+      const [next] = orderDueQueue(pool, reviewed, recent, 1, seedDay);
+      introduced.add(next.id);
+      reviewed.add(next.id);
+      recent.splice(0, recent.length, ...recent.filter((id) => id !== next.id), next.id);
+      if (recent.length > 5) recent.shift();
+      expect(introduced.size).toBeLessThanOrEqual(LEARNING_BACKLOG_CAP);
+    }
   });
 });
 
