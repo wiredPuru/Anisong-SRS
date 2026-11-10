@@ -8,23 +8,44 @@ export const CLIP_SOURCES = ["anisongdb", "both", "animethemes"] as const;
 
 export type ClipSource = (typeof CLIP_SOURCES)[number];
 
-const PROVIDER_HOSTS: { domain: string; allowedBy: readonly ClipSource[] }[] = [
-  { domain: "animemusicquiz.com", allowedBy: ["anisongdb", "both"] },
-  { domain: "animethemes.moe", allowedBy: ["animethemes", "both"] },
+type RemoteProvider = "anisongdb" | "animethemes";
+
+const PROVIDER_HOSTS: { domain: string; provider: RemoteProvider; allowedBy: readonly ClipSource[] }[] = [
+  { domain: "animemusicquiz.com", provider: "anisongdb", allowedBy: ["anisongdb", "both"] },
+  { domain: "animethemes.moe", provider: "animethemes", allowedBy: ["animethemes", "both"] },
 ];
 
-export function isClipUrlAllowed(url: string, clipSource: ClipSource): boolean {
+function providerForUrl(url: string) {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return false;
+    return undefined;
   }
-  if (parsed.protocol !== "https:") return false;
+  if (parsed.protocol !== "https:") return undefined;
+  return PROVIDER_HOSTS.find(({ domain }) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`));
+}
 
-  const provider = PROVIDER_HOSTS.find(({ domain }) =>
-    parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`));
-  return provider?.allowedBy.includes(clipSource) ?? false;
+export function isClipUrlAllowed(url: string, clipSource: ClipSource): boolean {
+  return providerForUrl(url)?.allowedBy.includes(clipSource) ?? false;
+}
+
+export type ClipOrigin = "library" | RemoteProvider;
+
+// Where a clip loads from: a local file wins over a remote URL, as in the player.
+export function clipOrigin(localPath: string | null, remoteUrl: string | null): ClipOrigin | null {
+  if (localPath) return "library";
+  return remoteUrl ? providerForUrl(remoteUrl)?.provider ?? null : null;
+}
+
+const ORIGIN_NAMES: Record<ClipOrigin, string> = {
+  library: "your library",
+  anisongdb: "AnisongDB",
+  animethemes: "AnimeThemes.moe",
+};
+
+export function clipOriginName(origin: ClipOrigin): string {
+  return ORIGIN_NAMES[origin];
 }
 
 // Null-safe convenience wrapper - every caller here is checking a card's

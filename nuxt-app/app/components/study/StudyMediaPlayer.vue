@@ -189,6 +189,15 @@ const showCoverArt = computed(
     !coverImageFailed.value,
 );
 
+// Names where the clip being loaded comes from, from the same inputs cardSrc
+// uses, so the loading message can say which provider is being waited on.
+const loadingLabel = computed(() => {
+  const origin = mediaKind.value === "video"
+    ? clipOrigin(localVideoPath.value, remoteVideoAllowed.value ? props.card.animethemesVideoUrl : null)
+    : clipOrigin(localAudioPath.value, remoteAudioAllowed.value ? props.card.animethemesAudioUrl : null);
+  return origin ? `Loading ${mediaKind.value} from ${clipOriginName(origin)}` : `Loading ${mediaKind.value}`;
+});
+
 // What the card's stored paths point at right now. The elements bind `src`
 // below, not this, so a path that changes mid-card cannot re-point a source
 // that is already working.
@@ -1540,7 +1549,7 @@ onUnmounted(() => stopDrag?.());
         </StudyPlayerKai>
         <template v-else-if="showLoadingMessage">
           <StudyPlayerKai mood="loading">
-            <ActivityStatus :label="`Loading ${mediaKind}`" :request-key="loadAttempt" />
+            <ActivityStatus :label="loadingLabel" :request-key="loadAttempt" />
           </StudyPlayerKai>
           <div v-if="loadIsSlow" class="failure-actions">
             <button type="button" class="download-btn" @click.stop="retryLoad">Try again</button>

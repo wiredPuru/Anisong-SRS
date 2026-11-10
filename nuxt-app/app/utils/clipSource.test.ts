@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLIP_SOURCES, isClipUrlAllowed, isRemoteUrlAllowed } from "./clipSource";
+import { CLIP_SOURCES, clipOrigin, clipOriginName, isClipUrlAllowed, isRemoteUrlAllowed } from "./clipSource";
 
 const AMQ_URLS = [
   "https://naedist.animemusicquiz.com/byvisp.webm",
@@ -48,5 +48,34 @@ describe("isRemoteUrlAllowed", () => {
   it("defers to isClipUrlAllowed for a real URL", () => {
     expect(isRemoteUrlAllowed(AMQ_URLS[0]!, "anisongdb")).toBe(true);
     expect(isRemoteUrlAllowed(AMQ_URLS[0]!, "animethemes")).toBe(false);
+  });
+});
+
+describe("clipOrigin", () => {
+  it("prefers a local file over a remote URL", () => {
+    expect(clipOrigin("/themes/a.webm", AMQ_URLS[0]!)).toBe("library");
+  });
+
+  it.each(AMQ_URLS)("names AMQ host %s as AnisongDB", (url) => {
+    expect(clipOrigin(null, url)).toBe("anisongdb");
+  });
+
+  it.each(ANIMETHEMES_URLS)("names animethemes.moe host %s as AnimeThemes", (url) => {
+    expect(clipOrigin(null, url)).toBe("animethemes");
+  });
+
+  it.each([
+    ["an unknown host", "https://example.com/x.webm"],
+    ["an invalid URL", "not a url"],
+    ["plain http", "http://naedist.animemusicquiz.com/x.webm"],
+    ["no source", null],
+  ])("returns null for %s", (_label, url) => {
+    expect(clipOrigin(null, url)).toBeNull();
+  });
+
+  it("gives each origin a display name", () => {
+    expect(clipOriginName("library")).toBe("your library");
+    expect(clipOriginName("anisongdb")).toBe("AnisongDB");
+    expect(clipOriginName("animethemes")).toBe("AnimeThemes.moe");
   });
 });
