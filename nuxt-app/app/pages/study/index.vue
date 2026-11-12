@@ -763,6 +763,11 @@ async function toggleDeckMembership(cardId: number, deckId: number, checked: boo
 // PATCH returned, so every edited field is applied rather than a named few -
 // listing them by hand silently dropped notes when that field was added.
 function onCardEdited(updated: { id: number } & Partial<CardWithDetails>) {
+  // An answered card stays editable until Continue, and Previous card and the
+  // session log read these entries, so they follow the edit too.
+  for (const entry of sessionHistory.value) {
+    if (entry.card.id === updated.id) entry.card = { ...entry.card, ...updated };
+  }
   if (!currentCard.value || currentCard.value.id !== updated.id) return;
   currentCard.value = { ...currentCard.value, ...updated };
 }
@@ -1282,14 +1287,15 @@ function onKeydown(event: KeyboardEvent) {
     void undoLastReview();
     return;
   }
-  // Once a typed round has a result, only flip card and undo stay live, so
-  // the result stays put.
+  // Once a round has a result, only flip card, flip Japanese, edit card and
+  // undo stay live, so the result stays put.
   if (roundResult.value) {
     if (action === "flipCard" && !event.repeat) {
       hotkeys.claimSpace(event);
       showDetails.value = !showDetails.value;
     }
     if (action === "flipJapanese" && !event.repeat) toggleJapanese();
+    if (action === "editCard" && !event.repeat) toggleEditFromKey();
     return;
   }
   if (typedAnswers.value && (action === "hideInfo" || action === "hideCover")) return;
@@ -1609,7 +1615,6 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :deck-toggle-error="deckToggleError"
               :has-default-download-folder="hasDefaultDownloadFolder"
               :deck-name="removableDeck?.name ?? null"
-              :disabled="Boolean(quizResult)"
               @find-source="showFindSource = true"
               @remove-from-deck="removeCardFromStudyDeck(currentCard!.id)"
               @updated="onCardEdited"
