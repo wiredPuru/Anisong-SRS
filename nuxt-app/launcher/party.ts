@@ -113,5 +113,7 @@ for (const lanUrl of lanDisplayUrls) console.log(`  Display on your network:    
 console.log(`  Host panel:                  ${localControlUrl}`);
 for (const lanUrl of lanControlUrls) console.log(`  Host panel on your network:  ${lanUrl}`);
 for (const lanUrl of lanPlayerUrls) console.log(`  Players join at:             ${lanUrl}`);
+console.log(`  New minimal host panel:      http://127.0.0.1:${controlPort}/party/lite/host`);
+console.log(`  New minimal display:         http://127.0.0.1:${displayPort}/party/lite/display`);
 if (!lanPlayerUrls.length) console.log(`  Players join at:             port ${playerPort} (no network address found)`);
 if (process.env.GAQ_SRS_SKIP_BROWSER !== "1") openBrowser(localControlUrl);

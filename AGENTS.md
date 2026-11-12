@@ -214,6 +214,12 @@ checks do not make the Blueprint unusable.
   also serves the display door on the network, for a laptop or TV browser; `GAQ_SRS_SKIP_BROWSER=1` skips opening the host
   panel. Lobby music is read from a `party-music` folder beside the database
   (created on first use).
+  The same command also serves the rebuilt, minimal party mode beside the
+  first one: host panel at `/party/lite/host` on the control door and display
+  at `/party/lite/display` on the display door. It has its own in-memory
+  game (`server/utils/partyLiteGame.ts`, `partyLiteStore.ts`): an endless
+  playlist picked at random from the Study filters, a four-song Up next with
+  reroll, hand-picked songs, and pre-download of waiting songs.
 - Package release binaries (after `bun run build`): `bun run package` -
   cross-compiles the launcher (and the `gaq-party` party-mode launcher,
   feature 86; pass `--no-party` to leave it out of the zips) into standalone executables for each of

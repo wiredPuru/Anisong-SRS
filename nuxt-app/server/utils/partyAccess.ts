@@ -32,7 +32,7 @@ export function partyRouteAccess(rawPath: string, door: PartyDoor | null, partyE
   if (!partyEnabled || !door) return "notFound";
 
   if (door === "display") {
-    const allowed = path === "/party/display" || path.startsWith("/api/party/display/");
+    const allowed = path === "/party/display" || path === "/party/lite/display" || path.startsWith("/api/party/display/");
     return allowed ? "public" : "notFound";
   }
 
@@ -41,7 +41,7 @@ export function partyRouteAccess(rawPath: string, door: PartyDoor | null, partyE
     return path.startsWith("/api/party/player/") ? "player" : "notFound";
   }
 
-  if (path === "/party/host" || CONTROL_PUBLIC_API.has(path)) return "public";
+  if (path === "/party/host" || path === "/party/lite/host" || CONTROL_PUBLIC_API.has(path)) return "public";
   if (path.startsWith("/api/party/host/")) return "session";
   return "notFound";
 }

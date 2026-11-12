@@ -4,7 +4,8 @@ import { isOfflineModeError, networkModeChanged, networkModeEndpoint, parseNetwo
 describe("browser network bootstrap", () => {
   it.each([
     ["/settings", "/api/network-mode"], ["/", "/api/network-mode"],
-    ["/party/display", "/api/party/display/network-mode"],
+    ["/party/display", "/api/party/display/network-mode"], ["/party/lite/display", "/api/party/display/network-mode"],
+    ["/party/lite/host", "/api/party/host/network-mode"],
     ["/party/host", "/api/party/host/network-mode"], ["/party/play", "/api/party/player/network-mode"],
   ])("uses the scoped status endpoint for %s", (path, endpoint) => {
     expect(networkModeEndpoint(path)).toBe(endpoint);

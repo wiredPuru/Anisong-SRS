@@ -83,3 +83,20 @@ describe("lanAddresses", () => {
     ).toEqual(["192.168.1.20", "10.0.0.4"]);
   });
 });
+
+describe("the minimal party pages", () => {
+  it("serves each page only on its own door", () => {
+    expect(decideDoorRequest("display", "/party/lite/display")).toEqual({ kind: "proxy" });
+    expect(decideDoorRequest("control", "/party/lite/host")).toEqual({ kind: "proxy" });
+    expect(decideDoorRequest("display", "/party/lite/host")).toEqual({ kind: "notFound" });
+    expect(decideDoorRequest("control", "/party/lite/display")).toEqual({ kind: "notFound" });
+    expect(decideDoorRequest("player", "/party/lite/display")).toEqual({ kind: "notFound" });
+  });
+
+  it("keeps the host API off the display door and the display API off the host door", () => {
+    expect(decideDoorRequest("display", "/api/party/host/lite/command")).toEqual({ kind: "notFound" });
+    expect(decideDoorRequest("control", "/api/party/display/lite/clip")).toEqual({ kind: "notFound" });
+    expect(decideDoorRequest("control", "/api/party/host/lite/command")).toEqual({ kind: "proxy" });
+    expect(decideDoorRequest("display", "/api/party/display/lite/stream")).toEqual({ kind: "proxy" });
+  });
+});

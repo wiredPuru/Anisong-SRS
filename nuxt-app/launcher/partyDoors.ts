@@ -27,7 +27,7 @@ export function decideDoorRequest(door: Door, path: string): DoorDecision {
   if (isSharedAsset(path)) return { kind: "proxy" };
 
   if (door === "display") {
-    return path === "/party/display" || path.startsWith("/api/party/display/")
+    return path === "/party/display" || path === "/party/lite/display" || path.startsWith("/api/party/display/")
       ? { kind: "proxy" }
       : { kind: "notFound" };
   }
@@ -38,7 +38,7 @@ export function decideDoorRequest(door: Door, path: string): DoorDecision {
       : { kind: "notFound" };
   }
 
-  if (path === "/party/host") return { kind: "proxy" };
+  if (path === "/party/host" || path === "/party/lite/host") return { kind: "proxy" };
   const otherDoorsApi = path.startsWith("/api/party/display/") || path.startsWith("/api/party/player/");
   if (path.startsWith("/api/party/") && !otherDoorsApi) return { kind: "proxy" };
   return { kind: "notFound" };

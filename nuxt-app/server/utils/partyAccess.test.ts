@@ -102,3 +102,21 @@ describe("isBannedPlayerRequest", () => {
     expect(isBannedPlayerRequest("/api/party/host/kick", "player", true)).toBe(false);
   });
 });
+
+describe("the minimal party routes", () => {
+  it("opens each page on its own door only", () => {
+    expect(partyRouteAccess("/party/lite/display", "display", true)).toBe("public");
+    expect(partyRouteAccess("/party/lite/host", "control", true)).toBe("public");
+    expect(partyRouteAccess("/party/lite/host", "display", true)).toBe("notFound");
+    expect(partyRouteAccess("/party/lite/display", "control", true)).toBe("notFound");
+    expect(partyRouteAccess("/party/lite/host", "player", true)).toBe("notFound");
+    expect(partyRouteAccess("/party/lite/host", "control", false)).toBe("notFound");
+  });
+
+  it("requires the host login for the host API and none for the display API", () => {
+    expect(partyRouteAccess("/api/party/host/lite/command", "control", true)).toBe("session");
+    expect(partyRouteAccess("/api/party/host/lite/clip?t=abc", "control", true)).toBe("session");
+    expect(partyRouteAccess("/api/party/display/lite/stream", "display", true)).toBe("public");
+    expect(partyRouteAccess("/api/party/host/lite/command", "display", true)).toBe("notFound");
+  });
+});
