@@ -77,7 +77,12 @@ function toggle() {
 	if (editing.value) cancelEdit()
 	else startEdit()
 }
-defineExpose({ toggle })
+// Study calls this when the details card flips away: a hidden form would keep
+// Missed and Got it disabled with nothing on screen saying why.
+function close() {
+	if (editing.value) cancelEdit()
+}
+defineExpose({ toggle, close })
 
 const confirmingDelete = ref(false)
 const deleting = ref(false)

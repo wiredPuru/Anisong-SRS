@@ -298,7 +298,7 @@ onUnmounted(() => {
 });
 
 const cardEditing = ref(false);
-const cardEditPanelRef = ref<{ toggle: () => void } | null>(null);
+const cardEditPanelRef = ref<{ toggle: () => void; close: () => void } | null>(null);
 // D flips the picture over to the card's details, notes and editor; the clip
 // keeps playing underneath.
 const DETAILS_STORAGE_KEY = "gaqSrs:studyDetails";
@@ -343,6 +343,11 @@ watch(roundResult, (shown) => {
 });
 watch(cardEditing, (editing) => {
   if (editing) showDetails.value = true;
+});
+// The editor sits on the details side and locks grading while open, so flipping
+// back to the picture closes it, the same as E (unsaved edits are dropped).
+watch(showDetails, (open) => {
+  if (!open && cardEditing.value) cardEditPanelRef.value?.close();
 });
 const submissionBusy = ref(false);
 const awaitingNextCard = ref(false);
