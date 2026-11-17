@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { AudioFirstStyle } from "~/utils/audioFirst";
+
 interface CardWithDetails {
   id: number;
   songId: number;
@@ -10,6 +12,7 @@ interface CardWithDetails {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;
@@ -332,7 +335,7 @@ async function toggleAudioFirst(target: CardWithDetails) {
       </div>
       <div class="inspector-body">
         <div class="inspector-titles">
-          <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /> <CardAudioFirstBadge v-if="card.audioFirst" /></span>
+          <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /> <CardAudioFirstBadge v-if="card.audioFirst" :hide-style="card.audioFirstStyle" /></span>
           <span v-if="isCurrentDeck('artist', card.artistId)" class="inspector-meta">{{ card.artistName }}</span>
           <NuxtLink v-else :to="artistDeckPath(card.artistId)" target="_blank" rel="noopener" class="inspector-meta deck-link">{{
             card.artistName
@@ -489,6 +492,14 @@ async function toggleAudioFirst(target: CardWithDetails) {
           <button type="button" class="audio-first-btn" :disabled="suspending" @click="toggleAudioFirst(card)">
             {{ card.audioFirst ? "Not audio first" : "Audio first" }}
           </button>
+          <CardAudioFirstStyleSelect
+            v-if="card.audioFirst"
+            class="audio-first-style-row"
+            :card-id="card.id"
+            :model-value="card.audioFirstStyle"
+            :disabled="suspending"
+            @changed="emit('updated', { ...card, audioFirstStyle: $event })"
+          />
           <button type="button" class="remove-btn" @click="confirmingRemoveId = card.id">Delete</button>
         </div>
         <p v-if="card.suspended" class="suspended-note">Suspended: kept out of Study until you unsuspend it.</p>
@@ -903,5 +914,9 @@ textarea.path-input {
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;
+}
+
+.audio-first-style-row {
+  flex-basis: 100%;
 }
 </style>

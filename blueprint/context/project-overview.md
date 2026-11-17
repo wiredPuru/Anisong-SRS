@@ -408,6 +408,13 @@ shows the video. It amended `project-plan.md` §3's Study session bullet and
 §4's Flashcards bullet, since it adds stored state on `Card`, like features 89
 and 104.
 
+Feature 125 (audio-first styles) was added to `build-plan.md` and built on 2026-11-17. An
+audio-first card also stores how Study hides its picture: Blind (124's veil,
+the default), Blur, Pixelate, Peephole, or Random among the last three per
+showing. Study only, decided at approval: Listen keeps 124's plain hidden
+picture whatever the style. It amended `project-plan.md` §3's Study session
+bullet and §4's Flashcards bullet.
+
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
 2. **Media library settings** - done. `/settings` - configure local/external
@@ -2982,6 +2989,16 @@ and 104.
     revealed, since grading moves straight to the next card; named "Audio
     first" because "Listen" already names a page.
 
+125. **Audio-first styles** - added to `build-plan.md` and built 2026-11-17.
+    `Card.audioFirstStyle` (`blind` default, `blur`, `pixelate`, `peephole`,
+    `random`) chooses how `/study` hides an audio-first card's picture; Random
+    picks Blur, Pixelate or Peephole anew on every showing. Fixed strengths, no
+    sliders. Reveal rules, `V`, and session Hide Video (which still forces the
+    blind veil) are unchanged from 124, and the ambient glow stays off while the
+    picture is obscured. Picked wherever the mark is set, and named on the
+    badge. `/listen` keeps 124's blind veil whatever the style; Preview and
+    Party are unaffected.
+
 ## Data model
 
 ### Listen request queue (session-only)
@@ -3076,6 +3093,10 @@ stored: video if any video source is present, audio-only otherwise.
 - `audioFirst` (boolean, not null, default `false`) - feature 124 (migration `0044`).
   Study and Listen hide the picture until the answer is revealed. Independent
   of `suspended` and `known`.
+- `audioFirstStyle` (text, not null, default `"blind"`, values `"blind" |
+  "blur" | "pixelate" | "peephole" | "random"`) - feature 125 (migration `0045`). How
+  Study hides an audio-first card's picture; ignored when `audioFirst` is off
+  and on Listen.
 - `createdAt` (datetime)
 
 > A card must have at least one non-null source across the four

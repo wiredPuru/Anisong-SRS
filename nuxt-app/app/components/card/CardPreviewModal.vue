@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { AudioFirstStyle } from "~/utils/audioFirst";
+
 interface CardWithDetails {
   id: number;
   songId: number;
@@ -9,6 +11,7 @@ interface CardWithDetails {
   notes: string | null;
   // Optional: /stats opens this modal with a card copy that does not carry it.
   audioFirst?: boolean;
+  audioFirstStyle?: AudioFirstStyle;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -400,6 +403,13 @@ watch(
             {{ card.audioFirst ? "Not audio first" : "Audio first" }}
           </button>
           <span class="decks-note">Hides the picture in Study and Listen until the answer is revealed. Saves immediately.</span>
+          <CardAudioFirstStyleSelect
+            v-if="card.audioFirst && card.audioFirstStyle !== undefined"
+            :card-id="card.id"
+            :model-value="card.audioFirstStyle"
+            :disabled="togglingAudioFirst || editSaving"
+            @changed="emit('updated', { ...card, audioFirstStyle: $event })"
+          />
         </div>
         <p v-if="editOnly" class="decks-note">Deck changes save immediately. Save applies the fields above.</p>
         <p v-if="loadingDecks" class="decks-note" role="status">Loading decks...</p>

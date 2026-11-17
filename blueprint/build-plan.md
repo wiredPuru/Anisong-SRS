@@ -1461,6 +1461,15 @@ cleaned-up checkbox version before generating the project overview.
   inspector and bulk bar, and Listen's edit modal; a small badge marks it.
   Stored as `Card.audioFirst`; changes no schedule, review history, or the
   session Hide Video toggle. Preview is unaffected.
+- [x] 125. **Audio-first styles** - an audio-first card (124) also stores how
+  its picture is hidden on Study: Blind (today's "Listening" veil, the
+  default), Blur, Pixelate, Peephole (a small circle drifting over the video),
+  or Random (picks Blur, Pixelate or Peephole for each showing). Picked
+  wherever the Audio first mark is set (Study's Edit card panel, the `/cards`
+  inspector and bulk bar, Listen's edit modal), and named on the badge. Reveal
+  rules, `V`, and the session Hide Video toggle work exactly as in 124.
+  Stored as `Card.audioFirstStyle`. Study only: Listen keeps 124's plain
+  hidden picture whatever the style, and Preview and Party are unaffected.
 
 ## Plan maintenance
 

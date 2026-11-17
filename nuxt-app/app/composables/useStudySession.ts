@@ -1,3 +1,4 @@
+import type { AudioFirstStyle } from "~/utils/audioFirst";
 import type { GradingCriterion } from "~/utils/criterionGrading";
 import type { StudyFilters } from "~/utils/studyFilters";
 
@@ -23,6 +24,7 @@ export interface CardWithDetails {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   streak: number;

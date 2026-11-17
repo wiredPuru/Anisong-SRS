@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AudioFirstStyle } from "~/utils/audioFirst";
 interface CardRow {
   id: number;
   localVideoPath: string | null;
@@ -8,6 +9,7 @@ interface CardRow {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: "new" | "learning" | "known" | "suspended";
   nextReviewAt: string;
   songTitle: string;
@@ -96,7 +98,7 @@ const headerCheckState = computed(() =>
           <span class="song-title" :title="c.songTitle">
             {{ c.songTitle }}
             <CardStatusChip :status="c.status" class="row-status" />
-            <CardAudioFirstBadge v-if="c.audioFirst" class="row-status" />
+            <CardAudioFirstBadge v-if="c.audioFirst" class="row-status" :hide-style="c.audioFirstStyle" />
           </span>
           <span class="song-artist" :title="c.artistName">{{ c.artistName }}</span>
         </span>

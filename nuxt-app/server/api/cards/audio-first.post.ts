@@ -5,5 +5,5 @@ export default defineEventHandler(async (event) => {
   if ("error" in parsed) {
     throw createError({ statusCode: 400, statusMessage: parsed.error });
   }
-  return setCardsAudioFirst(parsed.ids, parsed.audioFirst);
+  return setCardsAudioFirst(parsed.ids, parsed.audioFirst, parsed.style);
 });

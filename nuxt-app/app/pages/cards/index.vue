@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AUDIO_FIRST_STYLE_OPTIONS, type AudioFirstStyle } from "~/utils/audioFirst";
 import { CARD_STATUSES, CARD_STATUS_LABELS, isCardStatus, type CardStatus } from "~/utils/cardStatus";
 import { describeLibraryFilter, EMPTY_LIBRARY_FILTER, libraryFilterActive, libraryQuery, type LibraryFilter } from "~/utils/libraryFilter";
 interface CardWithDetails {
@@ -12,6 +13,7 @@ interface CardWithDetails {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;
@@ -516,15 +518,21 @@ async function applyFlag(flag: CardFlag, value: boolean, batch: number[]) {
   dropCardsFromList(leaving);
 }
 
+// Marking applies the bar's chosen style; unmarking keeps each card's stored style.
+const bulkAudioFirstStyle = ref<AudioFirstStyle>("blind");
+
 // Audio first changes no status, so rows only leave the list when the card is gone.
 async function applyAudioFirst(value: boolean, batch: number[]) {
+  const style = value ? bulkAudioFirstStyle.value : undefined;
   const result = await $fetch<{ updated: number; notFound: number[] }>(FLAG_ENDPOINT.audioFirst, {
     method: "POST",
-    body: { ids: batch, audioFirst: value },
+    body: style ? { ids: batch, audioFirst: value, style } : { ids: batch, audioFirst: value },
   });
   const missing = new Set(result.notFound);
   const changed = new Set(batch.filter((id) => !missing.has(id)));
-  cards.value = cards.value.map((c) => (changed.has(c.id) ? { ...c, audioFirst: value } : c));
+  cards.value = cards.value.map((c) =>
+    changed.has(c.id) ? { ...c, audioFirst: value, ...(style ? { audioFirstStyle: style } : {}) } : c,
+  );
   dropCardsFromList(result.notFound);
 }
 
@@ -871,6 +879,16 @@ watch(
               >
                 Mark unknown
               </button>
+              <select
+                v-model="bulkAudioFirstStyle"
+                class="deck-select"
+                aria-label="How Study hides the picture of cards marked audio first"
+                :disabled="bulkDeleting || addingToDeck || bulkFlagging"
+              >
+                <option v-for="option in AUDIO_FIRST_STYLE_OPTIONS" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
               <button
                 type="button"
                 class="selection-clear-btn"

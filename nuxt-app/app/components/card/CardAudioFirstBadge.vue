@@ -1,5 +1,14 @@
+<script setup lang="ts">
+import { audioFirstStyleLabel, type AudioFirstStyle } from "~/utils/audioFirst";
+
+const props = defineProps<{ hideStyle?: AudioFirstStyle }>();
+const styleLabel = computed(() => (props.hideStyle ? audioFirstStyleLabel(props.hideStyle) : null));
+</script>
+
 <template>
-  <span class="audio-first-badge" title="Audio first: the picture stays hidden in Study and Listen until the answer is revealed">Audio first</span>
+  <span class="audio-first-badge" title="Audio first: the picture stays hidden in Study and Listen until the answer is revealed">
+    Audio first<template v-if="styleLabel"> · {{ styleLabel }}</template>
+  </span>
 </template>
 
 <style scoped>

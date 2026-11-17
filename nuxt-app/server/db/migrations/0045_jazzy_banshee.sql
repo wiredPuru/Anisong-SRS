@@ -1,0 +1,1 @@
+ALTER TABLE `card` ADD `audio_first_style` text DEFAULT 'blind' NOT NULL;

@@ -988,6 +988,31 @@ const audioFirstHidden = computed(() =>
   }),
 );
 
+// What the session itself hides (Hide Video, Auto Reveal's visual target),
+// before any audio-first mark is considered.
+const sessionVideoHidden = computed(() =>
+  typedAnswers.value
+    ? (hideVideo.value || autoRevealTargetsVisual.value) && !quizResult.value
+    : (hideVideo.value || autoRevealTargetsVisual.value) && !autoRevealedThisCard.value,
+);
+// How an audio-first card is hidden on this showing (feature 125). The seed
+// changes every showing, so Random can roll a different style on a repeat, and
+// the per-session salt (set after mount, so SSR and hydration agree) keeps a
+// fresh session from repeating the last one's rolls.
+const audioFirstSeedSalt = ref(0);
+onMounted(() => {
+  audioFirstSeedSalt.value = Math.floor(Math.random() * 1_000_000);
+});
+const audioFirstObscureMode = computed(() => {
+  const cardNow = currentCard.value;
+  if (!cardNow) return null;
+  return audioFirstObscure({
+    hidden: audioFirstHidden.value,
+    forcedBlind: sessionVideoHidden.value,
+    treatment: resolveAudioFirstStyle(cardNow.audioFirstStyle, audioFirstSeedSalt.value + presentationKey.value * 100_003 + cardNow.id),
+  });
+});
+
 // V and the Video toggle show an audio-first card's picture without touching
 // the session setting, unless that setting is hiding it too.
 function toggleHideVideo() {
@@ -1553,7 +1578,8 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             hotkey-scope="study"
             :key="presentationKey"
             :card="currentCard"
-            :hide-video="audioFirstHidden || (typedAnswers ? (hideVideo || autoRevealTargetsVisual) && !quizResult : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard)"
+            :hide-video="sessionVideoHidden || (audioFirstHidden && !audioFirstObscureMode)"
+            :obscure="audioFirstObscureMode"
             :random-start="randomStart"
             :ambient="ambientMode"
             hide-theme-badge

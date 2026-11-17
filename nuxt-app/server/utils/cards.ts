@@ -5,6 +5,7 @@ import type { AnimeTag } from "../lib/anilist.ts";
 import { db } from "../db/client.ts";
 import { anime, artist, card, deckCard, reviewLog, song } from "../db/schema.ts";
 import { animeCoverUrl } from "./animeCoverSql.ts";
+import type { AudioFirstStyle } from "./cardAudioFirst.ts";
 import { cardStatusExpr, type CardStatus } from "./cardStatus.ts";
 import { offlinePlayableCondition } from "./offlinePlayable.ts";
 import { getDailyNewCardLimit, getThemesOnly, isPathWithinLibrary } from "./mediaLibrary.ts";
@@ -32,6 +33,7 @@ export interface CardWithDetails {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: CardStatus;
   box: number;
   streak: number;
@@ -71,6 +73,7 @@ const cardSelection = (criterion: GradingCriterion) => ({
   suspended: card.suspended,
   known: card.known,
   audioFirst: card.audioFirst,
+  audioFirstStyle: card.audioFirstStyle,
   status: cardStatusExpr,
   box: trackBoxExpr(criterion),
   streak: trackStreakExpr(criterion),

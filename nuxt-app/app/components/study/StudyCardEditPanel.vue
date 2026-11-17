@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { AudioFirstStyle } from '~/utils/audioFirst'
+
 interface CardWithDetails {
 	id: number
 	localVideoPath: string | null
@@ -7,6 +9,7 @@ interface CardWithDetails {
 	animethemesAudioUrl: string | null
 	notes: string | null
 	audioFirst: boolean
+	audioFirstStyle: AudioFirstStyle
 }
 
 interface ManualDeck {
@@ -145,13 +148,14 @@ function hasUnsavedEdits() {
 }
 
 // Stays on the card, unlike Mark known: the mark changes how it plays, not whether it is served.
+// Marking keeps the form open so the style picker that appears with it can be used.
 async function toggleAudioFirst() {
 	audioFirstError.value = null
 	togglingAudioFirst.value = true
 	const audioFirst = !props.card.audioFirst
 	try {
 		await $fetch('/api/cards/audio-first', { method: 'POST', body: { ids: [props.card.id], audioFirst } })
-		const keepOpen = hasUnsavedEdits()
+		const keepOpen = audioFirst || hasUnsavedEdits()
 		emit('updated', { ...props.card, audioFirst })
 		if (!keepOpen) cancelEdit()
 	} catch (err) {
@@ -245,7 +249,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			Edit card
 			<span v-if="hint('editCard')" class="tooltip">Hotkey: {{ hint("editCard") }}</span>
 		</button>
-		<CardAudioFirstBadge v-if="!editing && card.audioFirst" class="audio-first-mark" />
+		<CardAudioFirstBadge v-if="!editing && card.audioFirst" class="audio-first-mark" :hide-style="card.audioFirstStyle" />
 		<form v-else ref="formRef" class="edit-form" @submit.prevent="save">
 			<div class="skip-actions">
 				<button
@@ -281,6 +285,14 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				>
 					{{ card.audioFirst ? 'Not audio first' : 'Audio first' }}
 				</button>
+				<CardAudioFirstStyleSelect
+					v-if="card.audioFirst"
+					class="audio-first-style-row"
+					:card-id="card.id"
+					:model-value="card.audioFirstStyle"
+					:disabled="saving || deleting || suspending || markingKnown || togglingAudioFirst"
+					@changed="emit('updated', { ...card, audioFirstStyle: $event })"
+				/>
 				<button
 					v-if="!confirmingDelete"
 					type="button"
@@ -682,6 +694,10 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 
 .audio-first-mark {
 	margin-top: 6px;
+}
+
+.audio-first-style-row {
+	flex-basis: 100%;
 }
 
 .skip-hint {

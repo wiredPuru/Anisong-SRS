@@ -74,7 +74,8 @@ controls the game, behind a password.
   Study until it is unsuspended. A card can be marked known to keep it out of Study as one the user
   already knows, and marked unknown to bring it back. A card can be marked
   audio first, so Study and Listen hide its picture until the answer is
-  revealed or the user shows it.
+  revealed or the user shows it. On Study the card can instead blur,
+  pixelate, or show its picture through a peephole, or pick one at random.
 - **Listen mode** - plays the songs of a deck, or of all cards, in order or
   shuffled, using the Study screen's player and display toggles. It has no
   grading, scheduling or score and never changes a card's review state.
@@ -136,7 +137,8 @@ controls the game, behind a password.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
   criterion; the card's own columns are the anime-title track), and whether
-  the card is suspended, marked known, or marked audio first.
+  the card is suspended, marked known, or marked audio first (and how
+  Study hides its picture).
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks). A manual deck also stores the

@@ -62,6 +62,24 @@ describe("setCardsAudioFirst", () => {
     expect(row(first)).toMatchObject({ audioFirst: false, known: true });
   });
 
+  it("defaults the style to blind and sets it only when given", () => {
+    const [first] = ids as [number, number];
+    expect(row(first).audioFirstStyle).toBe("blind");
+    setCardsAudioFirst([first], true, "pixelate");
+    expect(getCardsByIds([first])[0]).toMatchObject({ audioFirst: true, audioFirstStyle: "pixelate" });
+    setCardsAudioFirst([first], true);
+    expect(row(first).audioFirstStyle).toBe("pixelate");
+  });
+
+  it("keeps the stored style when a card is unmarked and marked again", () => {
+    const [first] = ids as [number, number];
+    setCardsAudioFirst([first], true, "peephole");
+    setCardsAudioFirst([first], false);
+    expect(row(first)).toMatchObject({ audioFirst: false, audioFirstStyle: "peephole" });
+    setCardsAudioFirst([first], true);
+    expect(row(first)).toMatchObject({ audioFirst: true, audioFirstStyle: "peephole" });
+  });
+
   it("reports ids that are not in the library", () => {
     const [first] = ids as [number, number];
     expect(setCardsAudioFirst([first, 9999], true)).toEqual({ updated: 1, notFound: [9999] });
@@ -73,6 +91,10 @@ describe("parseAudioFirstBody", () => {
     expect(parseAudioFirstBody({ ids: [3, 1, 3], audioFirst: true })).toEqual({ ids: [3, 1], audioFirst: true });
   });
 
+  it.each(["blind", "blur", "pixelate", "peephole", "random"])("accepts the %s style", (style) => {
+    expect(parseAudioFirstBody({ ids: [1], audioFirst: true, style })).toEqual({ ids: [1], audioFirst: true, style });
+  });
+
   it.each([
     null,
     { ids: [1] },
@@ -80,6 +102,9 @@ describe("parseAudioFirstBody", () => {
     { ids: [], audioFirst: true },
     { ids: [0], audioFirst: true },
     { ids: Array.from({ length: 501 }, (_, index) => index + 1), audioFirst: true },
+    { ids: [1], audioFirst: true, style: "sepia" },
+    { ids: [1], audioFirst: true, style: null },
+    { ids: [1], audioFirst: false, style: "blur" },
   ])("rejects %j", (body) => {
     expect(parseAudioFirstBody(body)).toHaveProperty("error");
   });

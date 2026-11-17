@@ -67,6 +67,10 @@ export const card = sqliteTable("card", {
   known: integer("known", { mode: "boolean" }).notNull().default(false),
   // Study and Listen hide the picture until the answer is revealed (feature 124).
   audioFirst: integer("audio_first", { mode: "boolean" }).notNull().default(false),
+  // How Study hides an audio-first card's picture (feature 125).
+  audioFirstStyle: text("audio_first_style", { enum: ["blind", "blur", "pixelate", "peephole", "random"] })
+    .notNull()
+    .default("blind"),
   box: integer("box").notNull().default(1),
   streak: integer("streak").notNull().default(0),
   nextReviewAt: integer("next_review_at", { mode: "timestamp" })

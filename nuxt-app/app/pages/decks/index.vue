@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AudioFirstStyle } from "~/utils/audioFirst";
 import { isOfflineModeError } from "~/utils/networkMode";
 import { networkImageSrc } from "~/utils/networkImage";
 import { coverInitial, coverTint } from "~/utils/coverFallback";
@@ -58,6 +59,7 @@ interface DeckCard {
   suspended: boolean;
   known: boolean;
   audioFirst: boolean;
+  audioFirstStyle: AudioFirstStyle;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;

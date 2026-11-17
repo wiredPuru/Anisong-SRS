@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { mediaLibraryCardId, type ListenMediaCard } from "~/utils/listenRequests";
 import { createMediaGain, type GainCurve } from "~/utils/mediaGain";
+import { peepholeCenter, PEEPHOLE_RADIUS, type AudioFirstObscure } from "~/utils/audioFirst";
 import type { HotkeyScope } from "~/utils/hotkeys";
 import { networkImageSrc } from "~/utils/networkImage";
 import { isOfflineUncachedFailure, networkMediaKind, OFFLINE_CLIP_MESSAGE } from "~/utils/networkPlayback";
@@ -13,6 +14,9 @@ const props = defineProps<{
   eventKey?: number;
   keyboardBlocked?: boolean;
   hideVideo?: boolean;
+  // Plays the video visibly but blurred, pixelated, or through a peephole
+  // (feature 125). Ignored while hideVideo or an audio-only card veils it anyway.
+  obscure?: AudioFirstObscure | null;
   randomStart?: boolean;
   ambient?: boolean;
   allowExpand?: boolean;
@@ -834,8 +838,44 @@ function stopPlayback() {
   teardownAudioGraph();
 }
 
+const obscureActive = computed(() => (quizType.value === "video" ? (props.obscure ?? null) : null));
+
+const peephole = ref<{ x: number; y: number }>({ x: 50, y: 50 });
+let peepholeFrame = 0;
+function stopPeephole() {
+  cancelAnimationFrame(peepholeFrame);
+  peepholeFrame = 0;
+}
+function startPeephole() {
+  stopPeephole();
+  peephole.value = { x: 50, y: 50 };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const startedAt = performance.now();
+  const tick = (now: number) => {
+    peephole.value = peepholeCenter((now - startedAt) / 1000, props.card.id);
+    peepholeFrame = requestAnimationFrame(tick);
+  };
+  peepholeFrame = requestAnimationFrame(tick);
+}
+watch(
+  () => obscureActive.value === "peephole",
+  (on) => (on ? startPeephole() : stopPeephole()),
+);
+onMounted(() => {
+  if (obscureActive.value === "peephole") startPeephole();
+});
+
+// The frame is always 16:9, so its height is 9/16 of the cqw width it measures.
+const PEEPHOLE_RADIUS_CQW = PEEPHOLE_RADIUS * (9 / 16) * 100;
+const videoObscureStyle = computed(() =>
+  obscureActive.value === "peephole"
+    ? { clipPath: `circle(${PEEPHOLE_RADIUS_CQW}cqw at ${peephole.value.x}% ${peephole.value.y}%)` }
+    : undefined,
+);
+
 onBeforeUnmount(() => {
   disposed = true;
+  stopPeephole();
   clearDurationProbe?.();
   stopPlayback();
   for (const element of [videoRef.value, audioRef.value]) {
@@ -867,8 +907,13 @@ const AMBIENT_SAMPLE_MS = 100;
 // snapping on the next tick.
 const AMBIENT_BLEND = 0.22;
 
+// A blurred or pixelated picture still gives its colours away through the glow.
 const ambientActive = computed(
-  () => foreground.value && Boolean(props.ambient) && (quizType.value === "video" || showCoverArt.value),
+  () =>
+    foreground.value &&
+    Boolean(props.ambient) &&
+    !obscureActive.value &&
+    (quizType.value === "video" || showCoverArt.value),
 );
 
 function ambientSource(): CanvasImageSource | null {
@@ -1408,6 +1453,8 @@ onUnmounted(() => stopDrag?.());
         v-if="mediaKind === 'video' && src"
         ref="videoRef"
         class="media-el"
+        :class="{ 'obscure-blur': obscureActive === 'blur', 'obscure-under-canvas': obscureActive === 'pixelate' }"
+        :style="videoObscureStyle"
         :src="src"
         :volume="effectiveVolume"
         @play="onPlay"
@@ -1426,6 +1473,7 @@ onUnmounted(() => stopDrag?.());
         @error="onError"
         @click="togglePlay"
       />
+      <StudyPixelCanvas v-if="obscureActive === 'pixelate'" :source="videoRef" />
       <audio
         v-else-if="src"
         ref="audioRef"
@@ -1806,6 +1854,17 @@ onUnmounted(() => stopDrag?.());
   height: 100%;
   object-fit: contain;
   cursor: pointer;
+}
+
+/* Scaled past the frame so the blur's soft, see-through edges are clipped off. */
+.media-el.obscure-blur {
+  filter: blur(28px);
+  transform: scale(1.15);
+}
+
+/* Keeps decoding for StudyPixelCanvas, which draws over it. */
+.media-el.obscure-under-canvas {
+  opacity: 0;
 }
 
 .hidden-audio {
