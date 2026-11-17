@@ -966,6 +966,37 @@ watch(autoRevealSeconds, (value) => {
 
 const autoRevealedThisCard = ref(false);
 const hasStartedPlaybackThisCard = ref(false);
+
+// An audio-first card (feature 124) hides its picture until the answer is
+// revealed or the user asks for it. Derived per showing, never written into the
+// session hideVideo toggle, so it cannot leak to the next card.
+const audioFirstAnswerRevealed = ref(false);
+const audioFirstShownByUser = ref(false);
+watch(presentationKey, () => {
+  audioFirstAnswerRevealed.value = false;
+  audioFirstShownByUser.value = false;
+});
+watch(detailsHidden, (hidden, wasHidden) => {
+  if (isAnswerReveal(hidden, wasHidden)) audioFirstAnswerRevealed.value = true;
+});
+const audioFirstHidden = computed(() =>
+  audioFirstVeiled({
+    audioFirst: Boolean(currentCard.value?.audioFirst),
+    answerRevealed: audioFirstAnswerRevealed.value,
+    shownByUser: audioFirstShownByUser.value,
+    revealedByTimer: autoRevealedThisCard.value,
+  }),
+);
+
+// V and the Video toggle show an audio-first card's picture without touching
+// the session setting, unless that setting is hiding it too.
+function toggleHideVideo() {
+  if (audioFirstHidden.value) {
+    audioFirstShownByUser.value = true;
+    if (!hideVideo.value) return;
+  }
+  hideVideo.value = !hideVideo.value;
+}
 // A typed round the card cannot grade (no AniList id) has no working Submit,
 // so no countdown runs toward it.
 const autoRevealAnswerable = computed(() =>
@@ -1257,7 +1288,7 @@ function toggleEditFromKey() {
 // Playback's key is handled independently by StudyMediaPlayer.
 const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   hideInfo: () => { hideInfo.value = !hideInfo.value; },
-  hideVideo: () => { hideVideo.value = !hideVideo.value; },
+  hideVideo: toggleHideVideo,
   hideCover: () => { hideCover.value = !hideCover.value; },
   ambient: () => { ambientMode.value = !ambientMode.value; },
   previousCard: openPreviousCard,
@@ -1425,7 +1456,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           />
           <StudyDisplayMenu label="Display">
             <StudyDisplayToggles
-              :hide-video="hideVideo"
+              :hide-video="hideVideo || audioFirstHidden"
               :hide-info="hideInfo"
               :hide-cover="hideCover"
               :media-kind="currentMediaKind"
@@ -1436,7 +1467,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :typed-answers="typedAnswers"
               v-model:auto-reveal-mode="autoRevealMode"
               :auto-reveal-seconds="autoRevealSeconds"
-              @toggle-hide-video="hideVideo = !hideVideo"
+              @toggle-hide-video="toggleHideVideo"
               @toggle-hide-info="!typedAnswers && (hideInfo = !hideInfo)"
               @toggle-hide-cover="!typedAnswers && (hideCover = !hideCover)"
               @toggle-random-start="randomStart = !randomStart"
@@ -1522,7 +1553,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             hotkey-scope="study"
             :key="presentationKey"
             :card="currentCard"
-            :hide-video="typedAnswers ? (hideVideo || autoRevealTargetsVisual) && !quizResult : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard"
+            :hide-video="audioFirstHidden || (typedAnswers ? (hideVideo || autoRevealTargetsVisual) && !quizResult : (hideVideo || autoRevealTargetsVisual) && !autoRevealedThisCard)"
             :random-start="randomStart"
             :ambient="ambientMode"
             hide-theme-badge

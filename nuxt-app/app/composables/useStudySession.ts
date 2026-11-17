@@ -22,6 +22,7 @@ export interface CardWithDetails {
   notes: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   streak: number;

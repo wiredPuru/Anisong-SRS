@@ -13,9 +13,8 @@ Just the project owner, and by extension anyone else who plays AMQ and wants to
 run their own local copy. Not a multi-tenant product - each user runs their own
 instance against their own local media and database. The one exception is
 party mode (build 86): the owner hosts a Guess the Anime game for a room or a
-stream from their own machine. The audience watches a screen, and players in
-the room can join from their phones to buzz in; the host alone controls the
-game, behind a password.
+stream from their own machine. The audience watches a screen; the host alone
+controls the game, behind a password.
 
 ## 3. Features - What does the MVP need?
 
@@ -73,7 +72,9 @@ game, behind a password.
   session can be undone, restoring the card's previous schedule so it can be
   graded again. A card can be suspended to keep it in the library but out of
   Study until it is unsuspended. A card can be marked known to keep it out of Study as one the user
-  already knows, and marked unknown to bring it back.
+  already knows, and marked unknown to bring it back. A card can be marked
+  audio first, so Study and Listen hide its picture until the answer is
+  revealed or the user shows it.
 - **Listen mode** - plays the songs of a deck, or of all cards, in order or
   shuffled, using the Study screen's player and display toggles. It has no
   grading, scheduling or score and never changes a card's review state.
@@ -119,11 +120,8 @@ game, behind a password.
 - **Guess the Anime party mode** - a separate `gaq-party` program that runs a
   host-controlled guess-the-anime game from the local library: a display
   screen for a projector or stream, and a password-locked host panel (usable
-  from a phone on the same network) with queue, playback, reveal, screen
-  effects (blur, pixelate, mute, blackout), and timed lightning rounds.
-  Players can join from their phones with just a name, at the address shown on
-  the display, and buzz in; the host judges each buzz and awards points. Party play never counts
-  as a review.
+  from a phone on the same network) to pick songs, play, reveal the answer,
+  and move on. Party play never counts as a review.
 
 - **Offline-first library** - saved metadata and local assets remain usable
   without external providers. An explicit offline mode prevents external
@@ -138,7 +136,7 @@ game, behind a password.
 - Flashcards: link to a song/theme, local file path and/or animethemes.moe
   reference, current Leitner box/interval state (one track per grading
   criterion; the card's own columns are the anime-title track), and whether
-  the card is suspended or marked known.
+  the card is suspended, marked known, or marked audio first.
 - Decks: derived groupings by Artist and by Anime Title, plus manually-created
   decks stored as their own entity with a many-to-many link to cards (a card
   can belong to zero or more manual decks). A manual deck also stores the
@@ -272,12 +270,10 @@ touched by an update.
 Party mode (build 86) ships as a second packaged binary, `gaq-party`, built
 alongside the SRS and sharing its user-data directory. It is the one part of
 the app that listens beyond localhost: its display port binds to loopback
-only, but its host control port and a player port bind to the LAN, so a phone
-can act as a remote or a buzzer. The control port requires the host password
-on every route, hashes it at rest, rate-limits login attempts, and only lets
-the password be first created from the machine itself. The player port serves
-only the join and buzzer page, needs only a player name (no room code, since
-the host runs it on their own network), and never sees an answer before the
+only, but its host control port binds to the LAN, so a phone can act as a
+remote. The control port requires the host password on every route, hashes it
+at rest, rate-limits login attempts, and only lets the password be first
+created from the machine itself. The display never sees an answer before the
 host reveals it. No port is meant to be exposed to the internet.
 
 ## 9. Non-Goals
@@ -291,8 +287,7 @@ priorities change:
   host password guards the host panel; it is not a user account)
 - A mobile app
 - Any AMQ game mode beyond flashcard review and host-run party mode (e.g.,
-  players typing or picking answers on their own devices; party players only
-  buzz, and the host judges)
+  players joining, buzzing, typing or picking answers on their own devices)
 
 ## Notes
 

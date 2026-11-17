@@ -11,6 +11,7 @@ interface CardWithDetails {
   notes: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;
@@ -477,18 +478,27 @@ async function addSelectedToDeck() {
 const bulkFlagging = ref(false);
 const bulkFlagError = ref<string | null>(null);
 
-type CardFlag = "suspended" | "known";
+type CardFlag = "suspended" | "known" | "audioFirst";
 
-const FLAG_ENDPOINT: Record<CardFlag, string> = { suspended: "/api/cards/suspend", known: "/api/cards/known" };
+const FLAG_ENDPOINT: Record<CardFlag, string> = {
+  suspended: "/api/cards/suspend",
+  known: "/api/cards/known",
+  audioFirst: "/api/cards/audio-first",
+};
 const FLAG_FAILURE: Record<CardFlag, [string, string]> = {
   suspended: ["Failed to suspend cards.", "Failed to unsuspend cards."],
   known: ["Failed to mark cards as known.", "Failed to mark cards as unknown."],
+  audioFirst: ["Failed to mark cards as audio first.", "Failed to unmark audio first."],
 };
 
 // Applies a flag to one batch and reconciles the loaded rows. The server's
 // statuses decide each row, since unsetting a flag lands on New or Learning
 // depending on review history the client does not hold.
 async function applyFlag(flag: CardFlag, value: boolean, batch: number[]) {
+  if (flag === "audioFirst") {
+    await applyAudioFirst(value, batch);
+    return;
+  }
   const result = await $fetch<{ updated: number; notFound: number[]; statuses: Record<number, CardStatus> }>(
     FLAG_ENDPOINT[flag],
     { method: "POST", body: { ids: batch, [flag]: value } },
@@ -506,12 +516,24 @@ async function applyFlag(flag: CardFlag, value: boolean, batch: number[]) {
   dropCardsFromList(leaving);
 }
 
+// Audio first changes no status, so rows only leave the list when the card is gone.
+async function applyAudioFirst(value: boolean, batch: number[]) {
+  const result = await $fetch<{ updated: number; notFound: number[] }>(FLAG_ENDPOINT.audioFirst, {
+    method: "POST",
+    body: { ids: batch, audioFirst: value },
+  });
+  const missing = new Set(result.notFound);
+  const changed = new Set(batch.filter((id) => !missing.has(id)));
+  cards.value = cards.value.map((c) => (changed.has(c.id) ? { ...c, audioFirst: value } : c));
+  dropCardsFromList(result.notFound);
+}
+
 // Same batching as bulk delete: rows already updated stay updated and leave the
 // selection, so a failure leaves only the unfinished cards selected to retry.
 async function setSelectedFlag(flag: CardFlag, value: boolean) {
   bulkFlagging.value = true;
   bulkFlagError.value = null;
-  const dropsRows = statusFilter.value !== "";
+  const dropsRows = flag !== "audioFirst" && statusFilter.value !== "";
   try {
     for (const batch of chunkIds([...checkedIds.value], BULK_DELETE_MAX)) {
       await applyFlag(flag, value, batch);
@@ -848,6 +870,22 @@ watch(
                 @click="setSelectedFlag('known', false)"
               >
                 Mark unknown
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('audioFirst', true)"
+              >
+                Audio first
+              </button>
+              <button
+                type="button"
+                class="selection-clear-btn"
+                :disabled="!checkedIds.size || bulkDeleting || addingToDeck || bulkFlagging"
+                @click="setSelectedFlag('audioFirst', false)"
+              >
+                Not audio first
               </button>
               <button
                 type="button"

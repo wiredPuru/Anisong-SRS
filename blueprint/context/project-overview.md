@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash e3156cf67da63d5dd737575403d722526513f3bb58252d5d8285bc6a784dd944 -->
+<!-- blueprint:source-hash ce7e6be293d52941bba64881028f0d58fb3f44c05195bd30a5ee9f19349f6668 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -387,6 +387,26 @@ search, Play now and Play next, and a session-only request queue that
 returns to the existing deck without changing its order. Catalog
 requests create no library cards. Amended `project-plan.md` §3
 (Listen mode bullet); no persistent data or deployment change.
+
+Feature 123 (party mode reset, in two sub-features 123a-123b) was added to
+`build-plan.md` on 2026-11-12 after the party UI, which had grown well past
+features 86-93's descriptions (stakes, censor boxes, choices, endless mode,
+teams, a layout editor, a command palette), was judged too heavy. It rebuilds
+`/party/host` and `/party/display` around one loop (pick songs, play, reveal,
+next) on the existing backend, then retires everything the new screens do not
+use, including the player door, buzzer and scoring. It amended
+`project-plan.md` §2 Users, the §3 party bullet, §8's party paragraph, and §9's
+Non-Goals bullet: party players joining and buzzing are no longer part of the
+product direction.
+
+Feature 124 (audio-first cards) was added to `build-plan.md` on 2026-11-17 and is
+built and merged. A
+card can be marked Audio first, a stored per-card flag, for openings whose
+visuals the user already knows: Study and Listen then start it with the
+picture hidden while the audio plays, until the answer is revealed or the user
+shows the video. It amended `project-plan.md` §3's Study session bullet and
+§4's Flashcards bullet, since it adds stored state on `Card`, like features 89
+and 104.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -2925,6 +2945,43 @@ requests create no library cards. Amended `project-plan.md` §3
     review progress. Library playback remains available offline; online
     discovery follows the existing Offline mode and Clip source settings.
 
+123. **Party mode reset** - added to `build-plan.md` 2026-11-12, in two
+    sub-features, neither built. Rebuilds the party host panel and display
+    minimally; the backend (`gaq-party` launcher and doors, host password and
+    session, game reducer and store, host command route, display SSE stream,
+    clip tokens) is kept. The new screens use only `load`, `play`, `pause`,
+    `next`, `previous`, `reveal`, `seek` and `settings` (random start). Party
+    play still never writes `ReviewLog`, `Card`, or `CardTrack`. Decided at
+    intake: host and display only (no players, buzzer or scoring); source is
+    All cards or a manual deck with Study-style filters and shuffle; effects,
+    lightning, stakes, censor, choices, endless mode, lobby music, the layout
+    editor and the command bar are cut.
+    - **123a. Wipe the old party UI, build the new host panel and display** -
+      deletes every party page body, component, composable, util and test the
+      new screens do not need (including `/party/play`), then builds one
+      single-column, phone-friendly host page (new-game picker, Play/Pause,
+      Reveal, Next, Previous, progress bar, random start, the answer shown to
+      the host only) and a plain display (click to start, the clip, the answer
+      card on reveal, waiting screen, fullscreen). The server side is untouched.
+    - **123b. Trim the backend the new screens do not use** - cuts the matching
+      reducer commands and state, routes, tests and the player door (port
+      4003). This is the step that makes features 90, 91, 102 and 108 (and the
+      parts of 86d-86f and 112 the new screens do not use) history rather than
+      current behavior.
+
+124. **Audio-first cards** - added to `build-plan.md` and built 2026-11-17. A
+    remembered per-card "Audio first" mark. On `/study` and `/listen` a marked
+    card starts with its picture hidden (as Hide Video) while the audio plays,
+    and shows it once the answer is revealed (typed result panel, Hide Info
+    revealed by `I` or Auto Reveal, Listen's reveal) or when Show video / `V`
+    is pressed, for that showing only. Set or cleared from Study's Edit card
+    panel, the `/cards` inspector and bulk selection bar, and Listen's edit
+    modal, with a small badge. Stored as `Card.audioFirst`; no schedule, review
+    history, or session Hide Video change, and Preview is unaffected. Decided
+    at intake: on manual Pass/Fail the picture returns when the info is
+    revealed, since grading moves straight to the next card; named "Audio
+    first" because "Listen" already names a page.
+
 ## Data model
 
 ### Listen request queue (session-only)
@@ -3016,6 +3073,9 @@ stored: video if any video source is present, audio-only otherwise.
 - `known` (boolean, not null, default `false`) - feature 104a (migration `0035`).
   Marked by the user as already known; out of Study on every grading track,
   never set together with `suspended`.
+- `audioFirst` (boolean, not null, default `false`) - feature 124 (migration `0044`).
+  Study and Listen hide the picture until the answer is revealed. Independent
+  of `suspended` and `known`.
 - `createdAt` (datetime)
 
 > A card must have at least one non-null source across the four

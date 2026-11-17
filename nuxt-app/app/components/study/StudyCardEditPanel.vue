@@ -6,6 +6,7 @@ interface CardWithDetails {
 	animethemesVideoUrl: string | null
 	animethemesAudioUrl: string | null
 	notes: string | null
+	audioFirst: boolean
 }
 
 interface ManualDeck {
@@ -133,6 +134,33 @@ async function markKnown() {
 	}
 }
 
+const togglingAudioFirst = ref(false)
+const audioFirstError = ref<string | null>(null)
+
+// The open form disables Missed and Got it, so it closes after a toggle unless it holds unsaved edits.
+function hasUnsavedEdits() {
+	return videoPath.value !== (props.card.localVideoPath ?? '')
+		|| audioPath.value !== (props.card.localAudioPath ?? '')
+		|| notes.value !== (props.card.notes ?? '')
+}
+
+// Stays on the card, unlike Mark known: the mark changes how it plays, not whether it is served.
+async function toggleAudioFirst() {
+	audioFirstError.value = null
+	togglingAudioFirst.value = true
+	const audioFirst = !props.card.audioFirst
+	try {
+		await $fetch('/api/cards/audio-first', { method: 'POST', body: { ids: [props.card.id], audioFirst } })
+		const keepOpen = hasUnsavedEdits()
+		emit('updated', { ...props.card, audioFirst })
+		if (!keepOpen) cancelEdit()
+	} catch (err) {
+		audioFirstError.value = extractErrorMessage(err, 'Failed to update the card.')
+	} finally {
+		togglingAudioFirst.value = false
+	}
+}
+
 async function save() {
 	error.value = null
 	saving.value = true
@@ -217,6 +245,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			Edit card
 			<span v-if="hint('editCard')" class="tooltip">Hotkey: {{ hint("editCard") }}</span>
 		</button>
+		<CardAudioFirstBadge v-if="!editing && card.audioFirst" class="audio-first-mark" />
 		<form v-else ref="formRef" class="edit-form" @submit.prevent="save">
 			<div class="skip-actions">
 				<button
@@ -244,6 +273,15 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 					{{ markingKnown ? 'Marking...' : 'Mark known' }}
 				</button>
 				<button
+					type="button"
+					class="audio-first-btn"
+					:aria-pressed="card.audioFirst"
+					:disabled="saving || deleting || suspending || markingKnown || togglingAudioFirst"
+					@click="toggleAudioFirst"
+				>
+					{{ card.audioFirst ? 'Not audio first' : 'Audio first' }}
+				</button>
+				<button
 					v-if="!confirmingDelete"
 					type="button"
 					class="delete-btn"
@@ -269,7 +307,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 				>
 					Remove from {{ deckName }}
 				</button>
-				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards. Mark known does the same for a song you already know, and Cards can undo it. Removing from a deck leaves the card in your library.</p>
+				<p class="skip-hint">Bury skips this card until you leave Study. Suspend keeps it out until you unsuspend it on Cards. Mark known does the same for a song you already know, and Cards can undo it. Audio first keeps the picture hidden until the answer is revealed, every time the card comes up. Removing from a deck leaves the card in your library.</p>
 			</div>
 			<div
 				v-if="confirmingDelete"
@@ -303,6 +341,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			<p v-if="deleteError" class="edit-error">{{ deleteError }}</p>
 			<p v-if="suspendError" class="edit-error">{{ suspendError }}</p>
 			<p v-if="knownError" class="edit-error">{{ knownError }}</p>
+			<p v-if="audioFirstError" class="edit-error">{{ audioFirstError }}</p>
 			<label class="field">
 				<span class="field-label">Local video path</span>
 				<div class="path-row">
@@ -641,6 +680,10 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 	border-bottom: 1px solid var(--border);
 }
 
+.audio-first-mark {
+	margin-top: 6px;
+}
+
 .skip-hint {
 	flex-basis: 100%;
 	margin: 0;
@@ -651,6 +694,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 .bury-btn,
 .suspend-btn,
 .known-btn,
+.audio-first-btn,
 .source-btn,
 .delete-btn {
 	white-space: nowrap;
@@ -663,7 +707,8 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 	cursor: pointer;
 }
 
-.bury-btn {
+.bury-btn,
+.audio-first-btn {
 	border: 1px solid var(--accent-secondary);
 	color: var(--accent-secondary);
 }

@@ -7,6 +7,8 @@ interface CardWithDetails {
   animethemesVideoUrl: string | null;
   animethemesAudioUrl: string | null;
   notes: string | null;
+  // Optional: /stats opens this modal with a card copy that does not carry it.
+  audioFirst?: boolean;
   box: number;
   nextReviewAt: string;
   createdAt: string;
@@ -119,6 +121,24 @@ const editAudioPath = ref("");
 const editNotes = ref("");
 const editSaving = ref(false);
 const editError = ref<string | null>(null);
+const togglingAudioFirst = ref(false);
+
+// Saves at once, like deck membership, rather than waiting for Save.
+async function toggleAudioFirst() {
+  const target = props.card;
+  if (!target || target.audioFirst === undefined) return;
+  const audioFirst = !target.audioFirst;
+  editError.value = null;
+  togglingAudioFirst.value = true;
+  try {
+    await $fetch("/api/cards/audio-first", { method: "POST", body: { ids: [target.id], audioFirst } });
+    emit("updated", { ...target, audioFirst });
+  } catch (err) {
+    editError.value = extractErrorMessage(err, "Failed to update the card.");
+  } finally {
+    togglingAudioFirst.value = false;
+  }
+}
 const clearingVideo = ref(false);
 const clearingAudio = ref(false);
 
@@ -369,6 +389,18 @@ watch(
           />
         </label>
 
+        <div v-if="card.audioFirst !== undefined" class="audio-first-row">
+          <button
+            type="button"
+            class="audio-first-btn"
+            :aria-pressed="card.audioFirst"
+            :disabled="togglingAudioFirst || editSaving"
+            @click="toggleAudioFirst"
+          >
+            {{ card.audioFirst ? "Not audio first" : "Audio first" }}
+          </button>
+          <span class="decks-note">Hides the picture in Study and Listen until the answer is revealed. Saves immediately.</span>
+        </div>
         <p v-if="editOnly" class="decks-note">Deck changes save immediately. Save applies the fields above.</p>
         <p v-if="loadingDecks" class="decks-note" role="status">Loading decks...</p>
         <button v-else-if="editOnly && deckToggleError && !manualDecks.length" type="button" class="cancel-btn" @click="loadDeckData">Retry loading decks</button>
@@ -627,6 +659,29 @@ watch(
 .edit-actions {
   display: flex;
   gap: 8px;
+}
+
+.audio-first-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-first-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audio-first-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .save-btn {

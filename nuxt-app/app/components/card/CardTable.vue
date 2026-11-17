@@ -7,6 +7,7 @@ interface CardRow {
   animethemesAudioUrl: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: "new" | "learning" | "known" | "suspended";
   nextReviewAt: string;
   songTitle: string;
@@ -95,6 +96,7 @@ const headerCheckState = computed(() =>
           <span class="song-title" :title="c.songTitle">
             {{ c.songTitle }}
             <CardStatusChip :status="c.status" class="row-status" />
+            <CardAudioFirstBadge v-if="c.audioFirst" class="row-status" />
           </span>
           <span class="song-artist" :title="c.artistName">{{ c.artistName }}</span>
         </span>

@@ -9,6 +9,7 @@ interface CardWithDetails {
   notes: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;
@@ -279,6 +280,22 @@ async function toggleKnown(target: CardWithDetails) {
     suspending.value = false;
   }
 }
+
+async function toggleAudioFirst(target: CardWithDetails) {
+  suspendError.value = null;
+  suspending.value = true;
+  try {
+    await $fetch("/api/cards/audio-first", {
+      method: "POST",
+      body: { ids: [target.id], audioFirst: !target.audioFirst },
+    });
+    emit("updated", { ...target, audioFirst: !target.audioFirst });
+  } catch (err) {
+    suspendError.value = extractErrorMessage(err, "Failed to update the card.");
+  } finally {
+    suspending.value = false;
+  }
+}
 </script>
 
 <template>
@@ -315,7 +332,7 @@ async function toggleKnown(target: CardWithDetails) {
       </div>
       <div class="inspector-body">
         <div class="inspector-titles">
-          <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /></span>
+          <span class="inspector-song">{{ card.songTitle }} <CardStatusChip :status="card.status" /> <CardAudioFirstBadge v-if="card.audioFirst" /></span>
           <span v-if="isCurrentDeck('artist', card.artistId)" class="inspector-meta">{{ card.artistName }}</span>
           <NuxtLink v-else :to="artistDeckPath(card.artistId)" target="_blank" rel="noopener" class="inspector-meta deck-link">{{
             card.artistName
@@ -468,6 +485,9 @@ async function toggleKnown(target: CardWithDetails) {
           </button>
           <button type="button" class="known-btn" :disabled="suspending" @click="toggleKnown(card)">
             {{ card.known ? "Mark unknown" : "Mark known" }}
+          </button>
+          <button type="button" class="audio-first-btn" :disabled="suspending" @click="toggleAudioFirst(card)">
+            {{ card.audioFirst ? "Not audio first" : "Audio first" }}
           </button>
           <button type="button" class="remove-btn" @click="confirmingRemoveId = card.id">Delete</button>
         </div>
@@ -715,6 +735,17 @@ img.inspector-cover-art {
   border: 1px solid var(--pass);
   background: transparent;
   color: var(--pass);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audio-first-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-secondary);
+  background: transparent;
+  color: var(--accent-secondary);
   font-family: var(--font-sans);
   font-weight: 700;
   cursor: pointer;

@@ -1,0 +1,1 @@
+ALTER TABLE `card` ADD `audio_first` integer DEFAULT false NOT NULL;

@@ -57,6 +57,7 @@ interface DeckCard {
   notes: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: "new" | "learning" | "known" | "suspended";
   box: number;
   nextReviewAt: string;

@@ -1430,6 +1430,38 @@ cleaned-up checkbox version before generating the project overview.
   catalog from Listen, play a result now or queue it next, then resume
   the existing deck in its current order. Requests are session-only.
 
+- [ ] 123. **Party mode reset: minimal host panel and display** - rebuild
+  `/party/host` and `/party/display` from scratch around one loop: pick songs,
+  play, reveal, next. The backend stays: the `gaq-party` launcher and doors,
+  host password and session, game reducer and store, the host command route,
+  the display SSE stream and clip tokens. The new screens use only a handful
+  of existing commands (`load`, `play`, `pause`, `next`, `previous`, `reveal`,
+  `seek`, `settings`).
+  - [ ] 123a. **Wipe the old party UI, build the new host panel and
+    display** - delete every party page body, component, composable, util and
+    test the new screens do not need (including `/party/play`), then build one
+    single-column, phone-friendly host page (new-game picker for All cards or
+    a manual deck with Study-style filters and shuffle, big Play/Pause,
+    Reveal, Next, Previous, a progress bar, random start, and the answer shown
+    to the host only) and a plain display (click to start, the clip, the
+    answer card on reveal, a waiting screen, fullscreen). The server side is
+    untouched.
+  - [ ] 123b. **Trim the backend the new screens do not use** - cut the
+    reducer commands and state, routes, tests and the player door (port 4003)
+    for buzzer, scoring, kick and ban, effects, lightning rounds, stakes,
+    censor, choices, endless mode, lobby music and the rest, so the server
+    matches the UI.
+
+- [x] 124. **Audio-first cards** - a remembered per-card "Audio first" mark for
+  songs whose visuals are already known. On Study and Listen a marked card
+  starts with its picture hidden (as Hide Video) while the audio plays, and
+  shows it once the answer is revealed (typed result, Hide Info reveal or Auto
+  Reveal, Listen's reveal) or when Show video / `V` is pressed, for that
+  showing only. Set or cleared from Study's Edit card panel, the `/cards`
+  inspector and bulk bar, and Listen's edit modal; a small badge marks it.
+  Stored as `Card.audioFirst`; changes no schedule, review history, or the
+  session Hide Video toggle. Preview is unaffected.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

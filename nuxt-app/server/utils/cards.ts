@@ -31,6 +31,7 @@ export interface CardWithDetails {
   notes: string | null;
   suspended: boolean;
   known: boolean;
+  audioFirst: boolean;
   status: CardStatus;
   box: number;
   streak: number;
@@ -69,6 +70,7 @@ const cardSelection = (criterion: GradingCriterion) => ({
   notes: card.notes,
   suspended: card.suspended,
   known: card.known,
+  audioFirst: card.audioFirst,
   status: cardStatusExpr,
   box: trackBoxExpr(criterion),
   streak: trackStreakExpr(criterion),

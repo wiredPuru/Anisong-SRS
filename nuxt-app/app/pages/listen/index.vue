@@ -186,7 +186,38 @@ const autoReveal = useListenAutoReveal(revealedThisCard, presentationKey, reveal
 
 // An Auto Reveal mode veils what it targets even with that Hide toggle off.
 const infoHidden = computed(() => (hideInfo.value || autoReveal.targets.value.info) && !revealedThisCard.value);
-const videoHidden = computed(() => (hideVideo.value || autoReveal.targets.value.visual) && !revealedThisCard.value);
+// An audio-first card (feature 124) keeps its picture hidden until the answer
+// is revealed, Reveal runs (manually or by Auto Reveal), or V asks for it.
+const audioFirstAnswerRevealed = ref(false);
+const audioFirstShownByUser = ref(false);
+watch(presentationKey, () => {
+  audioFirstAnswerRevealed.value = false;
+  audioFirstShownByUser.value = false;
+});
+watch(infoHidden, (hidden, wasHidden) => {
+  if (isAnswerReveal(hidden, wasHidden)) audioFirstAnswerRevealed.value = true;
+});
+const audioFirstHidden = computed(() =>
+  audioFirstVeiled({
+    audioFirst: Boolean(currentCard.value?.audioFirst),
+    answerRevealed: audioFirstAnswerRevealed.value,
+    shownByUser: audioFirstShownByUser.value || revealedThisCard.value,
+    revealedByTimer: false,
+  }),
+);
+const videoHidden = computed(
+  () => audioFirstHidden.value || ((hideVideo.value || autoReveal.targets.value.visual) && !revealedThisCard.value),
+);
+
+// V and the Video toggle show an audio-first card's picture without touching
+// the session setting, unless that setting is hiding it too.
+function toggleHideVideo() {
+  if (audioFirstHidden.value) {
+    audioFirstShownByUser.value = true;
+    if (!hideVideo.value) return;
+  }
+  hideVideo.value = !hideVideo.value;
+}
 const coverHidden = computed(() => (hideCover.value || autoReveal.targets.value.visual) && !revealedThisCard.value);
 const anythingVeiled = computed(() => infoHidden.value || videoHidden.value || coverHidden.value);
 
@@ -374,7 +405,7 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   listenNext: next,
   listenPrevious: previous,
   hideInfo: () => { hideInfo.value = !hideInfo.value; },
-  hideVideo: () => { hideVideo.value = !hideVideo.value; },
+  hideVideo: toggleHideVideo,
   hideCover: () => { hideCover.value = !hideCover.value; },
   ambient: () => { ambientMode.value = !ambientMode.value; },
   reveal,
@@ -447,7 +478,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
           <StudyDisplayMenu label="Display">
             <StudyDisplayToggles
               listen
-              :hide-video="hideVideo"
+              :hide-video="hideVideo || audioFirstHidden"
               :hide-info="hideInfo"
               :hide-cover="hideCover"
               :media-kind="currentMediaKind"
@@ -458,7 +489,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               :typed-answers="false"
               v-model:auto-reveal-mode="autoReveal.mode.value"
               :auto-reveal-seconds="autoReveal.seconds.value"
-              @toggle-hide-video="hideVideo = !hideVideo"
+              @toggle-hide-video="toggleHideVideo"
               @toggle-hide-info="hideInfo = !hideInfo"
               @toggle-hide-cover="hideCover = !hideCover"
               @toggle-random-start="randomStart = !randomStart"
