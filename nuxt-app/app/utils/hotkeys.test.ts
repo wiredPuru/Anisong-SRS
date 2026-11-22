@@ -33,7 +33,7 @@ describe("HOTKEY_ACTIONS defaults", () => {
   });
 
   it("refuses a Listen-only key for Edit card and repairs old conflicting overrides", () => {
-    expect(validateBinding(resolveBindings(), "editCard", "primary", "r")).toEqual({ ok: false, reason: "conflict", conflictsWith: "reveal" });
+    expect(validateBinding(resolveBindings(), "editCard", "primary", "r")).toMatchObject({ ok: false, reason: "conflict" });
     const stored = JSON.stringify({ v: 1, overrides: { editCard: { primary: "r", alternate: null } } });
     const parsed = parseStored(stored);
     expect(parsed.editCard.primary).toBe("e");
@@ -51,6 +51,7 @@ describe("HOTKEY_ACTIONS defaults", () => {
     previousCard: ["p", null],
     sessionLog: ["l", null],
     editCard: ["e", null],
+    audioFirstRandom: ["r", null],
     undo: ["u", null],
     pass: ["arrowright", null],
     fail: ["arrowleft", null],
@@ -351,6 +352,24 @@ describe("serializeOverrides and parseStored", () => {
     const bindings = parseStored(raw);
     expect(bindings.hideVideo.primary).toBe("x");
     expect(bindings.hideInfo.primary).toBe("i");
+  });
+
+  it("gives Study's Audio first key R without touching Listen's Reveal", () => {
+    expect(actionForEvent(defaults, "study", keyEvent("r"))).toBe("audioFirstRandom");
+    expect(actionForEvent(defaults, "listen", keyEvent("r"))).toBe("reveal");
+  });
+
+  it("leaves Audio first unbound when a saved Study binding already uses R", () => {
+    const stored = JSON.stringify({ v: 1, overrides: { previousCard: { primary: "r", alternate: null } } });
+    const parsed = parseStored(stored);
+    expect(parsed.previousCard.primary).toBe("r");
+    expect(parsed.audioFirstRandom).toEqual({ primary: null, alternate: null });
+    expect(actionForEvent(parsed, "study", keyEvent("r"))).toBe("previousCard");
+  });
+
+  it("keeps a saved Audio first binding that moved off R", () => {
+    const stored = JSON.stringify({ v: 1, overrides: { audioFirstRandom: { primary: "x", alternate: null } } });
+    expect(parseStored(stored).audioFirstRandom.primary).toBe("x");
   });
 
   it("never returns bindings that conflict, whatever was saved", () => {

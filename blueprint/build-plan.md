@@ -1471,6 +1471,19 @@ cleaned-up checkbox version before generating the project overview.
   Stored as `Card.audioFirstStyle`. Study only: Listen keeps 124's plain
   hidden picture whatever the style, and Preview and Party are unaffected.
 
+- [x] 126. **Random audio-first hotkey** - a Study hotkey (default `R`,
+  rebindable in Settings > Hotkeys) that marks the current card Audio first
+  with the Random style in one press, without opening the Edit card panel.
+  Pressing it again on a card already marked Random clears the mark; a card
+  marked with another style switches to Random. A short "Audio first: Random"
+  or "Audio first off" note shows over the player, and the edit panel's badge
+  updates. Before the answer is revealed the picture hides at once with a
+  random style; after it, the mark applies from the next showing. Study only,
+  since Listen ignores styles. Uses the existing `POST /api/cards/audio-first`
+  route: no server or schema change. Also fixes a 124 bug where Study's edit
+  form showed without Edit card being pressed and vanished when Audio first
+  was clicked, hiding the style picker.
+
 ## Plan maintenance
 
 Not features and not build targets - documentation drift to correct in

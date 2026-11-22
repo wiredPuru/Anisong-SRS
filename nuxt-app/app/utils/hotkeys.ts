@@ -11,6 +11,7 @@ export type HotkeyActionId =
   | "previousCard"
   | "sessionLog"
   | "editCard"
+  | "audioFirstRandom"
   | "undo"
   | "pass"
   | "fail"
@@ -53,6 +54,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   { id: "previousCard", label: "Previous card", scopes: ["study"], defaults: { primary: "p", alternate: null } },
   { id: "sessionLog", label: "Session log", scopes: ["study"], defaults: { primary: "l", alternate: null } },
   { id: "editCard", label: "Edit card", scopes: BOTH_PLAYERS, defaults: { primary: "e", alternate: null } },
+  { id: "audioFirstRandom", label: "Audio first (Random)", scopes: ["study"], defaults: { primary: "r", alternate: null } },
   { id: "undo", label: "Undo last review", scopes: ["study"], defaults: { primary: "u", alternate: null } },
   { id: "pass", label: "Pass", scopes: ["study"], defaults: { primary: "arrowright", alternate: null } },
   { id: "fail", label: "Fail", scopes: ["study"], defaults: { primary: "arrowleft", alternate: null } },
@@ -212,20 +214,43 @@ function parseOverride(value: unknown): HotkeyBinding | null {
   return { primary, alternate };
 }
 
-// The action to put back to its default so a conflicting pair can coexist:
-// the later one that was changed, else the earlier one.
-function conflictingAction(bindings: HotkeyBindings): HotkeyActionId | null {
+type Conflict = { a: HotkeyActionId; b: HotkeyActionId; keys: string[] };
+
+function firstConflict(bindings: HotkeyBindings): Conflict | null {
   for (let i = 0; i < HOTKEY_ACTIONS.length; i++) {
     for (let j = i + 1; j < HOTKEY_ACTIONS.length; j++) {
       const a = HOTKEY_ACTIONS[i]!;
       const b = HOTKEY_ACTIONS[j]!;
       if (!sharesScope(a, b)) continue;
       const taken = keysOf(bindings[b.id]);
-      if (!keysOf(bindings[a.id]).some((key) => taken.includes(key))) continue;
-      return isDefault(b.id, bindings[b.id]) ? a.id : b.id;
+      const keys = keysOf(bindings[a.id]).filter((key) => taken.includes(key));
+      if (keys.length) return { a: a.id, b: b.id, keys };
     }
   }
   return null;
+}
+
+// Actions added after bindings could be saved. Their default yields to a key
+// the user already chose, so adding one never resets a saved binding.
+const LATE_ACTIONS: ReadonlySet<HotkeyActionId> = new Set(["audioFirstRandom"]);
+
+function clearKeys(binding: HotkeyBinding, keys: string[]): HotkeyBinding {
+  return {
+    primary: binding.primary !== null && keys.includes(binding.primary) ? null : binding.primary,
+    alternate: binding.alternate !== null && keys.includes(binding.alternate) ? null : binding.alternate,
+  };
+}
+
+// Otherwise the later changed action goes back to its default, else the earlier one.
+function resolveConflict(bindings: HotkeyBindings, { a, b, keys }: Conflict): void {
+  for (const [late, other] of [[a, b], [b, a]] as const) {
+    if (LATE_ACTIONS.has(late) && isDefault(late, bindings[late]) && !isDefault(other, bindings[other])) {
+      bindings[late] = clearKeys(bindings[late], keys);
+      return;
+    }
+  }
+  const offender = isDefault(b, bindings[b]) ? a : b;
+  bindings[offender] = { ...actionById(offender).defaults };
 }
 
 /** Reads saved bindings, falling back to defaults per action for anything unusable. */
@@ -249,10 +274,10 @@ export function parseStored(raw: string | null): HotkeyBindings {
 
   // Overrides are checked as a set, not one by one: swapping two actions' keys
   // is valid as a whole even though each half alone would collide.
-  for (let guard = ACTION_IDS.length; guard > 0; guard--) {
-    const offender = conflictingAction(bindings);
-    if (!offender) break;
-    bindings[offender] = { ...actionById(offender).defaults };
+  for (let guard = ACTION_IDS.length * 2; guard > 0; guard--) {
+    const conflict = firstConflict(bindings);
+    if (!conflict) break;
+    resolveConflict(bindings, conflict);
   }
   return bindings;
 }

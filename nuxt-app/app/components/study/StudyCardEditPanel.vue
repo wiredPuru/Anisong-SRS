@@ -255,7 +255,7 @@ async function downloadLocalPath(kind: 'video' | 'audio') {
 			<span v-if="hint('editCard')" class="tooltip">Hotkey: {{ hint("editCard") }}</span>
 		</button>
 		<CardAudioFirstBadge v-if="!editing && card.audioFirst" class="audio-first-mark" :hide-style="card.audioFirstStyle" />
-		<form v-else ref="formRef" class="edit-form" @submit.prevent="save">
+		<form v-if="editing" ref="formRef" class="edit-form" @submit.prevent="save">
 			<div class="skip-actions">
 				<button
 					type="button"

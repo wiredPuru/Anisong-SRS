@@ -4,6 +4,7 @@ import {
   audioFirstStyleLabel,
   audioFirstVeiled,
   isAnswerReveal,
+  nextRandomAudioFirst,
   peepholeCenter,
   resolveAudioFirstStyle,
   type AudioFirstVeilState,
@@ -102,5 +103,32 @@ describe("peepholeCenter", () => {
 
   it("moves over time", () => {
     expect(peepholeCenter(0, 3)).not.toEqual(peepholeCenter(2, 3));
+  });
+});
+
+describe("nextRandomAudioFirst", () => {
+  it("marks an unmarked card Random", () => {
+    expect(nextRandomAudioFirst({ audioFirst: false, audioFirstStyle: "blind" })).toEqual({
+      body: { audioFirst: true, style: "random" },
+      note: "Audio first: Random",
+    });
+  });
+
+  it("marks an unmarked card Random even if its stored style is already Random", () => {
+    expect(nextRandomAudioFirst({ audioFirst: false, audioFirstStyle: "random" }).body).toEqual({ audioFirst: true, style: "random" });
+  });
+
+  it.each(["blind", "blur", "pixelate", "peephole"] as const)("switches a %s card to Random", (style) => {
+    expect(nextRandomAudioFirst({ audioFirst: true, audioFirstStyle: style })).toEqual({
+      body: { audioFirst: true, style: "random" },
+      note: "Audio first: Random",
+    });
+  });
+
+  it("clears the mark on a card already Random", () => {
+    expect(nextRandomAudioFirst({ audioFirst: true, audioFirstStyle: "random" })).toEqual({
+      body: { audioFirst: false },
+      note: "Audio first off",
+    });
   });
 });

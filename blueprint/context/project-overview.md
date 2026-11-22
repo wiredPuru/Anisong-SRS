@@ -415,6 +415,14 @@ showing. Study only, decided at approval: Listen keeps 124's plain hidden
 picture whatever the style. It amended `project-plan.md` §3's Study session
 bullet and §4's Flashcards bullet.
 
+Feature 126 (random audio-first hotkey) was added to `build-plan.md` and built
+on 2026-11-20. A Study hotkey (default `R`, rebindable) marks the current card
+Audio first with the Random style, or clears that mark, without opening the
+editor. It also fixes a feature 124 bug in `StudyCardEditPanel`, where the
+edit form's `v-else` chained to the new badge instead of the Edit card button.
+No `project-plan.md` change: it adds a key to feature 124/125's existing Study
+control, like features 87 and 103.
+
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
 2. **Media library settings** - done. `/settings` - configure local/external
@@ -2998,6 +3006,15 @@ bullet and §4's Flashcards bullet.
     picture is obscured. Picked wherever the mark is set, and named on the
     badge. `/listen` keeps 124's blind veil whatever the style; Preview and
     Party are unaffected.
+
+126. **Random audio-first hotkey** - added to `build-plan.md` and built
+    2026-11-20. A Study-only `audioFirstRandom` hotkey action (default `R`) sends
+    `POST /api/cards/audio-first` `{ ids: [id], audioFirst: true, style:
+    "random" }`, or `{ audioFirst: false }` when the card is already Random,
+    and shows a brief note (`StudyFlashNote`) on the player pane, visible on
+    either side of the card. A late-added action's default yields to a saved
+    binding of the same key (`LATE_ACTIONS` in `app/utils/hotkeys.ts`). Also
+    fixes the 124 template bug that showed Study's edit form outside edit mode.
 
 ## Data model
 

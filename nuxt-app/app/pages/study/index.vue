@@ -1027,6 +1027,41 @@ function toggleHideVideo() {
   }
   hideVideo.value = !hideVideo.value;
 }
+// One key marks the card Audio first with the Random style, or clears that
+// mark, without the editor (feature 126). The 125 logic then hides the picture
+// at once if the answer is not out yet.
+const audioFirstNote = ref<{ text: string; tone: "neutral" | "fail"; id: number } | null>(null);
+const AUDIO_FIRST_NOTE_MS = 1200;
+let audioFirstNoteTimeout: ReturnType<typeof setTimeout> | null = null;
+let markingAudioFirst = false;
+
+function showAudioFirstNote(text: string, tone: "neutral" | "fail") {
+  if (audioFirstNoteTimeout) clearTimeout(audioFirstNoteTimeout);
+  audioFirstNote.value = { text, tone, id: (audioFirstNote.value?.id ?? 0) + 1 };
+  audioFirstNoteTimeout = setTimeout(() => {
+    audioFirstNote.value = null;
+  }, tone === "fail" ? AUDIO_FIRST_NOTE_MS * 2 : AUDIO_FIRST_NOTE_MS);
+}
+onUnmounted(() => {
+  if (audioFirstNoteTimeout) clearTimeout(audioFirstNoteTimeout);
+});
+
+async function markRandomAudioFirst() {
+  const cardNow = currentCard.value;
+  if (!cardNow || markingAudioFirst || loading.value || viewedHistoryEntry.value || showSessionLog.value || showFilters.value || showFindSource.value) return;
+  const { body, note } = nextRandomAudioFirst(cardNow);
+  markingAudioFirst = true;
+  try {
+    await $fetch("/api/cards/audio-first", { method: "POST", body: { ids: [cardNow.id], ...body } });
+    onCardEdited({ id: cardNow.id, audioFirst: body.audioFirst, ...(body.audioFirst ? { audioFirstStyle: body.style } : {}) });
+    showAudioFirstNote(note, "neutral");
+  } catch (err) {
+    showAudioFirstNote(extractErrorMessage(err, "Couldn't update Audio first."), "fail");
+  } finally {
+    markingAudioFirst = false;
+  }
+}
+
 // A typed round the card cannot grade (no AniList id) has no working Submit,
 // so no countdown runs toward it.
 const autoRevealAnswerable = computed(() =>
@@ -1326,6 +1361,7 @@ const PAGE_ACTIONS: Partial<Record<HotkeyActionId, () => void>> = {
   flipCard: () => { showDetails.value = !showDetails.value; },
   flipJapanese: toggleJapanese,
   editCard: toggleEditFromKey,
+  audioFirstRandom: () => { void markRandomAudioFirst(); },
 };
 
 function onKeydown(event: KeyboardEvent) {
@@ -1357,9 +1393,11 @@ function onKeydown(event: KeyboardEvent) {
     }
     if (action === "flipJapanese" && !event.repeat) toggleJapanese();
     if (action === "editCard" && !event.repeat) toggleEditFromKey();
+    if (action === "audioFirstRandom" && !event.repeat) void markRandomAudioFirst();
     return;
   }
   if (typedAnswers.value && (action === "hideInfo" || action === "hideCover")) return;
+  if (action === "audioFirstRandom" && event.repeat) return;
   const run = PAGE_ACTIONS[action];
   if (!run) return;
   hotkeys.claimSpace(event);
@@ -1621,6 +1659,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </template>
           </StudyMediaPlayer>
           <StudyGradeMoment v-if="gradeFlash" :result="gradeFlash" />
+          <StudyFlashNote v-if="audioFirstNote" :key="audioFirstNote.id" :text="audioFirstNote.text" :tone="audioFirstNote.tone" />
           <StudyDetailsCard
             :open="showDetails"
             :cover-image-url="detailsHidden ? null : currentCard.animeCoverImageUrl"
@@ -1695,6 +1734,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                     <span><kbd>Enter</kbd> continue</span>
                     <span v-if="hotkeyHint('undo')"><kbd>{{ hotkeyHint("undo") }}</kbd> undo</span>
                     <span v-if="hotkeyHint('playPause')"><kbd>{{ hotkeyHint("playPause") }}</kbd> play/pause</span>
+                    <span v-if="hotkeyHint('audioFirstRandom')"><kbd>{{ hotkeyHint("audioFirstRandom") }}</kbd> audio first (random)</span>
                   </template>
                   <template v-else>
                     <span><kbd>&uarr;&darr;</kbd> choose</span>
@@ -1708,6 +1748,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
                   <span v-if="hotkeyHint('undo')"><kbd>{{ hotkeyHint("undo") }}</kbd> undo</span>
                   <span v-if="hotkeyHint('sessionLog')"><kbd>{{ hotkeyHint("sessionLog") }}</kbd> session log</span>
                   <span v-if="hotkeyHint('editCard')"><kbd>{{ hotkeyHint("editCard") }}</kbd> edit card</span>
+                  <span v-if="hotkeyHint('audioFirstRandom')"><kbd>{{ hotkeyHint("audioFirstRandom") }}</kbd> audio first (random)</span>
                   <span v-if="hotkeyHint('flipCard')"><kbd>{{ hotkeyHint("flipCard") }}</kbd> flip card</span>
                   <span v-if="japaneseBreakdown && hotkeyHint('flipJapanese')"><kbd>{{ hotkeyHint("flipJapanese") }}</kbd> Japanese breakdown</span>
                 </template>

@@ -69,6 +69,19 @@ export function audioFirstStyleLabel(style: AudioFirstStyle): string | null {
   return AUDIO_FIRST_STYLE_OPTIONS.find((option) => option.value === style)?.label ?? null;
 }
 
+export type RandomAudioFirstBody = { audioFirst: true; style: "random" } | { audioFirst: false };
+
+/** What Study's Audio first (Random) key sends: a second press on a Random card clears the mark. */
+export function nextRandomAudioFirst(card: { audioFirst: boolean; audioFirstStyle: AudioFirstStyle }): {
+  body: RandomAudioFirstBody;
+  note: string;
+} {
+  if (card.audioFirst && card.audioFirstStyle === "random") {
+    return { body: { audioFirst: false }, note: "Audio first off" };
+  }
+  return { body: { audioFirst: true, style: "random" }, note: "Audio first: Random" };
+}
+
 export const PEEPHOLE_RADIUS = 0.14;
 
 /**
