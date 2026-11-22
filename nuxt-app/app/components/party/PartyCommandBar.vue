@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PartyHostState } from "~/composables/usePartyHost";
 import { rankCommands } from "~/utils/fuzzyMatch";
-import { PARTY_PALETTE_COMMANDS, paletteCommandById, type PaletteLocal, type PartyPaletteCommand } from "~/utils/partyPalette";
+import { commandStatus, PARTY_PALETTE_COMMANDS, paletteCommandById, type PaletteLocal, type PartyPaletteCommand } from "~/utils/partyPalette";
 
 const RESULT_LIMIT = 12;
 
@@ -20,11 +20,6 @@ interface RowView {
   on: boolean | null;
 }
 
-function reasonFor(command: PartyPaletteCommand): string | null {
-  if (command.local) return null;
-  if (!props.state) return "Connecting...";
-  return command.available?.(props.state) ?? null;
-}
 
 const rows = computed<RowView[]>(() => {
   let picked: { command: PartyPaletteCommand; heading: string | null }[];
@@ -42,8 +37,7 @@ const rows = computed<RowView[]>(() => {
     command,
     heading,
     optionId: `palette-opt-${command.id}`,
-    reason: reasonFor(command),
-    on: command.kind === "toggle" && props.state && command.state ? command.state(props.state, props.local) : null,
+    ...commandStatus(command, props.state, props.local),
   }));
 });
 

@@ -13,8 +13,7 @@ watch(sessionLost, (lost) => {
   if (lost) emit("sessionLost");
 });
 
-// The settings column keeps one group open at a time, so the whole panel
-// fits one screen instead of a long scroll.
+// Settings shows one group at a time; 1-4 open it on that group.
 const TABS = [
   { id: "round", label: "Round" },
   { id: "screen", label: "Screen" },
@@ -22,11 +21,24 @@ const TABS = [
   { id: "game", label: "New game" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
-const tab = ref<TabId>("game");
-// Once a game is running, the round settings are what the host reaches for.
-watch(hasGame, (running, was) => {
-  if (running && !was && tab.value === "game") tab.value = "round";
-}, { immediate: true });
+const tab = ref<TabId>("round");
+const settingsOpen = ref(false);
+// With no game, New game sits in the right column rather than in Settings.
+const visibleTabs = computed(() => (hasGame.value ? TABS : TABS.filter((item) => item.id !== "game")));
+watch(hasGame, (running) => {
+  if (!running && tab.value === "game") tab.value = "round";
+});
+
+/** Open Settings on a tab, or point at the inline New game when no game runs. */
+function openTab(id: TabId) {
+  if (id === "game" && !hasGame.value) {
+    settingsOpen.value = false;
+    void jumpTo({ id: "panel-new-game", target: "new-game", kind: "jump" });
+    return;
+  }
+  tab.value = id;
+  settingsOpen.value = true;
+}
 
 // Add songs starts open with no game, and folds away once one is running.
 const addSongsOpen = ref(true);
@@ -62,7 +74,7 @@ const { actionContext } = usePartyHotkeys(
   },
   (index) => {
     const target = TABS[index];
-    if (target) tab.value = target.id;
+    if (target) openTab(target.id);
   },
 );
 
@@ -75,8 +87,13 @@ const paletteLocal = computed(() => ({ ambientOn: ambientOn.value }));
 const FLASH_MS = 1200;
 const FIELD_SELECTOR = "input:not([type=checkbox]):not([type=radio]):not([type=range]):not(:disabled), textarea:not(:disabled)";
 
-async function jumpTo(command: PartyPaletteCommand) {
-  if (command.tab) tab.value = command.tab;
+async function jumpTo(command: Pick<PartyPaletteCommand, "id" | "target" | "kind" | "tab">) {
+  if (command.tab && (command.tab !== "game" || hasGame.value)) {
+    tab.value = command.tab;
+    settingsOpen.value = true;
+  } else {
+    settingsOpen.value = false;
+  }
   if (command.target === "add-songs") addSongsOpen.value = true;
   await nextTick();
   const target = document.querySelector<HTMLElement>(`[data-palette-target="${command.target}"]`);
@@ -93,16 +110,29 @@ async function jumpTo(command: PartyPaletteCommand) {
   if (command.kind === "jump") target.querySelector<HTMLElement>(FIELD_SELECTOR)?.focus({ preventScroll: true });
 }
 
-function onPick(command: PartyPaletteCommand) {
-  commandBar.remember(command.id);
-  commandBar.close();
+function runCommand(command: PartyPaletteCommand) {
   if (command.local === "help") helpOpen.value = true;
   else if (command.local === "ambient") toggleAmbient();
   else if (command.run && state.value) {
     const sent = command.run(state.value, actionContext());
     if (sent) send(sent);
   }
+}
+
+function onPick(command: PartyPaletteCommand) {
+  commandBar.remember(command.id);
+  commandBar.close();
+  runCommand(command);
   if (command.target && command.kind !== "action") void jumpTo(command);
+}
+
+const moreOpen = ref(false);
+
+/** From More options or a pinned control: a toggle just flips (the pop-up stays open), anything else closes the pop-up. */
+function onMoreOptionsPick(command: PartyPaletteCommand) {
+  if (command.kind !== "toggle") moreOpen.value = false;
+  runCommand(command);
+  if (command.kind === "jump") void jumpTo(command);
 }
 </script>
 
@@ -141,6 +171,10 @@ function onPick(command: PartyPaletteCommand) {
         </section>
         <p v-else-if="state" class="panel panel-note queue-panel order-queue">The queue shows here once a game starts.</p>
 
+        <section class="panel pinned-panel order-transport">
+          <PartyPinnedControls :state="state" :local="paletteLocal" @pick="onMoreOptionsPick" @more="moreOpen = true" />
+        </section>
+
         <section class="panel transport-panel order-transport" aria-label="Now playing" data-palette-target="now-playing">
           <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
           <template v-else-if="hasGame && state">
@@ -149,7 +183,7 @@ function onPick(command: PartyPaletteCommand) {
               {{ lastLoad.skipped }} song{{ lastLoad.skipped === 1 ? " was" : "s were" }} skipped with no playable clip.
             </p>
           </template>
-          <p v-else class="panel-note">No game yet. Build one under New game.</p>
+          <p v-else class="panel-note">No game yet. Build one under New game on the right.</p>
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
       </div>
@@ -163,59 +197,69 @@ function onPick(command: PartyPaletteCommand) {
       </div>
 
       <div class="column side-column">
-        <section v-if="state" class="panel order-info" aria-label="Current song">
+        <section v-if="state && hasGame" class="panel order-info" aria-label="Current song">
           <PartySongInfo :state="state" />
         </section>
-
-        <div class="tabs order-settings" role="tablist" aria-label="Game settings">
-          <button
-            v-for="item in TABS"
-            :key="item.id"
-            type="button"
-            role="tab"
-            class="tab"
-            :class="{ on: tab === item.id }"
-            :aria-selected="tab === item.id"
-            @click="tab = item.id"
-          >
-            {{ item.label }} <kbd class="tab-key">{{ TABS.indexOf(item) + 1 }}</kbd>
-          </button>
-        </div>
-
-        <div class="tab-body order-settings">
-          <template v-if="tab === 'round' && state">
-            <section class="panel" data-palette-target="lightning"><PartyLightningPanel :state="state" @command="send" /></section>
-            <section class="panel" data-palette-target="live"><PartyLivePanel :state="state" @command="send" /></section>
-          </template>
-          <template v-else-if="tab === 'screen' && state">
-            <section class="panel" data-palette-target="effects"><PartyEffectsPanel :state="state" @command="send" /></section>
-            <section class="panel" data-palette-target="reveal-fields"><PartyRevealPanel :state="state" @command="send" /></section>
-            <section class="panel" data-palette-target="show"><PartyShowPanel :state="state" @command="send" /></section>
-          </template>
-          <template v-else-if="tab === 'players' && state">
-            <section class="panel" data-palette-target="join"><PartyJoinPanel :state="state" @command="send" /></section>
-            <section class="panel connect" data-palette-target="connect">
-              <h2 class="panel-title">Connect a display or phone</h2>
-              <dl class="links">
-                <dt>Display screen (open it on the computer running GAQ Party)</dt>
-                <dd><code>{{ displayUrl }}</code></dd>
-                <dt>Host panel from a phone or laptop</dt>
-                <dd v-for="url in controlUrls" :key="url"><code>{{ url }}</code></dd>
-              </dl>
-              <p v-if="isLoopback" class="panel-hint">
-                Forgot the password later? Log out, then choose "Set a new password" on this computer.
-              </p>
-            </section>
-          </template>
-          <!-- Kept mounted so a half-built game survives a look at another tab. -->
-          <section v-show="tab === 'game'" class="panel" data-palette-target="new-game">
+        <!-- With no game the right column is where one starts; during a game New game lives in Settings. -->
+        <template v-else>
+          <section class="panel order-info" data-palette-target="new-game">
             <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
           </section>
-          <section v-if="tab === 'game' && state" class="panel" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
-        </div>
+          <section v-if="state" class="panel order-info" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
+        </template>
       </div>
     </div>
 
+    <PartyHostDialog :open="settingsOpen" title="Settings" wide @close="settingsOpen = false">
+      <div class="tabs" role="tablist" aria-label="Game settings">
+        <button
+          v-for="item in visibleTabs"
+          :key="item.id"
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ on: tab === item.id }"
+          :aria-selected="tab === item.id"
+          @click="tab = item.id"
+        >
+          {{ item.label }} <kbd class="tab-key">{{ TABS.indexOf(item) + 1 }}</kbd>
+        </button>
+      </div>
+
+      <template v-if="tab === 'round' && state">
+        <section class="panel" data-palette-target="lightning"><PartyLightningPanel :state="state" @command="send" /></section>
+        <section class="panel" data-palette-target="live"><PartyLivePanel :state="state" @command="send" /></section>
+      </template>
+      <template v-else-if="tab === 'screen' && state">
+        <section class="panel" data-palette-target="effects"><PartyEffectsPanel :state="state" @command="send" /></section>
+        <section class="panel" data-palette-target="reveal-fields"><PartyRevealPanel :state="state" @command="send" /></section>
+        <section class="panel" data-palette-target="show"><PartyShowPanel :state="state" @command="send" /></section>
+      </template>
+      <template v-else-if="tab === 'players' && state">
+        <section class="panel" data-palette-target="join"><PartyJoinPanel :state="state" @command="send" /></section>
+        <section class="panel connect" data-palette-target="connect">
+          <h2 class="panel-title">Connect a display or phone</h2>
+          <dl class="links">
+            <dt>Display screen (open it on the computer running GAQ Party)</dt>
+            <dd><code>{{ displayUrl }}</code></dd>
+            <dt>Host panel from a phone or laptop</dt>
+            <dd v-for="url in controlUrls" :key="url"><code>{{ url }}</code></dd>
+          </dl>
+          <p v-if="isLoopback" class="panel-hint">
+            Forgot the password later? Log out, then choose "Set a new password" on this computer.
+          </p>
+        </section>
+      </template>
+      <template v-if="hasGame">
+        <!-- Kept mounted so a half-built game survives a look at another tab. -->
+        <section v-show="tab === 'game'" class="panel" data-palette-target="new-game">
+          <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
+        </section>
+        <section v-if="tab === 'game' && state" class="panel" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
+      </template>
+    </PartyHostDialog>
+
+    <PartyMoreOptions :open="moreOpen" :state="state" :local="paletteLocal" @pick="onMoreOptionsPick" @close="moreOpen = false" />
     <PartyHotkeyHelp v-if="helpOpen" @close="helpOpen = false" />
     <PartyCommandBar
       v-if="commandBar.open.value"
@@ -336,8 +380,13 @@ function onPick(command: PartyPaletteCommand) {
   overflow: hidden;
 }
 
-.panel.transport-panel {
+.panel.transport-panel,
+.panel.pinned-panel {
   flex: none;
+}
+
+.panel.pinned-panel {
+  padding: 14px;
 }
 
 .panel-toggle {
@@ -395,12 +444,6 @@ function onPick(command: PartyPaletteCommand) {
   color: var(--accent-ink);
 }
 
-.tab-body {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 
 .panel {
   flex: none;
@@ -514,9 +557,6 @@ function onPick(command: PartyPaletteCommand) {
     order: 4;
   }
 
-  .order-settings {
-    order: 5;
-  }
 
   .dashboard-header {
     flex-wrap: wrap;

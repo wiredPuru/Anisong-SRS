@@ -1467,7 +1467,7 @@ cleaned-up checkbox version before generating the project overview.
   form showed without Edit card being pressed and vanished when Audio first
   was clicked, hiding the style picker.
 
-- [ ] 127. **Party host three-column revamp** - rearrange `/party/host` after
+- [x] 127. **Party host three-column revamp** - rearrange `/party/host` after
   `blueprint/reference/party-host-revamp/`, restyled with the app's own tokens.
   Left: up next, the queue, a grid of pinned controls, and the transport
   (previous, play/pause, next, skip to end, progress). Middle: the scoreboard
@@ -1482,7 +1482,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 127a. **Three-column layout** - move today's panels into the new
     columns: queue and transport on the left, scoreboard in the middle, song
     info on the right. Settings panels that have no column yet stay reachable.
-  - [ ] 127b. **More options and pins** - the grouped pop-up, Edit pins, and
+  - [x] 127b. **More options and pins** - the grouped pop-up, Edit pins, and
     the pinned-controls grid. It replaces the right-hand tab strip.
 
 ## Plan maintenance

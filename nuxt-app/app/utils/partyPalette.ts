@@ -206,6 +206,17 @@ export function isPaletteShortcut(event: Pick<KeyboardEvent, "key" | "shiftKey" 
   return event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "p";
 }
 
+/** Whether a toggle is on (null for non-toggles) and why the command cannot run now (null when it can). */
+export function commandStatus(
+  command: PartyPaletteCommand,
+  host: PartyHostState | null,
+  local: PaletteLocal,
+): { on: boolean | null; reason: string | null } {
+  const reason = command.local ? null : host ? (command.available?.(host) ?? null) : "Connecting...";
+  const on = command.kind === "toggle" && command.state && (host || command.local) ? command.state(host as PartyHostState, local) : null;
+  return { on, reason };
+}
+
 export function paletteCommandById(id: string): PartyPaletteCommand | null {
   return PARTY_PALETTE_COMMANDS.find((command) => command.id === id) ?? null;
 }

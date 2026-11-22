@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 4758c3fe306b329fdd4d2a7cc6d7753e4cac63ca8cc34f6b166460a16533d626 -->
+<!-- blueprint:source-hash a12166d1d2ad9c599d5864272de11893e5782428e3600f5723283b05a5dd30d2 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -2996,7 +2996,7 @@ control, like features 87 and 103.
     fixes the 124 template bug that showed Study's edit form outside edit mode.
 
 127. **Party host three-column revamp** - added to `build-plan.md`
-    2026-11-22, in two sub-features; 127a is built. Rearranges `/party/host`
+    2026-11-22, in two sub-features, both built. Rearranges `/party/host`
     after `blueprint/reference/party-host-revamp/` (`layout-main.png`,
     `layout-more-options.png`), restyled with the app's own tokens. Left: up
     next, the queue, a grid of pinned controls, and the transport (previous,
@@ -3023,8 +3023,21 @@ control, like features 87 and 103.
       Grid `minmax(270px, 400px) minmax(460px, 1fr) minmax(290px, 440px)`;
       below 1100px the panels stack transport, song info, scoreboard, queue,
       settings. Client only.
-    - **127b. More options and pins** - the grouped pop-up, Edit pins, and
-      the pinned-controls grid, replacing the right-hand tab strip.
+    - **127b. More options and pins** - done 2026-11-22. The catalogue is
+      feature 108's `PARTY_PALETTE_COMMANDS`; `app/utils/partyHostPins.ts`
+      maps each command to a section (Queue, Toggles, Reveal, Playback and
+      session, Scoreboard) and holds the pin rules (`parsePins`, `togglePin`,
+      12 at most, defaults Reveal, Blur, Pixelate, Hide picture, Mute, Start
+      15s timer, Show scoreboard, Buzzer mode). Pins live in `localStorage`
+      `gaqSrs:partyHostPins` through `usePartyHostPins()`.
+      `PartyMoreOptions.vue` lists every command by section with On/Off
+      (`commandStatus` in `partyPalette.ts`, shared with the command bar) and
+      an Edit pins mode; `PartyPinnedControls.vue` is the left column's grid,
+      ending in "More...". The tab strip left the right column: the four
+      tabs now open in a Settings dialog (`PartyHostDialog.vue`, also the
+      pop-up's shell) from More options panels, Shift+P jumps, and 1-4; with
+      no game the right column shows New game inline. The transport's three
+      options share one line (Random start, Auto-next, Buzzer mode).
 
 ## Data model
 

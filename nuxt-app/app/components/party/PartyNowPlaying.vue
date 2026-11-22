@@ -183,29 +183,29 @@ function setSongVolume(volume: number) {
     </label>
 
     <div class="np-options">
-      <label class="np-toggle" data-palette-target="option-random-start">
+      <label class="np-toggle" data-palette-target="option-random-start" title="Each song from the next one starts at a random point">
         <input
           type="checkbox"
           :checked="state.randomStart"
           @change="emit('command', { type: 'settings', randomStart: ($event.target as HTMLInputElement).checked })"
         />
-        Random start (from the next song)
+        Random start
       </label>
-      <label class="np-toggle" data-palette-target="option-auto-advance">
+      <label class="np-toggle" data-palette-target="option-auto-advance" title="Go to the next song when one ends">
         <input
           type="checkbox"
           :checked="state.autoAdvance"
           @change="emit('command', { type: 'autoAdvance', enabled: ($event.target as HTMLInputElement).checked })"
         />
-        Go to the next song when one ends
+        Auto-next
       </label>
-      <label class="np-toggle" data-palette-target="option-buzzer">
+      <label class="np-toggle" data-palette-target="option-buzzer" title="Players buzz in from their phones">
         <input
           type="checkbox"
           :checked="state.buzzerEnabled"
           @change="emit('command', { type: 'buzzer', enabled: ($event.target as HTMLInputElement).checked })"
         />
-        Buzzer mode (players buzz from their phones)
+        Buzzer mode
       </label>
       <button
         type="button"

@@ -14,7 +14,7 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "V", action: "Hide / show the picture (Bubbles or Music player)" },
   { keys: "T", action: "Start a 15s timer" },
   { keys: "S", action: "Show / hide the scoreboard" },
-  { keys: "1-4", action: "Round, Screen, Players, New game tabs" },
+  { keys: "1-4", action: "Settings: Round, Screen, Players, New game" },
   { keys: "Shift+P", action: "Command bar" },
   { keys: "?", action: "This list" },
 ];

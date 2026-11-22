@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildHostAction, hostActionById, type HostActionContext } from "./partyHostActions";
-import { NEEDS_GAME, PARTY_PALETTE_COMMANDS, isPaletteShortcut, paletteCommandById, type PartyPaletteCommand } from "./partyPalette";
+import { NEEDS_GAME, PARTY_PALETTE_COMMANDS, commandStatus, isPaletteShortcut, paletteCommandById, type PartyPaletteCommand } from "./partyPalette";
 import { sampleHostState } from "./testing/partyHostState";
 
 const idle = sampleHostState({ index: -1, queue: [] });
@@ -152,5 +152,31 @@ describe("isPaletteShortcut", () => {
   it("ignores other shifted keys", () => {
     expect(press("?", { shiftKey: true })).toBe(false);
     expect(press("O", { shiftKey: true })).toBe(false);
+  });
+});
+
+describe("commandStatus", () => {
+  const local = { ambientOn: true };
+  const byId = (id: string) => paletteCommandById(id)!;
+
+  it("reads a toggle's state and has no reason when it can run", () => {
+    const host = sampleHostState({ effects: { ...sampleHostState().effects, blur: 14 } });
+    expect(commandStatus(byId("blur"), host, local)).toEqual({ on: true, reason: null });
+    expect(commandStatus(byId("pixelate"), host, local)).toEqual({ on: false, reason: null });
+  });
+
+  it("gives no on/off for actions and panels", () => {
+    expect(commandStatus(byId("next"), sampleHostState(), local).on).toBeNull();
+    expect(commandStatus(byId("panel-effects"), sampleHostState(), local).on).toBeNull();
+  });
+
+  it("explains why a game-only command cannot run", () => {
+    const idle = sampleHostState({ index: -1, queue: [] });
+    expect(commandStatus(byId("next"), idle, local).reason).toBe(NEEDS_GAME);
+  });
+
+  it("waits for the connection, except for page-local commands", () => {
+    expect(commandStatus(byId("blur"), null, local)).toEqual({ on: null, reason: "Connecting..." });
+    expect(commandStatus(byId("ambient"), null, local)).toEqual({ on: true, reason: null });
   });
 });
