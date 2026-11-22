@@ -28,6 +28,12 @@ watch(hasGame, (running, was) => {
   if (running && !was && tab.value === "game") tab.value = "round";
 }, { immediate: true });
 
+// Add songs starts open with no game, and folds away once one is running.
+const addSongsOpen = ref(true);
+watch(hasGame, (running, was) => {
+  if (running !== was) addSongsOpen.value = !running;
+}, { immediate: true });
+
 // Unlike the app-wide Ambient preference, the host's glow starts on.
 const AMBIENT_KEY = "gaqSrs:partyHostAmbient";
 const ambientOn = ref(true);
@@ -71,6 +77,7 @@ const FIELD_SELECTOR = "input:not([type=checkbox]):not([type=radio]):not([type=r
 
 async function jumpTo(command: PartyPaletteCommand) {
   if (command.tab) tab.value = command.tab;
+  if (command.target === "add-songs") addSongsOpen.value = true;
   await nextTick();
   const target = document.querySelector<HTMLElement>(`[data-palette-target="${command.target}"]`);
   // A panel that only shows during a game may not be on the page; the pick just closes.
@@ -120,18 +127,21 @@ function onPick(command: PartyPaletteCommand) {
 
     <div class="dashboard-grid">
       <div class="column queue-column">
-        <section v-if="state" class="panel" data-palette-target="add-songs">
-          <h2 class="panel-title">Add songs</h2>
-          <PartyQueueSearch :state="state" />
+        <section v-if="state" class="panel order-queue" data-palette-target="add-songs">
+          <button type="button" class="panel-toggle" :aria-expanded="addSongsOpen" @click="addSongsOpen = !addSongsOpen">
+            <h2 class="panel-title">Add songs</h2>
+            <span class="toggle-mark" aria-hidden="true">{{ addSongsOpen ? "−" : "+" }}</span>
+          </button>
+          <div v-show="addSongsOpen" class="add-songs-body">
+            <PartyQueueSearch :state="state" />
+          </div>
         </section>
-        <section v-if="hasGame && state" class="panel grow" data-palette-target="queue">
+        <section v-if="hasGame && state" class="panel queue-panel order-queue" data-palette-target="queue">
           <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
         </section>
-        <p v-else-if="state" class="panel panel-note">The queue shows here once a game starts.</p>
-      </div>
+        <p v-else-if="state" class="panel panel-note queue-panel order-queue">The queue shows here once a game starts.</p>
 
-      <div class="column main-column">
-        <section class="panel" aria-label="Now playing" data-palette-target="now-playing">
+        <section class="panel transport-panel order-transport" aria-label="Now playing" data-palette-target="now-playing">
           <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
           <template v-else-if="hasGame && state">
             <PartyNowPlaying :state="state" @command="send" />
@@ -142,15 +152,22 @@ function onPick(command: PartyPaletteCommand) {
           <p v-else class="panel-note">No game yet. Build one under New game.</p>
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
+      </div>
 
-        <section v-if="state" class="panel grow">
+      <div class="column main-column">
+        <section v-if="state" class="panel grow order-score">
+          <PartyRoundJudge :state="state" @command="send" />
           <PartyScoreboardPanel :state="state" data-palette-target="scoreboard" @command="send" />
           <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />
         </section>
       </div>
 
       <div class="column side-column">
-        <div class="tabs" role="tablist" aria-label="Game settings">
+        <section v-if="state" class="panel order-info" aria-label="Current song">
+          <PartySongInfo :state="state" />
+        </section>
+
+        <div class="tabs order-settings" role="tablist" aria-label="Game settings">
           <button
             v-for="item in TABS"
             :key="item.id"
@@ -165,7 +182,7 @@ function onPick(command: PartyPaletteCommand) {
           </button>
         </div>
 
-        <div class="tab-body">
+        <div class="tab-body order-settings">
           <template v-if="tab === 'round' && state">
             <section class="panel" data-palette-target="lightning"><PartyLightningPanel :state="state" @command="send" /></section>
             <section class="panel" data-palette-target="live"><PartyLivePanel :state="state" @command="send" /></section>
@@ -291,7 +308,7 @@ function onPick(command: PartyPaletteCommand) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr) minmax(340px, 440px);
+  grid-template-columns: minmax(270px, 400px) minmax(460px, 1fr) minmax(290px, 440px);
   gap: 16px;
 }
 
@@ -304,13 +321,50 @@ function onPick(command: PartyPaletteCommand) {
   scrollbar-width: none;
 }
 
-.column::-webkit-scrollbar,
-.tab-body::-webkit-scrollbar {
+.column::-webkit-scrollbar {
   display: none;
 }
 
-.side-column {
+/* The queue scrolls inside its own panel so the transport stays pinned
+   at the bottom of the column; on a short window the column itself scrolls
+   rather than clipping the transport. */
+.panel.queue-panel {
+  flex: 1 1 0;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.panel.transport-panel {
+  flex: none;
+}
+
+.panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.panel-toggle .panel-title {
+  margin: 0;
+}
+
+.toggle-mark {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.add-songs-body {
+  margin-top: 10px;
 }
 
 .tabs {
@@ -342,13 +396,10 @@ function onPick(command: PartyPaletteCommand) {
 }
 
 .tab-body {
-  flex: 1;
-  min-height: 0;
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow-y: auto;
-  scrollbar-width: none;
 }
 
 .panel {
@@ -426,41 +477,45 @@ function onPick(command: PartyPaletteCommand) {
   }
 }
 
-@media (max-width: 1400px) {
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-  }
-
-  .queue-column {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .main-column {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .side-column {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-  }
-}
-
 @media (max-width: 1100px) {
   .dashboard {
     height: auto;
   }
 
+  /* The columns dissolve into one list, ordered so a phone host reaches
+     the transport first. */
   .dashboard-grid {
     display: flex;
     flex-direction: column;
   }
 
-  .column,
-  .side-column,
-  .tab-body {
-    overflow: visible;
+  .column {
+    display: contents;
+  }
+
+  .panel.queue-panel {
+    flex: none;
+    height: 460px;
+  }
+
+  .order-transport {
+    order: 1;
+  }
+
+  .order-info {
+    order: 2;
+  }
+
+  .order-score {
+    order: 3;
+  }
+
+  .order-queue {
+    order: 4;
+  }
+
+  .order-settings {
+    order: 5;
   }
 
   .dashboard-header {

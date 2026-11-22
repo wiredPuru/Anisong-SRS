@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash ce7e6be293d52941bba64881028f0d58fb3f44c05195bd30a5ee9f19349f6668 -->
+<!-- blueprint:source-hash 4758c3fe306b329fdd4d2a7cc6d7753e4cac63ca8cc34f6b166460a16533d626 -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -388,16 +388,13 @@ returns to the existing deck without changing its order. Catalog
 requests create no library cards. Amended `project-plan.md` §3
 (Listen mode bullet); no persistent data or deployment change.
 
-Feature 123 (party mode reset, in two sub-features 123a-123b) was added to
-`build-plan.md` on 2026-11-12 after the party UI, which had grown well past
-features 86-93's descriptions (stakes, censor boxes, choices, endless mode,
-teams, a layout editor, a command palette), was judged too heavy. It rebuilds
-`/party/host` and `/party/display` around one loop (pick songs, play, reveal,
-next) on the existing backend, then retires everything the new screens do not
-use, including the player door, buzzer and scoring. It amended
-`project-plan.md` §2 Users, the §3 party bullet, §8's party paragraph, and §9's
-Non-Goals bullet: party players joining and buzzing are no longer part of the
-product direction.
+Feature 123 (party mode reset) was added to `build-plan.md` on 2026-11-12
+to rebuild the party UI around one minimal loop, cutting players, buzzer and
+scoring. It was dropped on 2026-11-22 before any code was written, in favour of
+feature 127, and its number is retired, joining 18/25/32/53. The
+`project-plan.md` edits 123 had made (§2 Users, the §3 party bullet, §8's party
+paragraph, §9's Non-Goals bullet) were reverted the same day: party players
+joining by name and buzzing are part of the product again.
 
 Feature 124 (audio-first cards) was added to `build-plan.md` on 2026-11-17 and is
 built and merged. A
@@ -2960,29 +2957,11 @@ control, like features 87 and 103.
     review progress. Library playback remains available offline; online
     discovery follows the existing Offline mode and Clip source settings.
 
-123. **Party mode reset** - added to `build-plan.md` 2026-11-12, in two
-    sub-features, neither built. Rebuilds the party host panel and display
-    minimally; the backend (`gaq-party` launcher and doors, host password and
-    session, game reducer and store, host command route, display SSE stream,
-    clip tokens) is kept. The new screens use only `load`, `play`, `pause`,
-    `next`, `previous`, `reveal`, `seek` and `settings` (random start). Party
-    play still never writes `ReviewLog`, `Card`, or `CardTrack`. Decided at
-    intake: host and display only (no players, buzzer or scoring); source is
-    All cards or a manual deck with Study-style filters and shuffle; effects,
-    lightning, stakes, censor, choices, endless mode, lobby music, the layout
-    editor and the command bar are cut.
-    - **123a. Wipe the old party UI, build the new host panel and display** -
-      deletes every party page body, component, composable, util and test the
-      new screens do not need (including `/party/play`), then builds one
-      single-column, phone-friendly host page (new-game picker, Play/Pause,
-      Reveal, Next, Previous, progress bar, random start, the answer shown to
-      the host only) and a plain display (click to start, the clip, the answer
-      card on reveal, waiting screen, fullscreen). The server side is untouched.
-    - **123b. Trim the backend the new screens do not use** - cuts the matching
-      reducer commands and state, routes, tests and the player door (port
-      4003). This is the step that makes features 90, 91, 102 and 108 (and the
-      parts of 86d-86f and 112 the new screens do not use) history rather than
-      current behavior.
+~~123. **Party mode reset**~~ - dropped 2026-11-22 before any code was
+    written. Planned 2026-11-12 as a minimal single-column host and plain
+    display with players, buzzer, scoring, effects and lightning cut; replaced
+    by feature 127's three-column revamp, which keeps all of those. Not a build
+    target; number retired, not reused.
 
 124. **Audio-first cards** - added to `build-plan.md` and built 2026-11-17. A
     remembered per-card "Audio first" mark. On `/study` and `/listen` a marked
@@ -3015,6 +2994,37 @@ control, like features 87 and 103.
     either side of the card. A late-added action's default yields to a saved
     binding of the same key (`LATE_ACTIONS` in `app/utils/hotkeys.ts`). Also
     fixes the 124 template bug that showed Study's edit form outside edit mode.
+
+127. **Party host three-column revamp** - added to `build-plan.md`
+    2026-11-22, in two sub-features; 127a is built. Rearranges `/party/host`
+    after `blueprint/reference/party-host-revamp/` (`layout-main.png`,
+    `layout-more-options.png`), restyled with the app's own tokens. Left: up
+    next, the queue, a grid of pinned controls, and the transport (previous,
+    play/pause, next, skip to end, progress). Middle: the scoreboard as the
+    main surface, with -1/+1/+2/+3 per player and add player. Right: the
+    current song's answer and stored anime details (cover, slot, song,
+    artists, titles, season and year, format, AniList score, genres, tags,
+    studios), host only. A "More options" pop-up lists every host action by
+    section (Queue, Toggles, Reveal, Playback and session, Scoreboard), and
+    the user picks which are pinned to the left grid (kept in the browser).
+    Only existing party commands and stored data: no server change, no new
+    data, no MAL score, member counts or play counts. The display is
+    unchanged. Decided at intake: the reference's "Submitted answers" and
+    "Question" have no backend here and are left out. Amended
+    `project-plan.md` only by reverting feature 123's edits.
+    - **127a. Three-column layout** - done 2026-11-22. Left: a folding Add
+      songs, the queue (its existing Up next box is the column's Up next), and
+      `PartyNowPlaying`, now the transport only, pinned at the bottom. Middle:
+      `PartyRoundJudge` (buzz Correct/Wrong, buzz log, award chips) above the
+      scoreboard, whose rows read -1/+1/+2/+3, score, name. Right:
+      `PartySongInfo` (chips, cover, slot, song, artist, titles, and
+      `songInfoRows(facts)` from `app/utils/partySongInfo.ts`) above the
+      unchanged settings tabs. No genres: they are not in `PartyHostState`.
+      Grid `minmax(270px, 400px) minmax(460px, 1fr) minmax(290px, 440px)`;
+      below 1100px the panels stack transport, song info, scoreboard, queue,
+      settings. Client only.
+    - **127b. More options and pins** - the grouped pop-up, Edit pins, and
+      the pinned-controls grid, replacing the right-hand tab strip.
 
 ## Data model
 

@@ -14,7 +14,8 @@ run their own local copy. Not a multi-tenant product - each user runs their own
 instance against their own local media and database. The one exception is
 party mode (build 86): the owner hosts a Guess the Anime game for a room or a
 stream from their own machine. The audience watches a screen; the host alone
-controls the game, behind a password.
+controls the game, behind a password. Party players can join from their phones
+with just a name and buzz in; the host judges each buzz.
 
 ## 3. Features - What does the MVP need?
 
@@ -122,7 +123,8 @@ controls the game, behind a password.
   host-controlled guess-the-anime game from the local library: a display
   screen for a projector or stream, and a password-locked host panel (usable
   from a phone on the same network) to pick songs, play, reveal the answer,
-  and move on. Party play never counts as a review.
+  and move on, plus a player page where phones join by name and buzz, and a
+  host scoreboard. Party play never counts as a review.
 
 - **Offline-first library** - saved metadata and local assets remain usable
   without external providers. An explicit offline mode prevents external
@@ -275,8 +277,10 @@ the app that listens beyond localhost: its display port binds to loopback
 only, but its host control port binds to the LAN, so a phone can act as a
 remote. The control port requires the host password on every route, hashes it
 at rest, rate-limits login attempts, and only lets the password be first
-created from the machine itself. The display never sees an answer before the
-host reveals it. No port is meant to be exposed to the internet.
+created from the machine itself. A third, LAN player port (`4003`) serves only
+the join and buzzer page; players join by name only and never receive an answer
+before the reveal. The display never sees an answer before the host reveals it.
+No port is meant to be exposed to the internet.
 
 ## 9. Non-Goals
 
@@ -289,7 +293,7 @@ priorities change:
   host password guards the host panel; it is not a user account)
 - A mobile app
 - Any AMQ game mode beyond flashcard review and host-run party mode (e.g.,
-  players joining, buzzing, typing or picking answers on their own devices)
+  typing or picking answers on their own devices)
 
 ## Notes
 

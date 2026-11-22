@@ -1430,27 +1430,10 @@ cleaned-up checkbox version before generating the project overview.
   catalog from Listen, play a result now or queue it next, then resume
   the existing deck in its current order. Requests are session-only.
 
-- [ ] 123. **Party mode reset: minimal host panel and display** - rebuild
-  `/party/host` and `/party/display` from scratch around one loop: pick songs,
-  play, reveal, next. The backend stays: the `gaq-party` launcher and doors,
-  host password and session, game reducer and store, the host command route,
-  the display SSE stream and clip tokens. The new screens use only a handful
-  of existing commands (`load`, `play`, `pause`, `next`, `previous`, `reveal`,
-  `seek`, `settings`).
-  - [ ] 123a. **Wipe the old party UI, build the new host panel and
-    display** - delete every party page body, component, composable, util and
-    test the new screens do not need (including `/party/play`), then build one
-    single-column, phone-friendly host page (new-game picker for All cards or
-    a manual deck with Study-style filters and shuffle, big Play/Pause,
-    Reveal, Next, Previous, a progress bar, random start, and the answer shown
-    to the host only) and a plain display (click to start, the clip, the
-    answer card on reveal, a waiting screen, fullscreen). The server side is
-    untouched.
-  - [ ] 123b. **Trim the backend the new screens do not use** - cut the
-    reducer commands and state, routes, tests and the player door (port 4003)
-    for buzzer, scoring, kick and ban, effects, lightning rounds, stakes,
-    censor, choices, endless mode, lobby music and the rest, so the server
-    matches the UI.
+- ~~123. **Party mode reset: minimal host panel and display**~~ - dropped
+  2026-11-22 before any code was written, in favour of 127's three-column
+  revamp, which keeps the scoreboard, buzzer, effects and lightning rounds.
+  Not a build target; number retired, not reused.
 
 - [x] 124. **Audio-first cards** - a remembered per-card "Audio first" mark for
   songs whose visuals are already known. On Study and Listen a marked card
@@ -1483,6 +1466,24 @@ cleaned-up checkbox version before generating the project overview.
   route: no server or schema change. Also fixes a 124 bug where Study's edit
   form showed without Edit card being pressed and vanished when Audio first
   was clicked, hiding the style picker.
+
+- [ ] 127. **Party host three-column revamp** - rearrange `/party/host` after
+  `blueprint/reference/party-host-revamp/`, restyled with the app's own tokens.
+  Left: up next, the queue, a grid of pinned controls, and the transport
+  (previous, play/pause, next, skip to end, progress). Middle: the scoreboard
+  as the main surface, with -1/+1/+2/+3 per player and add player. Right: the
+  current song's answer and stored anime details (cover, slot, song, artists,
+  titles, season and year, format, AniList score, genres, tags, studios), host
+  only. A "More options" pop-up lists every host action by section (Queue,
+  Toggles, Reveal, Playback and session, Scoreboard), and the user chooses
+  which ones are pinned to the left grid (kept in the browser). Uses only
+  existing party commands and stored data: no server change, no new data, and
+  no MAL score, member counts or play counts. The display is unchanged.
+  - [x] 127a. **Three-column layout** - move today's panels into the new
+    columns: queue and transport on the left, scoreboard in the middle, song
+    info on the right. Settings panels that have no column yet stay reachable.
+  - [ ] 127b. **More options and pins** - the grouped pop-up, Edit pins, and
+    the pinned-controls grid. It replaces the right-hand tab strip.
 
 ## Plan maintenance
 

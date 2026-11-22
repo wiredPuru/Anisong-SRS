@@ -41,15 +41,6 @@ const atStart = computed(() => props.state.index <= 0);
 const atEnd = computed(() => props.state.index >= props.state.queue.length - 1);
 const confirmingClear = ref(false);
 
-const nameOf = (id: number | null) =>
-  id === null ? null : props.state.scoreboard.players.find((p) => p.id === id)?.name ?? null;
-const answering = computed(() => nameOf(props.state.buzz.playerId));
-const winner = computed(() => nameOf(props.state.buzz.winnerId));
-const lockedOut = computed(() => props.state.buzz.lockedOut.map(nameOf).filter((name) => name !== null));
-const awarded = computed(() => new Set(props.state.currentAwards));
-const awardPoints = (id: number) =>
-  props.state.stake && (props.state.stake.playerId === null || props.state.stake.playerId === id) ? props.state.stake.multiplier : 1;
-
 function formatTime(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return "--:--";
   const whole = Math.floor(seconds);
@@ -96,33 +87,7 @@ function setSongVolume(volume: number) {
       <p class="np-count">Song {{ state.index + 1 }} of {{ state.queue.length }}</p>
       <span class="np-chips">
         <span v-if="loading" class="np-chip chip-loading">Loading...</span>
-        <span v-if="state.lightning" class="np-chip chip-lightning">Lightning: {{ state.lightning.mode }}</span>
-        <span class="np-chip" :class="state.phase === 'revealed' ? 'chip-revealed' : 'chip-hidden'">
-          {{ state.phase === "revealed" ? "Revealed" : "Hidden" }}
-        </span>
       </span>
-    </div>
-
-    <div v-if="current" class="np-answer">
-      <NetworkImage v-if="current.answer.coverImageUrl" class="np-cover" :src="current.answer.coverImageUrl" alt="" />
-      <div class="np-text">
-        <p class="np-title">
-          <PartyMainAppLink :path="animeCardsSearchPath(current.answer.animeTitleRomaji)" :label="current.answer.animeTitleEnglish">
-            {{ current.answer.animeTitleEnglish }}
-          </PartyMainAppLink>
-        </p>
-        <p v-if="current.answer.animeTitleRomaji !== current.answer.animeTitleEnglish" class="np-sub">
-          {{ current.answer.animeTitleRomaji }}
-        </p>
-        <p class="np-song">
-          {{ current.answer.songTitle }} <PartyMainAppLink
-            class="np-artist"
-            :path="artistLinkPath(current.artistId, current.answer.artistName)"
-            :label="current.answer.artistName"
-          >{{ current.answer.artistName }}</PartyMainAppLink>
-        </p>
-        <p class="np-slot">{{ formatThemeSlotLabel(current.answer.themeSlot) }} · {{ current.kind === "audio" ? "Audio" : "Video" }}</p>
-      </div>
     </div>
 
     <div v-if="stuck" class="np-stuck" role="status">
@@ -159,35 +124,6 @@ function setSongVolume(volume: number) {
         <span class="np-bar-fill" :style="{ width: `${progress * 100}%` }" />
       </button>
       <span class="np-time">{{ formatTime(position?.currentTime) }} / {{ formatTime(position?.duration) }}</span>
-    </div>
-
-    <div v-if="answering" class="np-buzz" role="status">
-      <p class="np-buzz-name"><strong>{{ answering }}</strong> buzzed in</p>
-      <div class="np-buzz-actions">
-        <button type="button" class="tbtn tbtn-reveal" @click="emit('command', { type: 'buzzJudge', correct: true })">Correct</button>
-        <button type="button" class="tbtn tbtn-wrong" @click="emit('command', { type: 'buzzJudge', correct: false })">Wrong</button>
-      </div>
-    </div>
-    <p v-if="state.buzzerEnabled && (winner || lockedOut.length)" class="np-buzz-log">
-      <span v-if="winner">Got it: <strong>{{ winner }}</strong></span>
-      <span v-if="lockedOut.length">Wrong: {{ lockedOut.join(", ") }}</span>
-    </p>
-
-    <div v-if="state.phase === 'revealed' && state.scoreboard.players.length" class="np-award">
-      <p class="np-award-label">Who got it? Tap to give a point, tap again to take it back.</p>
-      <div class="np-award-players">
-        <button
-          v-for="player in state.scoreboard.players"
-          :key="player.id"
-          type="button"
-          class="award-btn"
-          :class="{ on: awarded.has(player.id) }"
-          :aria-pressed="awarded.has(player.id)"
-          @click="emit('command', { type: 'award', playerId: player.id, awarded: !awarded.has(player.id) })"
-        >
-          {{ player.name }}<span v-if="awarded.has(player.id)" class="award-mark"> +{{ awardPoints(player.id) }}</span>
-        </button>
-      </div>
     </div>
 
     <div class="np-transport">
@@ -324,73 +260,9 @@ function setSongVolume(volume: number) {
   gap: 6px;
 }
 
-.chip-lightning {
-  border-color: var(--accent);
-  color: var(--accent);
-  text-transform: capitalize;
-}
-
 .chip-loading {
   border-color: var(--accent-secondary);
   color: var(--accent-secondary);
-}
-
-.chip-hidden {
-  border-color: var(--border);
-  color: var(--muted);
-}
-
-.chip-revealed {
-  border-color: var(--pass);
-  color: var(--pass);
-}
-
-.np-answer {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.np-cover {
-  flex-shrink: 0;
-  width: 84px;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 2px solid var(--outline);
-}
-
-.np-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.np-text p {
-  margin: 0;
-}
-
-.np-title {
-  font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1.2;
-}
-
-.np-sub,
-.np-slot {
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.np-song {
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.np-artist {
-  font-weight: 400;
-  color: var(--text);
 }
 
 .np-stuck {
@@ -566,88 +438,6 @@ function setSongVolume(volume: number) {
 .tbtn-reveal {
   border-color: var(--pass);
   color: var(--pass);
-}
-
-.np-buzz {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 3px solid var(--accent);
-  border-radius: var(--radius);
-}
-
-.np-buzz-name {
-  margin: 0;
-  font-size: 18px;
-}
-
-.np-buzz-name strong {
-  font-family: var(--font-display);
-  font-size: 24px;
-  color: var(--accent);
-}
-
-.np-buzz-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.np-buzz-actions .tbtn {
-  min-width: 110px;
-}
-
-.tbtn-wrong {
-  border-color: var(--fail);
-  color: var(--fail);
-}
-
-.np-award {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.np-award-label {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.np-award-players {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.award-btn {
-  min-height: 44px;
-  padding: 8px 18px;
-  border: 2px solid var(--pass);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--pass);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.award-btn.on {
-  background: var(--pass);
-  color: var(--bg);
-}
-
-.np-buzz-log {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
 }
 
 .np-volume {

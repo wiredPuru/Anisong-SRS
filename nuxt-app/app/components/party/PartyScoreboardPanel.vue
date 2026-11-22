@@ -5,6 +5,7 @@ const props = defineProps<{ state: PartyHostState }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const PLAYER_LIMIT = 20;
+const GIVE_STEPS = [1, 2, 3] as const;
 
 const newName = ref("");
 const editingId = ref<number | null>(null);
@@ -135,6 +136,18 @@ function resetScores() {
 
     <ul class="players">
       <li v-for="player in players" :key="player.id" class="player">
+        <span class="steps">
+          <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−1</button>
+          <button
+            v-for="delta in GIVE_STEPS"
+            :key="delta"
+            type="button"
+            class="step plus"
+            :aria-label="`Give ${player.name} ${delta === 1 ? 'a point' : `${delta} points`}`"
+            @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta })"
+          >+{{ delta }}</button>
+        </span>
+        <span class="score">{{ player.score }}</span>
         <form v-if="editingId === player.id" class="rename" @submit.prevent="saveRename">
           <input v-model="editName" class="text" type="text" maxlength="24" aria-label="Player name" />
           <button type="submit" class="mini">Save</button>
@@ -155,10 +168,6 @@ function resetScores() {
           <option value="">No team</option>
           <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
         </select>
-        <span class="score">{{ player.score }}</span>
-        <button type="button" class="step" :aria-label="`Take a point from ${player.name}`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: -1 })">−</button>
-        <button type="button" class="step plus" :aria-label="`Give ${player.name} a point`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 1 })">+1</button>
-        <button type="button" class="step plus" :aria-label="`Give ${player.name} two points`" @click="emit('command', { type: 'score', op: 'adjust', id: player.id, delta: 2 })">+2</button>
         <span v-if="kickingId === player.id" class="kick-confirm">
           <button type="button" class="mini" @click="kick(player.id)">Kick {{ player.name }}?</button>
           <button type="button" class="mini" @click="kickingId = null">Cancel</button>
@@ -180,6 +189,10 @@ function resetScores() {
       </li>
       <li v-if="!players.length" class="empty">No players yet.</li>
     </ul>
+    <form class="add" @submit.prevent="addPlayer">
+      <input v-model="newName" class="text" type="text" maxlength="24" :placeholder="full ? 'Scoreboard is full' : 'Player or team name'" :disabled="full" />
+      <button type="submit" class="mini" :disabled="!newName.trim() || full">Add</button>
+    </form>
     <p v-if="kickError" class="empty" role="alert">{{ kickError }}</p>
     <p v-if="banningInfo?.ip" class="ban-warning" role="alert">
       Banning {{ banningInfo.ip }} blocks everyone on that connection
@@ -200,11 +213,6 @@ function resetScores() {
         </li>
       </ul>
     </div>
-
-    <form class="add" @submit.prevent="addPlayer">
-      <input v-model="newName" class="text" type="text" maxlength="24" :placeholder="full ? 'Scoreboard is full' : 'Player or team name'" :disabled="full" />
-      <button type="submit" class="mini" :disabled="!newName.trim() || full">Add</button>
-    </form>
 
     <div class="teams">
       <p class="teams-label">Teams: members keep their own scores, and the screen shows each team's total.</p>
@@ -274,7 +282,15 @@ function resetScores() {
      its confirm) and a grid with fewer columns wrapped the extras. */
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.steps {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
 }
 
 .player .step {
@@ -296,16 +312,16 @@ function resetScores() {
   background: none;
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
 }
 
 .score {
-  min-width: 2ch;
+  min-width: 3ch;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 24px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

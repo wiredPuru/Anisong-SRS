@@ -222,6 +222,8 @@ function endDrag() {
 
 <style scoped>
 .queue {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -229,6 +231,7 @@ function endDrag() {
 
 .queue-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -245,7 +248,8 @@ function endDrag() {
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 290px;
+  flex: 1;
+  min-height: 120px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
