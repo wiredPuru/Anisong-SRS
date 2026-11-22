@@ -200,8 +200,6 @@ onBeforeUnmount(() => {
       :volume="state?.songVolume ?? 1"
       :lightning="state?.lightning ?? null"
       :ambient="ambient"
-      :censor="state?.censor ?? null"
-      :censor-track="state?.censorTrack ?? null"
       @position="onPosition"
     />
 

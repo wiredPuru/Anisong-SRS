@@ -1,6 +1,5 @@
 import type { PartyPicture } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
-import { FULL_FRAME } from "./partyCensorBoxes";
 import { togglePicture } from "./partyPicture";
 import { skipTarget } from "./partySkip";
 
@@ -14,15 +13,12 @@ export type HostActionId =
   | "blur"
   | "pixelate"
   | "picture"
-  | "censor"
   | "timer"
   | "scoreboard";
 
 export interface HostActionContext {
   /** The hiding picture V brings back; the picture action updates it. */
   lastHidingPicture: PartyPicture;
-  /** Seconds the censor lift waits, the host's preview lead. */
-  previewLead: number;
 }
 
 export interface HostAction {
@@ -88,16 +84,6 @@ export const HOST_ACTIONS: readonly HostAction[] = [
       ctx.lastHidingPicture = toggled.lastHiding;
       return { type: "effects", target: "current", effects: { ...s.effects, picture: toggled.picture } };
     },
-  },
-  {
-    id: "censor",
-    label: "Censor whole screen",
-    keys: ["c"],
-    needsGame: true,
-    build: (s, ctx) =>
-      s.censor
-        ? { type: "censor", censor: null, delay: ctx.previewLead }
-        : { type: "censor", censor: { boxes: [FULL_FRAME], style: s.censorStyle, muted: false } },
   },
   {
     id: "timer",

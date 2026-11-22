@@ -13,7 +13,7 @@ function command(id: string): PartyPaletteCommand {
 }
 
 function context(): HostActionContext {
-  return { lastHidingPicture: "bubbles", previewLead: 2 };
+  return { lastHidingPicture: "bubbles" };
 }
 
 describe("PARTY_PALETTE_COMMANDS", () => {
@@ -44,7 +44,6 @@ describe("PARTY_PALETTE_COMMANDS", () => {
       "Add songs",
       "Queue",
       "Now playing",
-      "Preview and censor",
       "Scoreboard",
       "Rules",
       "Lightning round",
@@ -69,7 +68,7 @@ describe("PARTY_PALETTE_COMMANDS", () => {
 
 describe("toggle state", () => {
   it("reads Off from a fresh game", () => {
-    for (const id of ["pixelate", "blur", "mute", "picture", "censor", "scoreboard", "buzzer", "joinInfo", "randomStart", "autoAdvance", "summary", "music"]) {
+    for (const id of ["pixelate", "blur", "mute", "picture", "scoreboard", "buzzer", "joinInfo", "randomStart", "autoAdvance", "summary", "music"]) {
       expect(command(id).state?.(sampleHostState(), local), id).toBe(false);
     }
   });
@@ -78,7 +77,6 @@ describe("toggle state", () => {
     const base = sampleHostState();
     const on = sampleHostState({
       effects: { ...base.effects, pixelate: 24, blur: 14, muted: true, picture: "bubbles" },
-      censor: { boxes: [], style: "blur", muted: false },
       scoreboard: { ...base.scoreboard, visible: true },
       buzzerEnabled: true,
       joinInfoVisible: true,
@@ -87,7 +85,7 @@ describe("toggle state", () => {
       summaryVisible: true,
       music: { enabled: true, volume: 0.5 },
     });
-    for (const id of ["pixelate", "blur", "mute", "picture", "censor", "scoreboard", "buzzer", "joinInfo", "randomStart", "autoAdvance", "summary", "music"]) {
+    for (const id of ["pixelate", "blur", "mute", "picture", "scoreboard", "buzzer", "joinInfo", "randomStart", "autoAdvance", "summary", "music"]) {
       expect(command(id).state?.(on, local), id).toBe(true);
     }
   });

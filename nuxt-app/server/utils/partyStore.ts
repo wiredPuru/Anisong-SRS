@@ -19,7 +19,6 @@ import { localMediaAvailable } from "./localMedia.ts";
 import { parseStudyFilters, type StudyFilters } from "./studyFilters.ts";
 import { EMPTY_DETAILS, type PartyAnimeDetails } from "./partyLightning.ts";
 import { createPlayerRegistry } from "./partyPlayers.ts";
-import { loadSavedCensor, storeSavedCensor } from "./partyCensorStore.ts";
 import {
   applyPartyCommand,
   currentPartyItem,
@@ -275,7 +274,6 @@ function commit(next: PartyGameState): void {
   if (next === state) return;
   const moved = next.index !== state.index || next.queue !== state.queue;
   const timerChanged = next.timer !== state.timer;
-  const previous = state;
   state = next;
   if (moved) {
     prefetchAround(state);
@@ -284,42 +282,6 @@ function commit(next: PartyGameState): void {
   if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
   topUpEndless();
-  followSavedCensor(previous);
-}
-
-let pendingCensorSave: (() => void) | null = null;
-let censorSaveTimer: ReturnType<typeof setTimeout> | null = null;
-const CENSOR_SAVE_DELAY_MS = 400;
-
-function flushCensorSave(): void {
-  if (censorSaveTimer) clearTimeout(censorSaveTimer);
-  censorSaveTimer = null;
-  const save = pendingCensorSave;
-  pendingCensorSave = null;
-  save?.();
-}
-
-// A song coming up loads its remembered censor; changes to the current
-// song's censor or its Remember box are written back shortly after, with
-// the values of that moment, so a quick Next cannot save the wrong song.
-function followSavedCensor(previous: PartyGameState): void {
-  const item = currentPartyItem(state);
-  if (currentPartyItem(previous)?.token !== item?.token) {
-    flushCensorSave();
-    // Moving on while recording stops the recording and keeps the take.
-    const left = currentPartyItem(previous);
-    if (left && previous.censorRecording && previous.censorTrack.length) storeSavedCensor(left.cardId, true, previous.censorTrack);
-    if (!item) return;
-    const track = loadSavedCensor(item.cardId);
-    if (track.length) commit(applyPartyCommand(state, { type: "censorSaved", token: item.token, track }));
-    return;
-  }
-  if (!item || state.censorRecording || (previous.censorTrack === state.censorTrack && previous.censorRemember === state.censorRemember)) return;
-  const { cardId } = item;
-  const { censorRemember, censorTrack } = state;
-  pendingCensorSave = () => storeSavedCensor(cardId, censorRemember, censorTrack);
-  if (censorSaveTimer) clearTimeout(censorSaveTimer);
-  censorSaveTimer = setTimeout(flushCensorSave, CENSOR_SAVE_DELAY_MS);
 }
 
 function localFileUsable(path: string): boolean {
@@ -379,16 +341,6 @@ function choicesFor(item: PartyQueueItem): string[] {
   return pickChoices(item.answer.animeTitleEnglish, item.details, candidates, item.token);
 }
 
-// A lift waits out the host's preview lead, so the screen un-censors when the
-// host's own preview shows the clip has moved past the sensitive part.
-let pendingLift: ReturnType<typeof setTimeout> | null = null;
-
-function cancelPendingLift(): void {
-  if (pendingLift) clearTimeout(pendingLift);
-  pendingLift = null;
-  if (state.censorLifting) commit({ ...state, censorLifting: false });
-}
-
 export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; moved?: number; skipped?: number; changed?: boolean } {
   ensureRulesLoaded();
   if (command.type === "rules") storeSavedRules(command.text);
@@ -402,22 +354,6 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     const parsed = parseStudyFilters(command.filters);
     endlessFilters = "error" in parsed ? null : parsed.filters;
     const { filters: _filters, ...plain } = command;
-    commit(applyPartyCommand(state, plain));
-    return {};
-  }
-  if (command.type === "censor") {
-    cancelPendingLift();
-    const { delay, ...plain } = command;
-    if (plain.censor === null && delay && state.censor) {
-      const token = currentPartyItem(state)?.token;
-      commit({ ...state, censorLifting: true });
-      pendingLift = setTimeout(() => {
-        pendingLift = null;
-        if (currentPartyItem(state)?.token === token) commit({ ...applyPartyCommand(state, plain), censorLifting: false });
-        else if (state.censorLifting) commit({ ...state, censorLifting: false });
-      }, delay * 1000);
-      return {};
-    }
     commit(applyPartyCommand(state, plain));
     return {};
   }

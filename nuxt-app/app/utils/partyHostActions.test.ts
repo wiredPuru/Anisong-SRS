@@ -16,7 +16,7 @@ import {
 const noGame = { index: -1, queue: [] };
 
 function context(): HostActionContext {
-  return { lastHidingPicture: "bubbles", previewLead: 2 };
+  return { lastHidingPicture: "bubbles" };
 }
 
 function run(id: HostActionId, state: PartyHostState | null, ctx = context()) {
@@ -97,15 +97,6 @@ describe("buildHostAction", () => {
     const back = run("picture", sampleState({ effects: { ...sampleState().effects, picture: "bubbles" } }), ctx);
     expect(back).toMatchObject({ effects: { picture: "video" } });
     expect(ctx.lastHidingPicture).toBe("bubbles");
-  });
-
-  it("censors the whole frame, then lifts it after the preview lead", () => {
-    expect(run("censor", sampleState({ censorStyle: "black" }))).toEqual({
-      type: "censor",
-      censor: { boxes: [{ x: 0, y: 0, w: 1, h: 1 }], style: "black", muted: false },
-    });
-    const censored = sampleState({ censor: { boxes: [], style: "blur", muted: false } });
-    expect(run("censor", censored)).toEqual({ type: "censor", censor: null, delay: 2 });
   });
 
   it("toggles the scoreboard's visibility", () => {

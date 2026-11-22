@@ -1,8 +1,6 @@
 import type {
   PartyAnswer,
   PartyBanner,
-  PartyCensor,
-  PartyCensorKey,
   PartyEffects,
   PartyLightningMode,
   PartyMusic,
@@ -78,13 +76,6 @@ export interface PartyHostState {
   currentAwards: number[];
   summaryVisible: boolean;
   currentToken: string | null;
-  censor: PartyCensor | null;
-  censorStyle: PartyCensor["style"];
-  censorTrack: PartyCensorKey[];
-  censorRemember: boolean;
-  censorRecording: boolean;
-  censorLifting: boolean;
-  censorTouched: boolean;
 }
 
 export type PartyHostCommand =
@@ -98,10 +89,6 @@ export type PartyHostCommand =
   | { type: "jump"; index: number }
   | { type: "settings"; randomStart: boolean }
   | { type: "effects"; target: "current" | "next"; effects: PartyEffects | null }
-  | { type: "censor"; censor: PartyCensor | null; at?: number; delay?: number }
-  | { type: "censorRecord"; recording: boolean }
-  | { type: "censorForget" }
-  | { type: "censorStyle"; style: PartyCensor["style"] }
   | { type: "lightning"; config: PartyLightning | null }
   | { type: "live"; config: { mode: PartyLive["mode"]; guessSeconds: number } | null }
   | { type: "choices"; enabled: boolean }

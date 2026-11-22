@@ -32,13 +32,6 @@ export function sampleHostState(overrides: Partial<PartyHostState> = {}): PartyH
     currentAwards: [],
     summaryVisible: false,
     currentToken: "t",
-    censor: null,
-    censorStyle: "blur",
-    censorTrack: [],
-    censorRemember: false,
-    censorRecording: false,
-    censorLifting: false,
-    censorTouched: false,
     ...overrides,
   };
 }

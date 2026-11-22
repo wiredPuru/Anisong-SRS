@@ -143,10 +143,6 @@ function onPick(command: PartyPaletteCommand) {
           <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
 
-        <section v-if="hasGame && state" class="panel" aria-label="Preview and censor" data-palette-target="censor">
-          <PartyCensorPanel :state="state" @command="send" />
-        </section>
-
         <section v-if="state" class="panel grow">
           <PartyScoreboardPanel :state="state" data-palette-target="scoreboard" @command="send" />
           <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />

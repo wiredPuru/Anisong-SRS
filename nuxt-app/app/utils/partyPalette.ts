@@ -102,14 +102,6 @@ export const PARTY_PALETTE_COMMANDS: readonly PartyPaletteCommand[] = [
     tab: "screen",
     state: (host) => host.effects.picture !== "video",
   }),
-  fromHostAction("censor", {
-    title: "Censor whole screen",
-    group: "Screen",
-    keywords: ["lift censor", "cover", "hide screen"],
-    kind: "toggle",
-    target: "censor",
-    state: (host) => host.censor !== null,
-  }),
   fromHostAction("scoreboard", {
     title: "Show scoreboard",
     group: "Players",
@@ -194,7 +186,6 @@ export const PARTY_PALETTE_COMMANDS: readonly PartyPaletteCommand[] = [
   jump("add-songs", "Add songs", ["add show", "search", "queue a song", "find"]),
   jump("queue", "Queue", ["songs", "playlist", "order"], { available: needsGame }),
   jump("now-playing", "Now playing", ["current song", "transport"]),
-  jump("censor", "Preview and censor", ["censor boxes", "preview"], { available: needsGame }),
   jump("scoreboard", "Scoreboard", ["players", "scores", "teams"]),
   jump("rules", "Rules", ["game rules"]),
   jump("lightning", "Lightning round", ["lightning", "fast round"], { tab: "round" }),

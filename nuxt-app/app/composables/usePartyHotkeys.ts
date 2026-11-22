@@ -1,7 +1,6 @@
 import type { PartyHostCommand, PartyHostState } from "./usePartyHost";
 import { DEFAULT_HIDING_PICTURE } from "~/utils/partyPicture";
 import { buildHostAction, hostActionForKey, type HostActionContext } from "~/utils/partyHostActions";
-import { parsePreviewLead } from "~/utils/partyPreview";
 
 export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "Space", action: "Play / pause" },
@@ -10,8 +9,6 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "P or ←", action: "Previous song" },
   { keys: "E", action: "Skip to the last 3 seconds" },
   { keys: "M", action: "Mute / unmute" },
-  { keys: "C", action: "Censor the whole screen / lift the censor" },
-  { keys: "D", action: "Delete the picked censor box, or all of them" },
   { keys: "B", action: "Blur on / off" },
   { keys: "X", action: "Pixelate on / off" },
   { keys: "V", action: "Hide / show the picture (Bubbles or Music player)" },
@@ -21,14 +18,6 @@ export const PARTY_HOTKEYS: { keys: string; action: string }[] = [
   { keys: "Shift+P", action: "Command bar" },
   { keys: "?", action: "This list" },
 ];
-
-function storedPreviewLead(): number {
-  try {
-    return parsePreviewLead(localStorage.getItem("gaqSrs:partyPreviewLead"));
-  } catch {
-    return 0;
-  }
-}
 
 export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -46,11 +35,10 @@ export function usePartyHotkeys(
   toggleHelp: () => void,
   selectTab: (index: number) => void = () => {},
 ) {
-  const context: HostActionContext = { lastHidingPicture: DEFAULT_HIDING_PICTURE, previewLead: 0 };
+  const context: HostActionContext = { lastHidingPicture: DEFAULT_HIDING_PICTURE };
 
   /** The context hotkeys build with, shared so the command bar's V follows the same hiding picture. */
   function actionContext(): HostActionContext {
-    context.previewLead = storedPreviewLead();
     return context;
   }
 
