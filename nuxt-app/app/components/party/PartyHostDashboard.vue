@@ -65,6 +65,9 @@ function toggleAmbient() {
   }
 }
 
+const columns = usePartyHostColumns();
+const { gridRef: columnsGrid } = columns;
+
 const helpOpen = ref(false);
 const { actionContext } = usePartyHotkeys(
   state,
@@ -155,7 +158,7 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
       <button type="button" class="link-btn" @click="emit('logout')">Log out</button>
     </header>
 
-    <div class="dashboard-grid">
+    <div ref="columnsGrid" class="dashboard-grid" :class="{ resizing: columns.dragging.value !== null }" :style="columns.columnVars.value">
       <div class="column queue-column">
         <section v-if="state" class="panel order-queue" data-palette-target="add-songs">
           <button type="button" class="panel-toggle" :aria-expanded="addSongsOpen" @click="addSongsOpen = !addSongsOpen">
@@ -188,6 +191,17 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
         </section>
       </div>
 
+      <div
+        class="col-divider"
+        :class="{ dragging: columns.dragging.value === 0 }"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the left and middle columns"
+        title="Drag to resize, double-click for equal columns"
+        @pointerdown="columns.onPointerDown(0, $event)"
+        @dblclick="columns.reset()"
+      />
+
       <div class="column main-column">
         <section v-if="state" class="panel grow order-score">
           <PartyRoundJudge :state="state" @command="send" />
@@ -195,6 +209,17 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
           <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />
         </section>
       </div>
+
+      <div
+        class="col-divider"
+        :class="{ dragging: columns.dragging.value === 1 }"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the middle and right columns"
+        title="Drag to resize, double-click for equal columns"
+        @pointerdown="columns.onPointerDown(1, $event)"
+        @dblclick="columns.reset()"
+      />
 
       <div class="column side-column">
         <section v-if="state && hasGame" class="panel order-info" aria-label="Current song">
@@ -352,8 +377,42 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(270px, 400px) minmax(460px, 1fr) minmax(290px, 440px);
-  gap: 16px;
+  /* The divider tracks are the gaps; their 16px matches HOST_DIVIDER_PX. */
+  grid-template-columns:
+    minmax(0, var(--col-a, 1fr)) 16px
+    minmax(0, var(--col-b, 1fr)) 16px
+    minmax(0, var(--col-c, 1fr));
+}
+
+.dashboard-grid.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* Faint at rest so touch screens, which never hover, can still find it. */
+.col-divider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.col-divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  width: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  opacity: 0.5;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.col-divider:hover::after,
+.col-divider.dragging::after {
+  background: var(--accent);
+  opacity: 1;
 }
 
 .column {
@@ -534,6 +593,10 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
 
   .column {
     display: contents;
+  }
+
+  .col-divider {
+    display: none;
   }
 
   .panel.queue-panel {
