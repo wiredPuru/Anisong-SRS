@@ -45,6 +45,8 @@ async function setDownloadSongs(enabled: boolean) {
 }
 
 type Settings = Omit<PartyEndless, "scope" | "filtered">;
+const catalogNote = computed(() => (props.state.endless?.outsideLibrary ? (props.state.endless.catalogNote ?? null) : null));
+const notApplied = computed(() => catalogNote.value?.notApplied ?? []);
 const settings = computed<Settings>(() => ({ difficulty: difficulty.value, downloadedOnly: downloadedOnly.value, outsideLibrary: outsideLibrary.value }));
 const needsDeck = computed(() => !outsideLibrary.value && props.source.scope === null);
 
@@ -92,8 +94,26 @@ function setOutside(value: boolean) {
       Keeps adding songs as you play, and holds a show back for a good while once it has played.
       It draws from the source and filters set above in New game.
     </p>
-    <p v-if="state.endless?.filtered || source.filters" class="endless-hint">
-      {{ outsideLibrary ? "Filters don't apply to songs outside your library." : "Filters are on: only songs from matching anime are used." }}
+    <template v-if="state.endless?.filtered || source.filters">
+      <p class="endless-hint">
+        {{
+          outsideLibrary
+            ? "Filters are on: OP/ED, format, year and season, genres and tags narrow the catalog."
+            : "Filters are on: only songs from matching anime are used."
+        }}
+      </p>
+      <p v-if="outsideLibrary && notApplied.length" class="endless-hint">
+        Not applied to songs outside your library: {{ notApplied.join(", ") }}.
+      </p>
+      <p v-else-if="outsideLibrary && !catalogNote" class="endless-hint">
+        AniList score, studio, anime list, tag relevance and OP/ED mix can't be applied to songs outside your library.
+      </p>
+    </template>
+    <p v-if="catalogNote?.unknownLabels.length" class="endless-hint">
+      AnisongDB doesn't know {{ catalogNote.unknownLabels.join(", ") }}, so {{ catalogNote.unknownLabels.length === 1 ? "it was" : "they were" }} left out.
+    </p>
+    <p v-if="catalogNote?.noMatch" class="endless-hint endless-warn" role="status">
+      No songs in AnisongDB match these filters. Loosen them in New game to keep the playlist going.
     </p>
 
     <label class="endless-check">
@@ -102,7 +122,7 @@ function setOutside(value: boolean) {
     </label>
     <p v-if="outsideBlocked" class="endless-hint">Songs outside your library need online mode.</p>
     <p class="endless-hint">
-      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog, picked by AMQ's song difficulty. Filters and the downloaded-only option don't apply." : "Only songs you have cards for." }}
+      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog, picked by AMQ's song difficulty, 5 at a time." : "Only songs you have cards for." }}
     </p>
 
     <template v-if="outsideLibrary && download">
@@ -188,6 +208,11 @@ function setOutside(value: boolean) {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.endless-warn {
+  color: var(--fail);
+  font-weight: 700;
 }
 
 .levels,

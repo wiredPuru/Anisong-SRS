@@ -18,6 +18,13 @@ export interface PartyEndless {
   outsideLibrary: boolean;
   scope: { type: "all" } | { type: "created"; id: number };
   filtered: boolean;
+  catalogNote?: PartyCatalogNote | null;
+}
+
+export interface PartyCatalogNote {
+  notApplied: string[];
+  unknownLabels: string[];
+  noMatch: boolean;
 }
 
 export interface PartyRevealFields {

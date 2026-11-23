@@ -21,6 +21,17 @@ export interface PartyEndless {
   scope: { type: "all" } | { type: "created"; id: number };
   /** Study filters narrow the draw; the filters themselves stay on the server. */
   filtered: boolean;
+  /** Set by the server for catalog songs: what the filters could not do. */
+  catalogNote?: PartyCatalogNote | null;
+}
+
+export interface PartyCatalogNote {
+  /** Set filters AnisongDB cannot apply, e.g. "AniList score". */
+  notApplied: string[];
+  /** Genres and tags AnisongDB did not know, left out of the request. */
+  unknownLabels: string[];
+  /** AnisongDB has no songs matching the filters. */
+  noMatch: boolean;
 }
 
 /** Which parts of the answer the reveal shows. */

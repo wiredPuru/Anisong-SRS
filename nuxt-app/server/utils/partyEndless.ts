@@ -4,6 +4,8 @@ export type EndlessDifficulty = (typeof ENDLESS_DIFFICULTIES)[number];
 /** Songs still to come that the endless queue keeps ready, and how many it adds at a time. */
 export const ENDLESS_AHEAD = 4;
 export const ENDLESS_BATCH = 10;
+/** Songs outside the library arrive in smaller chunks (feature 128). */
+export const ENDLESS_CATALOG_BATCH = 5;
 
 const MAX_WINDOW = 60;
 

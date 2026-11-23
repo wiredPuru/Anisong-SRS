@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchArtistCatalog, fetchRandomSongs, fetchThemesByMalId, relevance, searchArtists, searchSongs, toThemeSlot } from "./anisongdb.ts";
+import {
+  AnisongUnknownLabelsError,
+  fetchArtistCatalog,
+  fetchRandomSongs,
+  fetchThemesByMalId,
+  parseUnknownLabels,
+  relevance,
+  searchArtists,
+  searchSongs,
+  toThemeSlot,
+} from "./anisongdb.ts";
 
 const HOST = "https://naedist.animemusicquiz.com";
 
@@ -415,5 +425,47 @@ describe("fetchRandomSongs", () => {
     respond([entry()]);
     await fetchRandomSongs(10, { start: 50, end: 100 });
     expect(sentBody()).toEqual({ n: 10, filters: { difficulty: { start: 50, end: 100, include_no_difficulty: false } } });
+  });
+
+  it("merges song filters with the difficulty range and returns the vintage", async () => {
+    respond([entry({ animeJPName: "Cowboy Bebop", animeENName: "Cowboy Bebop", animeVintage: "Fall 2013" })]);
+    const songs = await fetchRandomSongs(5, { start: 0, end: 30 }, { song_types: ["opening"], genres: { require_all: ["Comedy"] } });
+    expect(sentBody()).toEqual({
+      n: 5,
+      filters: { song_types: ["opening"], genres: { require_all: ["Comedy"] }, difficulty: { start: 0, end: 30, include_no_difficulty: false } },
+    });
+    expect(songs[0]!.animeVintage).toBe("Fall 2013");
+  });
+
+  it("throws the unknown names when AnisongDB refuses a label", async () => {
+    fetch.mockResolvedValue(Response.json({ detail: "Unknown tag(s): 'Made Up'." }, { status: 422 }));
+    const error = await fetchRandomSongs(5, null, { tags: { exclude: ["Made Up"] } }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AnisongUnknownLabelsError);
+    expect((error as AnisongUnknownLabelsError).labels).toEqual(["Made Up"]);
+  });
+
+  it("keeps any other refusal a plain request error", async () => {
+    fetch.mockResolvedValue(Response.json({ detail: "n must be at most 500" }, { status: 422 }));
+    const error = await fetchRandomSongs(900).catch((e: unknown) => e);
+    expect(error).not.toBeInstanceOf(AnisongUnknownLabelsError);
+    expect((error as Error).message).toContain("422");
+  });
+});
+
+describe("parseUnknownLabels", () => {
+  it("reads tag and genre messages, one or several names", () => {
+    expect(parseUnknownLabels("Unknown tag(s): 'zzznotatag'.")).toEqual(["zzznotatag"]);
+    expect(parseUnknownLabels("Unknown genre(s): 'Nopegenre'.")).toEqual(["Nopegenre"]);
+    expect(parseUnknownLabels("Unknown tag(s): 'a', 'fake B'.")).toEqual(["a", "fake B"]);
+  });
+
+  it("keeps an apostrophe inside a name", () => {
+    expect(parseUnknownLabels("Unknown tag(s): 'Boys' Love', 'x'.")).toEqual(["Boys' Love", "x"]);
+  });
+
+  it("returns null for anything else", () => {
+    expect(parseUnknownLabels("n must be at most 500")).toBeNull();
+    expect(parseUnknownLabels(undefined)).toBeNull();
+    expect(parseUnknownLabels({ detail: "Unknown tag(s): 'a'." })).toBeNull();
   });
 });

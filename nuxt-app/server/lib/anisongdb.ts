@@ -4,6 +4,7 @@ import { USER_AGENT } from "../utils/mediaDownload.ts";
 import { titleKey } from "../utils/textMatch.ts";
 import { insertSlot } from "../utils/themeSlot.ts";
 import { assertOnline } from "../utils/networkMode.ts";
+import type { AnisongSongFilterOptions } from "../utils/partyCatalogFilters.ts";
 
 const ANISONGDB_BASE_URL = "https://anisongdb.com/api";
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -24,6 +25,25 @@ export interface AnisongTheme {
   artistName: string | null;
   videoUrl: string | null;
   audioUrl: string | null;
+}
+
+/** AnisongDB refused a filter naming a genre or tag it does not know. */
+export class AnisongUnknownLabelsError extends ProviderRequestError {
+  constructor(readonly labels: string[]) {
+    super(`AnisongDB does not know ${labels.join(", ")}.`);
+  }
+}
+
+/**
+ * The names in AnisongDB's "Unknown tag(s): 'a', 'b'." (or genre(s)) detail,
+ * or null for any other message. It reports one kind per answer.
+ */
+export function parseUnknownLabels(detail: unknown): string[] | null {
+  if (typeof detail !== "string") return null;
+  const match = /^Unknown (?:tag|genre)\(s\):\s*(.+?)\.?$/.exec(detail.trim());
+  if (!match) return null;
+  const names = [...match[1]!.matchAll(/'((?:[^']|'(?!,|$))*)'/g)].map((m) => m[1]!).filter(Boolean);
+  return names.length ? names : null;
 }
 
 // Random songs must differ on every call, so that route is never cached.
@@ -50,7 +70,11 @@ async function fetchJson(path: string, payload: unknown): Promise<unknown[]> {
   if ([403, 429].includes(response.status) || response.status >= 500) {
     throw new ProviderUnavailableError("AnisongDB", response.status === 429 ? retryAfterMs(response.headers.get("retry-after")) : 0);
   }
-  if (!response.ok) throw new ProviderRequestError(`AnisongDB rejected the request (${response.status}).`);
+  if (!response.ok) {
+    const unknown = parseUnknownLabels(await response.json().then((body: unknown) => (isRecord(body) ? body.detail : null), () => null));
+    if (unknown) throw new AnisongUnknownLabelsError(unknown);
+    throw new ProviderRequestError(`AnisongDB rejected the request (${response.status}).`);
+  }
 
   let body: unknown;
   try {
@@ -356,6 +380,8 @@ export interface AnisongRandomSong {
   artistName: string;
   animeEnglish: string;
   animeRomaji: string;
+  /** AMQ's season label, e.g. "Fall 2013". */
+  animeVintage: string | null;
   videoUrl: string | null;
   audioUrl: string | null;
 }
@@ -370,10 +396,16 @@ export interface DifficultyRange {
  * them. A range narrows by songDifficulty (AMQ's guess rate, so higher is
  * easier); without one, songs with no difficulty value stay eligible too.
  */
-export async function fetchRandomSongs(count: number, difficulty: DifficultyRange | null = null): Promise<AnisongRandomSong[]> {
-  const payload = difficulty
-    ? { n: count, filters: { difficulty: { start: difficulty.start, end: difficulty.end, include_no_difficulty: false } } }
-    : { n: count };
+export async function fetchRandomSongs(
+  count: number,
+  difficulty: DifficultyRange | null = null,
+  options: AnisongSongFilterOptions = {},
+): Promise<AnisongRandomSong[]> {
+  const filters = {
+    ...options,
+    ...(difficulty ? { difficulty: { start: difficulty.start, end: difficulty.end, include_no_difficulty: false } } : {}),
+  };
+  const payload = Object.keys(filters).length ? { n: count, filters } : { n: count };
   const entries = await postJson("get_n_random_songs", payload, null);
   const songs: AnisongRandomSong[] = [];
   for (const entry of entries) {
@@ -386,7 +418,17 @@ export async function fetchRandomSongs(count: number, difficulty: DifficultyRang
     const videoUrl = mediaUrl(entry.HQ) ?? mediaUrl(entry.MQ);
     const audioUrl = mediaUrl(entry.audio);
     if (annSongId === null || !songTitle || !animeRomaji || !animeEnglish || !songType || (!videoUrl && !audioUrl)) continue;
-    songs.push({ annSongId, songType, songTitle, artistName: text(entry.songArtist) ?? "Unknown artist", animeEnglish, animeRomaji, videoUrl, audioUrl });
+    songs.push({
+      annSongId,
+      songType,
+      songTitle,
+      artistName: text(entry.songArtist) ?? "Unknown artist",
+      animeEnglish,
+      animeRomaji,
+      animeVintage: text(entry.animeVintage),
+      videoUrl,
+      audioUrl,
+    });
   }
   return songs;
 }

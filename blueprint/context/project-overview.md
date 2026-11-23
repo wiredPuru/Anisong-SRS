@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash a12166d1d2ad9c599d5864272de11893e5782428e3600f5723283b05a5dd30d2 -->
+<!-- blueprint:source-hash 901c9e360b29412916b2582a73102c3634ea04e32f446354f60ee8a6d2e4338d -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -419,6 +419,18 @@ editor. It also fixes a feature 124 bug in `StudyCardEditPanel`, where the
 edit form's `v-else` chained to the new badge instead of the Edit card button.
 No `project-plan.md` change: it adds a key to feature 124/125's existing Study
 control, like features 87 and 103.
+
+Feature 128 (party endless online tiers, in two sub-features 128a-128b) was
+added to `build-plan.md` on 2026-11-22. Party's outside-library endless queue
+(feature 112) sends the Study filters AnisongDB can apply (OP/ED/Insert,
+format, year and season, genres, tags) with its random-song request, and its
+difficulty becomes a grid of AniList global popularity rank (top 500,
+500-1000, the rest, from a top-1000 ranking cached daily) against AMQ guess
+rate (50+, 30-50, under 30, unrated counting as 30-50), with a new Very easy
+tier for top-500 shows at 50+. Catalog songs arrive in chunks of 5. Very easy
+is offered only outside the library, filters AnisongDB cannot apply (AniList
+score, studio, anime list, tag rank) are dropped with a note, and in-library
+endless is unchanged. No `project-plan.md` change, like feature 112.
 
 1. **Data layer** - done. SQLite schema (Drizzle ORM) for anime,
    songs/themes, cards, and review history.
@@ -3038,6 +3050,32 @@ control, like features 87 and 103.
       pop-up's shell) from More options panels, Shift+P jumps, and 1-4; with
       no game the right column shows New game inline. The transport's three
       options share one line (Random start, Auto-next, Buzzer mode).
+
+128. **Party endless online tiers** - added to `build-plan.md` 2026-11-22, in
+    two sub-features. Extends feature 112's outside-library endless queue.
+    Grid (rows AniList global popularity rank, columns AnisongDB
+    `songDifficulty`, an unrated song counting as 30-50):
+
+    | Rank | 50+ | 30-50 | Under 30 |
+    |---|---|---|---|
+    | Top 500 | Very easy | Easy | Medium |
+    | 500-1000 | Easy | Medium | Hard |
+    | Rest | Medium | Hard | Hard |
+
+    Random ignores the grid. Catalog songs arrive in chunks of 5; in-library
+    endless keeps its 10-song batches and popularity bands, and Very easy is
+    offered only outside the library. Online only.
+    - **128a. Filters for catalog songs** - done 2026-11-22. The endless filters are translated
+      into AnisongDB's `SongFilterOptions` (`song_types`, `anime_types`,
+      `season` range, `genres`, `tags`) on `get_n_random_songs`; a season
+      subset is applied after fetching from the song's `animeVintage`. AniList
+      score, studio, anime list and tag rank are not sent, and the panel says
+      so.
+    - **128b. Popularity x guess-rate grid** - a top-1000 ranking (AniList id,
+      MAL id, rank) cached daily, the Very easy tier, and per-cell picking:
+      top-1000 cells pick random shows and fetch their songs through
+      `mal_ids_request` with the cell's difficulty range and 128a's filters;
+      "rest" cells use `get_n_random_songs` and drop top-1000 shows.
 
 ## Data model
 

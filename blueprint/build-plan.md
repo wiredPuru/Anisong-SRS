@@ -1484,6 +1484,29 @@ cleaned-up checkbox version before generating the project overview.
     info on the right. Settings panels that have no column yet stay reachable.
   - [x] 127b. **More options and pins** - the grouped pop-up, Edit pins, and
     the pinned-controls grid. It replaces the right-hand tab strip.
+- [ ] 128. **Party endless online tiers** - party's outside-library endless queue
+  (112) honours the Study filters AnisongDB can apply and picks songs from a
+  grid of AniList popularity rank and AMQ guess rate, adding a Very easy tier.
+  Rows: top 500, 500-1000, everything else (AniList global popularity, the top
+  1000 cached daily). Columns: guess rate 50+, 30-50, under 30; a song with no
+  guess rate counts as 30-50. Very easy = top 500 and 50+. Easy = top 500 and
+  30-50, or 500-1000 and 50+. Medium = top 500 and under 30, 500-1000 and
+  30-50, or the rest and 50+. Hard = 500-1000 and under 30, or the rest and
+  under 50. Random ignores the grid. Catalog songs arrive in chunks of 5.
+  Online only, party only. Decided at intake: Very easy is offered only for
+  songs outside the library (library songs store no guess rate); filters
+  AnisongDB cannot apply are dropped with a note rather than checked after
+  fetching; in-library endless is unchanged. No `project-plan.md` change: it
+  extends party mode's existing endless queue, like 112.
+  - [x] 128a. **Filters for catalog songs** - OP/ED/Insert, format, year and
+    season, genres and tags are sent to AnisongDB's random-song request; AniList
+    score, studio, anime list and tag rank cannot be, and the panel says so.
+  - [ ] 128b. **Popularity x guess-rate grid** - a cached top-1000 ranking
+    (AniList id, MAL id, rank), the Very easy tier, and per-cell picking: the
+    top-1000 cells pick random shows and batch-fetch their songs through
+    `mal_ids_request` with the cell's guess-rate range and the 128a filters;
+    the "everything else" cells use the random-song request and drop top-1000
+    shows.
 
 ## Plan maintenance
 

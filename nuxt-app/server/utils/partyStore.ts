@@ -4,12 +4,13 @@ import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
 import { EMPTY_ANSWER_FACTS } from "./partyAnswerFacts.ts";
-import { fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
+import { AnisongUnknownLabelsError, fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
+import { catalogSongFilters, matchesSeasons, withoutLabels } from "./partyCatalogFilters.ts";
 import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode } from "./mediaLibrary.ts";
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
-import { catalogDifficultyRange, ENDLESS_AHEAD, ENDLESS_BATCH, pickEndlessBatch } from "./partyEndless.ts";
+import { catalogDifficultyRange, ENDLESS_AHEAD, ENDLESS_BATCH, ENDLESS_CATALOG_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
@@ -34,6 +35,7 @@ import {
   toQueueItem,
   upcomingCardIds,
   type PartyAddPosition,
+  type PartyCatalogNote,
   type PartyCommand,
   type PartyGameState,
   type PartyJoinInfo,
@@ -119,6 +121,8 @@ function scheduleTimer(): void {
 let toppingUp = false;
 let fetchingCatalog = false;
 let staleCatalogBatch = false;
+// Bumped by every endless command, so a fetch that outlived its filters is dropped.
+let catalogGeneration = 0;
 
 // A song straight from AnisongDB has no card behind it, so its id is the
 // negated AMQ song id: unique, and never colliding with a library card.
@@ -199,28 +203,67 @@ export function addCatalogSongs(annSongIds: number[], position: PartyAddPosition
   return { loaded: items.length, moved };
 }
 
+// Genres and tags AnisongDB refused for the current endless filters.
+let unknownCatalogLabels = new Set<string>();
+
+function setCatalogNote(change: Partial<PartyCatalogNote>): void {
+  if (!state.endless?.outsideLibrary) return;
+  const note: PartyCatalogNote = { notApplied: [], unknownLabels: [], noMatch: false, ...state.endless.catalogNote, ...change };
+  commit({ ...state, endless: { ...state.endless, catalogNote: note } });
+}
+
+// One fetch per kind AnisongDB can refuse (genres, then tags), plus two more
+// tries when a season subset leaves nothing from a batch.
+const CATALOG_ATTEMPTS = 4;
+
+async function fetchCatalogBatch(queued: Set<number>): Promise<PartyQueueItem[] | "noMatch"> {
+  const difficulty = catalogDifficultyRange(state.endless?.difficulty ?? "random");
+  const { options, seasons } = catalogSongFilters(endlessFilters, getIncludeInsertSongs());
+  for (let attempt = 0; attempt < CATALOG_ATTEMPTS; attempt++) {
+    let songs: AnisongRandomSong[];
+    try {
+      songs = await fetchRandomSongs(ENDLESS_CATALOG_BATCH * (seasons ? 4 : 2), difficulty, withoutLabels(options, unknownCatalogLabels));
+    } catch (error) {
+      if (!(error instanceof AnisongUnknownLabelsError)) throw error;
+      for (const label of error.labels) unknownCatalogLabels.add(label);
+      continue;
+    }
+    if (!songs.length) return "noMatch";
+    const items = songs
+      .filter((song) => matchesSeasons(song.animeVintage, seasons))
+      .map(fromRandom)
+      .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
+      .slice(0, ENDLESS_CATALOG_BATCH);
+    if (items.length) return items;
+  }
+  return [];
+}
+
 async function topUpCatalog(hasGame: boolean): Promise<void> {
   if (getOfflineMode()) return;
   fetchingCatalog = true;
+  const generation = catalogGeneration;
   try {
-    const queued = new Set(state.queue.map((item) => item.cardId));
-    const difficulty = state.endless?.difficulty ?? "random";
-    const items = (await fetchRandomSongs(ENDLESS_BATCH * 2, catalogDifficultyRange(difficulty)))
-      .map(fromRandom)
-      .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
-      .slice(0, ENDLESS_BATCH);
-    // The host may have stopped endless, switched source or changed difficulty while this was out.
-    if (!items.length || !state.endless?.outsideLibrary) return;
-    if (state.endless.difficulty !== difficulty) {
+    const result = await fetchCatalogBatch(new Set(state.queue.map((item) => item.cardId)));
+    // The host may have stopped endless, switched source or changed the filters while this was out.
+    if (!state.endless?.outsideLibrary) return;
+    if (catalogGeneration !== generation) {
       staleCatalogBatch = true;
       return;
     }
+    const unknownLabels = [...unknownCatalogLabels];
+    if (result === "noMatch") {
+      setCatalogNote({ noMatch: true, unknownLabels });
+      return;
+    }
+    if (unknownLabels.length !== (state.endless.catalogNote?.unknownLabels.length ?? 0)) setCatalogNote({ unknownLabels });
+    if (!result.length) return;
     const stillHasGame = state.index >= 0 && state.index < state.queue.length;
     commit(
       applyPartyCommand(
         state,
-        { type: "load", cardIds: items.map((item) => item.cardId), shuffle: false, downloadedOnly: false, append: hasGame && stillHasGame },
-        { loaded: items },
+        { type: "load", cardIds: result.map((item) => item.cardId), shuffle: false, downloadedOnly: false, append: hasGame && stillHasGame },
+        { loaded: result },
       ),
     );
   } catch {
@@ -249,7 +292,8 @@ function topUpEndless(): void {
   if (hasGame && upcoming >= ENDLESS_AHEAD) return;
   if (state.queue.length >= PARTY_LOAD_MAX) return;
   if (config.outsideLibrary) {
-    if (!fetchingCatalog) void topUpCatalog(hasGame);
+    // No match waits for new filters rather than asking AnisongDB again.
+    if (!fetchingCatalog && !config.catalogNote?.noMatch) void topUpCatalog(hasGame);
     return;
   }
   toppingUp = true;
@@ -353,8 +397,13 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     if (command.config?.outsideLibrary) assertOnline();
     const parsed = parseStudyFilters(command.filters);
     endlessFilters = "error" in parsed ? null : parsed.filters;
-    const { filters: _filters, ...plain } = command;
-    commit(applyPartyCommand(state, plain));
+    catalogGeneration++;
+    unknownCatalogLabels = new Set();
+    const { filters: _filters, config, ...plain } = command;
+    const catalogNote: PartyCatalogNote | null = config?.outsideLibrary
+      ? { notApplied: catalogSongFilters(endlessFilters, false).notApplied, unknownLabels: [], noMatch: false }
+      : null;
+    commit(applyPartyCommand(state, { ...plain, config: config ? { ...config, catalogNote } : null }));
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);
