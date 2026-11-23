@@ -10,7 +10,7 @@ import type {
   PartyTimer,
 } from "./usePartyDisplay";
 
-export type PartyEndlessDifficulty = "easy" | "medium" | "hard" | "random";
+export type PartyEndlessDifficulty = "veryEasy" | "easy" | "medium" | "hard" | "random";
 
 export interface PartyEndless {
   difficulty: PartyEndlessDifficulty;
@@ -25,6 +25,7 @@ export interface PartyCatalogNote {
   notApplied: string[];
   unknownLabels: string[];
   noMatch: boolean;
+  rankingUnavailable: boolean;
 }
 
 export interface PartyRevealFields {

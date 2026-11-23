@@ -3,6 +3,7 @@ import {
   AnisongUnknownLabelsError,
   fetchArtistCatalog,
   fetchRandomSongs,
+  fetchSongsByMalIds,
   fetchThemesByMalId,
   parseUnknownLabels,
   relevance,
@@ -435,6 +436,7 @@ describe("fetchRandomSongs", () => {
       filters: { song_types: ["opening"], genres: { require_all: ["Comedy"] }, difficulty: { start: 0, end: 30, include_no_difficulty: false } },
     });
     expect(songs[0]!.animeVintage).toBe("Fall 2013");
+    expect(songs[0]!.aniListId).toBe(1);
   });
 
   it("throws the unknown names when AnisongDB refuses a label", async () => {
@@ -449,6 +451,37 @@ describe("fetchRandomSongs", () => {
     const error = await fetchRandomSongs(900).catch((e: unknown) => e);
     expect(error).not.toBeInstanceOf(AnisongUnknownLabelsError);
     expect((error as Error).message).toContain("422");
+  });
+});
+
+describe("fetchSongsByMalIds", () => {
+  const sentBody = () => JSON.parse(fetch.mock.calls[0]![1].body as string);
+
+  it("asks for nothing with no ids", async () => {
+    expect(await fetchSongsByMalIds([])).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("sends the ids with the filters and a range that keeps unrated songs", async () => {
+    respond([entry({ animeJPName: "Cowboy Bebop", linked_ids: { myanimelist: 1, anilist: 7 } })]);
+    const songs = await fetchSongsByMalIds([1, 2], { start: 30, end: 49.9, includeUnrated: true }, { song_types: ["opening"] });
+    expect(fetch.mock.calls[0]![0]).toMatch(/mal_ids_request$/);
+    expect(sentBody()).toEqual({
+      mal_ids: [1, 2],
+      filters: { song_types: ["opening"], difficulty: { start: 30, end: 49.9, include_no_difficulty: true } },
+    });
+    expect(songs).toEqual([expect.objectContaining({ annSongId: 25, aniListId: 7, songTitle: "Tank!" })]);
+  });
+
+  it("reads a missing AniList id as null", async () => {
+    respond([entry({ animeJPName: "Cowboy Bebop", linked_ids: { myanimelist: 1 } })]);
+    expect((await fetchSongsByMalIds([1]))[0]!.aniListId).toBeNull();
+  });
+
+  it("throws the unknown names when AnisongDB refuses a label", async () => {
+    fetch.mockResolvedValue(Response.json({ detail: "Unknown genre(s): 'Nope'." }, { status: 422 }));
+    const error = await fetchSongsByMalIds([1], null, { genres: { require_all: ["Nope"] } }).catch((e: unknown) => e);
+    expect((error as AnisongUnknownLabelsError).labels).toEqual(["Nope"]);
   });
 });
 

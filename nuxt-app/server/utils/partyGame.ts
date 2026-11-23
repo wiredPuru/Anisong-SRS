@@ -32,6 +32,8 @@ export interface PartyCatalogNote {
   unknownLabels: string[];
   /** AnisongDB has no songs matching the filters. */
   noMatch: boolean;
+  /** The AniList popularity ranking was not ready, so the tier used guess rate alone. */
+  rankingUnavailable: boolean;
 }
 
 /** Which parts of the answer the reveal shows. */
@@ -628,7 +630,8 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
       } else if (scope !== undefined && scope.type !== "all") {
         return { error: "scope.type must be 'all' or 'created'" };
       }
-      if (!ENDLESS_DIFFICULTIES.includes(difficulty as EndlessDifficulty)) return { error: "difficulty must be easy, medium, hard or random" };
+      if (!ENDLESS_DIFFICULTIES.includes(difficulty as EndlessDifficulty)) return { error: "difficulty must be veryEasy, easy, medium, hard or random" };
+      if (difficulty === "veryEasy" && outsideLibrary !== true) return { error: "veryEasy is only for songs outside your library" };
       if (typeof downloadedOnly !== "boolean") return { error: "downloadedOnly must be a boolean" };
       if (outsideLibrary !== undefined && typeof outsideLibrary !== "boolean") return { error: "outsideLibrary must be a boolean" };
       return { type, config: { difficulty: difficulty as EndlessDifficulty, downloadedOnly, outsideLibrary: outsideLibrary === true, scope: parsedScope, filtered: Boolean(filters) }, ...(filters ? { filters } : {}) };

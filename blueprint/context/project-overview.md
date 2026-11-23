@@ -1,6 +1,6 @@
 # GAQ SRS - Project Overview
 
-<!-- blueprint:source-hash 901c9e360b29412916b2582a73102c3634ea04e32f446354f60ee8a6d2e4338d -->
+<!-- blueprint:source-hash aea68b45069dfef7aa67fc381e8adfd6e435af73a650d209f0cd809b0a06e1ba -->
 
 > A personal, local-only Anki/Migaku-style spaced-repetition flashcard app for
 > memorizing anime opening/ending songs, titles, and artists (AMQ trivia
@@ -421,7 +421,7 @@ No `project-plan.md` change: it adds a key to feature 124/125's existing Study
 control, like features 87 and 103.
 
 Feature 128 (party endless online tiers, in two sub-features 128a-128b) was
-added to `build-plan.md` on 2026-11-22. Party's outside-library endless queue
+added to `build-plan.md` on 2026-11-22 and is built in full. Party's outside-library endless queue
 (feature 112) sends the Study filters AnisongDB can apply (OP/ED/Insert,
 format, year and season, genres, tags) with its random-song request, and its
 difficulty becomes a grid of AniList global popularity rank (top 500,
@@ -3071,7 +3071,7 @@ endless is unchanged. No `project-plan.md` change, like feature 112.
       subset is applied after fetching from the song's `animeVintage`. AniList
       score, studio, anime list and tag rank are not sent, and the panel says
       so.
-    - **128b. Popularity x guess-rate grid** - a top-1000 ranking (AniList id,
+    - **128b. Popularity x guess-rate grid** - done 2026-11-22. A top-1000 ranking (AniList id,
       MAL id, rank) cached daily, the Very easy tier, and per-cell picking:
       top-1000 cells pick random shows and fetch their songs through
       `mal_ids_request` with the cell's difficulty range and 128a's filters;

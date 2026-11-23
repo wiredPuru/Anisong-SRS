@@ -1484,7 +1484,7 @@ cleaned-up checkbox version before generating the project overview.
     info on the right. Settings panels that have no column yet stay reachable.
   - [x] 127b. **More options and pins** - the grouped pop-up, Edit pins, and
     the pinned-controls grid. It replaces the right-hand tab strip.
-- [ ] 128. **Party endless online tiers** - party's outside-library endless queue
+- [x] 128. **Party endless online tiers** - party's outside-library endless queue
   (112) honours the Study filters AnisongDB can apply and picks songs from a
   grid of AniList popularity rank and AMQ guess rate, adding a Very easy tier.
   Rows: top 500, 500-1000, everything else (AniList global popularity, the top
@@ -1501,7 +1501,7 @@ cleaned-up checkbox version before generating the project overview.
   - [x] 128a. **Filters for catalog songs** - OP/ED/Insert, format, year and
     season, genres and tags are sent to AnisongDB's random-song request; AniList
     score, studio, anime list and tag rank cannot be, and the panel says so.
-  - [ ] 128b. **Popularity x guess-rate grid** - a cached top-1000 ranking
+  - [x] 128b. **Popularity x guess-rate grid** - a cached top-1000 ranking
     (AniList id, MAL id, rank), the Very easy tier, and per-cell picking: the
     top-1000 cells pick random shows and batch-fetch their songs through
     `mal_ids_request` with the cell's guess-rate range and the 128a filters;

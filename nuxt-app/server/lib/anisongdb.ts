@@ -382,6 +382,7 @@ export interface AnisongRandomSong {
   animeRomaji: string;
   /** AMQ's season label, e.g. "Fall 2013". */
   animeVintage: string | null;
+  aniListId: number | null;
   videoUrl: string | null;
   audioUrl: string | null;
 }
@@ -389,6 +390,46 @@ export interface AnisongRandomSong {
 export interface DifficultyRange {
   start: number;
   end: number;
+  /** Also keep songs with no difficulty value; off unless set. */
+  includeUnrated?: boolean;
+}
+
+function songFilters(difficulty: DifficultyRange | null, options: AnisongSongFilterOptions) {
+  return {
+    ...options,
+    ...(difficulty
+      ? { difficulty: { start: difficulty.start, end: difficulty.end, include_no_difficulty: difficulty.includeUnrated ?? false } }
+      : {}),
+  };
+}
+
+function parseCatalogSongs(entries: unknown[]): AnisongRandomSong[] {
+  const songs: AnisongRandomSong[] = [];
+  for (const entry of entries) {
+    if (!isRecord(entry)) continue;
+    const annSongId = typeof entry.annSongId === "number" ? entry.annSongId : null;
+    const songTitle = text(entry.songName);
+    const animeRomaji = text(entry.animeJPName) ?? text(entry.animeENName);
+    const animeEnglish = text(entry.animeENName) ?? animeRomaji;
+    const songType = text(entry.songType);
+    const videoUrl = mediaUrl(entry.HQ) ?? mediaUrl(entry.MQ);
+    const audioUrl = mediaUrl(entry.audio);
+    if (annSongId === null || !songTitle || !animeRomaji || !animeEnglish || !songType || (!videoUrl && !audioUrl)) continue;
+    const anilist = isRecord(entry.linked_ids) ? entry.linked_ids.anilist : null;
+    songs.push({
+      annSongId,
+      songType,
+      songTitle,
+      artistName: text(entry.songArtist) ?? "Unknown artist",
+      animeEnglish,
+      animeRomaji,
+      animeVintage: text(entry.animeVintage),
+      aniListId: typeof anilist === "number" ? anilist : null,
+      videoUrl,
+      audioUrl,
+    });
+  }
+  return songs;
 }
 
 /**
@@ -401,34 +442,23 @@ export async function fetchRandomSongs(
   difficulty: DifficultyRange | null = null,
   options: AnisongSongFilterOptions = {},
 ): Promise<AnisongRandomSong[]> {
-  const filters = {
-    ...options,
-    ...(difficulty ? { difficulty: { start: difficulty.start, end: difficulty.end, include_no_difficulty: false } } : {}),
-  };
+  const filters = songFilters(difficulty, options);
   const payload = Object.keys(filters).length ? { n: count, filters } : { n: count };
-  const entries = await postJson("get_n_random_songs", payload, null);
-  const songs: AnisongRandomSong[] = [];
-  for (const entry of entries) {
-    if (!isRecord(entry)) continue;
-    const annSongId = typeof entry.annSongId === "number" ? entry.annSongId : null;
-    const songTitle = text(entry.songName);
-    const animeRomaji = text(entry.animeJPName) ?? text(entry.animeENName);
-    const animeEnglish = text(entry.animeENName) ?? animeRomaji;
-    const songType = text(entry.songType);
-    const videoUrl = mediaUrl(entry.HQ) ?? mediaUrl(entry.MQ);
-    const audioUrl = mediaUrl(entry.audio);
-    if (annSongId === null || !songTitle || !animeRomaji || !animeEnglish || !songType || (!videoUrl && !audioUrl)) continue;
-    songs.push({
-      annSongId,
-      songType,
-      songTitle,
-      artistName: text(entry.songArtist) ?? "Unknown artist",
-      animeEnglish,
-      animeRomaji,
-      animeVintage: text(entry.animeVintage),
-      videoUrl,
-      audioUrl,
-    });
-  }
-  return songs;
+  return parseCatalogSongs(await postJson("get_n_random_songs", payload, null));
+}
+
+/**
+ * Every song of up to 500 shows by MAL id, narrowed like a random request.
+ * Not cached here: a whole popularity band is about a megabyte, and the party
+ * endless queue keeps its own copy for the session.
+ */
+export async function fetchSongsByMalIds(
+  malIds: number[],
+  difficulty: DifficultyRange | null = null,
+  options: AnisongSongFilterOptions = {},
+): Promise<AnisongRandomSong[]> {
+  if (!malIds.length) return [];
+  const filters = songFilters(difficulty, options);
+  const payload = Object.keys(filters).length ? { mal_ids: malIds, filters } : { mal_ids: malIds };
+  return parseCatalogSongs(await postJson("mal_ids_request", payload, null));
 }

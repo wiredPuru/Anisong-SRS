@@ -1,4 +1,4 @@
-export const ENDLESS_DIFFICULTIES = ["easy", "medium", "hard", "random"] as const;
+export const ENDLESS_DIFFICULTIES = ["veryEasy", "easy", "medium", "hard", "random"] as const;
 export type EndlessDifficulty = (typeof ENDLESS_DIFFICULTIES)[number];
 
 /** Songs still to come that the endless queue keeps ready, and how many it adds at a time. */
@@ -13,9 +13,10 @@ const MAX_WINDOW = 60;
  * AnisongDB songDifficulty bands for songs outside the library. The value is
  * AMQ's guess rate, so higher is easier; about 31% of the catalog is 30+ and
  * 8% is 50+, which is why Easy is the narrow band. Random has no range.
+ * Feature 128b's grid replaces these once the popularity ranking has loaded.
  */
 export function catalogDifficultyRange(difficulty: EndlessDifficulty): { start: number; end: number } | null {
-  if (difficulty === "easy") return { start: 50, end: 100 };
+  if (difficulty === "veryEasy" || difficulty === "easy") return { start: 50, end: 100 };
   if (difficulty === "medium") return { start: 30, end: 50 };
   if (difficulty === "hard") return { start: 0, end: 30 };
   return null;
@@ -31,7 +32,7 @@ export interface PopularityCutoffs {
 export const DEFAULT_CUTOFFS: PopularityCutoffs = { top500: 90_000, top1000: 55_000 };
 
 /** The share of each difficulty's songs drawn from anywhere, for a little spice. */
-const WILD_SHARE: Record<EndlessDifficulty, number> = { easy: 0.1, medium: 0.1, hard: 0.25, random: 0 };
+const WILD_SHARE: Record<EndlessDifficulty, number> = { veryEasy: 0.1, easy: 0.1, medium: 0.1, hard: 0.25, random: 0 };
 
 export interface EndlessCandidate {
   cardId: number;
@@ -44,11 +45,12 @@ export interface EndlessCandidate {
 
 /**
  * Easy is the top 500 anime, medium the top 1000, hard everything outside the
- * top 500 (an unknown popularity counts as outside), random is any.
+ * top 500 (an unknown popularity counts as outside), random is any. Very
+ * easy is outside-library only, so a stray one here counts as Easy.
  */
 export function inBand(difficulty: EndlessDifficulty, popularity: number | null, cutoffs: PopularityCutoffs): boolean {
   if (difficulty === "random") return true;
-  if (difficulty === "easy") return popularity !== null && popularity >= cutoffs.top500;
+  if (difficulty === "veryEasy" || difficulty === "easy") return popularity !== null && popularity >= cutoffs.top500;
   if (difficulty === "medium") return popularity !== null && popularity >= cutoffs.top1000;
   return popularity === null || popularity < cutoffs.top500;
 }

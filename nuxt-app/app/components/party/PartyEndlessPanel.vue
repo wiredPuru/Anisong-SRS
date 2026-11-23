@@ -5,10 +5,34 @@ import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 const props = defineProps<{ state: PartyHostState; source: PartyEndlessSource }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
-const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string; catalogHint: string }[] = [
-  { value: "easy", label: "Easy", hint: "Mostly the top 500 most popular anime, with a 10% sprinkle of anything.", catalogHint: "Songs most players get right." },
-  { value: "medium", label: "Medium", hint: "Mostly the top 1000 most popular anime, with a 10% sprinkle of anything.", catalogHint: "Songs about half of players get right." },
-  { value: "hard", label: "Hard", hint: "Every anime in the pool, leaning on ones outside the top 500.", catalogHint: "Songs few players get right, most of the catalog." },
+// Catalog hints name each tier's cells in the popularity x guess-rate grid
+// (feature 128b); a song with no guess rate counts as 30-50%.
+const LEVELS: { value: PartyEndlessDifficulty; label: string; hint: string; catalogHint: string; catalogOnly?: boolean }[] = [
+  {
+    value: "veryEasy",
+    label: "Very easy",
+    hint: "",
+    catalogHint: "Top 500 anime, songs at least half of AMQ players get right.",
+    catalogOnly: true,
+  },
+  {
+    value: "easy",
+    label: "Easy",
+    hint: "Mostly the top 500 most popular anime, with a 10% sprinkle of anything.",
+    catalogHint: "Top 500 anime with songs 30-50% of players get right, or anime ranked 500-1000 with songs half get right.",
+  },
+  {
+    value: "medium",
+    label: "Medium",
+    hint: "Mostly the top 1000 most popular anime, with a 10% sprinkle of anything.",
+    catalogHint: "Top 500 anime with songs under 30% get right, anime ranked 500-1000 with songs 30-50% get right, or less popular anime with songs half get right.",
+  },
+  {
+    value: "hard",
+    label: "Hard",
+    hint: "Every anime in the pool, leaning on ones outside the top 500.",
+    catalogHint: "Anime ranked 500-1000 with songs under 30% get right, or less popular anime with songs under half get right.",
+  },
   { value: "random", label: "Random", hint: "Any anime in the pool, no weighting.", catalogHint: "Any song, including ones with no difficulty rating." },
 ];
 
@@ -18,6 +42,7 @@ const { offlineMode } = useNetworkMode();
 const outsideLibrary = ref(props.state.endless?.outsideLibrary ?? false);
 const outsideBlocked = computed(() => offlineMode.value === true);
 const running = computed(() => props.state.endless !== null);
+const levels = computed(() => LEVELS.filter((level) => outsideLibrary.value || !level.catalogOnly));
 const hint = computed(() => {
   const level = LEVELS.find((entry) => entry.value === difficulty.value);
   return (outsideLibrary.value ? level?.catalogHint : level?.hint) ?? "";
@@ -80,6 +105,8 @@ function setDownloaded(value: boolean) {
 
 function setOutside(value: boolean) {
   outsideLibrary.value = value;
+  // Library songs store no guess rate, so Very easy has nothing to go on there.
+  if (!value && difficulty.value === "veryEasy") difficulty.value = "easy";
   resend();
 }
 </script>
@@ -122,7 +149,7 @@ function setOutside(value: boolean) {
     </label>
     <p v-if="outsideBlocked" class="endless-hint">Songs outside your library need online mode.</p>
     <p class="endless-hint">
-      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog, picked by AMQ's song difficulty, 5 at a time." : "Only songs you have cards for." }}
+      {{ outsideLibrary ? "Random songs from the whole AnisongDB catalog, picked by anime popularity and AMQ's guess rate, 5 at a time." : "Only songs you have cards for." }}
     </p>
 
     <template v-if="outsideLibrary && download">
@@ -144,7 +171,7 @@ function setOutside(value: boolean) {
 
     <div class="levels" role="radiogroup" aria-label="Difficulty">
       <button
-        v-for="level in LEVELS"
+        v-for="level in levels"
         :key="level.value"
         type="button"
         role="radio"
@@ -157,6 +184,9 @@ function setOutside(value: boolean) {
       </button>
     </div>
     <p class="endless-hint">{{ hint }}</p>
+    <p v-if="catalogNote?.rankingUnavailable && difficulty !== 'random'" class="endless-hint" role="status">
+      Popularity ranking unavailable, using guess rate only.
+    </p>
 
     <label v-if="!outsideLibrary" class="endless-check">
       <input type="checkbox" :checked="downloadedOnly" @change="setDownloaded(($event.target as HTMLInputElement).checked)" />

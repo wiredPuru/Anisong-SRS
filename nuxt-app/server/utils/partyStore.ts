@@ -4,13 +4,15 @@ import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
 import { EMPTY_ANSWER_FACTS } from "./partyAnswerFacts.ts";
-import { AnisongUnknownLabelsError, fetchRandomSongs, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
-import { catalogSongFilters, matchesSeasons, withoutLabels } from "./partyCatalogFilters.ts";
+import { AnisongUnknownLabelsError, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
+import { catalogSongFilters, withoutLabels } from "./partyCatalogFilters.ts";
+import { noteCatalogShows, pickCatalogSongs, resetCatalogPicker } from "./partyCatalogPicker.ts";
+import { currentRanking } from "./popularityRanking.ts";
 import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode } from "./mediaLibrary.ts";
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
 import { resolveCachedPath } from "./streamCache.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
-import { catalogDifficultyRange, ENDLESS_AHEAD, ENDLESS_BATCH, ENDLESS_CATALOG_BATCH, pickEndlessBatch } from "./partyEndless.ts";
+import { ENDLESS_AHEAD, ENDLESS_BATCH, ENDLESS_CATALOG_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
@@ -208,7 +210,7 @@ let unknownCatalogLabels = new Set<string>();
 
 function setCatalogNote(change: Partial<PartyCatalogNote>): void {
   if (!state.endless?.outsideLibrary) return;
-  const note: PartyCatalogNote = { notApplied: [], unknownLabels: [], noMatch: false, ...state.endless.catalogNote, ...change };
+  const note: PartyCatalogNote = { notApplied: [], unknownLabels: [], noMatch: false, rankingUnavailable: false, ...state.endless.catalogNote, ...change };
   commit({ ...state, endless: { ...state.endless, catalogNote: note } });
 }
 
@@ -216,27 +218,39 @@ function setCatalogNote(change: Partial<PartyCatalogNote>): void {
 // tries when a season subset leaves nothing from a batch.
 const CATALOG_ATTEMPTS = 4;
 
-async function fetchCatalogBatch(queued: Set<number>): Promise<PartyQueueItem[] | "noMatch"> {
-  const difficulty = catalogDifficultyRange(state.endless?.difficulty ?? "random");
+/** AMQ song ids already in the queue; catalog items carry the negated id. */
+function queuedAnnSongIds(): Set<number> {
+  return new Set(state.queue.filter((item) => item.cardId < 0).map((item) => -item.cardId));
+}
+
+interface CatalogBatch {
+  result: PartyQueueItem[] | "noMatch";
+  usedRanking: boolean;
+}
+
+async function fetchCatalogBatch(count: number): Promise<CatalogBatch> {
+  const tier = state.endless?.difficulty ?? "random";
   const { options, seasons } = catalogSongFilters(endlessFilters, getIncludeInsertSongs());
+  let usedRanking = tier === "random";
   for (let attempt = 0; attempt < CATALOG_ATTEMPTS; attempt++) {
-    let songs: AnisongRandomSong[];
+    const queued = queuedAnnSongIds();
+    let pick;
     try {
-      songs = await fetchRandomSongs(ENDLESS_CATALOG_BATCH * (seasons ? 4 : 2), difficulty, withoutLabels(options, unknownCatalogLabels));
+      pick = await pickCatalogSongs({ tier, options: withoutLabels(options, unknownCatalogLabels), seasons, queued, count });
     } catch (error) {
       if (!(error instanceof AnisongUnknownLabelsError)) throw error;
       for (const label of error.labels) unknownCatalogLabels.add(label);
       continue;
     }
-    if (!songs.length) return "noMatch";
-    const items = songs
-      .filter((song) => matchesSeasons(song.animeVintage, seasons))
-      .map(fromRandom)
-      .filter((item): item is PartyQueueItem => item !== null && !queued.has(item.cardId))
-      .slice(0, ENDLESS_CATALOG_BATCH);
-    if (items.length) return items;
+    usedRanking = pick.usedRanking || tier === "random";
+    if (pick.noMatch) return { result: "noMatch", usedRanking };
+    const items = pick.songs.map(fromRandom).filter((item): item is PartyQueueItem => item !== null && !queued.has(-item.cardId));
+    if (items.length) {
+      noteCatalogShows(pick.songs);
+      return { result: items, usedRanking };
+    }
   }
-  return [];
+  return { result: [], usedRanking };
 }
 
 async function topUpCatalog(hasGame: boolean): Promise<void> {
@@ -244,7 +258,7 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
   fetchingCatalog = true;
   const generation = catalogGeneration;
   try {
-    const result = await fetchCatalogBatch(new Set(state.queue.map((item) => item.cardId)));
+    const { result, usedRanking } = await fetchCatalogBatch(ENDLESS_CATALOG_BATCH);
     // The host may have stopped endless, switched source or changed the filters while this was out.
     if (!state.endless?.outsideLibrary) return;
     if (catalogGeneration !== generation) {
@@ -252,11 +266,15 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
       return;
     }
     const unknownLabels = [...unknownCatalogLabels];
+    const rankingUnavailable = !usedRanking;
     if (result === "noMatch") {
-      setCatalogNote({ noMatch: true, unknownLabels });
+      setCatalogNote({ noMatch: true, unknownLabels, rankingUnavailable });
       return;
     }
-    if (unknownLabels.length !== (state.endless.catalogNote?.unknownLabels.length ?? 0)) setCatalogNote({ unknownLabels });
+    const note = state.endless.catalogNote;
+    if (unknownLabels.length !== (note?.unknownLabels.length ?? 0) || rankingUnavailable !== (note?.rankingUnavailable ?? false)) {
+      setCatalogNote({ unknownLabels, rankingUnavailable });
+    }
     if (!result.length) return;
     const stillHasGame = state.index >= 0 && state.index < state.queue.length;
     commit(
@@ -399,9 +417,12 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     endlessFilters = "error" in parsed ? null : parsed.filters;
     catalogGeneration++;
     unknownCatalogLabels = new Set();
+    resetCatalogPicker();
+    // Start loading the popularity ranking now, so it is usually ready by the second batch.
+    if (command.config?.outsideLibrary && command.config.difficulty !== "random") currentRanking();
     const { filters: _filters, config, ...plain } = command;
     const catalogNote: PartyCatalogNote | null = config?.outsideLibrary
-      ? { notApplied: catalogSongFilters(endlessFilters, false).notApplied, unknownLabels: [], noMatch: false }
+      ? { notApplied: catalogSongFilters(endlessFilters, false).notApplied, unknownLabels: [], noMatch: false, rankingUnavailable: false }
       : null;
     commit(applyPartyCommand(state, { ...plain, config: config ? { ...config, catalogNote } : null }));
     return {};
@@ -489,9 +510,10 @@ function rerollQueueItem(index: number): { loaded: number } {
 
 async function rerollCatalogItem(index: number): Promise<void> {
   try {
-    const queued = new Set(state.queue.map((item) => item.cardId));
-    const replacement = (await fetchRandomSongs(10, catalogDifficultyRange(state.endless?.difficulty ?? "random"))).map(fromRandom).find((item) => item && !queued.has(item.cardId));
-    if (replacement) commit(applyPartyCommand(state, { type: "queueReroll", index }, { loaded: [replacement] }));
+    const generation = catalogGeneration;
+    const { result } = await fetchCatalogBatch(1);
+    if (catalogGeneration !== generation || result === "noMatch" || !result.length) return;
+    commit(applyPartyCommand(state, { type: "queueReroll", index }, { loaded: result.slice(0, 1) }));
   } catch {
     // The song stays when AnisongDB cannot answer.
   }
