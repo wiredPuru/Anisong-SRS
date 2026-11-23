@@ -8,6 +8,7 @@ export interface PartyStatus {
   isLoopback: boolean;
   displayUrl: string;
   controlUrls: string[];
+  playerUrls: string[];
 }
 
 export default defineEventHandler((event): PartyStatus => ({
@@ -16,4 +17,5 @@ export default defineEventHandler((event): PartyStatus => ({
   isLoopback: isLoopbackAddress(getPartyClientIp(event)),
   displayUrl: process.env.GAQ_PARTY_DISPLAY_URL ?? "",
   controlUrls: (process.env.GAQ_PARTY_CONTROL_URLS ?? "").split(",").filter(Boolean),
+  playerUrls: (process.env.GAQ_PARTY_PLAYER_URLS ?? "").split(",").filter(Boolean),
 }));

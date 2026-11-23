@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 import { PALETTE_SHORTCUT_LABEL, type PartyPaletteCommand } from "~/utils/partyPalette";
-defineProps<{ displayUrl: string; controlUrls: string[]; isLoopback: boolean }>();
+const props = defineProps<{ displayUrl: string; controlUrls: string[]; playerUrls: string[]; isLoopback: boolean }>();
+// The display door only listens on the machine running GAQ Party.
+const displayTitle = computed(() =>
+  props.isLoopback ? "Open the display screen in a new tab" : "Opens only on the computer running GAQ Party",
+);
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
 const { state, connected, sessionLost, commandError, send } = usePartyHost();
@@ -23,7 +27,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 const tab = ref<TabId>("round");
 const settingsOpen = ref(false);
-// With no game, New game sits in the right column rather than in Settings.
+// With no game, New game sits in the middle column rather than in Settings.
 const visibleTabs = computed(() => (hasGame.value ? TABS : TABS.filter((item) => item.id !== "game")));
 watch(hasGame, (running) => {
   if (!running && tab.value === "game") tab.value = "round";
@@ -152,6 +156,15 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
         {{ state.scoreboard.players.length }} player{{ state.scoreboard.players.length === 1 ? "" : "s" }}
       </span>
       <span class="dashboard-spacer" />
+      <a v-if="displayUrl" :href="displayUrl" target="_blank" rel="noopener" class="link-btn" :title="displayTitle">Display ↗</a>
+      <a
+        v-if="playerUrls[0]"
+        :href="playerUrls[0]"
+        target="_blank"
+        rel="noopener"
+        class="link-btn"
+        :title="`Where players join: ${playerUrls[0]}`"
+      >Player page ↗</a>
       <button type="button" class="link-btn" :aria-pressed="ambientOn" @click="toggleAmbient">Ambient: {{ ambientOn ? "on" : "off" }}</button>
       <button type="button" class="link-btn" @click="commandBar.show()">Commands ({{ PALETTE_SHORTCUT_LABEL }})</button>
       <button type="button" class="link-btn" @click="helpOpen = true">Shortcuts (?)</button>
@@ -173,22 +186,6 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
           <PartyQueueList :state="state" @jump="send({ type: 'jump', index: $event })" @command="send" />
         </section>
         <p v-else-if="state" class="panel panel-note queue-panel order-queue">The queue shows here once a game starts.</p>
-
-        <section class="panel pinned-panel order-transport">
-          <PartyPinnedControls :state="state" :local="paletteLocal" @pick="onMoreOptionsPick" @more="moreOpen = true" />
-        </section>
-
-        <section class="panel transport-panel order-transport" aria-label="Now playing" data-palette-target="now-playing">
-          <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
-          <template v-else-if="hasGame && state">
-            <PartyNowPlaying :state="state" @command="send" />
-            <p v-if="lastLoad?.skipped" class="panel-hint">
-              {{ lastLoad.skipped }} song{{ lastLoad.skipped === 1 ? " was" : "s were" }} skipped with no playable clip.
-            </p>
-          </template>
-          <p v-else class="panel-note">No game yet. Build one under New game on the right.</p>
-          <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
-        </section>
       </div>
 
       <div
@@ -203,10 +200,31 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
       />
 
       <div class="column main-column">
-        <section v-if="state" class="panel grow order-score">
-          <PartyRoundJudge :state="state" @command="send" />
-          <PartyScoreboardPanel :state="state" data-palette-target="scoreboard" @command="send" />
-          <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />
+        <section v-if="state && hasGame" class="panel info-panel order-info" aria-label="Current song">
+          <PartySongInfo :state="state" />
+        </section>
+        <!-- With no game the middle column is where one starts; during a game New game lives in Settings. -->
+        <template v-else>
+          <section class="panel order-info" data-palette-target="new-game">
+            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
+          </section>
+          <section v-if="state" class="panel order-info" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
+        </template>
+
+        <section class="panel pinned-panel order-transport">
+          <PartyPinnedControls :state="state" :local="paletteLocal" @pick="onMoreOptionsPick" @more="moreOpen = true" />
+        </section>
+
+        <section class="panel transport-panel order-transport" aria-label="Now playing" data-palette-target="now-playing">
+          <p v-if="!connected && !state" class="panel-note">Connecting to the party server...</p>
+          <template v-else-if="hasGame && state">
+            <PartyNowPlaying :state="state" @command="send" />
+            <p v-if="lastLoad?.skipped" class="panel-hint">
+              {{ lastLoad.skipped }} song{{ lastLoad.skipped === 1 ? " was" : "s were" }} skipped with no playable clip.
+            </p>
+          </template>
+          <p v-else class="panel-note">No game yet. Build one under New game above.</p>
+          <p v-if="commandError" class="panel-error" role="alert">{{ commandError }}</p>
         </section>
       </div>
 
@@ -222,16 +240,11 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
       />
 
       <div class="column side-column">
-        <section v-if="state && hasGame" class="panel order-info" aria-label="Current song">
-          <PartySongInfo :state="state" />
+        <section v-if="state" class="panel grow order-score">
+          <PartyRoundJudge :state="state" @command="send" />
+          <PartyScoreboardPanel :state="state" data-palette-target="scoreboard" @command="send" />
+          <PartyRulesPanel :state="state" data-palette-target="rules" @command="send" />
         </section>
-        <!-- With no game the right column is where one starts; during a game New game lives in Settings. -->
-        <template v-else>
-          <section class="panel order-info" data-palette-target="new-game">
-            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
-          </section>
-          <section v-if="state" class="panel order-info" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
-        </template>
       </div>
     </div>
 
@@ -371,6 +384,7 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .dashboard-grid {
@@ -428,9 +442,16 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
   display: none;
 }
 
-/* The queue scrolls inside its own panel so the transport stays pinned
-   at the bottom of the column; on a short window the column itself scrolls
-   rather than clipping the transport. */
+/* The queue and the song info fill what is left of their columns and scroll
+   inside their own panels, so the controls below the song info stay in view;
+   on a short window the column itself scrolls instead. */
+.panel.info-panel {
+  flex: 1 1 0;
+  min-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .panel.queue-panel {
   flex: 1 1 0;
   min-height: 300px;
@@ -602,6 +623,11 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
   .panel.queue-panel {
     flex: none;
     height: 460px;
+  }
+
+  .panel.info-panel {
+    flex: none;
+    overflow: visible;
   }
 
   .order-transport {

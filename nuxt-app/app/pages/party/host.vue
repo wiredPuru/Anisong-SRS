@@ -8,6 +8,7 @@ interface PartyStatus {
   isLoopback: boolean;
   displayUrl: string;
   controlUrls: string[];
+  playerUrls: string[];
 }
 
 const PASSWORD_MIN_LENGTH = 6;
@@ -66,6 +67,7 @@ async function logout() {
     <PartyHostDashboard
       :display-url="status.displayUrl"
       :control-urls="status.controlUrls"
+      :player-urls="status.playerUrls"
       :is-loopback="status.isLoopback"
       @logout="logout"
       @session-lost="refresh()"
