@@ -207,6 +207,7 @@ function setSongVolume(volume: number) {
         />
         Buzzer mode
       </label>
+      <PartyClipSourcePicker />
       <button
         type="button"
         class="link-btn"

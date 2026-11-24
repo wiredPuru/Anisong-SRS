@@ -75,12 +75,35 @@ export function onPartyChange(listener: (state: PartyGameState) => void): () => 
 // A remote clip plays only once the stream cache holds all of it, so the
 // current song and the ones the display buffers ahead are fetched as soon as
 // the game moves. Failures are the clip route's to report.
+// Songs are queued with whichever clip they have, so a game never loses songs
+// to the Clip source setting. As each one nears playback it is switched to the
+// setting's provider; one with no match there keeps its clip (see swapQueueSource).
+const QUEUE_CLIP_SOURCE = "both" as const;
+const autoSwitchTried = new Set<string>();
+
+function needsProviderSwitch(item: PartyQueueItem): boolean {
+  const { source } = item.clip;
+  return source.type === "remote" && !item.clipOverride && !isClipUrlAllowed(source.url, getClipSource());
+}
+
 function prefetchAround(current: PartyGameState): void {
   if (getOfflineMode()) return;
-  for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PARTY_LOOKAHEAD)) {
+  const from = Math.max(current.index, 0);
+  current.queue.slice(from, current.index + 1 + PARTY_LOOKAHEAD).forEach((item, offset) => {
     if (getOfflineMode()) return;
-    fetchClip(item);
-  }
+    if (!needsProviderSwitch(item)) {
+      fetchClip(item);
+    } else if (!autoSwitchTried.has(item.token)) {
+      autoSwitchTried.add(item.token);
+      void swapQueueSource(from + offset, { keepOnMiss: true });
+    }
+  });
+}
+
+/** The host changed Clip source: songs near playback switch to the new provider. */
+export function partyClipSourceChanged(): void {
+  autoSwitchTried.clear();
+  prefetchAround(state);
 }
 
 // Fetches a remote clip into the stream cache, showing the host whether it is
@@ -111,7 +134,7 @@ function retryQueueItem(index: number): void {
  * that clip instead. The host asked for it, so it plays even where the Clip
  * source setting would exclude that provider. Party only: no card changes.
  */
-async function swapQueueSource(index: number): Promise<void> {
+async function swapQueueSource(index: number, options: { keepOnMiss?: boolean } = {}): Promise<void> {
   const item = state.queue[index];
   if (!item || index < Math.max(state.index, 0) || getOfflineMode()) return;
   const { aniListId } = item;
@@ -128,6 +151,9 @@ async function swapQueueSource(index: number): Promise<void> {
   const at = state.queue.findIndex((queued) => queued.token === token);
   if (at < Math.max(state.index, 0)) return;
   if (!clip || clip.source.type !== "remote") {
+    // An automatic switch that finds nothing lets the song keep its own clip
+    // rather than leave a hole in the game; the warning says why.
+    if (options.keepOnMiss) commit(applyPartyCommand(state, { type: "queueClip", index: at }, { loaded: [{ ...state.queue[at]!, clipOverride: true }] }));
     commit(withClipStatus(state, token, "noSource"));
     return;
   }
@@ -204,7 +230,7 @@ interface CatalogSong {
 function catalogItem(song: CatalogSong): PartyQueueItem | null {
   const clip = pickPartyClip(
     { localVideoPath: null, localAudioPath: null, animethemesVideoUrl: song.videoUrl, animethemesAudioUrl: song.audioUrl },
-    { clipSource: getClipSource(), playbackMode: getPlaybackMode() },
+    { clipSource: QUEUE_CLIP_SOURCE, playbackMode: getPlaybackMode() },
   );
   if (!clip) return null;
   return {
@@ -517,7 +543,7 @@ function loadAnimeDetails(animeIds: number[]): Map<number, PartyAnimeDetails> {
 }
 
 function resolveQueue(cardIds: number[], downloadedOnly: boolean): { items: PartyQueueItem[]; skipped: number } {
-  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), downloadedOnly, offlineMode: getOfflineMode() };
+  const settings = { clipSource: QUEUE_CLIP_SOURCE, playbackMode: getPlaybackMode(), downloadedOnly, offlineMode: getOfflineMode() };
   const cards = getCardsByIds(cardIds);
   const byId = new Map(cards.map((card) => [card.id, card]));
   const details = loadAnimeDetails(cards.map((card) => card.animeId));
@@ -605,7 +631,7 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
 export function playDownloadedCard(cardId: number): void {
   const card = getCardsByIds([cardId])[0];
   if (!card) return;
-  const settings = { clipSource: getClipSource(), playbackMode: getPlaybackMode(), offlineMode: getOfflineMode() };
+  const settings = { clipSource: QUEUE_CLIP_SOURCE, playbackMode: getPlaybackMode(), offlineMode: getOfflineMode() };
   const clip = pickPartyClip(card, settings, localFileUsable);
   if (clip?.source.type !== "local") return;
   let next = state;
