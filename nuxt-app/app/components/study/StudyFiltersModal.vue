@@ -40,27 +40,30 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <div v-if="open" class="backdrop" @click.self="emit('close')">
-    <div class="panel" role="dialog" aria-modal="true" aria-labelledby="study-filters-title">
-      <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
-      <h2 id="study-filters-title" class="title">{{ title }}</h2>
-      <p class="hint">{{ hint }}</p>
+  <!-- Teleported, so a blurred (backdrop-filter) ancestor cannot trap the fixed backdrop. -->
+  <Teleport to="body">
+    <div v-if="open" class="backdrop" @click.self="emit('close')">
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="study-filters-title">
+        <button type="button" class="close-btn" aria-label="Close" @click="emit('close')">✕</button>
+        <h2 id="study-filters-title" class="title">{{ title }}</h2>
+        <p class="hint">{{ hint }}</p>
 
-      <div class="body">
-        <StudyFilterForm v-model="draft" :api-base="apiBase" />
-      </div>
+        <div class="body">
+          <StudyFilterForm v-model="draft" :api-base="apiBase" />
+        </div>
 
-      <p v-if="problem" class="control-error">{{ problem }}</p>
-      <div class="footer">
-        <button type="button" class="text-btn" :disabled="draftCount === 0" @click="clearAll">Clear all</button>
-        <span class="footer-spacer" />
-        <button type="button" class="text-btn" @click="emit('close')">Cancel</button>
-        <button type="button" class="apply-btn" :disabled="Boolean(problem)" @click="apply">
-          Apply<template v-if="draftCount"> ({{ draftCount }})</template>
-        </button>
+        <p v-if="problem" class="control-error">{{ problem }}</p>
+        <div class="footer">
+          <button type="button" class="text-btn" :disabled="draftCount === 0" @click="clearAll">Clear all</button>
+          <span class="footer-spacer" />
+          <button type="button" class="text-btn" @click="emit('close')">Cancel</button>
+          <button type="button" class="apply-btn" :disabled="Boolean(problem)" @click="apply">
+            Apply<template v-if="draftCount"> ({{ draftCount }})</template>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>

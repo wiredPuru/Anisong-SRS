@@ -87,11 +87,11 @@ function send(config: Settings | null) {
   });
 }
 
-// While running, a change applies to the songs generated from then on.
+// While running, a change replaces the songs still to come. Source and filter
+// changes are re-sent by the dashboard, so they apply with this panel closed.
 function resend() {
   if (running.value && !needsDeck.value) send(settings.value);
 }
-watch(() => [props.source.scope, props.source.filters], resend, { deep: true });
 
 function pick(value: PartyEndlessDifficulty) {
   difficulty.value = value;

@@ -1106,7 +1106,7 @@ function atItem(state: PartyGameState, index: number, random: () => number): Par
 export function applyPartyCommand(
   state: PartyGameState,
   command: PartyCommand | PartyInternalCommand,
-  options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number; choices?: string[] } = {},
+  options: { loaded?: PartyQueueItem[]; random?: () => number; now?: () => number; choices?: string[]; keepUpcoming?: boolean } = {},
 ): PartyGameState {
   if (command.type === "cardEdited") {
     const { cardId, songTitle, themeSlot, artistName } = command;
@@ -1180,6 +1180,13 @@ export function applyPartyCommand(
       break;
     case "endless":
       next = { ...state, endless: command.config };
+      // A change to a running endless queue takes effect from the very next song:
+      // its own picks still to come are dropped so the store refills them.
+      // A resend of the same settings (keepUpcoming) leaves them be.
+      if (state.endless && command.config && hasItem && !options.keepUpcoming) {
+        const queue = state.queue.filter((item, i) => i <= state.index || item.manual === true);
+        if (queue.length !== state.queue.length) next = { ...next, queue };
+      }
       break;
     case "revealFields":
       next = { ...state, revealFields: command.fields };

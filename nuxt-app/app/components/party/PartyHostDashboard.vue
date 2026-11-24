@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
 import { PALETTE_SHORTCUT_LABEL, type PartyPaletteCommand } from "~/utils/partyPalette";
 const props = defineProps<{ displayUrl: string; controlUrls: string[]; playerUrls: string[]; isLoopback: boolean }>();
 // The display door only listens on the machine running GAQ Party.
@@ -9,7 +8,17 @@ const displayTitle = computed(() =>
 const emit = defineEmits<{ logout: []; sessionLost: [] }>();
 
 const { state, connected, sessionLost, commandError, send } = usePartyHost();
-const endlessSource = ref<PartyEndlessSource>({ scope: { type: "all" }, filters: undefined });
+const { endlessSource } = usePartyNewGame();
+
+// While endless runs, a source or filter change from any panel applies at once,
+// with the difficulty and toggles it is already running on.
+watch(() => JSON.stringify(endlessSource.value), () => {
+  const running = state.value?.endless;
+  const { scope, filters } = endlessSource.value;
+  if (!running || (!scope && !running.outsideLibrary)) return;
+  const { catalogNote: _note, ...config } = running;
+  send({ type: "endless", config: { ...config, scope: scope ?? { type: "all" }, filtered: Boolean(filters) }, ...(filters ? { filters } : {}) });
+});
 const lastLoad = ref<{ loaded: number; skipped: number; total: number } | null>(null);
 const hasGame = computed(() => Boolean(state.value && state.value.index >= 0 && state.value.queue.length));
 
@@ -173,6 +182,9 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
 
     <div ref="columnsGrid" class="dashboard-grid" :class="{ resizing: columns.dragging.value !== null }" :style="columns.columnVars.value">
       <div class="column queue-column">
+        <section v-if="state?.endless" class="panel order-queue">
+          <PartyEndlessFilters :endless="state.endless" />
+        </section>
         <section v-if="state" class="panel order-queue" data-palette-target="add-songs">
           <button type="button" class="panel-toggle" :aria-expanded="addSongsOpen" @click="addSongsOpen = !addSongsOpen">
             <h2 class="panel-title">Add songs</h2>
@@ -206,7 +218,7 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
         <!-- With no game the middle column is where one starts; during a game New game lives in Settings. -->
         <template v-else>
           <section class="panel order-info" data-palette-target="new-game">
-            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
+            <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
           </section>
           <section v-if="state" class="panel order-info" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
         </template>
@@ -291,7 +303,7 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
       <template v-if="hasGame">
         <!-- Kept mounted so a half-built game survives a look at another tab. -->
         <section v-show="tab === 'game'" class="panel" data-palette-target="new-game">
-          <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" @source="endlessSource = $event" />
+          <PartyQueueBuilder :game-running="hasGame" @loaded="lastLoad = $event" />
         </section>
         <section v-if="tab === 'game' && state" class="panel" data-palette-target="endless"><PartyEndlessPanel :state="state" :source="endlessSource" @command="send" /></section>
       </template>

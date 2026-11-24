@@ -220,6 +220,33 @@ describe("applyPartyCommand", () => {
     expect(state.queue.map((item) => item.token)).toEqual(["t2", "t3", "t1"]);
   });
 
+  describe("endless changes", () => {
+    const config = { difficulty: "easy" as const, downloadedOnly: false, outsideLibrary: false, scope: { type: "all" as const }, filtered: false };
+    function withManual(state: PartyGameState, index: number): PartyGameState {
+      return { ...state, queue: state.queue.map((item, i) => (i === index ? { ...item, manual: true } : item)) };
+    }
+
+    it("drops endless songs still to come, keeping the current and hand-added ones", () => {
+      const running = applyPartyCommand(withManual(applyPartyCommand(loaded(5), { type: "next" }), 3), { type: "endless", config });
+      const changed = applyPartyCommand(running, { type: "endless", config: { ...config, difficulty: "hard" } });
+      expect(changed.queue.map((item) => item.token)).toEqual(["t1", "t2", "t4"]);
+      expect(changed.index).toBe(1);
+      expect(changed.endless?.difficulty).toBe("hard");
+    });
+
+    it("leaves the queue alone when endless starts or stops", () => {
+      const start = loaded(4);
+      const running = applyPartyCommand(start, { type: "endless", config });
+      expect(running.queue).toBe(start.queue);
+      expect(applyPartyCommand(running, { type: "endless", config: null }).queue).toBe(start.queue);
+    });
+
+    it("keeps songs to come when told the settings did not change", () => {
+      const running = applyPartyCommand(loaded(4), { type: "endless", config });
+      expect(applyPartyCommand(running, { type: "endless", config }, { keepUpcoming: true }).queue).toBe(running.queue);
+    });
+  });
+
   it("ignores a load that resolved no playable cards", () => {
     const start = initialPartyState();
     expect(applyPartyCommand(start, { type: "load", cardIds: [1] }, { loaded: [] })).toBe(start);

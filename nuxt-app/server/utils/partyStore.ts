@@ -299,6 +299,9 @@ async function topUpCatalog(hasGame: boolean): Promise<void> {
 // The filters an endless queue draws under. They can carry thousands of list
 // ids, so they live here rather than in the state every client receives.
 let endlessFilters: StudyFilters | null = null;
+// What the running endless queue was last set to, so a resend of the same settings keeps its songs.
+// Catalog songs ignore the deck, so a deck change alone keeps them too.
+let endlessKey: string | null = null;
 
 // An endless queue keeps a few songs ready ahead of the current one. It runs
 // after every change, so a skip, a jump or a removal refills it too.
@@ -420,11 +423,16 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     resetCatalogPicker();
     // Start loading the popularity ranking now, so it is usually ready by the second batch.
     if (command.config?.outsideLibrary && command.config.difficulty !== "random") currentRanking();
-    const { filters: _filters, config, ...plain } = command;
+    const { filters, config, ...plain } = command;
+    const key = config
+      ? JSON.stringify([config.difficulty, config.downloadedOnly, config.outsideLibrary, config.outsideLibrary ? null : config.scope, filters ?? null])
+      : null;
+    const keepUpcoming = key !== null && key === endlessKey;
+    endlessKey = key;
     const catalogNote: PartyCatalogNote | null = config?.outsideLibrary
       ? { notApplied: catalogSongFilters(endlessFilters, false).notApplied, unknownLabels: [], noMatch: false, rankingUnavailable: false }
       : null;
-    commit(applyPartyCommand(state, { ...plain, config: config ? { ...config, catalogNote } : null }));
+    commit(applyPartyCommand(state, { ...plain, config: config ? { ...config, catalogNote } : null }, { keepUpcoming }));
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);

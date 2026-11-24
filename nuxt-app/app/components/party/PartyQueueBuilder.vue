@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import type { StudyFilters } from "~/utils/studyFilters";
-import type { PartyEndlessSource } from "~/components/party/partyEndlessSource";
+import type { PartyNewGameDeck as DeckOption, PartyNewGameSourceType as SourceType } from "~/composables/usePartyNewGame";
 
-type SourceType = "all" | "created";
-interface DeckOption {
-  id: number;
-  label: string;
-  cardCount: number;
-}
 interface DeckListItem {
   id: number;
   name?: string;
@@ -18,7 +12,6 @@ interface DeckListItem {
 const props = defineProps<{ gameRunning: boolean }>();
 const emit = defineEmits<{
   loaded: [result: { loaded: number; skipped: number; total: number }];
-  source: [source: PartyEndlessSource];
 }>();
 
 const SOURCE_LABELS: Record<SourceType, string> = {
@@ -27,16 +20,11 @@ const SOURCE_LABELS: Record<SourceType, string> = {
 };
 const DEBOUNCE_MS = 300;
 
-const sourceType = ref<SourceType>("all");
-const deckQuery = ref("");
+const { sourceType, deckQuery, selectedDeck, filters, shuffle, downloadedOnly } = usePartyNewGame();
 const decks = ref<DeckOption[]>([]);
 const decksLoading = ref(false);
 const deckListOpen = ref(false);
-const selectedDeck = ref<DeckOption | null>(null);
-const filters = ref<StudyFilters>(structuredClone(EMPTY_STUDY_FILTERS));
 const filtersOpen = ref(false);
-const shuffle = ref(true);
-const downloadedOnly = ref(false);
 
 const previewTotal = ref<number | null>(null);
 const libraryTotal = ref<number | null>(null);
@@ -50,14 +38,6 @@ const scope = computed(() => {
   if (sourceType.value === "all") return { type: "all" as const };
   return selectedDeck.value ? { type: sourceType.value, id: selectedDeck.value.id } : null;
 });
-
-// Endless play draws from whatever source and filters are set here.
-watch([scope, filters], () => {
-  emit("source", {
-    scope: sourceType.value === "all" ? { type: "all" } : selectedDeck.value ? { type: "created", id: selectedDeck.value.id } : null,
-    filters: filtersQueryValue(filters.value),
-  });
-}, { deep: true, immediate: true });
 
 let deckTimer: ReturnType<typeof setTimeout> | null = null;
 let deckRequest = 0;
