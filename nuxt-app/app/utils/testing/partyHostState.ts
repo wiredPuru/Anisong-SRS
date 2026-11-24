@@ -28,6 +28,7 @@ export function sampleHostState(overrides: Partial<PartyHostState> = {}): PartyH
     endless: null,
     revealFields: { anime: true, artist: true, song: true, slot: true },
     autoAdvance: false,
+    displayTheme: "neutral",
     buzz: { playerId: null, lockedOut: [], winnerId: null },
     currentAwards: [],
     summaryVisible: false,

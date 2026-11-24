@@ -1,6 +1,7 @@
 import type {
   PartyAnswer,
   PartyBanner,
+  PartyDisplayTheme,
   PartyEffects,
   PartyLightningMode,
   PartyMusic,
@@ -80,6 +81,7 @@ export interface PartyHostState {
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
   autoAdvance: boolean;
+  displayTheme: PartyDisplayTheme;
   buzz: { playerId: number | null; lockedOut: number[]; winnerId: number | null };
   currentAwards: number[];
   summaryVisible: boolean;
@@ -105,6 +107,7 @@ export type PartyHostCommand =
   | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
+  | { type: "displayTheme"; theme: PartyDisplayTheme }
   | { type: "queueReroll"; index: number }
   | { type: "queueShuffle" }
   | { type: "changeSource" }

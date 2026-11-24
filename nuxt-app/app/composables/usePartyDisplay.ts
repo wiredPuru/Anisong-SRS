@@ -8,6 +8,8 @@ export type PartyHints =
   | null;
 
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
+export type PartyDisplayTheme = "neutral" | "glass" | "moe";
+
 export interface PartyEffects {
   blur: number;
   pixelate: number;
@@ -102,6 +104,7 @@ export interface PartyDisplayState {
   banner: PartyBanner | null;
   music: PartyMusic;
   songVolume: number;
+  theme: PartyDisplayTheme;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   rules: string | null;

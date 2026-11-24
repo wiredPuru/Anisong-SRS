@@ -1,0 +1,89 @@
+/* Party display themes the host picks (Settings > Display theme). The clip is
+   the point of the screen, so both stay out of its way: Neutral is plain black
+   and white over semi-transparent panels, Glass is frosted panels that let the
+   picture show through. The original pink look is `moe-theme`, in its own file.
+
+   Like that file, these redefine the shared tokens on the display root, and
+   only a few selectors add what tokens can't. */
+
+.display.theme-neutral,
+.display.theme-glass {
+  --bg: #000000;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.74);
+  --faint: rgba(255, 255, 255, 0.52);
+  --accent: #ffffff;
+  --accent-strong: #e8e8e8;
+  --accent-ink: #000000;
+  --accent-glow: rgba(255, 255, 255, 0.16);
+  --accent-secondary: #d6d6d6;
+  --accent-secondary-ink: #000000;
+  --outline: rgba(255, 255, 255, 0.32);
+  --border: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --font-display: "Sora", "M PLUS Rounded 1c", system-ui, sans-serif;
+  --font-sans: "Outfit", "M PLUS Rounded 1c", system-ui, sans-serif;
+
+  color: var(--text);
+  font-family: var(--font-sans);
+  background: var(--bg);
+}
+
+.display.theme-neutral {
+  --surface: rgba(0, 0, 0, 0.58);
+  --surface-raised: rgba(20, 20, 20, 0.66);
+  --surface-sunken: rgba(0, 0, 0, 0.44);
+  --surface-float: rgba(0, 0, 0, 0.58);
+  --glass-surface: rgba(0, 0, 0, 0.58);
+  --glass-surface-panel: rgba(0, 0, 0, 0.58);
+  --glass-surface-display: rgba(0, 0, 0, 0.58);
+  --glass-blur: none;
+}
+
+.display.theme-glass {
+  --surface: rgba(255, 255, 255, 0.1);
+  --surface-raised: rgba(255, 255, 255, 0.14);
+  --surface-sunken: rgba(255, 255, 255, 0.06);
+  --surface-float: rgba(255, 255, 255, 0.1);
+  --glass-surface: rgba(255, 255, 255, 0.1);
+  --glass-surface-panel: rgba(255, 255, 255, 0.1);
+  --glass-surface-display: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --border: rgba(255, 255, 255, 0.28);
+  --glass-blur: blur(18px) saturate(140%);
+}
+
+/* The lobby, with no clip behind it, gets a soft vignette rather than flat black. */
+.display.theme-neutral.is-lobby,
+.display.theme-glass.is-lobby {
+  background:
+    radial-gradient(70% 60% at 50% 40%, rgba(255, 255, 255, 0.08), transparent 70%),
+    #000000;
+}
+
+/* Every banner reads white on its panel, the slot label included. */
+.display.theme-neutral .kai-banner,
+.display.theme-glass .kai-banner {
+  --kai-banner-fill: var(--glass-surface-panel);
+  --kai-banner-edge: var(--glass-border);
+  --kai-banner-ink: #ffffff;
+}
+
+/* Glass panels frost what is behind them; text gets a light shadow to hold up
+   over bright frames. */
+.display.theme-glass .kai-banner,
+.display.theme-glass .reveal,
+.display.theme-glass .scoreboard,
+.display.theme-glass .round-panel,
+.display.theme-glass .join-chip,
+.display.theme-glass .choice,
+.display.theme-glass .clue,
+.display.theme-glass .tag,
+.display.theme-glass .display-join,
+.display.theme-glass .display-button {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}

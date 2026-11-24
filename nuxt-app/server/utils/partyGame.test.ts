@@ -220,6 +220,21 @@ describe("applyPartyCommand", () => {
     expect(state.queue.map((item) => item.token)).toEqual(["t2", "t3", "t1"]);
   });
 
+  describe("display theme", () => {
+    it("starts neutral, switches, and survives End game", () => {
+      const glass = applyPartyCommand(loaded(), { type: "displayTheme", theme: "glass" });
+      expect(toDisplayState(loaded()).theme).toBe("neutral");
+      expect(toDisplayState(glass).theme).toBe("glass");
+      expect(applyPartyCommand(glass, { type: "displayTheme", theme: "glass" })).toBe(glass);
+      expect(applyPartyCommand(glass, { type: "clear" }).displayTheme).toBe("glass");
+    });
+
+    it("parses only known themes", () => {
+      expect(parsePartyCommand({ type: "displayTheme", theme: "moe" })).toEqual({ type: "displayTheme", theme: "moe" });
+      expect(parsePartyCommand({ type: "displayTheme", theme: "purple" })).toHaveProperty("error");
+    });
+  });
+
   describe("endless changes", () => {
     const config = { difficulty: "easy" as const, downloadedOnly: false, outsideLibrary: false, scope: { type: "all" as const }, filtered: false };
     function withManual(state: PartyGameState, index: number): PartyGameState {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PartyPositionReport } from "~/composables/usePartyDisplay";
 import "~/assets/css/party-display-moe.css";
+import "~/assets/css/party-display-themes.css";
 definePageMeta({ layout: "party" });
 const { canUseRemote } = useNetworkMode();
 // The display's chunky title face; without it the theme falls back to the
@@ -15,8 +16,9 @@ useHead(() => ({
 const TICKER = "♪ GAQ PARTY ☆ GUESS THE ANIME ☆ アニソン クイズ ☆ ";
 const tickerRun = Array.from({ length: 6 }, () => TICKER);
 
-
 const { state, connected, connect, reportPosition } = usePartyDisplay();
+// The host picks the look; before the first state arrives the default applies.
+const theme = computed(() => state.value?.theme ?? "neutral");
 
 function onPosition(report: PartyPositionReport) {
   reportPosition(report);
@@ -159,14 +161,14 @@ onBeforeUnmount(() => {
 
 <template>
   <main
-    class="display moe-theme"
-    :class="{ 'is-started': started, 'is-idle': started && !pointerActive && !arranging }"
+    class="display"
+    :class="[theme === 'moe' ? 'moe-theme' : `theme-${theme}`, { 'is-started': started, 'is-lobby': !started || !state?.item, 'is-idle': started && !pointerActive && !arranging }]"
     @mousemove="onPointerMove"
     @pointerdown="onPointerDown"
     @click="onClick"
     @dblclick="onDoubleClick"
   >
-    <div class="moe-sky" aria-hidden="true">
+    <div v-if="theme === 'moe'" class="moe-sky" aria-hidden="true">
       <template v-if="!started || !state?.item">
         <span v-for="index in 7" :key="index" class="moe-star">✦</span>
         <div class="moe-band moe-band-top">

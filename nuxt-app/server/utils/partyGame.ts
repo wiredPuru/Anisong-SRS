@@ -44,6 +44,9 @@ export interface PartyRevealFields {
   slot: boolean;
 }
 export const ALL_REVEAL_FIELDS: PartyRevealFields = { anime: true, artist: true, song: true, slot: true };
+/** How the display dresses its panels: plain black and white, frosted glass, or the original moe look. */
+export const DISPLAY_THEMES = ["neutral", "glass", "moe"] as const;
+export type PartyDisplayTheme = (typeof DISPLAY_THEMES)[number];
 /** With auto-advance on, the answer shows this many seconds before the clip ends. */
 export const AUTO_REVEAL_LEAD_SECONDS = 5;
 
@@ -217,6 +220,7 @@ export interface PartyGameState {
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
   autoAdvance: boolean;
+  displayTheme: PartyDisplayTheme;
   buzz: PartyBuzz;
   // Who scored each song, by queue item token (feature 90c).
   awards: Record<string, number[]>;
@@ -267,6 +271,7 @@ export type PartyCommand =
   | { type: "endless"; config: PartyEndless | null; filters?: string }
   | { type: "revealFields"; fields: PartyRevealFields }
   | { type: "autoAdvance"; enabled: boolean }
+  | { type: "displayTheme"; theme: PartyDisplayTheme }
   | { type: "queueReroll"; index: number }
   | { type: "queueShuffle" }
   | { type: "changeSource" }
@@ -320,6 +325,7 @@ export interface PartyDisplayState {
   banner: PartyBanner | null;
   music: PartyMusic;
   songVolume: number;
+  theme: PartyDisplayTheme;
   answer: PartyAnswer | null;
   join: PartyJoinInfo | null;
   rules: string | null;
@@ -375,6 +381,7 @@ export interface PartyHostState {
   endless: PartyEndless | null;
   revealFields: PartyRevealFields;
   autoAdvance: boolean;
+  displayTheme: PartyDisplayTheme;
   buzz: PartyBuzz;
   currentAwards: number[];
   summaryVisible: boolean;
@@ -449,7 +456,7 @@ export function initialPartyState(
   randomStart = false,
   effects: PartyEffects = NO_EFFECTS,
   lightning: PartyLightning | null = null,
-  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "skipSeq"> = {
+  kept: Pick<PartyGameState, "scoreboard" | "nextPlayerId" | "music" | "songVolume" | "joinInfoVisible" | "rules" | "buzzerEnabled" | "endless" | "revealFields" | "autoAdvance" | "displayTheme" | "skipSeq"> = {
     scoreboard: { players: [], teams: [], nextTeamId: 1, visible: false },
     nextPlayerId: 1,
     music: DEFAULT_MUSIC,
@@ -460,6 +467,7 @@ export function initialPartyState(
     endless: null,
     revealFields: ALL_REVEAL_FIELDS,
     autoAdvance: true,
+    displayTheme: "neutral",
     skipSeq: 0,
   },
 ): PartyGameState {
@@ -745,6 +753,12 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     case "autoAdvance": {
       const { enabled } = body as { enabled?: unknown };
       return typeof enabled === "boolean" ? { type, enabled } : { error: "enabled must be a boolean" };
+    }
+    case "displayTheme": {
+      const { theme } = body as { theme?: unknown };
+      return DISPLAY_THEMES.includes(theme as PartyDisplayTheme)
+        ? { type, theme: theme as PartyDisplayTheme }
+        : { error: "theme must be neutral, glass or moe" };
     }
     case "changeSource":
     case "queueShuffle":
@@ -1196,6 +1210,9 @@ export function applyPartyCommand(
     case "autoAdvance":
       if (state.autoAdvance !== command.enabled) next = { ...state, autoAdvance: command.enabled };
       break;
+    case "displayTheme":
+      if (state.displayTheme !== command.theme) next = { ...state, displayTheme: command.theme };
+      break;
     case "changeSource": {
       // The store picks the other clip; the new token makes the display reload.
       const replacement = options.loaded?.[0];
@@ -1327,6 +1344,7 @@ export function applyPartyCommand(
           endless: null,
           revealFields: state.revealFields,
           autoAdvance: state.autoAdvance,
+          displayTheme: state.displayTheme,
           skipSeq: state.skipSeq,
         });
       }
@@ -1433,6 +1451,7 @@ export function toDisplayState(state: PartyGameState, join: PartyJoinInfo | null
     banner: state.banner,
     music: state.music,
     songVolume: state.songVolume,
+    theme: state.displayTheme,
     answer: item && state.phase === "revealed" ? displayAnswer(item, state.revealFields) : null,
     // Always on the idle screen, where people join; the host can hide the
     // small in-game chip.
@@ -1572,6 +1591,7 @@ export function toHostState(state: PartyGameState): PartyHostState {
     endless: state.endless,
     revealFields: state.revealFields,
     autoAdvance: state.autoAdvance,
+    displayTheme: state.displayTheme,
     buzz: state.buzz,
     currentAwards: (item && state.awards[item.token]) ?? [],
     summaryVisible: state.summaryVisible,
