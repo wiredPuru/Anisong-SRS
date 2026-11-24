@@ -173,8 +173,8 @@ export interface PartyQueueItem {
   // The host switched this song to a provider the Clip source setting excludes; it plays anyway.
   clipOverride?: boolean;
 }
-/** How a queued song's clip is doing: being fetched, failed to load, or no other source was found. */
-export type PartyClipStatus = "fetching" | "failed" | "noSource";
+/** How a queued song's clip is doing: ready to play, being fetched, failed to load, or no other source was found. */
+export type PartyClipStatus = "ready" | "fetching" | "failed" | "noSource";
 export type PartyClipProvider = "local" | "anisongdb" | "animethemes";
 export interface PartyPosition {
   token: string;

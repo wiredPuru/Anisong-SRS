@@ -7,11 +7,7 @@ const props = defineProps<{ state: PartyHostState }>();
 const { offlineMode } = useNetworkMode();
 
 type QueueItem = PartyHostState["queue"][number];
-const STATUS: Record<NonNullable<QueueItem["status"]>, { mark: string; label: string }> = {
-  fetching: { mark: "\u23F3", label: "Fetching this song" },
-  failed: { mark: "\u26A0", label: "This song failed to load" },
-  noSource: { mark: "\u26A0", label: "No other source found for this song" },
-};
+const statusOf = (item: QueueItem) => queueClipStatus(item);
 const PROVIDER_NAMES = { anisongdb: "AnisongDB", animethemes: "AnimeThemes" } as const;
 // Only a song playing now or still to come can be retried or switched.
 const isFixable = (index: number) => index >= props.state.index;
@@ -173,7 +169,7 @@ function endDrag() {
         >{{ upNext.item.answer.animeTitleEnglish }}</PartyMainAppLink>
         <span class="up-next-song">
           {{ upNext.item.answer.songTitle }} &middot; {{ formatThemeSlotLabel(upNext.item.answer.themeSlot) }}
-          <span v-if="upNext.item.status" class="clip-status" :class="`clip-status-${upNext.item.status}`" role="img" :aria-label="STATUS[upNext.item.status].label" :title="STATUS[upNext.item.status].label">{{ STATUS[upNext.item.status].mark }}</span>
+          <span class="clip-status" :class="`clip-status-${statusOf(upNext.item).key}`" role="img" :aria-label="statusOf(upNext.item).label" :title="statusOf(upNext.item).label">{{ statusOf(upNext.item).mark }}</span>
         </span>
       </span>
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
@@ -211,7 +207,7 @@ function endDrag() {
             <span class="queue-anime">{{ item.answer.animeTitleEnglish }}</span>
             <span class="queue-song">
               {{ item.answer.songTitle }} · {{ formatThemeSlotLabel(item.answer.themeSlot) }}
-              <span v-if="item.status" class="clip-status" :class="`clip-status-${item.status}`" role="img" :aria-label="STATUS[item.status].label" :title="STATUS[item.status].label">{{ STATUS[item.status].mark }}</span>
+              <span class="clip-status" :class="`clip-status-${statusOf(item).key}`" role="img" :aria-label="statusOf(item).label" :title="statusOf(item).label">{{ statusOf(item).mark }}</span>
             </span>
           </span>
         </button>
@@ -460,6 +456,14 @@ function endDrag() {
 .clip-status-fetching {
   display: inline-block;
   animation: clip-status-pulse 1.4s ease-in-out infinite;
+}
+
+.clip-status-ready {
+  color: var(--pass);
+}
+
+.clip-status-waiting {
+  color: var(--faint);
 }
 
 .clip-status-failed,

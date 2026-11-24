@@ -83,14 +83,17 @@ function prefetchAround(current: PartyGameState): void {
   }
 }
 
-// Fetches a remote clip into the stream cache, showing the host it is on its
-// way and whether it failed. A cached or local clip needs nothing.
+// Fetches a remote clip into the stream cache, showing the host whether it is
+// ready, on its way, or failed. A local or already cached clip is ready at once.
 function fetchClip(item: PartyQueueItem): void {
   const { source } = item.clip;
-  if (source.type !== "remote" || isStreamCached(source.url)) return;
+  if (source.type !== "remote" || isStreamCached(source.url)) {
+    if (state.clipStatus[item.token] !== "failed") commit(withClipStatus(state, item.token, "ready"));
+    return;
+  }
   commit(withClipStatus(state, item.token, "fetching"));
   void resolveCachedPath(source.url)
-    .then((result) => commit(withClipStatus(state, item.token, "error" in result ? "failed" : null)))
+    .then((result) => commit(withClipStatus(state, item.token, "error" in result ? "failed" : "ready")))
     .catch(() => commit(withClipStatus(state, item.token, "failed")));
 }
 
@@ -717,7 +720,7 @@ export function reportPartyPosition(position: PartyPosition): boolean {
   commit({ ...state, position });
   if (position.failed) commit(withClipStatus(state, position.token, "failed"));
   else if (position.playing && position.elapsed > 0 && state.clipStatus[position.token] === "failed") {
-    commit(withClipStatus(state, position.token, null));
+    commit(withClipStatus(state, position.token, "ready"));
   }
   if (shouldRevealEarly(state)) commit(applyPartyCommand(state, { type: "reveal" }));
   driveLightning();

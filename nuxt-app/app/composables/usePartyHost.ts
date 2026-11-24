@@ -11,7 +11,7 @@ import type {
   PartyTimer,
 } from "./usePartyDisplay";
 
-export type PartyClipStatus = "fetching" | "failed" | "noSource";
+export type PartyClipStatus = "ready" | "fetching" | "failed" | "noSource";
 export type PartyClipProvider = "local" | "anisongdb" | "animethemes";
 
 export type PartyEndlessDifficulty = "veryEasy" | "easy" | "medium" | "hard" | "random";
