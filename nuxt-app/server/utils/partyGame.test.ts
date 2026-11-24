@@ -21,6 +21,7 @@ import {
   timerMayReveal,
   toHostState,
   toQueueItem,
+  withClipStatus,
   type PartyGameState,
   type PartyPlayer,
   type PartyQueueItem,
@@ -218,6 +219,44 @@ describe("applyPartyCommand", () => {
       random: () => 0,
     });
     expect(state.queue.map((item) => item.token)).toEqual(["t2", "t3", "t1"]);
+  });
+
+  describe("clip status and swaps", () => {
+    it("sets, clears and drops statuses for songs no longer queued", () => {
+      const start = loaded(3);
+      const fetching = withClipStatus(start, "t2", "fetching");
+      expect(fetching.clipStatus).toEqual({ t2: "fetching" });
+      expect(fetching.version).toBe(start.version + 1);
+      expect(withClipStatus(fetching, "t2", "fetching")).toBe(fetching);
+      expect(withClipStatus(fetching, "t2", null).clipStatus).toEqual({});
+      expect(withClipStatus(start, "gone", "failed")).toMatchObject({ clipStatus: {} });
+    });
+
+    it("puts a new clip on an upcoming song under a new token, dropping its status", () => {
+      const start = withClipStatus(loaded(3), "t3", "failed");
+      const replacement = { ...start.queue[2]!, token: "t3b" };
+      const swapped = applyPartyCommand(start, { type: "queueClip", index: 2 }, { loaded: [replacement] });
+      expect(swapped.queue.map((item) => item.token)).toEqual(["t1", "t2", "t3b"]);
+      expect(swapped.clipStatus).toEqual({});
+      expect(applyPartyCommand(start, { type: "queueClip", index: 2 })).toBe(start);
+    });
+
+    it("never swaps a song already played", () => {
+      const moved = applyPartyCommand(loaded(3), { type: "next" });
+      const replacement = { ...moved.queue[0]!, token: "t1b" };
+      expect(applyPartyCommand(moved, { type: "queueClip", index: 0 }, { loaded: [replacement] })).toBe(moved);
+    });
+
+    it("lists each song's status, provider and whether it can switch for the host", () => {
+      const host = toHostState(withClipStatus(loaded(2), "t1", "failed"));
+      expect(host.queue[0]).toMatchObject({ status: "failed", provider: "anisongdb", canSwap: true });
+      expect(host.queue[1]).toMatchObject({ status: null });
+    });
+
+    it("parses retry and switch with an index", () => {
+      expect(parsePartyCommand({ type: "queueRetry", index: 2 })).toEqual({ type: "queueRetry", index: 2 });
+      expect(parsePartyCommand({ type: "queueSwapSource", index: -1 })).toHaveProperty("error");
+    });
   });
 
   describe("display theme", () => {

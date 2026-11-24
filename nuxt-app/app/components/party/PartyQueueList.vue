@@ -4,6 +4,18 @@ import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHos
 import { playedLogCsv } from "~/utils/partyLogExport";
 
 const props = defineProps<{ state: PartyHostState }>();
+const { offlineMode } = useNetworkMode();
+
+type QueueItem = PartyHostState["queue"][number];
+const STATUS: Record<NonNullable<QueueItem["status"]>, { mark: string; label: string }> = {
+  fetching: { mark: "\u23F3", label: "Fetching this song" },
+  failed: { mark: "\u26A0", label: "This song failed to load" },
+  noSource: { mark: "\u26A0", label: "No other source found for this song" },
+};
+const PROVIDER_NAMES = { anisongdb: "AnisongDB", animethemes: "AnimeThemes" } as const;
+// Only a song playing now or still to come can be retried or switched.
+const isFixable = (index: number) => index >= props.state.index;
+const switchLabel = (item: QueueItem) => `Switch to ${item.provider === "animethemes" ? PROVIDER_NAMES.anisongdb : PROVIDER_NAMES.animethemes}`;
 const emit = defineEmits<{ jump: [index: number]; command: [command: PartyHostCommand] }>();
 
 // Only songs still to come can move or go; the current one moves on with Next.
@@ -159,7 +171,10 @@ function endDrag() {
           :path="animeCardsSearchPath(upNext.item.answer.animeTitleRomaji)"
           :label="upNext.item.answer.animeTitleEnglish"
         >{{ upNext.item.answer.animeTitleEnglish }}</PartyMainAppLink>
-        <span class="up-next-song">{{ upNext.item.answer.songTitle }} &middot; {{ formatThemeSlotLabel(upNext.item.answer.themeSlot) }}</span>
+        <span class="up-next-song">
+          {{ upNext.item.answer.songTitle }} &middot; {{ formatThemeSlotLabel(upNext.item.answer.themeSlot) }}
+          <span v-if="upNext.item.status" class="clip-status" :class="`clip-status-${upNext.item.status}`" role="img" :aria-label="STATUS[upNext.item.status].label" :title="STATUS[upNext.item.status].label">{{ STATUS[upNext.item.status].mark }}</span>
+        </span>
       </span>
       <button type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index: upNext.index })">
         &#8635; Reroll
@@ -194,7 +209,10 @@ function endDrag() {
           <span class="queue-num">{{ index + 1 }}</span>
           <span class="queue-text">
             <span class="queue-anime">{{ item.answer.animeTitleEnglish }}</span>
-            <span class="queue-song">{{ item.answer.songTitle }} · {{ formatThemeSlotLabel(item.answer.themeSlot) }}</span>
+            <span class="queue-song">
+              {{ item.answer.songTitle }} · {{ formatThemeSlotLabel(item.answer.themeSlot) }}
+              <span v-if="item.status" class="clip-status" :class="`clip-status-${item.status}`" role="img" :aria-label="STATUS[item.status].label" :title="STATUS[item.status].label">{{ STATUS[item.status].mark }}</span>
+            </span>
           </span>
         </button>
         <PartyMainAppLink :path="animeCardsSearchPath(item.answer.animeTitleRomaji)" :label="item.answer.animeTitleEnglish" />
@@ -212,6 +230,15 @@ function endDrag() {
           <button type="button" class="reroll-btn" @click="playNow(index)">&#9654; Play now</button>
           <button v-if="isUpcoming(index)" type="button" class="reroll-btn" @click="emit('command', { type: 'queueReroll', index })">&#8635; Reroll</button>
           <button v-if="item.cardId > 0" type="button" class="reroll-btn" @click="editCardId = item.cardId">&#9998; Edit card</button>
+          <button v-if="isFixable(index) && item.origin === 'stream'" type="button" class="reroll-btn" :disabled="item.status === 'fetching'" @click="emit('command', { type: 'queueRetry', index })">&#8635; Retry</button>
+          <button
+            v-if="isFixable(index) && item.canSwap && !offlineMode"
+            type="button"
+            class="reroll-btn"
+            :disabled="item.status === 'fetching'"
+            title="Plays this song from the other provider for this game only, even if Clip source excludes it"
+            @click="emit('command', { type: 'queueSwapSource', index })"
+          >&#8644; {{ switchLabel(item) }}</button>
           <PartyEffectToggles v-if="isUpcoming(index)" :effects="item.effects" label="Effects for this song" @change="setSongEffects(index, $event)" />
         </div>
       </li>
@@ -427,6 +454,35 @@ function endDrag() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.clip-status {
+  margin-left: 4px;
+}
+
+.clip-status-fetching {
+  display: inline-block;
+  animation: clip-status-pulse 1.4s ease-in-out infinite;
+}
+
+.clip-status-failed,
+.clip-status-noSource {
+  color: var(--fail);
+}
+
+@keyframes clip-status-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-status-fetching {
+    animation: none;
+  }
+}
+
+.reroll-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .queue-menu {
   flex-basis: 100%;
   display: flex;

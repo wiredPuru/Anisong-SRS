@@ -11,7 +11,9 @@ import { noteCatalogShows, pickCatalogSongs, resetCatalogPicker } from "./partyC
 import { currentRanking } from "./popularityRanking.ts";
 import { getClipSource, getDefaultDownloadFolder, getIncludeInsertSongs, getPartyAutoDownload, getPlaybackMode } from "./mediaLibrary.ts";
 import { downloadCatalogClip, selectDownloadTargets, withLocalClip } from "./partyDownload.ts";
-import { resolveCachedPath } from "./streamCache.ts";
+import { isStreamCached, resolveCachedPath } from "./streamCache.ts";
+import { findAlternateClip } from "./partySourceSwap.ts";
+import { isClipUrlAllowed } from "./clipSource.ts";
 import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, ENDLESS_CATALOG_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
@@ -34,6 +36,7 @@ import {
   nextPartyClip,
   pickPartyClip,
   shouldRevealEarly,
+  withClipStatus,
   timerMayReveal,
   toQueueItem,
   upcomingCardIds,
@@ -76,8 +79,60 @@ function prefetchAround(current: PartyGameState): void {
   if (getOfflineMode()) return;
   for (const item of current.queue.slice(Math.max(current.index, 0), current.index + 1 + PARTY_LOOKAHEAD)) {
     if (getOfflineMode()) return;
-    if (item.clip.source.type === "remote") void resolveCachedPath(item.clip.source.url).catch(() => {});
+    fetchClip(item);
   }
+}
+
+// Fetches a remote clip into the stream cache, showing the host it is on its
+// way and whether it failed. A cached or local clip needs nothing.
+function fetchClip(item: PartyQueueItem): void {
+  const { source } = item.clip;
+  if (source.type !== "remote" || isStreamCached(source.url)) return;
+  commit(withClipStatus(state, item.token, "fetching"));
+  void resolveCachedPath(source.url)
+    .then((result) => commit(withClipStatus(state, item.token, "error" in result ? "failed" : null)))
+    .catch(() => commit(withClipStatus(state, item.token, "failed")));
+}
+
+/** Gives a playing or upcoming song a fresh try: a new token, so the display reloads it. */
+function retryQueueItem(index: number): void {
+  const item = state.queue[index];
+  if (!item || index < Math.max(state.index, 0)) return;
+  const replacement = { ...item, token: randomBytes(12).toString("hex") };
+  commit(applyPartyCommand(state, { type: "queueClip", index }, { loaded: [replacement] }));
+  if (!getOfflineMode()) fetchClip(replacement);
+}
+
+/**
+ * Looks the song up at the other provider (AnisongDB or AnimeThemes) and plays
+ * that clip instead. The host asked for it, so it plays even where the Clip
+ * source setting would exclude that provider. Party only: no card changes.
+ */
+async function swapQueueSource(index: number): Promise<void> {
+  const item = state.queue[index];
+  if (!item || index < Math.max(state.index, 0) || getOfflineMode()) return;
+  const aniListId = item.catalogAniListId ?? (item.cardId > 0 ? getCardsByIds([item.cardId])[0]?.animeAniListId : undefined);
+  if (aniListId === undefined) return;
+  const { token } = item;
+  commit(withClipStatus(state, token, "fetching"));
+  let clip: PartyQueueItem["clip"] | null = null;
+  try {
+    clip = await findAlternateClip({ aniListId, songTitle: item.answer.songTitle, current: item.clip, audioOnly: getPlaybackMode() === "audioOnly" });
+  } catch {
+    clip = null;
+  }
+  // The queue may have moved while this was out; the song is found by its token.
+  const at = state.queue.findIndex((queued) => queued.token === token);
+  if (at < Math.max(state.index, 0)) return;
+  if (!clip || clip.source.type !== "remote") {
+    commit(withClipStatus(state, token, "noSource"));
+    return;
+  }
+  const { clipOverride: _previous, ...current } = state.queue[at]!;
+  const override = !isClipUrlAllowed(clip.source.url, getClipSource());
+  const replacement: PartyQueueItem = { ...current, clip, token: randomBytes(12).toString("hex"), ...(override ? { clipOverride: true } : {}) };
+  commit(applyPartyCommand(state, { type: "queueClip", index: at }, { loaded: [replacement] }));
+  fetchClip(replacement);
 }
 
 const downloadAttempted = new Set<string>();
@@ -523,6 +578,14 @@ export function runPartyCommand(command: PartyCommand, origin: "host" | "endless
     return {};
   }
   if (command.type === "queueReroll") return rerollQueueItem(command.index);
+  if (command.type === "queueRetry") {
+    retryQueueItem(command.index);
+    return {};
+  }
+  if (command.type === "queueSwapSource") {
+    void swapQueueSource(command.index);
+    return {};
+  }
   if (command.type === "changeSource") return { changed: changeCurrentSource() };
   if (command.type !== "load") {
     commit(applyPartyCommand(state, command));
@@ -652,6 +715,10 @@ export function findPartyItemByToken(token: string): PartyQueueItem | null {
 export function reportPartyPosition(position: PartyPosition): boolean {
   if (currentPartyItem(state)?.token !== position.token) return false;
   commit({ ...state, position });
+  if (position.failed) commit(withClipStatus(state, position.token, "failed"));
+  else if (position.playing && position.elapsed > 0 && state.clipStatus[position.token] === "failed") {
+    commit(withClipStatus(state, position.token, null));
+  }
   if (shouldRevealEarly(state)) commit(applyPartyCommand(state, { type: "reveal" }));
   driveLightning();
   driveAutoAdvance(position);

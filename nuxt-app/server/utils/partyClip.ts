@@ -26,7 +26,8 @@ export async function servePartyClip(event: H3Event) {
   if (!parsed) {
     throw createError({ statusCode: 404, statusMessage: "Clip not found" });
   }
-  assertClipUrlAllowed(source.url);
+  // A song the host switched to another provider plays despite Clip source.
+  if (!item.clipOverride) assertClipUrlAllowed(source.url);
   const cached = await resolveCachedPath(source.url);
   if ("error" in cached) {
     throw createError({ statusCode: 502, statusMessage: "The clip could not be loaded" });

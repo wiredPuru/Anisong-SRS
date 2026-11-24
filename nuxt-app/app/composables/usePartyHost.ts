@@ -11,6 +11,9 @@ import type {
   PartyTimer,
 } from "./usePartyDisplay";
 
+export type PartyClipStatus = "fetching" | "failed" | "noSource";
+export type PartyClipProvider = "local" | "anisongdb" | "animethemes";
+
 export type PartyEndlessDifficulty = "veryEasy" | "easy" | "medium" | "hard" | "random";
 
 export interface PartyEndless {
@@ -60,7 +63,18 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual: boolean; effects: PartyEffects | null; answer: PartyAnswer }[];
+  queue: {
+    cardId: number;
+    artistId: number | null;
+    kind: "video" | "audio";
+    origin: "local" | "stream";
+    manual: boolean;
+    effects: PartyEffects | null;
+    status: PartyClipStatus | null;
+    provider: PartyClipProvider;
+    canSwap: boolean;
+    answer: PartyAnswer;
+  }[];
   position: PartyPositionReport | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -110,6 +124,8 @@ export type PartyHostCommand =
   | { type: "displayTheme"; theme: PartyDisplayTheme }
   | { type: "queueReroll"; index: number }
   | { type: "queueShuffle" }
+  | { type: "queueRetry"; index: number }
+  | { type: "queueSwapSource"; index: number }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }

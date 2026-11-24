@@ -1,7 +1,7 @@
 import type { CardWithDetails } from "./cards.ts";
 import { partyCoverPath } from "./partyCoverPath.ts";
 import { EMPTY_ANSWER_FACTS, partyAnswerFacts, type PartyAnswerFacts } from "./partyAnswerFacts.ts";
-import { type ClipSource, isClipUrlAllowed } from "./clipSource.ts";
+import { type ClipSource, isAnimethemesUrl, isClipUrlAllowed } from "./clipSource.ts";
 import { ENDLESS_DIFFICULTIES, type EndlessDifficulty } from "./partyEndless.ts";
 import { EMPTY_DETAILS, lightningHints, type PartyAnimeDetails, type PartyHints } from "./partyLightning.ts";
 
@@ -170,7 +170,12 @@ export interface PartyQueueItem {
   effects?: PartyEffects;
   // Catalog songs only: the show's AniList id, so its facts can be filled in after queueing.
   catalogAniListId?: number;
+  // The host switched this song to a provider the Clip source setting excludes; it plays anyway.
+  clipOverride?: boolean;
 }
+/** How a queued song's clip is doing: being fetched, failed to load, or no other source was found. */
+export type PartyClipStatus = "fetching" | "failed" | "noSource";
+export type PartyClipProvider = "local" | "anisongdb" | "animethemes";
 export interface PartyPosition {
   token: string;
   currentTime: number;
@@ -188,6 +193,8 @@ export interface PartyPosition {
 export interface PartyGameState {
   version: number;
   queue: PartyQueueItem[];
+  // By queue item token; a song with no entry is fine.
+  clipStatus: Record<string, PartyClipStatus>;
   index: number;
   phase: PartyPhase;
   playing: boolean;
@@ -274,6 +281,8 @@ export type PartyCommand =
   | { type: "displayTheme"; theme: PartyDisplayTheme }
   | { type: "queueReroll"; index: number }
   | { type: "queueShuffle" }
+  | { type: "queueRetry"; index: number }
+  | { type: "queueSwapSource"; index: number }
   | { type: "changeSource" }
   | { type: "timer"; seconds: number; autoReveal: boolean }
   | { type: "timerStop" }
@@ -296,6 +305,8 @@ export type PartyInternalCommand =
   | { type: "playerConnection"; id: number; connected: boolean }
   | { type: "buzz"; playerId: number }
   | { type: "choicePick"; playerId: number; index: number }
+  // The store found another clip for a queued song (retry, or a switched provider).
+  | { type: "queueClip"; index: number }
   // The host fixed a card's title, slot or artist; queued copies follow.
   | { type: "cardEdited"; cardId: number; songTitle: string; themeSlot: string; artistName: string };
 export interface PartyJoinInfo {
@@ -360,7 +371,18 @@ export interface PartyHostState {
   phase: PartyPhase;
   index: number;
   playing: boolean;
-  queue: { cardId: number; artistId: number | null; kind: "video" | "audio"; origin: "local" | "stream"; manual?: boolean; effects: PartyEffects | null; answer: PartyAnswer }[];
+  queue: {
+    cardId: number;
+    artistId: number | null;
+    kind: "video" | "audio";
+    origin: "local" | "stream";
+    manual?: boolean;
+    effects: PartyEffects | null;
+    status: PartyClipStatus | null;
+    provider: PartyClipProvider;
+    canSwap: boolean;
+    answer: PartyAnswer;
+  }[];
   position: PartyPosition | null;
   randomStart: boolean;
   effects: PartyEffects;
@@ -474,6 +496,7 @@ export function initialPartyState(
   return {
     version,
     queue: [],
+    clipStatus: {},
     index: -1,
     phase: "idle",
     playing: false,
@@ -763,6 +786,8 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     case "changeSource":
     case "queueShuffle":
       return { type };
+    case "queueRetry":
+    case "queueSwapSource":
     case "queueReroll": {
       const { index } = body as { index?: unknown };
       return Number.isInteger(index) && (index as number) >= 0 ? { type, index: index as number } : { error: "index must be a whole number of 0 or more" };
@@ -1130,6 +1155,7 @@ export function applyPartyCommand(
     const queue = state.queue.map((item) => (item.cardId === cardId ? { ...item, answer: { ...item.answer, songTitle, themeSlot, artistName } } : item));
     return { ...state, queue, version: state.version + 1 };
   }
+  if (command.type === "queueClip") return swapQueueClip(state, command.index, options.loaded?.[0]);
   if (command.type === "playerJoin" || command.type === "playerConnection" || command.type === "buzz" || command.type === "choicePick") {
     const next = applyInternal(state, command);
     return next === state ? state : { ...next, version: state.version + 1 };
@@ -1389,6 +1415,45 @@ function displayLightning(state: PartyGameState, item: PartyQueueItem | null): P
   };
 }
 
+/**
+ * Puts another clip (under a new token, so the display reloads it) on a song
+ * that is playing or still to come. Points already given for it stay with it,
+ * and its old status goes with the old token.
+ */
+function swapQueueClip(state: PartyGameState, index: number, replacement: PartyQueueItem | undefined): PartyGameState {
+  if (!replacement || index < Math.max(state.index, 0) || index >= state.queue.length) return state;
+  const replaced = state.queue[index]!;
+  const { [replaced.token]: held, ...awards } = state.awards;
+  const { [replaced.token]: _status, ...clipStatus } = state.clipStatus;
+  const queue = [...state.queue];
+  queue[index] = replacement;
+  const current = index === state.index ? { position: null, seekTo: null } : {};
+  return {
+    ...state,
+    ...current,
+    queue,
+    clipStatus,
+    awards: held ? { ...awards, [replacement.token]: held } : awards,
+    version: state.version + 1,
+  };
+}
+
+/** Sets or clears one song's clip status; tokens no longer queued are dropped. */
+export function withClipStatus(state: PartyGameState, token: string, status: PartyClipStatus | null): PartyGameState {
+  if ((state.clipStatus[token] ?? null) === status) return state;
+  const queued = new Set(state.queue.map((item) => item.token));
+  const clipStatus: Record<string, PartyClipStatus> = {};
+  for (const [key, value] of Object.entries(state.clipStatus)) if (queued.has(key) && key !== token) clipStatus[key] = value;
+  if (status && queued.has(token)) clipStatus[token] = status;
+  return { ...state, clipStatus, version: state.version + 1 };
+}
+
+/** Where a clip plays from, for the host's Switch source label. */
+export function clipProvider(clip: PartyClip): PartyClipProvider {
+  if (clip.source.type === "local") return "local";
+  return isAnimethemesUrl(clip.source.url) ? "animethemes" : "anisongdb";
+}
+
 /** Hidden parts are blanked here, so they never reach the display at all. */
 export function maskAnswer(answer: PartyAnswer, fields: PartyRevealFields): PartyAnswer {
   return {
@@ -1569,6 +1634,9 @@ export function toHostState(state: PartyGameState): PartyHostState {
       origin: item.clip.source.type === "local" ? "local" : "stream",
       manual: item.manual === true,
       effects: item.effects ?? null,
+      status: state.clipStatus[item.token] ?? null,
+      provider: clipProvider(item.clip),
+      canSwap: item.cardId > 0 || item.catalogAniListId !== undefined,
       answer: { ...item.answer, coverImageUrl: partyCoverPath("host", item.token, item.answer.coverImageUrl) },
     })),
     position: state.position,
