@@ -73,6 +73,7 @@ export interface PartyHostState {
     status: PartyClipStatus | null;
     provider: PartyClipProvider;
     canSwap: boolean;
+    aniListId: number | null;
     answer: PartyAnswer;
   }[];
   position: PartyPositionReport | null;

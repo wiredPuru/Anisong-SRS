@@ -7,7 +7,7 @@ export function sampleHostState(overrides: Partial<PartyHostState> = {}): PartyH
     phase: "guessing",
     index: 0,
     playing: true,
-    queue: [{ cardId: 1, kind: "video", origin: "local", manual: false, effects: null, status: null, provider: "local", canSwap: true, answer: {} as PartyHostState["queue"][number]["answer"] }],
+    queue: [{ cardId: 1, kind: "video", origin: "local", manual: false, effects: null, status: null, provider: "local", canSwap: true, aniListId: null, answer: {} as PartyHostState["queue"][number]["answer"] }],
     position: { token: "t", currentTime: 10, duration: 90, playing: true, blocked: false, elapsed: 10 },
     randomStart: false,
     effects: { blur: 0, pixelate: 0, decay: false, decaySeconds: 30, muted: false, picture: "video" },

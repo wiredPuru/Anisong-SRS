@@ -168,8 +168,8 @@ export interface PartyQueueItem {
   manual?: boolean;
   // Set for this song alone from the queue menu; wins over nextEffects.
   effects?: PartyEffects;
-  // Catalog songs only: the show's AniList id, so its facts can be filled in after queueing.
-  catalogAniListId?: number;
+  // The show's AniList id: the host's AniList link, catalog facts, and Switch source use it.
+  aniListId?: number;
   // The host switched this song to a provider the Clip source setting excludes; it plays anyway.
   clipOverride?: boolean;
 }
@@ -381,6 +381,7 @@ export interface PartyHostState {
     status: PartyClipStatus | null;
     provider: PartyClipProvider;
     canSwap: boolean;
+    aniListId: number | null;
     answer: PartyAnswer;
   }[];
   position: PartyPosition | null;
@@ -583,6 +584,7 @@ export function toQueueItem(
     token,
     cardId: card.id,
     artistId: card.artistId,
+    aniListId: card.animeAniListId,
     clip,
     details,
     answer: {
@@ -1636,7 +1638,8 @@ export function toHostState(state: PartyGameState): PartyHostState {
       effects: item.effects ?? null,
       status: state.clipStatus[item.token] ?? null,
       provider: clipProvider(item.clip),
-      canSwap: item.cardId > 0 || item.catalogAniListId !== undefined,
+      canSwap: item.aniListId !== undefined,
+      aniListId: item.aniListId ?? null,
       answer: { ...item.answer, coverImageUrl: partyCoverPath("host", item.token, item.answer.coverImageUrl) },
     })),
     position: state.position,

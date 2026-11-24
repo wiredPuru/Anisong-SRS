@@ -215,7 +215,6 @@ function endDrag() {
             </span>
           </span>
         </button>
-        <PartyMainAppLink :path="animeCardsSearchPath(item.answer.animeTitleRomaji)" :label="item.answer.animeTitleEnglish" />
         <span v-if="isUpcoming(index)" class="queue-edit">
           <button
             type="button"

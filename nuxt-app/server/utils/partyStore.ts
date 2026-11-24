@@ -111,7 +111,7 @@ function retryQueueItem(index: number): void {
 async function swapQueueSource(index: number): Promise<void> {
   const item = state.queue[index];
   if (!item || index < Math.max(state.index, 0) || getOfflineMode()) return;
-  const aniListId = item.catalogAniListId ?? (item.cardId > 0 ? getCardsByIds([item.cardId])[0]?.animeAniListId : undefined);
+  const { aniListId } = item;
   if (aniListId === undefined) return;
   const { token } = item;
   commit(withClipStatus(state, token, "fetching"));
@@ -209,7 +209,7 @@ function catalogItem(song: CatalogSong): PartyQueueItem | null {
     cardId: -song.annSongId,
     clip,
     details: EMPTY_DETAILS,
-    ...(song.aniListId !== null ? { catalogAniListId: song.aniListId } : {}),
+    ...(song.aniListId !== null ? { aniListId: song.aniListId } : {}),
     answer: {
       animeTitleEnglish: song.animeEnglish,
       animeTitleRomaji: song.animeRomaji,
@@ -420,7 +420,7 @@ const catalogShowFacts = new Map<number, CatalogShowFacts | null>();
 let fillingFacts = false;
 
 function catalogIdsWithoutFacts(): number[] {
-  const ids = state.queue.flatMap((item) => (item.catalogAniListId !== undefined && !catalogShowFacts.has(item.catalogAniListId) ? [item.catalogAniListId] : []));
+  const ids = state.queue.flatMap((item) => (item.cardId < 0 && item.aniListId !== undefined && !catalogShowFacts.has(item.aniListId) ? [item.aniListId] : []));
   return [...new Set(ids)];
 }
 
@@ -477,7 +477,7 @@ async function fillCatalogFacts(): Promise<void> {
 function applyCatalogFacts(): void {
   let changed = false;
   const queue = state.queue.map((item) => {
-    const found = item.catalogAniListId !== undefined ? catalogShowFacts.get(item.catalogAniListId) : undefined;
+    const found = item.cardId < 0 && item.aniListId !== undefined ? catalogShowFacts.get(item.aniListId) : undefined;
     if (!found || item.details !== EMPTY_DETAILS) return item;
     changed = true;
     const facts = partyAnswerFacts(found.details, found.studios);

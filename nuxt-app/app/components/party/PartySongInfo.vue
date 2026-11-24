@@ -46,6 +46,13 @@ const showNative = computed(
         </p>
         <p v-if="showRomaji" class="si-alt">{{ answer.animeTitleRomaji }}</p>
         <p v-if="showNative" class="si-alt" lang="ja">{{ answer.animeTitleNative }}</p>
+        <a
+          v-if="current.aniListId !== null"
+          class="si-anilist"
+          :href="`https://anilist.co/anime/${current.aniListId}`"
+          target="_blank"
+          rel="noopener noreferrer"
+        >View on AniList</a>
       </div>
 
       <dl v-if="rows.length" class="si-facts">
@@ -153,6 +160,14 @@ const showNative = computed(
   font-family: var(--font-display);
   font-size: 18px;
   line-height: 1.25;
+}
+
+.si-anilist {
+  align-self: flex-start;
+  margin-top: 4px;
+  color: var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .si-alt {
