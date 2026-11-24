@@ -32,3 +32,12 @@ export function partyAnswerFacts(details: PartyAnimeDetails, studios: readonly s
     tags: tags.length ? tags : details.genres.slice(0, TAG_LIMIT),
   };
 }
+
+/**
+ * AMQ's season label ("Fall 2013") as AniList's season and year, for catalog
+ * songs before (or without) an AniList lookup. Anything else gives nulls.
+ */
+export function parseAnimeVintage(vintage: string | null | undefined): { season: string | null; year: number | null } {
+  const match = /^(winter|spring|summer|fall)\s+(\d{4})$/i.exec(vintage?.trim() ?? "");
+  return match ? { season: match[1]!.toUpperCase(), year: Number(match[2]) } : { season: null, year: null };
+}

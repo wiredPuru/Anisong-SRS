@@ -3,7 +3,8 @@ import { inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { anime } from "../db/schema.ts";
 import { getCardsByIds } from "./cards.ts";
-import { EMPTY_ANSWER_FACTS } from "./partyAnswerFacts.ts";
+import { EMPTY_ANSWER_FACTS, parseAnimeVintage, partyAnswerFacts } from "./partyAnswerFacts.ts";
+import { fetchAnimeDetailsByIds } from "../lib/anilist.ts";
 import { AnisongUnknownLabelsError, toThemeSlot, type AnisongRandomSong, type AnisongSongResult } from "../lib/anisongdb.ts";
 import { catalogSongFilters, withoutLabels } from "./partyCatalogFilters.ts";
 import { noteCatalogShows, pickCatalogSongs, resetCatalogPicker } from "./partyCatalogPicker.ts";
@@ -137,6 +138,9 @@ interface CatalogSong {
   animeRomaji: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  aniListId: number | null;
+  /** AMQ's season label, e.g. "Fall 2013", when the source gives one. */
+  animeVintage?: string | null;
 }
 
 function catalogItem(song: CatalogSong): PartyQueueItem | null {
@@ -150,6 +154,7 @@ function catalogItem(song: CatalogSong): PartyQueueItem | null {
     cardId: -song.annSongId,
     clip,
     details: EMPTY_DETAILS,
+    ...(song.aniListId !== null ? { catalogAniListId: song.aniListId } : {}),
     answer: {
       animeTitleEnglish: song.animeEnglish,
       animeTitleRomaji: song.animeRomaji,
@@ -158,7 +163,8 @@ function catalogItem(song: CatalogSong): PartyQueueItem | null {
       artistName: song.artistName,
       themeSlot: song.themeSlot,
       coverImageUrl: null,
-      facts: EMPTY_ANSWER_FACTS,
+      // Season and year now; format, studios and the rest arrive with fillCatalogFacts.
+      facts: { ...EMPTY_ANSWER_FACTS, ...parseAnimeVintage(song.animeVintage) },
     },
   };
 }
@@ -175,7 +181,7 @@ export function rememberCatalogSearch(results: AnisongSongResult[]): void {
   lastCatalogSearch = new Map(
     results.map((song) => [
       song.annSongId,
-      { ...song, artistName: song.artistName ?? "Unknown artist", animeEnglish: song.animeTitleRomaji, animeRomaji: song.animeTitleRomaji },
+      { ...song, artistName: song.artistName ?? "Unknown artist", animeEnglish: song.animeTitleRomaji, animeRomaji: song.animeTitleRomaji, aniListId: song.animeAniListId },
     ]),
   );
 }
@@ -347,6 +353,87 @@ function commit(next: PartyGameState): void {
   if (timerChanged) scheduleTimer();
   for (const listener of listeners) listener(state);
   topUpEndless();
+  if (moved) void fillCatalogFacts();
+}
+
+interface CatalogShowFacts {
+  details: PartyAnimeDetails;
+  studios: string[];
+}
+// Facts for catalog songs' shows, kept for the session; null means AniList had none.
+const catalogShowFacts = new Map<number, CatalogShowFacts | null>();
+let fillingFacts = false;
+
+function catalogIdsWithoutFacts(): number[] {
+  const ids = state.queue.flatMap((item) => (item.catalogAniListId !== undefined && !catalogShowFacts.has(item.catalogAniListId) ? [item.catalogAniListId] : []));
+  return [...new Set(ids)];
+}
+
+// A show already in the library has its details stored, so it needs no AniList call.
+function storedShowFacts(aniListIds: number[]): Map<number, CatalogShowFacts> {
+  const rows = db
+    .select({
+      aniListId: anime.aniListId,
+      year: anime.year,
+      season: anime.season,
+      format: anime.format,
+      averageScore: anime.averageScore,
+      genres: anime.genres,
+      tags: anime.tags,
+      studios: anime.studios,
+      checkedAt: anime.aniListDetailsCheckedAt,
+    })
+    .from(anime)
+    .where(inArray(anime.aniListId, aniListIds))
+    .all();
+  return new Map(rows.filter((row) => row.checkedAt !== null).map(({ aniListId, studios, checkedAt: _checked, ...details }) => [aniListId, { details, studios }]));
+}
+
+/**
+ * Catalog songs arrive with only AMQ's season label. This fills in format,
+ * studios, score and tags for the reveal (and lightning hints), from the
+ * library when it has the show, else one batched AniList request.
+ */
+async function fillCatalogFacts(): Promise<void> {
+  if (fillingFacts) return;
+  const missing = catalogIdsWithoutFacts();
+  if (!missing.length) return;
+  fillingFacts = true;
+  try {
+    for (const [id, facts] of storedShowFacts(missing)) catalogShowFacts.set(id, facts);
+    const remote = missing.filter((id) => !catalogShowFacts.has(id));
+    if (remote.length && !getOfflineMode()) {
+      const fetched = await fetchAnimeDetailsByIds(remote);
+      for (const id of remote) {
+        const found = fetched.get(id);
+        catalogShowFacts.set(id, found ? { details: found, studios: found.studios } : null);
+      }
+    }
+  } catch {
+    // AniList being down leaves these songs with their season and year only.
+  } finally {
+    fillingFacts = false;
+  }
+  applyCatalogFacts();
+  // Songs queued while this was out; ids just tried and not found are cached, so this ends.
+  if (!getOfflineMode() && catalogIdsWithoutFacts().some((id) => !missing.includes(id))) void fillCatalogFacts();
+}
+
+function applyCatalogFacts(): void {
+  let changed = false;
+  const queue = state.queue.map((item) => {
+    const found = item.catalogAniListId !== undefined ? catalogShowFacts.get(item.catalogAniListId) : undefined;
+    if (!found || item.details !== EMPTY_DETAILS) return item;
+    changed = true;
+    const facts = partyAnswerFacts(found.details, found.studios);
+    const { year, season } = item.answer.facts;
+    return {
+      ...item,
+      details: found.details,
+      answer: { ...item.answer, facts: { ...facts, year: facts.year ?? year, season: facts.season ?? season } },
+    };
+  });
+  if (changed) commit({ ...state, queue, version: state.version + 1 });
 }
 
 function localFileUsable(path: string): boolean {

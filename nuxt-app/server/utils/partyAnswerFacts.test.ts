@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { partyAnswerFacts } from "./partyAnswerFacts.ts";
+import { parseAnimeVintage, partyAnswerFacts } from "./partyAnswerFacts.ts";
 import { EMPTY_DETAILS } from "./partyLightning.ts";
 
 describe("partyAnswerFacts", () => {
@@ -45,5 +45,18 @@ describe("partyAnswerFacts", () => {
     const facts = partyAnswerFacts(details, studios);
     studios.push("Other");
     expect(facts.studios).toEqual(["Shaft"]);
+  });
+});
+
+describe("parseAnimeVintage", () => {
+  it("reads AMQ's season label", () => {
+    expect(parseAnimeVintage("Fall 2013")).toEqual({ season: "FALL", year: 2013 });
+    expect(parseAnimeVintage(" winter 1998 ")).toEqual({ season: "WINTER", year: 1998 });
+  });
+
+  it("gives nulls for anything else", () => {
+    expect(parseAnimeVintage(null)).toEqual({ season: null, year: null });
+    expect(parseAnimeVintage("2013")).toEqual({ season: null, year: null });
+    expect(parseAnimeVintage("Autumn 2013")).toEqual({ season: null, year: null });
   });
 });

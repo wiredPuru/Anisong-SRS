@@ -165,6 +165,8 @@ export interface PartyQueueItem {
   manual?: boolean;
   // Set for this song alone from the queue menu; wins over nextEffects.
   effects?: PartyEffects;
+  // Catalog songs only: the show's AniList id, so its facts can be filled in after queueing.
+  catalogAniListId?: number;
 }
 export interface PartyPosition {
   token: string;
