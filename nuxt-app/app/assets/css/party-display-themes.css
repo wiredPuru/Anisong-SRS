@@ -1,7 +1,7 @@
 /* Party display themes the host picks (Settings > Display theme). The clip is
    the point of the screen, so both stay out of its way: Neutral is plain black
-   and white over semi-transparent panels, Glass is frosted panels that let the
-   picture show through. The original pink look is `moe-theme`, in its own file.
+   and white over near-solid black panels, Glass is dark tinted frosted panels
+   that let a little of the picture show through while text stays readable. The original pink look is `moe-theme`, in its own file.
 
    Like that file, these redefine the shared tokens on the display root, and
    only a few selectors add what tokens can't. */
@@ -31,27 +31,27 @@
 }
 
 .display.theme-neutral {
-  --surface: rgba(0, 0, 0, 0.58);
-  --surface-raised: rgba(20, 20, 20, 0.66);
-  --surface-sunken: rgba(0, 0, 0, 0.44);
-  --surface-float: rgba(0, 0, 0, 0.58);
-  --glass-surface: rgba(0, 0, 0, 0.58);
-  --glass-surface-panel: rgba(0, 0, 0, 0.58);
-  --glass-surface-display: rgba(0, 0, 0, 0.58);
+  --surface: rgba(0, 0, 0, 0.86);
+  --surface-raised: rgba(16, 16, 16, 0.9);
+  --surface-sunken: rgba(0, 0, 0, 0.78);
+  --surface-float: rgba(0, 0, 0, 0.86);
+  --glass-surface: rgba(0, 0, 0, 0.86);
+  --glass-surface-panel: rgba(0, 0, 0, 0.86);
+  --glass-surface-display: rgba(0, 0, 0, 0.86);
   --glass-blur: none;
 }
 
 .display.theme-glass {
-  --surface: rgba(255, 255, 255, 0.1);
-  --surface-raised: rgba(255, 255, 255, 0.14);
-  --surface-sunken: rgba(255, 255, 255, 0.06);
-  --surface-float: rgba(255, 255, 255, 0.1);
-  --glass-surface: rgba(255, 255, 255, 0.1);
-  --glass-surface-panel: rgba(255, 255, 255, 0.1);
-  --glass-surface-display: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.28);
-  --border: rgba(255, 255, 255, 0.28);
-  --glass-blur: blur(18px) saturate(140%);
+  --surface: rgba(8, 8, 12, 0.6);
+  --surface-raised: rgba(20, 20, 26, 0.66);
+  --surface-sunken: rgba(0, 0, 0, 0.5);
+  --surface-float: rgba(8, 8, 12, 0.6);
+  --glass-surface: rgba(8, 8, 12, 0.6);
+  --glass-surface-panel: rgba(8, 8, 12, 0.6);
+  --glass-surface-display: rgba(8, 8, 12, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --border: rgba(255, 255, 255, 0.22);
+  --glass-blur: blur(22px) saturate(120%);
 }
 
 /* The lobby, with no clip behind it, gets a soft vignette rather than flat black. */
@@ -85,5 +85,5 @@
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border-color: var(--glass-border);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
