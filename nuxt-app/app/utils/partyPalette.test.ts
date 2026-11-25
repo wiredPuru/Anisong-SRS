@@ -55,6 +55,7 @@ describe("PARTY_PALETTE_COMMANDS", () => {
       "Connect a display or phone",
       "New game",
       "Endless playlist",
+      "Display theme",
     ]);
   });
 

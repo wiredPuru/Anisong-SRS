@@ -39,6 +39,7 @@ const SECTION_OF: Readonly<Record<string, MoreOptionsSectionId>> = {
   "panel-now-playing": "playback",
   "panel-show": "playback",
   "panel-connect": "playback",
+  "panel-themes": "playback",
   scoreboard: "scoreboard",
   joinInfo: "scoreboard",
   "panel-scoreboard": "scoreboard",

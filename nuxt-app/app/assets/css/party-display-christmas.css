@@ -1,0 +1,301 @@
+/* Party display: "Christmas", a 90s moe holiday shop in the spirit of the late
+   90s game-shop mascots. Cream sticker panels with a thick evergreen outline,
+   a candy-cane strip along their top edge and a gold bell on the corner, a
+   cat-eared scoreboard, and in the lobby a green plaid with fairy lights and
+   falling snow. Panels stay light with dark ink so text reads over any clip.
+
+   Like the other themes, this redefines the shared tokens on the display root;
+   the selectors below add what tokens can't, written as
+   `.display.theme-christmas ...` so they outrank each component's scoped rule. */
+
+.display.theme-christmas {
+  --xmas-green: #2fae5e;
+  --xmas-green-deep: #17703a;
+  --xmas-red: #e23a4e;
+  --xmas-red-deep: #a81f33;
+  --xmas-gold: #ffc83d;
+  --xmas-gold-deep: #b07d00;
+  --xmas-cream: #fffaf0;
+  --xmas-ink: #20352a;
+
+  --bg: #0f3d26;
+  --surface: var(--xmas-cream);
+  --surface-raised: #ffffff;
+  --surface-sunken: #f2efe4;
+  --surface-float: var(--xmas-cream);
+  --border: rgba(47, 174, 94, 0.45);
+  --outline: var(--xmas-green);
+  --text: var(--xmas-ink);
+  --muted: #45604f;
+  --faint: #6a8575;
+  --accent: var(--xmas-red);
+  --accent-strong: var(--xmas-red-deep);
+  --accent-ink: #ffffff;
+  --accent-glow: rgba(226, 58, 78, 0.25);
+  --accent-secondary: var(--xmas-green);
+  --accent-secondary-ink: #ffffff;
+  --pass: #1f9a50;
+  --fail: var(--xmas-red);
+  --warning: var(--xmas-gold);
+  --glass-surface: rgba(255, 250, 240, 0.97);
+  --glass-surface-panel: rgba(255, 250, 240, 0.97);
+  --glass-surface-display: rgba(255, 250, 240, 0.97);
+  --glass-border: var(--xmas-green);
+  --glass-blur: none;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow-soft: 0 6px 0 var(--xmas-green-deep);
+  --font-display: "Mochiy Pop One", "M PLUS Rounded 1c", system-ui, sans-serif;
+  --font-sans: "M PLUS Rounded 1c", "Outfit", system-ui, sans-serif;
+
+  color: var(--text);
+  font-family: var(--font-sans);
+  /* Green plaid under a soft spotlight. */
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 50%, transparent 50%) 0 0 / 80px 80px,
+    linear-gradient(rgba(255, 255, 255, 0.05) 50%, transparent 50%) 0 0 / 80px 80px,
+    radial-gradient(60% 50% at 50% 35%, #1d6b40, #0b2e1c 80%);
+}
+
+/* Snow and lights sit above the clip but under every piece. */
+.xmas-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.display.theme-christmas.is-started:not(.is-lobby) .xmas-sky {
+  z-index: 1;
+}
+
+.xmas-flake {
+  position: absolute;
+  top: -4vh;
+  width: calc(4px + var(--z) * 8px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffffff;
+  opacity: calc(0.35 + var(--z) * 0.5);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  animation: xmas-fall calc(9s + (1 - var(--z)) * 10s) linear infinite;
+  animation-delay: calc(var(--delay) * -19s);
+}
+
+/* Over a playing clip the snow is lighter and fainter. */
+.xmas-sky:not(.is-lobby) .xmas-flake {
+  width: calc(3px + var(--z) * 5px);
+  opacity: calc(0.25 + var(--z) * 0.35);
+}
+
+@keyframes xmas-fall {
+  from { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(calc((var(--drift) - 0.5) * 6vw), 54vh, 0); }
+  to { transform: translate3d(0, 108vh, 0); }
+}
+
+.xmas-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(48px, 6.5vh, 90px);
+  background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20240%2070%27%3E%3Cpath%20d%3D%27M0%2010%20Q60%2046%20120%2010%20T240%2010%27%20stroke%3D%27%231d5a35%27%20stroke-width%3D%275%27%20fill%3D%27none%27/%3E%3Cg%20stroke%3D%27%231d5a35%27%20stroke-width%3D%274%27%3E%3Cpath%20d%3D%27M40%2026v8%27/%3E%3Cpath%20d%3D%27M80%2026v8%27/%3E%3Cpath%20d%3D%27M160%2026v8%27/%3E%3Cpath%20d%3D%27M200%2026v8%27/%3E%3Cpath%20d%3D%27M120%2010v6%27/%3E%3C/g%3E%3Cg%3E%3Cellipse%20cx%3D%2740%27%20cy%3D%2744%27%20rx%3D%278%27%20ry%3D%2712%27%20fill%3D%27%23e23a4e%27/%3E%3Cellipse%20cx%3D%2780%27%20cy%3D%2744%27%20rx%3D%278%27%20ry%3D%2712%27%20fill%3D%27%23ffc83d%27/%3E%3Cellipse%20cx%3D%27120%27%20cy%3D%2726%27%20rx%3D%278%27%20ry%3D%2712%27%20fill%3D%27%236fc3ff%27/%3E%3Cellipse%20cx%3D%27160%27%20cy%3D%2744%27%20rx%3D%278%27%20ry%3D%2712%27%20fill%3D%27%23ff8fb7%27/%3E%3Cellipse%20cx%3D%27200%27%20cy%3D%2744%27%20rx%3D%278%27%20ry%3D%2712%27%20fill%3D%27%237ee08f%27/%3E%3C/g%3E%3Cg%20fill%3D%27%23fff%27%20opacity%3D%27.7%27%3E%3Ccircle%20cx%3D%2737%27%20cy%3D%2740%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%2777%27%20cy%3D%2740%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27117%27%20cy%3D%2722%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27157%27%20cy%3D%2740%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27197%27%20cy%3D%2740%27%20r%3D%273%27/%3E%3C/g%3E%3C/svg%3E") 0 0 / auto 100% repeat-x;
+  animation: xmas-twinkle 2.4s steps(2) infinite;
+}
+
+@keyframes xmas-twinkle {
+  50% { filter: brightness(1.25) saturate(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xmas-flake,
+  .xmas-lights {
+    animation: none;
+  }
+
+  .xmas-flake {
+    top: calc(var(--delay) * 100%);
+  }
+}
+
+.display.theme-christmas .display-start,
+.display.theme-christmas .display-waiting {
+  position: relative;
+  z-index: 1;
+}
+
+/* Sticker panels: cream with a thick green outline, a white rim and a solid drop. */
+.display.theme-christmas .reveal,
+.display.theme-christmas .scoreboard,
+.display.theme-christmas .round-panel,
+.display.theme-christmas .display-join,
+.display.theme-christmas .hints-card {
+  position: relative;
+  overflow: visible;
+  border: 4px solid var(--xmas-green);
+  background: var(--xmas-cream);
+  color: var(--xmas-ink);
+  box-shadow: 0 0 0 4px #ffffff, 0 8px 0 4px var(--xmas-green-deep);
+}
+
+/* A candy-cane strip along the top edge. */
+.display.theme-christmas .reveal::before,
+.display.theme-christmas .scoreboard::before,
+.display.theme-christmas .round-panel::before,
+.display.theme-christmas .display-join::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: -6px;
+  height: 9px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(90deg, var(--xmas-red) 0 14px, #ffffff 14px 28px);
+  pointer-events: none;
+}
+
+/* A gold bell with a red bow on the top corner. */
+.display.theme-christmas .reveal::after,
+.display.theme-christmas .round-panel::after,
+.display.theme-christmas .display-join::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  top: -26px;
+  width: clamp(36px, 2.7vw, 4.8vh);
+  aspect-ratio: 52 / 56;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 56'%3E%3Cpath d='M26 2c3 0 4 3 4 5 9 2 13 10 13 19 0 9 3 13 7 16H2c4-3 7-7 7-16 0-9 4-17 13-19 0-2 1-5 4-5z' fill='%23ffc83d' stroke='%23b07d00' stroke-width='3'/%3E%3Ccircle cx='26' cy='48' r='6' fill='%23ffc83d' stroke='%23b07d00' stroke-width='3'/%3E%3Cpath d='M14 22c2-6 6-9 10-10' stroke='%23fff6c8' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M6 38c5-4 14 4 20 0s15 4 20 0' stroke='%23e23a4e' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* The scoreboard wears cat ears, like a shop mascot's hat. */
+.display.theme-christmas .scoreboard::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -34px;
+  width: 150px;
+  height: 40px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 40'%3E%3Cpath d='M18 40 L32 4 L56 40Z' fill='%23fffaf0' stroke='%232fae5e' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M94 40 L118 4 L132 40Z' fill='%23fffaf0' stroke='%232fae5e' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M29 30 L33 16 L43 32Z' fill='%23ff8fb7'/%3E%3Cpath d='M107 32 L117 16 L121 30Z' fill='%23ff8fb7'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Pill labels: red with a white rim; pass is green, neutral is gold with dark ink. */
+.display.theme-christmas .kai-banner {
+  --kai-banner-fill: var(--xmas-red);
+  --kai-banner-edge: #ffffff;
+  --kai-banner-ink: #ffffff;
+  border: 3px solid #ffffff;
+  font-family: var(--font-display);
+  box-shadow: 0 0 0 3px var(--xmas-red-deep), 0 5px 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.display.theme-christmas .kai-banner-pass {
+  --kai-banner-fill: var(--xmas-green);
+  box-shadow: 0 0 0 3px var(--xmas-green-deep), 0 5px 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.display.theme-christmas .kai-banner-neutral {
+  --kai-banner-fill: var(--xmas-gold);
+  --kai-banner-ink: var(--xmas-ink);
+  box-shadow: 0 0 0 3px var(--xmas-gold-deep), 0 5px 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.display.theme-christmas .reveal-title,
+.display.theme-christmas .round-title {
+  font-family: var(--font-display);
+  color: var(--xmas-green-deep);
+}
+
+.display.theme-christmas .reveal-song-title {
+  color: var(--xmas-red);
+}
+
+.display.theme-christmas .reveal-sub,
+.display.theme-christmas .reveal-artist,
+.display.theme-christmas .reveal-facts,
+.display.theme-christmas .rules-list,
+.display.theme-christmas .scoreboard-name {
+  color: var(--xmas-ink);
+}
+
+.display.theme-christmas .reveal-tag {
+  border-color: var(--xmas-green);
+  background: #eaf8ef;
+  color: var(--xmas-green-deep);
+}
+
+.display.theme-christmas .reveal-cover {
+  border: 4px solid #ffffff;
+  box-shadow: 0 0 0 3px var(--xmas-red);
+}
+
+/* Scoreboard rows alternate mint and blush; the leader's row is gold. */
+.display.theme-christmas .scoreboard-row {
+  border-radius: 999px;
+  padding-inline: 0.7em;
+}
+
+.display.theme-christmas .scoreboard-item:nth-child(odd) > .scoreboard-row {
+  background: #e6f6ec;
+}
+
+.display.theme-christmas .scoreboard-item:nth-child(even) > .scoreboard-row {
+  background: #ffecf0;
+}
+
+.display.theme-christmas .scoreboard-item > .scoreboard-row.leader {
+  background: linear-gradient(180deg, #fff3b8, var(--xmas-gold));
+  box-shadow: 0 0 0 2px var(--xmas-gold-deep);
+}
+
+.display.theme-christmas .scoreboard-score,
+.display.theme-christmas .round-row > :last-child {
+  font-family: var(--font-display);
+  color: var(--xmas-red);
+}
+
+.display.theme-christmas .rules.divided {
+  border-bottom-color: var(--xmas-green);
+}
+
+.display.theme-christmas .join-chip {
+  border: 3px solid #ffffff;
+  background: var(--xmas-red);
+  color: #ffffff;
+  font-family: var(--font-display);
+  box-shadow: 0 0 0 3px var(--xmas-red-deep);
+}
+
+.display.theme-christmas .join-chip strong {
+  color: var(--xmas-gold);
+}
+
+/* Lobby text sits on the dark plaid, so it goes light. */
+.display.theme-christmas .display-hint {
+  color: #e8fff0;
+}
+
+.display.theme-christmas .display-join-label {
+  color: var(--xmas-green-deep);
+}
+
+.display.theme-christmas .display-join-url {
+  color: var(--xmas-red);
+  font-family: var(--font-display);
+}
+
+.display.theme-christmas .display-button {
+  border: 3px solid #ffffff;
+  background: var(--xmas-green);
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--xmas-green-deep);
+}
+
+.display.theme-christmas .display-button.on {
+  background: var(--xmas-red);
+  box-shadow: 0 0 0 2px var(--xmas-red-deep);
+}

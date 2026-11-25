@@ -1,3 +1,4 @@
+import type { PartyDisplayTheme } from "~/utils/partyThemes";
 export type PartyPhase = "idle" | "guessing" | "revealed";
 export type PartyPicture = "video" | "blackout" | "cover" | "bubbles" | "music";
 export type PartyLightningMode = "regular" | "blind" | "peek" | "cover" | "clues" | "tags" | "title";
@@ -8,7 +9,6 @@ export type PartyHints =
   | null;
 
 // Hand-kept copy of the server's PartyEffects (server/utils/partyGame.ts).
-export type PartyDisplayTheme = "neutral" | "glass" | "moe";
 
 export interface PartyEffects {
   blur: number;
