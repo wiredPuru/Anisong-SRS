@@ -330,6 +330,13 @@
       "when": 1795383780148,
       "tag": "0046_drop_party_censor",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1795633081488,
+      "tag": "0047_party_settings",
+      "breakpoints": true
     }
   ]
 }

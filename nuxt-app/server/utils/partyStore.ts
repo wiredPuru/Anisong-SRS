@@ -18,6 +18,7 @@ import { pickChoices, type ChoiceCandidate } from "./partyChoices.ts";
 import { ENDLESS_AHEAD, ENDLESS_BATCH, ENDLESS_CATALOG_BATCH, pickEndlessBatch } from "./partyEndless.ts";
 import { listEndlessCandidates } from "./partySources.ts";
 import { loadSavedRules, storeSavedRules } from "./partyRulesStore.ts";
+import { loadSavedDisplayTheme, storeSavedDisplayTheme } from "./partySettingsStore.ts";
 import { popularityCutoffs } from "./popularityCutoffs.ts";
 import { getOfflineMode } from "./mediaLibrary.ts";
 import { assertOnline } from "./networkMode.ts";
@@ -53,13 +54,15 @@ import {
 let state: PartyGameState = initialPartyState();
 const listeners = new Set<(state: PartyGameState) => void>();
 
-// The saved rules join the state on first use, once the database is ready.
+// The saved rules and display theme join the state on first use, once the database is ready.
 let rulesLoaded = false;
 function ensureRulesLoaded(): void {
   if (rulesLoaded) return;
   rulesLoaded = true;
   const saved = loadSavedRules();
   if (saved) state = applyPartyCommand(state, { type: "rules", text: saved });
+  const theme = loadSavedDisplayTheme();
+  if (theme) state = applyPartyCommand(state, { type: "displayTheme", theme });
 }
 
 export function getPartyState(): PartyGameState {
@@ -580,6 +583,7 @@ function choicesFor(item: PartyQueueItem): string[] {
 export function runPartyCommand(command: PartyCommand, origin: "host" | "endless" = "host"): { loaded?: number; moved?: number; skipped?: number; changed?: boolean } {
   ensureRulesLoaded();
   if (command.type === "rules") storeSavedRules(command.text);
+  if (command.type === "displayTheme") storeSavedDisplayTheme(command.theme);
   if (command.type === "choices" && command.enabled) {
     const item = currentPartyItem(state);
     commit(applyPartyCommand(state, command, { choices: item ? choicesFor(item) : undefined }));

@@ -217,6 +217,12 @@ export const partyRules = sqliteTable("party_rules", {
   text: text("text").notNull().default(""),
 });
 
+// Party settings the host keeps between sessions (singleton row, id 1).
+export const partySettings = sqliteTable("party_settings", {
+  id: integer("id").primaryKey(),
+  displayTheme: text("display_theme").notNull().default("neutral"),
+});
+
 // A personal kanji deck (feature 111): one Leitner track per added character,
 // independent of card, card_track and review_log.
 export const kanjiCard = sqliteTable("kanji_card", {

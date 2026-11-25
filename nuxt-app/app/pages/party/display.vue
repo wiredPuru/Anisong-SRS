@@ -2,23 +2,20 @@
 import type { PartyPositionReport } from "~/composables/usePartyDisplay";
 import "~/assets/css/party-display-moe.css";
 import "~/assets/css/party-display-themes.css";
+import "~/assets/css/party-display-christmas.css";
+import { partyTheme, partyThemeFontsUrl } from "~/utils/partyThemes";
 definePageMeta({ layout: "party" });
 const { canUseRemote } = useNetworkMode();
-// The display's chunky title face; without it the theme falls back to the
-// rounded body font already loaded app-wide.
-useHead(() => ({
-  title: "GAQ Party",
-  link: canUseRemote.value ? [{ rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" }] : [],
-}));
-
-// The lobby ticker repeats its phrase so one copy always fills the band while
-// the other scrolls in behind it.
-const TICKER = "♪ GAQ PARTY ☆ GUESS THE ANIME ☆ アニソン クイズ ☆ ";
-const tickerRun = Array.from({ length: 6 }, () => TICKER);
-
 const { state, connected, connect, reportPosition } = usePartyDisplay();
 // The host picks the look; before the first state arrives the default applies.
-const theme = computed(() => state.value?.theme ?? "neutral");
+const theme = computed(() => partyTheme(state.value?.theme));
+// The theme's own faces; without them it falls back to the rounded body font
+// already loaded app-wide.
+const fontsUrl = computed(() => (canUseRemote.value ? partyThemeFontsUrl(theme.value.fonts) : null));
+useHead(() => ({
+  title: "GAQ Party",
+  link: fontsUrl.value ? [{ rel: "stylesheet", href: fontsUrl.value }] : [],
+}));
 
 function onPosition(report: PartyPositionReport) {
   reportPosition(report);
@@ -162,23 +159,13 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="display"
-    :class="[theme === 'moe' ? 'moe-theme' : `theme-${theme}`, { 'is-started': started, 'is-lobby': !started || !state?.item, 'is-idle': started && !pointerActive && !arranging }]"
+    :class="[theme.rootClass, { 'is-started': started, 'is-lobby': !started || !state?.item, 'is-idle': started && !pointerActive && !arranging }]"
     @mousemove="onPointerMove"
     @pointerdown="onPointerDown"
     @click="onClick"
     @dblclick="onDoubleClick"
   >
-    <div v-if="theme === 'moe'" class="moe-sky" aria-hidden="true">
-      <template v-if="!started || !state?.item">
-        <span v-for="index in 7" :key="index" class="moe-star">✦</span>
-        <div class="moe-band moe-band-top">
-          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
-        </div>
-        <div class="moe-band moe-band-bottom">
-          <div class="moe-ticker"><span v-for="(text, index) in tickerRun" :key="index">{{ text }}</span></div>
-        </div>
-      </template>
-    </div>
+    <PartyThemeDecor :decor="theme.decor" :lobby="!started || !state?.item" />
 
     <button v-if="!started" type="button" class="display-start" @click="start">
       <MascotKai pose="wave" size="hero" />

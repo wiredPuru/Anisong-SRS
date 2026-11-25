@@ -45,8 +45,13 @@ export interface PartyRevealFields {
 }
 export const ALL_REVEAL_FIELDS: PartyRevealFields = { anime: true, artist: true, song: true, slot: true };
 /** How the display dresses its panels: plain black and white, frosted glass, or the original moe look. */
-export const DISPLAY_THEMES = ["neutral", "glass", "moe"] as const;
+// The client keeps the matching list, with labels and looks, in app/utils/partyThemes.ts.
+export const DISPLAY_THEMES = ["neutral", "glass", "moe", "christmas"] as const;
 export type PartyDisplayTheme = (typeof DISPLAY_THEMES)[number];
+
+export function isDisplayTheme(value: unknown): value is PartyDisplayTheme {
+  return DISPLAY_THEMES.includes(value as PartyDisplayTheme);
+}
 /** With auto-advance on, the answer shows this many seconds before the clip ends. */
 export const AUTO_REVEAL_LEAD_SECONDS = 5;
 
@@ -781,9 +786,9 @@ export function parsePartyCommand(body: unknown): PartyCommand | { error: string
     }
     case "displayTheme": {
       const { theme } = body as { theme?: unknown };
-      return DISPLAY_THEMES.includes(theme as PartyDisplayTheme)
-        ? { type, theme: theme as PartyDisplayTheme }
-        : { error: "theme must be neutral, glass or moe" };
+      return isDisplayTheme(theme)
+        ? { type, theme }
+        : { error: `theme must be one of ${DISPLAY_THEMES.join(", ")}` };
     }
     case "changeSource":
     case "queueShuffle":

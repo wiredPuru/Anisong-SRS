@@ -26,12 +26,13 @@ watch(sessionLost, (lost) => {
   if (lost) emit("sessionLost");
 });
 
-// Settings shows one group at a time; 1-4 open it on that group.
+// Settings shows one group at a time; 1-5 open it on that group.
 const TABS = [
   { id: "round", label: "Round" },
   { id: "screen", label: "Screen" },
   { id: "players", label: "Players" },
   { id: "game", label: "New game" },
+  { id: "themes", label: "Themes" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 const tab = ref<TabId>("round");
@@ -299,6 +300,9 @@ function onMoreOptionsPick(command: PartyPaletteCommand) {
             Forgot the password later? Log out, then choose "Set a new password" on this computer.
           </p>
         </section>
+      </template>
+      <template v-else-if="tab === 'themes' && state">
+        <section class="panel" data-palette-target="themes"><PartyThemePanel :state="state" @command="send" /></section>
       </template>
       <template v-if="hasGame">
         <!-- Kept mounted so a half-built game survives a look at another tab. -->

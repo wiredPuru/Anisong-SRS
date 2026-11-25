@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import type { PartyDisplayTheme } from "~/composables/usePartyDisplay";
 import type { PartyHostCommand, PartyHostState } from "~/composables/usePartyHost";
 
 const props = defineProps<{ state: PartyHostState }>();
 const emit = defineEmits<{ command: [command: PartyHostCommand] }>();
 
 const TIMER_PRESETS = [10, 15, 20, 30];
-const THEMES: { id: PartyDisplayTheme; label: string; hint: string }[] = [
-  { id: "neutral", label: "Neutral", hint: "Black and white, semi-transparent panels." },
-  { id: "glass", label: "Glass", hint: "Frosted see-through panels over the picture." },
-  { id: "moe", label: "Moe", hint: "The pink and purple party look." },
-];
-const themeHint = computed(() => THEMES.find((theme) => theme.id === props.state.displayTheme)?.hint ?? "");
 const TICK_MS = 250;
 
 const customSeconds = ref(45);
@@ -61,25 +54,6 @@ function setMusic(patch: { enabled?: boolean; volume?: number }) {
 <template>
   <section class="show" aria-labelledby="show-title">
     <h2 id="show-title" class="show-title">Show</h2>
-
-    <div class="show-block">
-      <p class="block-label">Display theme</p>
-      <div class="row" role="radiogroup" aria-label="Display theme">
-        <button
-          v-for="theme in THEMES"
-          :key="theme.id"
-          type="button"
-          role="radio"
-          class="pill"
-          :class="{ active: state.displayTheme === theme.id }"
-          :aria-checked="state.displayTheme === theme.id"
-          @click="emit('command', { type: 'displayTheme', theme: theme.id })"
-        >
-          {{ theme.label }}
-        </button>
-      </div>
-      <p class="note">{{ themeHint }}</p>
-    </div>
 
     <div class="show-block">
       <p class="block-label">

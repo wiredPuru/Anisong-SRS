@@ -10,7 +10,7 @@ import {
 
 export type PaletteGroup = "Playback" | "Screen" | "Players" | "Round" | "Show" | "Game" | "Panels";
 export type PaletteKind = "toggle" | "action" | "jump";
-export type HostTab = "round" | "screen" | "players" | "game";
+export type HostTab = "round" | "screen" | "players" | "game" | "themes";
 /** Commands the dashboard handles itself, with no server command. */
 export type PaletteLocalId = "help" | "ambient";
 
@@ -197,6 +197,7 @@ export const PARTY_PALETTE_COMMANDS: readonly PartyPaletteCommand[] = [
   jump("connect", "Connect a display or phone", ["display link", "host link", "url"], { tab: "players" }),
   jump("new-game", "New game", ["build game", "load", "deck"], { tab: "game" }),
   jump("endless", "Endless playlist", ["endless", "infinite"], { tab: "game" }),
+  jump("themes", "Display theme", ["theme", "look", "christmas", "holiday", "style"], { tab: "themes" }),
 ];
 
 export const PALETTE_SHORTCUT_LABEL = "Shift+P";

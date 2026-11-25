@@ -1,7 +1,7 @@
+import type { PartyDisplayTheme } from "~/utils/partyThemes";
 import type {
   PartyAnswer,
   PartyBanner,
-  PartyDisplayTheme,
   PartyEffects,
   PartyLightningMode,
   PartyMusic,
